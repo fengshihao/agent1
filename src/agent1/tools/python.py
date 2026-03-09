@@ -1,6 +1,7 @@
 """Python 脚本执行工具."""
 
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -29,7 +30,7 @@ def run_python(script: Optional[str] = None, file_path: Optional[str] = None) ->
             return f"错误：不是文件: {file_path}"
         try:
             result = subprocess.run(
-                ["python", str(path)],
+                [sys.executable, str(path)],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -45,7 +46,7 @@ def run_python(script: Optional[str] = None, file_path: Optional[str] = None) ->
             tmp_path = f.name
         try:
             result = subprocess.run(
-                ["python", tmp_path],
+                [sys.executable, tmp_path],
                 capture_output=True,
                 text=True,
                 timeout=30,

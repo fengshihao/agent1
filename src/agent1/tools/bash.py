@@ -1,7 +1,8 @@
 """Bash 命令执行工具."""
 
+import os
+import shutil
 import subprocess
-import shlex
 
 
 def run_bash(command: str) -> str:
@@ -18,13 +19,26 @@ def run_bash(command: str) -> str:
         return "错误：命令为空"
 
     try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+        # Windows 默认使用 PowerShell；类 Unix 优先 bash，找不到则回退系统 sh。
+        if os.name == "nt":
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", command],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        else:
+            bash_path = shutil.which("bash")
+            run_kwargs = {
+                "args": command,
+                "shell": True,
+                "capture_output": True,
+                "text": True,
+                "timeout": 60,
+            }
+            if bash_path:
+                run_kwargs["executable"] = bash_path
+            result = subprocess.run(**run_kwargs)
         output_parts = []
         if result.stdout:
             output_parts.append(result.stdout)

@@ -43,6 +43,14 @@ uv run agent1
 
 若已全局安装：`uv tool install -e .` 后可直接运行 `agent1`。
 
+## 跨平台说明（macOS / Ubuntu / Windows）
+
+- `run_python` 使用当前解释器（`sys.executable`），避免 Ubuntu 上无 `python` 命令的问题。
+- `run_bash` 在不同系统会自动适配：
+  - Windows：使用 PowerShell 执行
+  - Linux/macOS：优先 `bash`，没有则回退系统 `sh`
+- 系统提示词会自动注入当前环境信息（OS、Python、Shell、CWD），帮助模型按环境生成命令和代码。
+
 ## 运行反馈与日志
 
 - 运行时会在终端显示关键状态（开始请求、工具调用、完成/失败）。
@@ -58,6 +66,12 @@ export AGENT1_LOG_FILE='/absolute/path/agent1.jsonl'
 
 ```bash
 tail -f logs/agent1.jsonl
+```
+
+Windows PowerShell 可用：
+
+```powershell
+Get-Content .\logs\agent1.jsonl -Wait
 ```
 
 关键日志事件：
