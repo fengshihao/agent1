@@ -11,10 +11,10 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent, PartDeltaEvent, TextPartDelta
 from pydantic_ai.run import AgentRunResultEvent
-from rich.console import Console
+from pydantic_ai.usage import RunUsage
+from rich.console import Console, Group
 from rich.live import Live
 from rich.markdown import Markdown
-from rich.table import Table
 
 from agent1.agent import agent
 from agent1.logging_utils import get_log_path, write_jsonl_event
@@ -118,21 +118,38 @@ async def _run_stream_direct(
 
     accumulated: List[str] = []
     final_result = None
+    stream_usage = RunUsage()
     live = Live(console=console, refresh_per_second=12)
 
     try:
         live.start()
-        async for event in agent.run_stream_events(prompt, **kwargs):
+        live.update(_build_stream_renderable("", _extract_usage_dict(stream_usage), dict(session_usage or _new_empty_usage()), run_id, "请求已发送"))
+        async for event in agent.run_stream_events(prompt, usage=stream_usage, **kwargs):
             if isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
                 delta = event.delta.content_delta or ""
                 if delta:
                     accumulated.append(delta)
-                    live.update(Markdown("".join(accumulated)))
+                    run_usage = _extract_usage_dict(stream_usage)
+                    session_usage_live = dict(session_usage or _new_empty_usage())
+                    _merge_usage(session_usage_live, run_usage)
+                    live.update(
+                        _build_stream_renderable(
+                            "".join(accumulated), run_usage, session_usage_live, run_id, "流式生成中"
+                        )
+                    )
                     write_jsonl_event("model_text_delta", run_id, delta=delta)
             elif isinstance(event, FunctionToolCallEvent):
                 tool_name = event.part.tool_name
                 tool_args = event.part.args
                 console.print(f"[dim]工具调用: {tool_name}[/dim]")
+                run_usage = _extract_usage_dict(stream_usage)
+                session_usage_live = dict(session_usage or _new_empty_usage())
+                _merge_usage(session_usage_live, run_usage)
+                live.update(
+                    _build_stream_renderable(
+                        "".join(accumulated), run_usage, session_usage_live, run_id, f"工具调用: {tool_name}"
+                    )
+                )
                 write_jsonl_event(
                     "tool_call",
                     run_id,
@@ -142,6 +159,14 @@ async def _run_stream_direct(
                 )
             elif isinstance(event, FunctionToolResultEvent):
                 console.print(f"[dim]工具返回: {event.tool_call_id}[/dim]")
+                run_usage = _extract_usage_dict(stream_usage)
+                session_usage_live = dict(session_usage or _new_empty_usage())
+                _merge_usage(session_usage_live, run_usage)
+                live.update(
+                    _build_stream_renderable(
+                        "".join(accumulated), run_usage, session_usage_live, run_id, f"工具返回: {event.tool_call_id}"
+                    )
+                )
                 write_jsonl_event(
                     "tool_result",
                     run_id,
@@ -150,6 +175,14 @@ async def _run_stream_direct(
                 )
             elif isinstance(event, AgentRunResultEvent):
                 final_result = event.result
+                run_usage = _extract_usage_dict(stream_usage)
+                session_usage_live = dict(session_usage or _new_empty_usage())
+                _merge_usage(session_usage_live, run_usage)
+                live.update(
+                    _build_stream_renderable(
+                        "".join(accumulated), run_usage, session_usage_live, run_id, "模型响应完成"
+                    )
+                )
     except Exception as e:
         write_jsonl_event("run_failed", run_id, error=repr(e))
         console.print(f"[red]错误: {e!r}[/red]")
@@ -167,7 +200,6 @@ async def _run_stream_direct(
         run_usage = _extract_usage_dict(final_result.usage())
         if session_usage is not None:
             _merge_usage(session_usage, run_usage)
-            _print_usage_table(console, run_usage, session_usage, run_id)
             write_jsonl_event("usage", run_id, scope="run", **run_usage)
             write_jsonl_event("usage", run_id, scope="session", **session_usage)
         write_jsonl_event(
@@ -297,37 +329,51 @@ def _merge_usage(target: Dict[str, int], delta: Dict[str, int]) -> None:
 def _print_usage_table(
     console: Console, run_usage: Dict[str, int], session_usage: Dict[str, int], run_id: str
 ) -> None:
-    table = Table(title=f"Token 用量监控（run_id={run_id}）", show_header=True)
-    table.add_column("范围", justify="left")
-    table.add_column("请求数", justify="right")
-    table.add_column("输入 Tokens", justify="right")
-    table.add_column("输出 Tokens", justify="right")
-    table.add_column("总 Tokens", justify="right")
-    table.add_row(
-        "本次",
-        str(run_usage["requests"]),
-        str(run_usage["input_tokens"]),
-        str(run_usage["output_tokens"]),
-        str(run_usage["total_tokens"]),
-    )
-    table.add_row(
-        "会话累计",
-        str(session_usage["requests"]),
-        str(session_usage["input_tokens"]),
-        str(session_usage["output_tokens"]),
-        str(session_usage["total_tokens"]),
-    )
-    console.print(table)
+    console.print(_format_usage_line("本次用量", run_usage))
+    console.print(_format_usage_line("会话累计", session_usage))
 
     limit = _usage_limit()
     if limit is not None:
         ratio = session_usage["total_tokens"] / limit if limit > 0 else 1.0
         if ratio >= 1.0:
-            console.print(f"[bold red]Token 上限: {session_usage['total_tokens']}/{limit} (100%)[/bold red]")
+            console.print(
+                f"[bold red]Token 上限: {_format_token_count(session_usage['total_tokens'])}/{_format_token_count(limit)} (100%)[/bold red]"
+            )
         elif ratio >= 0.8:
-            console.print(f"[yellow]Token 上限预警: {session_usage['total_tokens']}/{limit} ({ratio:.0%})[/yellow]")
+            console.print(
+                f"[yellow]Token 上限预警: {_format_token_count(session_usage['total_tokens'])}/{_format_token_count(limit)} ({ratio:.0%})[/yellow]"
+            )
         else:
-            console.print(f"[dim]Token 上限: {session_usage['total_tokens']}/{limit} ({ratio:.0%})[/dim]")
+            console.print(
+                f"[dim]Token 上限: {_format_token_count(session_usage['total_tokens'])}/{_format_token_count(limit)} ({ratio:.0%})[/dim]"
+            )
+
+
+def _build_stream_renderable(
+    text: str, run_usage: Dict[str, int], session_usage: Dict[str, int], run_id: str, phase: str
+) -> Group:
+    """流式输出：正文 + 实时 token 用量（非表格）。"""
+    body = Markdown(text) if text.strip() else Markdown("*正在生成...*")
+    run_usage_line = _format_usage_line(phase, run_usage)
+    session_usage_line = _format_usage_line("会话累计", session_usage)
+    run_id_line = f"[dim]run_id={run_id}[/dim]"
+    return Group(body, run_usage_line, session_usage_line, run_id_line)
+
+
+def _format_usage_line(prefix: str, usage: Dict[str, int]) -> str:
+    return (
+        f"[dim]{prefix} | 请求 {usage['requests']} | 输入 {_format_token_count(usage['input_tokens'])} "
+        f"| 输出 {_format_token_count(usage['output_tokens'])} | 总 {_format_token_count(usage['total_tokens'])}[/dim]"
+    )
+
+
+def _format_token_count(value: int) -> str:
+    """将 token 数显示为 K/M 单位。"""
+    if value >= 1_000_000:
+        return f"{value / 1_000_000:.1f}M"
+    if value >= 1_000:
+        return f"{value / 1_000:.1f}K"
+    return str(value)
 
 
 def _usage_limit() -> Optional[int]:
