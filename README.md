@@ -1,107 +1,144 @@
 # Agent1
 
-轻量、可观测、可扩展的命令行智能体工程模板，基于 **Pydantic AI** + **Qwen**，支持工具调用（Shell / Python）、流式输出、JSONL 事件日志和 Token 用量保护。
+> A production-friendly CLI agent starter powered by Pydantic AI and Qwen.
 
-## 项目定位
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Package Manager](https://img.shields.io/badge/package%20manager-uv-purple.svg)](https://docs.astral.sh/uv/)
+[![Model](https://img.shields.io/badge/model-Qwen3.5--plus-orange.svg)](https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope)
 
-- 面向个人开发者/小团队的 Agent CLI 基础骨架
-- 强调“可运行 + 可观测 + 可维护”
-- 默认接入阿里云 DashScope（Qwen3.5-plus）
+`agent1` 是一个轻量、可观测、跨平台的命令行智能体工程模板，默认接入阿里云 DashScope（Qwen3.5-plus），并提供工具调用、结构化日志、token 用量监控与预算保护能力。
 
-## 核心能力
+## Why Agent1
 
-- **CLI 交互**：单次问答、交互式会话、流式/非流式两种模式
-- **工具调用**：`run_bash` / `run_python` 工具
-- **可观测性**：JSONL 日志（每行一个事件），关键步骤可追踪
-- **成本控制**：每次请求显示 token 用量，支持会话级 token 上限
-- **跨平台适配**：macOS / Ubuntu / Windows（PowerShell）
-- **环境感知提示词**：自动注入 OS / Python / Shell / CWD，提升生成命令正确率
+- 开箱即用的 **CLI Agent**（单次/交互、流式/非流式）
+- 内置 **工具调用**：Shell 命令与 Python 脚本执行
+- 完整 **可观测性**：JSONL 事件日志 + run_id 追踪
+- 强化 **成本控制**：每轮展示 token 用量，支持会话预算上限
+- **跨平台适配**：macOS / Ubuntu / Windows
+- **环境感知提示词**：自动将 OS / Python / Shell / CWD 注入系统提示词
 
-## 技术栈
+## Table of Contents
 
-- Python 3.9+
-- [Pydantic AI](https://ai.pydantic.dev/)
-- [Rich](https://rich.readthedocs.io/)
-- DashScope / Qwen（通过 Pydantic AI Alibaba Provider）
-- 包管理与运行：`uv`
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Architecture](#architecture)
+- [Observability](#observability)
+- [Cross-platform Behavior](#cross-platform-behavior)
+- [Project Structure](#project-structure)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
 
-详细见：[技术栈说明](docs/TECH_STACK.md)
+## Quick Start
 
-## 快速开始
-
-### 1) 安装依赖
+### 1) Install dependencies
 
 ```bash
 cd agent1
 uv sync
 ```
 
-### 2) 配置模型环境变量
+### 2) Configure model credentials
 
 ```bash
-export DASHSCOPE_API_KEY='your-api-key'
-# 或
-export ALIBABA_API_KEY='your-api-key'
+export DASHSCOPE_API_KEY="your-api-key"
+# or
+export ALIBABA_API_KEY="your-api-key"
 ```
 
-默认使用中国区端点；若使用国际区：
+Optional (international endpoint):
 
 ```bash
-export ALIBABA_BASE_URL='https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
+export ALIBABA_BASE_URL="https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 ```
 
-### 3) 运行
+### 3) Run
 
 ```bash
-# 单次（流式）
+# streaming single-run
 uv run agent1 "列出当前目录文件"
 
-# 单次（非流式）
+# non-streaming single-run
 uv run agent1 "1+1等于几" --no-stream
 
-# 交互模式
+# interactive session
 uv run agent1
 ```
 
-若已全局安装：`uv tool install -e .` 后可直接运行 `agent1`。
+If installed globally (`uv tool install -e .`), use `agent1` directly.
 
-## 配置项
+## Configuration
 
-| 变量名 | 作用 | 默认值 |
+| Variable | Description | Default |
 |---|---|---|
-| `DASHSCOPE_API_KEY` / `ALIBABA_API_KEY` | 模型 API Key | 无（必填其一） |
-| `ALIBABA_BASE_URL` | DashScope 端点 | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
-| `AGENT1_LOG_FILE` | JSONL 日志文件路径 | `logs/agent1.jsonl` |
-| `AGENT1_MAX_TOTAL_TOKENS` | 会话 token 上限 | 不限制 |
+| `DASHSCOPE_API_KEY` / `ALIBABA_API_KEY` | Model API key (one required) | None |
+| `ALIBABA_BASE_URL` | DashScope endpoint | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| `AGENT1_LOG_FILE` | JSONL log file path | `logs/agent1.jsonl` |
+| `AGENT1_MAX_TOTAL_TOKENS` | Session token budget guard | Unlimited |
 
-## 日志与可观测性
+## Usage
 
-### 终端反馈
+### Common workflows
 
-运行时会显示：
+```bash
+# ask a coding question
+uv run agent1 "帮我写一个读取 JSON 文件并校验字段的 Python 脚本"
 
-- 请求开始/结束
-- 工具调用与返回
-- token 用量表（本次 + 会话累计）
+# force non-stream mode
+uv run agent1 "解释一下这段日志" --no-stream
+```
 
-### JSONL 日志
+### Session controls
 
-- 默认路径：`logs/agent1.jsonl`
-- 格式：一行一个 JSON 事件
+- `Ctrl + C` or `Ctrl + D`: exit interactive mode
+- Budget exceeded (`AGENT1_MAX_TOTAL_TOKENS`): session stops automatically
 
-查看日志：
+## Architecture
+
+```mermaid
+flowchart TB
+    User[User Input] --> CLI[CLI Layer]
+    CLI --> Agent[Agent Runtime]
+    Agent --> Model[Qwen via DashScope]
+    Agent --> Tools[run_bash / run_python]
+    CLI --> Logs[JSONL Logging]
+    CLI --> Usage[Token Guard]
+```
+
+- CLI orchestrates user interaction, status updates, and output rendering
+- Agent layer handles prompt, model invocation, and tool orchestration
+- Observability layer writes structured events for debugging and auditing
+
+See [Architecture Details](docs/ARCHITECTURE.md) and [Tech Stack](docs/TECH_STACK.md).
+
+## Observability
+
+### Runtime feedback
+
+Terminal output includes:
+
+- request lifecycle status
+- tool call / tool result markers
+- token usage table (per-run + session cumulative)
+
+### Structured logs (JSONL)
+
+- Default path: `logs/agent1.jsonl`
+- Format: one JSON object per line
 
 ```bash
 tail -f logs/agent1.jsonl
 ```
 
-Windows PowerShell：
+Windows PowerShell:
 
 ```powershell
 Get-Content .\logs\agent1.jsonl -Wait
 ```
 
-关键事件：
+Key event types:
 
 - `run_started`
 - `model_request`
@@ -112,43 +149,51 @@ Get-Content .\logs\agent1.jsonl -Wait
 - `model_response`
 - `run_completed` / `run_failed`
 
-## 项目结构
+## Cross-platform Behavior
+
+- `run_python` uses `sys.executable` to avoid `python` vs `python3` mismatch
+- `run_bash` adapts by OS:
+  - Windows: PowerShell
+  - Linux/macOS: `bash` preferred, fallback to `sh`
+- System prompt includes runtime context (OS, Python, Shell, CWD) to reduce invalid command generation
+
+## Project Structure
 
 ```text
 agent1/
 ├── src/agent1/
-│   ├── agent.py              # Agent 初始化、模型配置、系统提示词
-│   ├── cli/main.py           # CLI 入口、会话流程、用量展示
-│   ├── tools/                # 工具实现（run_bash / run_python）
-│   ├── logging_utils.py      # JSONL 日志写入
+│   ├── agent.py
+│   ├── cli/main.py
+│   ├── tools/
+│   ├── logging_utils.py
 │   └── __init__.py
 ├── docs/
-│   ├── ARCHITECTURE.md       # 架构说明
-│   └── TECH_STACK.md         # 技术栈说明
+│   ├── ARCHITECTURE.md
+│   └── TECH_STACK.md
+├── .github/
+│   ├── workflows/ci.yml
+│   └── ISSUE_TEMPLATE/
 ├── pyproject.toml
-└── README.md
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+└── LICENSE
 ```
-
-详细见：[架构设计说明](docs/ARCHITECTURE.md)
-详细变更见：[Changelog](CHANGELOG.md)；开源协议见：[MIT License](LICENSE)。
-
-## 跨平台说明
-
-- `run_python` 使用 `sys.executable` 启动 Python 子进程，避免系统命令差异
-- `run_bash` 自动适配：
-  - Windows：PowerShell
-  - Linux/macOS：优先 bash，回退 sh
-- 系统提示词会注入运行环境信息，模型可据此生成更稳妥的命令
 
 ## Roadmap
 
-- [ ] 增加工具白名单/黑名单与安全策略
-- [ ] 增加测试（单元测试 + 集成测试）
-- [ ] 增加多模型切换策略与回退策略
+- [ ] Add tool safety policies (allowlist / denylist / confirmation layer)
+- [ ] Add unit + integration tests
+- [ ] Add model fallback and retry strategy
+- [ ] Add optional remote log sink integration
 
-## 贡献
+## Contributing
 
-欢迎提交 Issue / PR。请先阅读：[贡献指南](CONTRIBUTING.md)
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
 
 ---
-如果这个项目对你有帮助，欢迎 star ⭐
+
+If this project helps you, a star is appreciated.
