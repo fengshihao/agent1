@@ -1,4 +1,4 @@
-"""Pydantic AI 智能体：bash/python 工具，agent_rx 流式，Rich Markdown CLI."""
+"""Pydantic AI 智能体：bash/python 工具，Rich Markdown CLI."""
 
 __version__ = "0.1.0"
 
