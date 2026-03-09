@@ -1,0 +1,20 @@
+[project]
+name = "agent1"
+version = "0.1.0"
+description = "Pydantic AI 智能体：bash/python 工具，Rich Markdown CLI"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "pydantic-ai>=0.0.14",
+    "rich>=14.0.0",
+]
+
+[project.scripts]
+agent1 = "agent1.cli.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+packages = ["src/agent1"]
