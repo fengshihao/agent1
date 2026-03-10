@@ -41,6 +41,26 @@ cd agent1
 uv sync
 ```
 
+### 1.5) One-click install (from scratch)
+
+Linux / Ubuntu / macOS / Windows Git Bash:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/fengshihao/agent1/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/fengshihao/agent1/main/scripts/install.ps1 | iex
+```
+
+Notes:
+
+- The installer auto-installs `uv` if missing.
+- Override install source via `AGENT1_GIT_URL` when needed.
+- After install, reopen terminal if `agent1` is not found in `PATH`.
+
 ### 2) Configure model credentials
 
 ```bash
@@ -176,6 +196,9 @@ The Windows shell adaptation tests are in `tests/test_bash_tool.py`, covering:
 
 ```text
 agent1/
+├── scripts/
+│   ├── install.sh
+│   └── install.ps1
 ├── src/agent1/
 │   ├── agent.py
 │   ├── cli/main.py
