@@ -2,6 +2,7 @@
 
 import os
 import platform
+import shutil
 import sys
 from pathlib import Path
 
@@ -29,13 +30,26 @@ _model = OpenAIChatModel("qwen3.5-flash", provider=_provider)
 def _runtime_env_prompt() -> str:
     """构造运行环境信息，注入到系统提示词。"""
     shell_hint = os.environ.get("SHELL") or os.environ.get("ComSpec") or "unknown"
+    shell_preference = "在 Linux/macOS 上优先使用 bash 命令。"
+    if os.name == "nt":
+        has_bash = bool(shutil.which("bash"))
+        has_powershell = bool(shutil.which("powershell") or shutil.which("pwsh"))
+        if has_bash:
+            shell_preference = (
+                "检测到 Windows 且可用 bash（例如 Git Bash），"
+                "优先使用 bash 风格命令；如失败再回退 PowerShell/cmd。"
+            )
+        elif has_powershell:
+            shell_preference = "检测到 Windows 且无 bash，优先使用 PowerShell 风格命令。"
+        else:
+            shell_preference = "检测到 Windows 且无 bash/PowerShell，使用 cmd 兼容命令。"
     return (
         "当前运行环境信息如下，请据此选择命令和代码写法："
         f"OS={platform.system()} {platform.release()}，"
         f"Python={platform.python_version()} (executable={sys.executable})，"
         f"Shell={shell_hint}，"
         f"CWD={Path.cwd()}。"
-        "在 Windows 上优先使用 PowerShell 风格命令；在 Linux/macOS 上优先使用 bash 命令。"
+        + shell_preference
     )
 
 

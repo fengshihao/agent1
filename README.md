@@ -26,6 +26,7 @@
 - [Architecture](#architecture)
 - [Observability](#observability)
 - [Cross-platform Behavior](#cross-platform-behavior)
+- [Testing](#testing)
 - [Project Structure](#project-structure)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
@@ -153,9 +154,23 @@ Key event types:
 
 - `run_python` uses `sys.executable` to avoid `python` vs `python3` mismatch
 - `run_bash` adapts by OS:
-  - Windows: PowerShell
+  - Windows: prefer `bash` (e.g., Git Bash), then fallback to `powershell` / `pwsh` / `cmd`
   - Linux/macOS: `bash` preferred, fallback to `sh`
 - System prompt includes runtime context (OS, Python, Shell, CWD) to reduce invalid command generation
+
+## Testing
+
+Run unit tests:
+
+```bash
+PYTHONPATH=src python -m unittest discover -s tests -v
+```
+
+The Windows shell adaptation tests are in `tests/test_bash_tool.py`, covering:
+
+- Git Bash preferred on Windows when available
+- PowerShell fallback when bash is unavailable
+- cmd fallback when neither bash nor PowerShell is available
 
 ## Project Structure
 
