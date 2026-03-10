@@ -23,7 +23,7 @@ _base_url = os.environ.get(
 )
 
 _provider = AlibabaProvider(api_key=_api_key, base_url=_base_url)
-_model = OpenAIChatModel("qwen3.5-plus", provider=_provider)
+_model = OpenAIChatModel("qwen3.5-flash", provider=_provider)
 
 
 def _runtime_env_prompt() -> str:

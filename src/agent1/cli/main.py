@@ -9,6 +9,7 @@ import sys
 import uuid
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from pydantic_ai.exceptions import ModelHTTPError
 from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent, PartDeltaEvent, TextPartDelta
 from pydantic_ai.run import AgentRunResultEvent
 from pydantic_ai.usage import RunUsage
@@ -83,7 +84,7 @@ def _run_once_sync(prompt: str) -> None:
         console.print(f"[dim]已完成。日志: {log_path}[/dim]")
     except Exception as e:
         write_jsonl_event("run_failed", run_id, error=repr(e))
-        console.print(f"[red]错误: {e!r}[/red]")
+        console.print(f"[red]{_friendly_error_message(e)}[/red]")
         console.print(f"[dim]日志: {log_path}[/dim]")
         sys.exit(1)
 
@@ -118,6 +119,7 @@ async def _run_stream_direct(
 
     accumulated: List[str] = []
     final_result = None
+    stream_error: Optional[Exception] = None
     stream_usage = RunUsage()
     live = Live(console=console, refresh_per_second=12)
 
@@ -185,11 +187,14 @@ async def _run_stream_direct(
                 )
     except Exception as e:
         write_jsonl_event("run_failed", run_id, error=repr(e))
-        console.print(f"[red]错误: {e!r}[/red]")
+        console.print(f"[red]{_friendly_error_message(e)}[/red]")
         console.print(f"[dim]日志: {log_path}[/dim]")
-        raise
+        stream_error = e
     finally:
         live.stop()
+
+    if stream_error is not None:
+        return "", (message_history or [])
 
     text = "".join(accumulated)
     if not text and final_result and isinstance(final_result.output, str):
@@ -283,7 +288,7 @@ async def _run_interactive(no_stream: bool) -> None:
                     break
             except Exception as e:
                 write_jsonl_event("run_failed", run_id, error=repr(e))
-                console.print(f"[red]错误: {e!r}[/red]")
+                console.print(f"[red]{_friendly_error_message(e)}[/red]")
         else:
             _, message_history = await _run_stream_direct(
                 console,
@@ -374,6 +379,19 @@ def _format_token_count(value: int) -> str:
     if value >= 1_000:
         return f"{value / 1_000:.1f}K"
     return str(value)
+
+
+def _friendly_error_message(error: Exception) -> str:
+    """将常见模型错误转换为更友好的中文提示。"""
+    if isinstance(error, ModelHTTPError):
+        body = str(getattr(error, "body", "") or "")
+        if error.status_code == 403 and "AllocationQuota.FreeTierOnly" in body:
+            return (
+                "模型请求被拒绝（403）：免费额度已用尽，且当前账号启用了“仅免费额度”模式。"
+                "请在 DashScope 控制台关闭该模式或开通付费后重试。"
+            )
+        return f"模型请求失败（HTTP {error.status_code}）：{body or repr(error)}"
+    return f"错误: {error!r}"
 
 
 def _usage_limit() -> Optional[int]:
