@@ -58,9 +58,11 @@ irm https://raw.githubusercontent.com/fengshihao/agent1/refs/heads/master/script
 Notes:
 
 - The installer auto-installs `uv` if missing.
-- If the current package index fails, the installer auto-retries with official PyPI (`https://pypi.org/simple`).
+- If the current package index fails, the installer clears `UV_*` index env vars and retries with official PyPI (`https://pypi.org/simple`).
 - Override install source via `AGENT1_GIT_URL` when needed.
 - After install, reopen terminal if `agent1` is not found in `PATH`.
+- If your network path serves stale raw cache, add a timestamp query to bypass cache:
+  - `curl -fsSL "https://raw.githubusercontent.com/fengshihao/agent1/refs/heads/master/scripts/install.sh?v=$(date +%s)" | sh`
 
 ### 2) Configure model credentials
 

@@ -37,7 +37,11 @@ try {
 }
 catch {
     Write-Host "检测到当前索引源安装失败，正在回退到官方 PyPI 重试..."
-    & $uv tool install --force --default-index https://pypi.org/simple --from $Agent1GitUrl agent1
+    Remove-Item Env:UV_INDEX -ErrorAction SilentlyContinue
+    Remove-Item Env:UV_DEFAULT_INDEX -ErrorAction SilentlyContinue
+    Remove-Item Env:UV_INDEX_URL -ErrorAction SilentlyContinue
+    Remove-Item Env:UV_EXTRA_INDEX_URL -ErrorAction SilentlyContinue
+    & $uv tool install --force --default-index https://pypi.org/simple --index https://pypi.org/simple --from $Agent1GitUrl agent1
 }
 
 Write-Host ""

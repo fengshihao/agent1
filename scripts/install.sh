@@ -53,7 +53,8 @@ main() {
     :
   else
     log "检测到当前索引源安装失败，正在回退到官方 PyPI 重试..."
-    "$UV_BIN" tool install --force --default-index https://pypi.org/simple --from "$AGENT1_GIT_URL" agent1
+    unset UV_INDEX UV_DEFAULT_INDEX UV_INDEX_URL UV_EXTRA_INDEX_URL || true
+    "$UV_BIN" tool install --force --default-index https://pypi.org/simple --index https://pypi.org/simple --from "$AGENT1_GIT_URL" agent1
   fi
 
   log ""
