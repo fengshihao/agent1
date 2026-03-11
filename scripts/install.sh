@@ -49,7 +49,12 @@ ensure_uv() {
 main() {
   log "安装 agent1（来源：${AGENT1_GIT_URL}）..."
   UV_BIN="$(ensure_uv)"
-  "$UV_BIN" tool install --force --from "$AGENT1_GIT_URL" agent1
+  if "$UV_BIN" tool install --force --from "$AGENT1_GIT_URL" agent1; then
+    :
+  else
+    log "检测到当前索引源安装失败，正在回退到官方 PyPI 重试..."
+    "$UV_BIN" tool install --force --default-index https://pypi.org/simple --from "$AGENT1_GIT_URL" agent1
+  fi
 
   log ""
   log "安装完成。"

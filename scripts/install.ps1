@@ -32,7 +32,13 @@ function Get-UvPath {
 
 Write-Host "安装 agent1（来源：$Agent1GitUrl）..."
 $uv = Get-UvPath
-& $uv tool install --force --from $Agent1GitUrl agent1
+try {
+    & $uv tool install --force --from $Agent1GitUrl agent1
+}
+catch {
+    Write-Host "检测到当前索引源安装失败，正在回退到官方 PyPI 重试..."
+    & $uv tool install --force --default-index https://pypi.org/simple --from $Agent1GitUrl agent1
+}
 
 Write-Host ""
 Write-Host "安装完成。"
