@@ -47,7 +47,7 @@ ensure_uv() {
 }
 
 main() {
-  log "安装 agent1（来源：$AGENT1_GIT_URL）..."
+  log "安装 agent1（来源：${AGENT1_GIT_URL}）..."
   UV_BIN="$(ensure_uv)"
   "$UV_BIN" tool install --force --from "$AGENT1_GIT_URL" agent1
 
