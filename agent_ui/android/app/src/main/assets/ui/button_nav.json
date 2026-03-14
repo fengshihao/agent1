@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "root": {
+    "type": "column",
+    "style": {
+      "padding": 16
+    },
+    "children": [
+      {
+        "type": "text",
+        "content": "按钮导航示例",
+        "style": {
+          "fontSize": 20,
+          "fontWeight": "bold"
+        }
+      },
+      {
+        "type": "button",
+        "text": "打开详情页",
+        "action": {
+          "type": "navigate",
+          "route": "detail",
+          "params": {
+            "id": "42",
+            "source": "local_json"
+          }
+        },
+        "style": {
+          "padding": 8,
+          "backgroundColor": "#BBDEFB"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "version": "1.0",
+  "root": {
+    "type": "column",
+    "style": {
+      "padding": 16
+    },
+    "children": [
+      {
+        "type": "text",
+        "content": "混合布局示例",
+        "style": {
+          "fontSize": 22,
+          "fontWeight": "bold"
+        }
+      },
+      {
+        "type": "row",
+        "children": [
+          {
+            "type": "text",
+            "content": "左侧文案",
+            "style": {
+              "fontSize": 16,
+              "textColor": "#37474F"
+            }
+          },
+          {
+            "type": "button",
+            "text": "右侧按钮",
+            "action": {
+              "type": "navigate",
+              "route": "profile",
+              "params": {
+                "tab": "overview"
+              }
+            },
+            "style": {
+              "padding": 6
+            }
+          }
+        ]
+      },
+      {
+        "type": "image",
+        "drawableName": "ic_placeholder",
+        "style": {
+          "padding": 8
+        }
+      }
+    ]
+  }
+}

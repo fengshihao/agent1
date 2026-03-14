@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "root": {
+    "type": "column",
+    "style": {
+      "padding": 16
+    },
+    "children": [
+      {
+        "type": "text",
+        "content": "问卷填写示例",
+        "style": {
+          "fontSize": 20,
+          "fontWeight": "bold"
+        }
+      },
+      {
+        "type": "input",
+        "key": "companyName",
+        "label": "公司名称",
+        "placeholder": "请输入公司名称"
+      },
+      {
+        "type": "select",
+        "key": "teamSize",
+        "label": "团队规模",
+        "placeholder": "请选择规模",
+        "options": [
+          { "label": "1-10 人", "value": "small" },
+          { "label": "11-50 人", "value": "medium" },
+          { "label": "50+ 人", "value": "large" }
+        ]
+      },
+      {
+        "type": "row",
+        "children": [
+          {
+            "type": "date_picker",
+            "key": "launchDate",
+            "label": "计划上线日期",
+            "value": "2026-03-20"
+          },
+          {
+            "type": "time_picker",
+            "key": "meetingTime",
+            "label": "沟通时间",
+            "value": "14:00"
+          }
+        ]
+      },
+      {
+        "type": "button",
+        "text": "下一步",
+        "action": {
+          "type": "navigate",
+          "route": "survey_confirm",
+          "params": {
+            "step": "2"
+          }
+        }
+      }
+    ]
+  }
+}

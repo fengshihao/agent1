@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "root": {
+    "type": "column",
+    "style": {
+      "padding": 16
+    },
+    "children": [
+      {
+        "type": "text",
+        "content": "欢迎使用 Dynamic UI v1",
+        "style": {
+          "fontSize": 24,
+          "fontWeight": "bold",
+          "textColor": "#212121"
+        }
+      },
+      {
+        "type": "text",
+        "content": "该页面来自本地 assets/ui/simple_text.json",
+        "style": {
+          "fontSize": 14,
+          "textColor": "#616161"
+        }
+      }
+    ]
+  }
+}

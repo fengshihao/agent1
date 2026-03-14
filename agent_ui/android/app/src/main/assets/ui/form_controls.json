@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "root": {
+    "type": "column",
+    "style": {
+      "padding": 16
+    },
+    "children": [
+      {
+        "type": "text",
+        "content": "表单控件示例",
+        "style": {
+          "fontSize": 22,
+          "fontWeight": "bold"
+        }
+      },
+      {
+        "type": "input",
+        "key": "name",
+        "label": "姓名",
+        "placeholder": "请输入姓名",
+        "value": "张三"
+      },
+      {
+        "type": "select",
+        "key": "city",
+        "label": "城市",
+        "placeholder": "请选择城市",
+        "selectedValue": "shanghai",
+        "options": [
+          { "label": "北京", "value": "beijing" },
+          { "label": "上海", "value": "shanghai" },
+          { "label": "深圳", "value": "shenzhen" }
+        ]
+      },
+      {
+        "type": "date_picker",
+        "key": "birthday",
+        "label": "出生日期",
+        "value": "1995-08-15"
+      },
+      {
+        "type": "time_picker",
+        "key": "appointmentTime",
+        "label": "预约时间",
+        "value": "10:30"
+      },
+      {
+        "type": "button",
+        "text": "提交",
+        "action": {
+          "type": "navigate",
+          "route": "submit",
+          "params": {
+            "form": "controls"
+          }
+        },
+        "style": {
+          "padding": 8
+        }
+      }
+    ]
+  }
+}
