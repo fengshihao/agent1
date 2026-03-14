@@ -6,3 +6,8 @@ __pycache__/
 # Java agent build outputs
 java_agent/.gradle/
 java_agent/build/
+java_agent/**/.gradle/
+java_agent/**/build/
+
+# Local memory notes
+user_memory.md

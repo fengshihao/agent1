@@ -50,21 +50,22 @@ fun LlmUiTestScreen(
     val formState = remember { mutableStateMapOf<String, String>() }
     val scope = rememberCoroutineScope()
     val promptsResult = remember(context) { loadLlmPromptBundle(context) }
+    val promptBundle = promptsResult.getOrElse {
+        LlmPromptBundle(
+            generationSystemPrompt = "",
+            summarySystemPrompt = ""
+        )
+    }
     val agent = remember(promptsResult) {
-        LlmUiAgent(
-            qwenClient = QwenClient(
-                config = QwenClientConfig(
+        JavaBackedLlmUiAgent(
+            runtimeAdapter = JavaAgentRuntimeAdapter(
+                JavaAgentClientConfig(
                     apiKey = BuildConfig.DASHSCOPE_API_KEY,
                     baseUrl = BuildConfig.DASHSCOPE_BASE_URL,
                     model = "qwen3.5-flash"
                 )
             ),
-            prompts = promptsResult.getOrElse {
-                LlmPromptBundle(
-                    generationSystemPrompt = "",
-                    summarySystemPrompt = ""
-                )
-            }
+            prompts = promptBundle
         )
     }
 
@@ -110,6 +111,11 @@ fun LlmUiTestScreen(
             text = "Qwen 动态 UI 测试",
             style = MaterialTheme.typography.titleLarge
         )
+        Text(
+            text = "当前后端: java-agent-core (artifact)",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary
+        )
 
         OutlinedTextField(
             value = intent,
@@ -139,7 +145,7 @@ fun LlmUiTestScreen(
                                 appendLog("读取 assets 提示词失败")
                                 return@launch
                             }
-                            appendLog("开始调用 Qwen 生成 UI")
+                            appendLog("开始调用 java-agent-core 生成 UI")
 
                             agent.generateUiJson(intent)
                                 .onSuccess { generated ->

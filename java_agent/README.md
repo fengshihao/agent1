@@ -18,7 +18,7 @@ Java 版状态化 Agent 内核（MVP），对齐 `pi-mono/packages/agent` 的核
 ## 构建与测试
 
 ```bash
-gradle -p java_agent test
+gradle -p java_agent :core:test :cli:test
 ```
 
 Java 版本要求：17（已在 `java_agent/build.gradle.kts` 与 `java_agent/gradle.properties` 固定）。
@@ -51,10 +51,10 @@ gradle -Dorg.gradle.java.home="/Users/fengshihao/.jdks/jdk-17.jdk/Contents/Home"
 - 标准入口（推荐）：`java_agent/bin/java-agent`
 
 fat jar（可单独运行）：
-- 构建：`gradle -p java_agent fatJar`
-- 产物：`java_agent/build/libs/java_agent-0.1.0-SNAPSHOT-all.jar`
-- 运行单次：`java -jar java_agent/build/libs/java_agent-0.1.0-SNAPSHOT-all.jar --no-stream 你好`
-- 运行交互：`java -jar java_agent/build/libs/java_agent-0.1.0-SNAPSHOT-all.jar`
+- 构建：`gradle -p java_agent :cli:fatJar`
+- 产物：`java_agent/cli/build/libs/cli-0.1.0-SNAPSHOT-all.jar`
+- 运行单次：`java -jar java_agent/cli/build/libs/cli-0.1.0-SNAPSHOT-all.jar --no-stream 你好`
+- 运行交互：`java -jar java_agent/cli/build/libs/cli-0.1.0-SNAPSHOT-all.jar`
 - 目录内脚本（自动构建并优先使用本机 JDK17）：`java_agent/bin/java-agent --no-stream 你好`
   - 默认每次都会先执行 `fatJar`（Gradle 增量，源码变更会自动重建）
   - 如需跳过构建：`JAVA_AGENT_SKIP_BUILD=1 java_agent/bin/java-agent`
@@ -80,7 +80,21 @@ CLI 输出增强：
 
 ## Android 接入方式
 
-本模块是纯 Java library，可被 Android app 直接依赖（建议在 app 的 `build.gradle.kts` 中以 module 依赖引入）。
+`core` 模块可发布到本地 Maven 并由 Android 工程以 artifact 依赖接入。
+
+发布 core artifact（本地仓库）：
+
+```bash
+gradle -p java_agent publishCoreToLocalRepo
+```
+
+默认发布路径：`java_agent/build/local-maven`（artifact: `com.agent1:java-agent-core:0.1.0-SNAPSHOT`）。
+
+一键发布并验证 Android 编译：
+
+```bash
+java_agent/bin/publish-core-and-verify-android
+```
 
 最小接入步骤：
 

@@ -44,6 +44,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "17"
@@ -71,6 +72,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
+    implementation("com.agent1:java-agent-core:0.1.0-SNAPSHOT")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
