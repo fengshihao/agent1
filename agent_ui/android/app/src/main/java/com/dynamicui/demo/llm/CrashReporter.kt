@@ -12,6 +12,7 @@ object CrashReporter {
     private const val PREFS = "llm_ui_debug_prefs"
     private const val KEY_LAST_CRASH = "last_crash_stack"
     private const val CRASH_FILE_NAME = "last_crash_report.txt"
+    private const val CRASH_DIR_NAME = "crash-reports"
     @Volatile
     private var installed = false
 
@@ -44,6 +45,19 @@ object CrashReporter {
         runCatching { crashFile(context).delete() }
     }
 
+    fun clearAllReports(context: Context) {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit().remove(KEY_LAST_CRASH).commit()
+        runCatching { crashFile(context).delete() }
+        runCatching {
+            val dir = crashReportDir(context)
+            if (dir.exists()) {
+                dir.listFiles()?.forEach { it.delete() }
+                dir.delete()
+            }
+        }
+    }
+
     private fun persistCrash(context: Context, thread: Thread, throwable: Throwable) {
         val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
         val stack = Log.getStackTraceString(throwable)
@@ -64,11 +78,25 @@ object CrashReporter {
             Log.e(TAG, "write crash file failed", it)
             false
         }
-        Log.e(TAG, "App crashed, report persisted prefs=$committed file=$fileSaved")
+        val archiveSaved = runCatching {
+            val dir = crashReportDir(context)
+            if (!dir.exists()) dir.mkdirs()
+            val fileName = "crash-${System.currentTimeMillis()}.txt"
+            File(dir, fileName).writeText(report)
+            true
+        }.getOrElse {
+            Log.e(TAG, "write crash archive failed", it)
+            false
+        }
+        Log.e(TAG, "App crashed, report persisted prefs=$committed file=$fileSaved archive=$archiveSaved")
     }
 
     private fun crashFile(context: Context): File {
         return File(context.applicationContext.filesDir, CRASH_FILE_NAME)
+    }
+
+    private fun crashReportDir(context: Context): File {
+        return File(context.applicationContext.filesDir, CRASH_DIR_NAME)
     }
 
     private fun readCrashFile(context: Context): String? {

@@ -400,6 +400,16 @@ fun LlmUiTestScreen(
                         ) {
                             Text("清除崩溃报告")
                         }
+                        Button(
+                            onClick = {
+                                CrashReporter.clearAllReports(context)
+                                lastCrashReport = null
+                                appendLog("已删除所有崩溃报告")
+                                Toast.makeText(context, "已删除所有报告", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Text("删除所有报告")
+                        }
                     }
                 }
             }
