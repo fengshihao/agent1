@@ -2,3 +2,7 @@
 logs/
 __pycache__/
 *.pyc
+
+# Java agent build outputs
+java_agent/.gradle/
+java_agent/build/

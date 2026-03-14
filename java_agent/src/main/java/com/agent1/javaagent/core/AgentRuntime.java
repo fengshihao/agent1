@@ -1,0 +1,306 @@
+package com.agent1.javaagent.core;
+
+import com.agent1.javaagent.event.AgentEvent;
+import com.agent1.javaagent.event.AgentEventListener;
+import com.agent1.javaagent.event.AgentEventType;
+import com.agent1.javaagent.event.EventPayloads;
+import com.agent1.javaagent.llm.LlmClient;
+import com.agent1.javaagent.llm.LlmStreamListener;
+import com.agent1.javaagent.model.AgentMessage;
+import com.agent1.javaagent.model.AssistantResponse;
+import com.agent1.javaagent.model.ChatRequest;
+import com.agent1.javaagent.model.ToolCall;
+import com.agent1.javaagent.tool.AgentTool;
+import com.agent1.javaagent.tool.ToolExecutionResult;
+import com.agent1.javaagent.tool.ToolExecutionUpdate;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.Closeable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import io.reactivex.rxjava3.core.Observable;
+import io.reactivex.rxjava3.subjects.PublishSubject;
+import io.reactivex.rxjava3.subjects.Subject;
+
+public final class AgentRuntime implements Closeable {
+    private final AgentState state;
+    private final LlmClient llmClient;
+    private final ContextTransformer transformContext;
+    private final ObjectMapper mapper;
+    private final List<AgentEventListener> listeners = new CopyOnWriteArrayList<>();
+    private final Subject<AgentEvent> eventSubject = PublishSubject.<AgentEvent>create().toSerialized();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    private CompletableFuture<Void> runningTask;
+    private CancellationToken cancellationToken;
+
+    public AgentRuntime(AgentOptions options, LlmClient llmClient) {
+        this(options, llmClient, new ObjectMapper());
+    }
+
+    public AgentRuntime(AgentOptions options, LlmClient llmClient, ObjectMapper mapper) {
+        this.state = new AgentState(
+            options.getSystemPrompt(),
+            options.getModel(),
+            options.getTools(),
+            options.getMessages()
+        );
+        this.llmClient = llmClient;
+        this.transformContext = options.getTransformContext();
+        this.mapper = mapper;
+    }
+
+    public AgentStateSnapshot getStateSnapshot() {
+        return state.snapshot();
+    }
+
+    public void setSystemPrompt(String systemPrompt) {
+        state.setSystemPrompt(systemPrompt);
+    }
+
+    public void setModel(String model) {
+        state.setModel(model);
+    }
+
+    public void setTools(List<AgentTool> tools) {
+        state.setTools(tools);
+    }
+
+    public void replaceMessages(List<AgentMessage> messages) {
+        state.replaceMessages(messages);
+    }
+
+    public void appendMessage(AgentMessage message) {
+        state.appendMessage(message);
+    }
+
+    public AutoCloseable subscribe(AgentEventListener listener) {
+        listeners.add(listener);
+        return () -> listeners.remove(listener);
+    }
+
+    public Observable<AgentEvent> observeEvents() {
+        return eventSubject.hide();
+    }
+
+    public synchronized CompletableFuture<Void> prompt(String content) {
+        return prompt(AgentMessage.user(content));
+    }
+
+    public synchronized CompletableFuture<Void> prompt(AgentMessage message) {
+        if (!AgentMessage.ROLE_USER.equals(message.getRole())) {
+            throw new IllegalArgumentException("prompt(message) only accepts role=user");
+        }
+        state.appendMessage(message);
+        return startRunLocked();
+    }
+
+    public synchronized CompletableFuture<Void> continueRun() {
+        List<AgentMessage> messages = state.getMessages();
+        if (messages.isEmpty()) {
+            throw new IllegalStateException("Cannot continue without messages");
+        }
+        String role = messages.get(messages.size() - 1).getRole();
+        if (!AgentMessage.ROLE_USER.equals(role) && !AgentMessage.ROLE_TOOL_RESULT.equals(role)) {
+            throw new IllegalStateException("Last message must be user or toolResult for continueRun()");
+        }
+        return startRunLocked();
+    }
+
+    public synchronized void abort() {
+        if (cancellationToken != null) {
+            cancellationToken.cancel();
+        }
+    }
+
+    public void waitForIdle() {
+        CompletableFuture<Void> task;
+        synchronized (this) {
+            task = runningTask;
+        }
+        if (task != null) {
+            task.join();
+        }
+    }
+
+    private synchronized CompletableFuture<Void> startRunLocked() {
+        if (runningTask != null && !runningTask.isDone()) {
+            throw new IllegalStateException("Agent is already running");
+        }
+        cancellationToken = new CancellationToken();
+        runningTask = CompletableFuture.runAsync(() -> runAgentLoop(cancellationToken), executor);
+        return runningTask;
+    }
+
+    private void runAgentLoop(CancellationToken token) {
+        emit(AgentEventType.AGENT_START, state.snapshot());
+        int turnIndex = 0;
+
+        try {
+            while (!token.isCancelled()) {
+                emit(AgentEventType.TURN_START, new EventPayloads.TurnStart(turnIndex));
+
+                AssistantResponse assistantResponse = runSingleTurn(token);
+                AgentMessage assistantMessage = AgentMessage.assistant(
+                    assistantResponse.getContent(),
+                    assistantResponse.getToolCalls()
+                );
+                state.appendMessage(assistantMessage);
+                emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(assistantMessage));
+
+                List<AgentMessage> toolResults = new ArrayList<>();
+                if (!assistantResponse.getToolCalls().isEmpty()) {
+                    for (ToolCall toolCall : assistantResponse.getToolCalls()) {
+                        if (token.isCancelled()) {
+                            break;
+                        }
+                        toolResults.add(executeToolCall(toolCall, token));
+                    }
+                }
+
+                emit(AgentEventType.TURN_END, new EventPayloads.TurnEnd(assistantMessage, toolResults));
+                if (assistantResponse.getToolCalls().isEmpty()) {
+                    break;
+                }
+                turnIndex += 1;
+            }
+        } catch (Exception e) {
+            state.setError(e.getMessage());
+            emit(AgentEventType.AGENT_ERROR, new EventPayloads.AgentError(e.getMessage()));
+        } finally {
+            state.setStreaming(false);
+            state.setStreamMessage(null);
+            state.clearPendingToolCalls();
+            emit(AgentEventType.AGENT_END, new EventPayloads.AgentEnd(state.getMessages()));
+        }
+    }
+
+    private AssistantResponse runSingleTurn(CancellationToken token) throws Exception {
+        AgentMessage streamMessage = AgentMessage.assistant("", List.of());
+        state.setStreaming(true);
+        state.setStreamMessage(streamMessage);
+        emit(AgentEventType.MESSAGE_START, new EventPayloads.MessageEvent(streamMessage));
+
+        ChatRequest request = new ChatRequest(state.getModel(), buildContextMessages());
+        AssistantResponse response = llmClient.streamChat(
+            request,
+            state.getTools(),
+            new LlmStreamListener() {
+                @Override
+                public void onTextDelta(String delta) {
+                    AgentMessage current = state.getStreamMessage();
+                    if (current == null) {
+                        return;
+                    }
+                    AgentMessage updated = current.withContent(current.getContent() + delta);
+                    state.setStreamMessage(updated);
+                    emit(
+                        AgentEventType.MESSAGE_UPDATE,
+                        new EventPayloads.MessageUpdate(delta, updated)
+                    );
+                }
+            },
+            token
+        );
+
+        state.setStreaming(false);
+        state.setStreamMessage(null);
+        return response;
+    }
+
+    private AgentMessage executeToolCall(ToolCall toolCall, CancellationToken token) {
+        state.addPendingToolCall(toolCall.getId());
+        emit(AgentEventType.TOOL_EXECUTION_START, new EventPayloads.ToolExecutionStart(toolCall));
+
+        AgentTool tool = state.getTool(toolCall.getName());
+        ToolExecutionResult result;
+        boolean isError = false;
+        String errorMessage = null;
+
+        try {
+            if (tool == null) {
+                throw new IllegalStateException("Tool not found: " + toolCall.getName());
+            }
+
+            JsonNode parameters = mapper.readTree(toolCall.getArgumentsJson());
+            result = tool.execute(
+                toolCall.getId(),
+                parameters,
+                token,
+                update -> emit(
+                    AgentEventType.TOOL_EXECUTION_UPDATE,
+                    new EventPayloads.ToolExecutionUpdatePayload(toolCall.getId(), sanitizeUpdate(update))
+                )
+            );
+        } catch (Exception e) {
+            isError = true;
+            errorMessage = e.getMessage() == null ? "Tool execution failed" : e.getMessage();
+            result = ToolExecutionResult.text(errorMessage);
+        } finally {
+            state.removePendingToolCall(toolCall.getId());
+        }
+
+        AgentMessage toolResultMessage = AgentMessage.toolResult(toolCall.getId(), result.getText(), isError);
+        state.appendMessage(toolResultMessage);
+        emit(
+            AgentEventType.TOOL_EXECUTION_END,
+            new EventPayloads.ToolExecutionEnd(toolCall.getId(), result, isError, errorMessage)
+        );
+        return toolResultMessage;
+    }
+
+    private ToolExecutionUpdate sanitizeUpdate(ToolExecutionUpdate update) {
+        if (update == null) {
+            return new ToolExecutionUpdate("", null);
+        }
+        return update;
+    }
+
+    private List<AgentMessage> buildContextMessages() {
+        List<AgentMessage> transformed = transformContext.transform(state.getMessages());
+        if (state.getSystemPrompt().isBlank()) {
+            return transformed;
+        }
+        List<AgentMessage> withSystem = new ArrayList<>();
+        withSystem.add(AgentMessage.system(state.getSystemPrompt()));
+        withSystem.addAll(transformed);
+        return withSystem;
+    }
+
+    private void emit(AgentEventType type, Object payload) {
+        AgentEvent event = new AgentEvent(type, payload);
+        if (!eventSubject.hasComplete() && !eventSubject.hasThrowable()) {
+            eventSubject.onNext(event);
+        }
+        for (AgentEventListener listener : listeners) {
+            listener.onEvent(event);
+        }
+    }
+
+    @Override
+    public synchronized void close() {
+        abort();
+        if (runningTask != null) {
+            runningTask.join();
+        }
+        executor.shutdown();
+        try {
+            executor.awaitTermination(5, TimeUnit.SECONDS);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+        if (!eventSubject.hasComplete() && !eventSubject.hasThrowable()) {
+            eventSubject.onComplete();
+        }
+        try {
+            llmClient.close();
+        } catch (Exception ignored) {
+            // best effort resource cleanup
+        }
+    }
+}

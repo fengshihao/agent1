@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+JAR_PATH="${PROJECT_DIR}/build/libs/java_agent-0.1.0-SNAPSHOT-all.jar"
+JAVA17_BIN="/Users/fengshihao/.jdks/jdk-17.jdk/Contents/Home/bin/java"
+
+if [[ "${JAVA_AGENT_SKIP_BUILD:-0}" != "1" ]]; then
+  echo "[java-agent] 检查并构建 fat jar（Gradle 增量）..." >&2
+  gradle --no-daemon -p "${PROJECT_DIR}" fatJar >/dev/null
+elif [[ ! -f "${JAR_PATH}" ]]; then
+  echo "错误: 未找到 fat jar，且已设置 JAVA_AGENT_SKIP_BUILD=1" >&2
+  exit 1
+fi
+
+if [[ -x "${JAVA17_BIN}" ]]; then
+  exec "${JAVA17_BIN}" -jar "${JAR_PATH}" "$@"
+fi
+
+exec java -jar "${JAR_PATH}" "$@"
