@@ -8,7 +8,10 @@ APP_ID="com.dynamicui.demo"
 ACTIVITY=".MainActivity"
 
 echo "==> 1/3 编译 APK"
-"$ROOT_DIR/gradlew" :app:assembleDebug
+(
+  cd "$ROOT_DIR"
+  ./gradlew :app:assembleDebug
+)
 
 echo "==> 2/3 安装 APK"
 adb install -r "$APK_PATH"
