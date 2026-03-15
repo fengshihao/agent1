@@ -58,12 +58,10 @@ fun LlmUiTestScreen(
     }
     val agent = remember(promptsResult) {
         JavaBackedLlmUiAgent(
-            runtimeAdapter = JavaAgentRuntimeAdapter(
-                JavaAgentClientConfig(
-                    apiKey = BuildConfig.DASHSCOPE_API_KEY,
-                    baseUrl = BuildConfig.DASHSCOPE_BASE_URL,
-                    model = "qwen3.5-flash"
-                )
+            config = JavaAgentClientConfig(
+                apiKey = BuildConfig.DASHSCOPE_API_KEY,
+                baseUrl = BuildConfig.DASHSCOPE_BASE_URL,
+                model = "qwen3.5-flash"
             ),
             prompts = promptBundle
         )
