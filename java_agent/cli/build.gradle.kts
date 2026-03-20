@@ -13,6 +13,7 @@ java {
 
 dependencies {
     implementation(project(":core"))
+    implementation("org.jline:jline:3.26.3")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
 }
 

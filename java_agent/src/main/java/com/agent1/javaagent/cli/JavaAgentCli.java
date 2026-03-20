@@ -17,10 +17,7 @@ import com.agent1.javaagent.llm.openai.OpenAiCompatibleClient;
 import com.agent1.javaagent.llm.openai.OpenAiCompatibleConfig;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.tool.AgentTool;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -30,6 +27,12 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jline.reader.EndOfFileException;
+import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.UserInterruptException;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
 
 public final class JavaAgentCli {
     private static final Pattern SKILL_COMMAND_PATTERN = Pattern.compile("^/([A-Za-z0-9:_-]+)(?:\\s+(.*))?$");
@@ -134,23 +137,25 @@ public final class JavaAgentCli {
         boolean enableColor
     ) throws IOException {
         System.out.println(colorize(ANSI_BOLD, enableColor, "Java Agent 交互模式（输入 /exit 退出）"));
-        BufferedReader reader = new BufferedReader(
-            new InputStreamReader(System.in, StandardCharsets.UTF_8)
-        );
-        while (true) {
-            System.out.print("\n" + colorize(ANSI_CYAN, enableColor, "你> "));
-            String input = reader.readLine();
-            if (input == null) {
-                break;
+        String promptText = "\n" + colorize(ANSI_CYAN, enableColor, "你> ");
+        try (Terminal terminal = TerminalBuilder.builder().system(true).build()) {
+            LineReader lineReader = LineReaderBuilder.builder().terminal(terminal).build();
+            while (true) {
+                final String input;
+                try {
+                    input = lineReader.readLine(promptText);
+                } catch (UserInterruptException | EndOfFileException e) {
+                    break;
+                }
+                String trimmed = input.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                if ("/exit".equalsIgnoreCase(trimmed) || "exit".equalsIgnoreCase(trimmed)) {
+                    break;
+                }
+                executePrompt(runtime, logger, currentRun, skillsByName, trimmed, "interactive", noStream, enableColor);
             }
-            String trimmed = input.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-            if ("/exit".equalsIgnoreCase(trimmed) || "exit".equalsIgnoreCase(trimmed)) {
-                break;
-            }
-            executePrompt(runtime, logger, currentRun, skillsByName, trimmed, "interactive", noStream, enableColor);
         }
     }
 
