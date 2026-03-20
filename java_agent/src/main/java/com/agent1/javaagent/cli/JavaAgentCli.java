@@ -4,6 +4,7 @@ import com.agent1.javaagent.cli.logging.JsonlLogger;
 import com.agent1.javaagent.cli.skills.ClaudeSkill;
 import com.agent1.javaagent.cli.skills.ClaudeSkillLoader;
 import com.agent1.javaagent.cli.skills.ClaudeSkillPromptRenderer;
+import com.agent1.javaagent.cli.tools.ReadFileTool;
 import com.agent1.javaagent.cli.tools.RunBashTool;
 import com.agent1.javaagent.cli.tools.RunPythonTool;
 import com.agent1.javaagent.core.AgentOptions;
@@ -23,7 +24,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -73,12 +73,14 @@ public final class JavaAgentCli {
         final JsonlLogger logger = new JsonlLogger();
         final AtomicReference<RunContext> currentRun = new AtomicReference<>();
         final Map<String, ClaudeSkill> skillsByName = loadDiscoveredSkills(enableColor);
+        final Path workspaceRoot = Path.of(".").toAbsolutePath().normalize();
 
-        List<AgentTool> tools = List.of(new RunBashTool(), new RunPythonTool());
-        String systemPrompt = "你是一个有帮助的 AI 助手，可以执行 bash 命令和 Python 脚本。"
-            + "当用户需要执行命令或脚本时，使用 run_bash 或 run_python 工具。"
-            + "请使用 Markdown 格式回复。"
-            + runtimeEnvPrompt();
+        List<AgentTool> tools = List.of(new ReadFileTool(workspaceRoot), new RunBashTool(), new RunPythonTool());
+
+        // 构建系统提示词，包含可用的 skills 列表
+        String systemPrompt = new SystemPromptBuilder()
+            .addAllSkills(skillsByName.values())
+            .build();
 
         AgentRuntime runtime = new AgentRuntime(
             AgentOptions.builder(model)
@@ -336,29 +338,6 @@ public final class JavaAgentCli {
             return text;
         }
         return ansi + text + ANSI_RESET;
-    }
-
-    private static String runtimeEnvPrompt() {
-        String osName = System.getProperty("os.name", "unknown");
-        String osVersion = System.getProperty("os.version", "unknown");
-        String shellHint = firstNonBlank(System.getenv("SHELL"), System.getenv("ComSpec"), "unknown");
-        String cwd = Path.of(".").toAbsolutePath().normalize().toString();
-
-        String shellPreference;
-        String osLower = osName.toLowerCase(Locale.ROOT);
-        if (osLower.contains("mac")) {
-            shellPreference = "当前是 macOS，优先使用 zsh 语法命令。";
-        } else if (osLower.contains("win")) {
-            shellPreference = "当前是 Windows，优先 bash；不可用时回退 PowerShell 或 cmd。";
-        } else {
-            shellPreference = "当前是 Linux/Unix，优先使用 bash 命令。";
-        }
-
-        return "当前运行环境信息如下，请据此选择命令和代码写法："
-            + "OS=" + osName + " " + osVersion
-            + "，Shell=" + shellHint
-            + "，CWD=" + cwd + "。"
-            + shellPreference;
     }
 
     private static Map<String, ClaudeSkill> loadDiscoveredSkills(boolean enableColor) {

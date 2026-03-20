@@ -28,6 +28,9 @@ import io.reactivex.rxjava3.subjects.PublishSubject;
 import io.reactivex.rxjava3.subjects.Subject;
 
 public final class AgentRuntime implements Closeable {
+    private static final int MAX_TURNS_PER_RUN = 12;
+    private static final int MAX_TOOL_CALLS_PER_RUN = 24;
+
     private final AgentState state;
     private final LlmClient llmClient;
     private final ContextTransformer transformContext;
@@ -140,9 +143,10 @@ public final class AgentRuntime implements Closeable {
     private void runAgentLoop(CancellationToken token) {
         emit(AgentEventType.AGENT_START, state.snapshot());
         int turnIndex = 0;
+        int toolCallCount = 0;
 
         try {
-            while (!token.isCancelled()) {
+            while (!token.isCancelled() && turnIndex < MAX_TURNS_PER_RUN) {
                 emit(AgentEventType.TURN_START, new EventPayloads.TurnStart(turnIndex));
 
                 AssistantResponse assistantResponse = runSingleTurn(token);
@@ -159,7 +163,13 @@ public final class AgentRuntime implements Closeable {
                         if (token.isCancelled()) {
                             break;
                         }
+                        if (toolCallCount >= MAX_TOOL_CALLS_PER_RUN) {
+                            throw new IllegalStateException(
+                                "工具调用次数超过上限（" + MAX_TOOL_CALLS_PER_RUN + "），已停止本轮以避免循环重试"
+                            );
+                        }
                         toolResults.add(executeToolCall(toolCall, token));
+                        toolCallCount += 1;
                     }
                 }
 
@@ -168,6 +178,11 @@ public final class AgentRuntime implements Closeable {
                     break;
                 }
                 turnIndex += 1;
+            }
+            if (turnIndex >= MAX_TURNS_PER_RUN) {
+                throw new IllegalStateException(
+                    "对话回合超过上限（" + MAX_TURNS_PER_RUN + "），已停止本轮以避免循环重试"
+                );
             }
         } catch (Exception e) {
             state.setError(e.getMessage());
