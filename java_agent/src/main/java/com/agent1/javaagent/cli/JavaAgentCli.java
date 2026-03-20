@@ -7,6 +7,7 @@ import com.agent1.javaagent.cli.skills.ClaudeSkillPromptRenderer;
 import com.agent1.javaagent.cli.tools.ReadFileTool;
 import com.agent1.javaagent.cli.tools.RunBashTool;
 import com.agent1.javaagent.cli.tools.RunPythonTool;
+import com.agent1.javaagent.cli.tools.SkillTool;
 import com.agent1.javaagent.core.AgentOptions;
 import com.agent1.javaagent.core.AgentRuntime;
 import com.agent1.javaagent.event.AgentEvent;
@@ -75,7 +76,12 @@ public final class JavaAgentCli {
         final Map<String, ClaudeSkill> skillsByName = loadDiscoveredSkills(enableColor);
         final Path workspaceRoot = Path.of(".").toAbsolutePath().normalize();
 
-        List<AgentTool> tools = List.of(new ReadFileTool(workspaceRoot), new RunBashTool(), new RunPythonTool());
+        List<AgentTool> tools = List.of(
+            new ReadFileTool(workspaceRoot),
+            new RunBashTool(),
+            new RunPythonTool(),
+            new SkillTool(workspaceRoot)
+        );
 
         // 构建系统提示词，包含可用的 skills 列表
         String systemPrompt = new SystemPromptBuilder()
