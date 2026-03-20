@@ -16,6 +16,7 @@ import com.agent1.javaagent.tool.ToolUpdateListener;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -96,6 +97,79 @@ class ToolLoopIntegrationTest {
         assertEquals(AgentMessage.ROLE_ASSISTANT, snapshot.getMessages().get(3).getRole());
         assertTrue(events.contains(AgentEventType.TOOL_EXECUTION_START));
         assertTrue(events.contains(AgentEventType.TOOL_EXECUTION_END));
+
+        runtime.close();
+    }
+
+    @Test
+    void prompt_shouldTimeoutLongRunningToolAndContinue() {
+        ToolCall call = new ToolCall("call_timeout", "slow_tool", "{}");
+        ArrayDeque<AssistantResponse> responses = new ArrayDeque<>();
+        responses.add(new AssistantResponse("", List.of(call)));
+        responses.add(new AssistantResponse("handled timeout", List.of()));
+
+        LlmClient fakeClient = new LlmClient() {
+            @Override
+            public AssistantResponse streamChat(
+                ChatRequest request,
+                List<AgentTool> tools,
+                LlmStreamListener streamListener,
+                CancellationToken cancellationToken
+            ) {
+                AssistantResponse response = responses.removeFirst();
+                if (!response.getContent().isBlank()) {
+                    streamListener.onTextDelta(response.getContent());
+                }
+                return response;
+            }
+        };
+
+        AgentTool slowTool = new AgentTool() {
+            @Override
+            public String name() {
+                return "slow_tool";
+            }
+
+            @Override
+            public String description() {
+                return "simulate long running tool";
+            }
+
+            @Override
+            public JsonNode parametersSchema() {
+                ObjectNode node = MAPPER.createObjectNode();
+                node.put("type", "object");
+                return node;
+            }
+
+            @Override
+            public ToolExecutionResult execute(
+                String toolCallId,
+                JsonNode parameters,
+                CancellationToken cancellationToken,
+                ToolUpdateListener onUpdate
+            ) throws Exception {
+                Thread.sleep(1_200);
+                return ToolExecutionResult.text("unexpected");
+            }
+        };
+
+        AgentRuntime runtime = new AgentRuntime(
+            AgentOptions.builder("test-model")
+                .tools(List.of(slowTool))
+                .defaultToolTimeout(Duration.ofMillis(200))
+                .build(),
+            fakeClient
+        );
+
+        runtime.prompt("run timeout case").join();
+        AgentStateSnapshot snapshot = runtime.getStateSnapshot();
+
+        assertEquals(4, snapshot.getMessages().size());
+        assertEquals(AgentMessage.ROLE_TOOL_RESULT, snapshot.getMessages().get(2).getRole());
+        assertTrue(snapshot.getMessages().get(2).isError());
+        assertTrue(snapshot.getMessages().get(2).getContent().contains("工具执行超时"));
+        assertEquals("handled timeout", snapshot.getMessages().get(3).getContent());
 
         runtime.close();
     }

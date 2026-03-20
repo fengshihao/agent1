@@ -2,6 +2,7 @@ package com.agent1.javaagent.core;
 
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.tool.AgentTool;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -12,6 +13,7 @@ public final class AgentOptions {
     private final List<AgentTool> tools;
     private final List<AgentMessage> messages;
     private final ContextTransformer transformContext;
+    private final Duration defaultToolTimeout;
 
     private AgentOptions(Builder builder) {
         this.systemPrompt = builder.systemPrompt;
@@ -19,6 +21,7 @@ public final class AgentOptions {
         this.tools = List.copyOf(builder.tools);
         this.messages = List.copyOf(builder.messages);
         this.transformContext = builder.transformContext;
+        this.defaultToolTimeout = builder.defaultToolTimeout;
     }
 
     public String getSystemPrompt() {
@@ -41,6 +44,10 @@ public final class AgentOptions {
         return transformContext;
     }
 
+    public Duration getDefaultToolTimeout() {
+        return defaultToolTimeout;
+    }
+
     public static Builder builder(String model) {
         return new Builder(model);
     }
@@ -51,6 +58,7 @@ public final class AgentOptions {
         private final List<AgentTool> tools = new ArrayList<>();
         private final List<AgentMessage> messages = new ArrayList<>();
         private ContextTransformer transformContext = in -> in;
+        private Duration defaultToolTimeout = Duration.ofSeconds(30);
 
         private Builder(String model) {
             this.model = model;
@@ -79,6 +87,14 @@ public final class AgentOptions {
 
         public Builder transformContext(ContextTransformer transformContext) {
             this.transformContext = transformContext == null ? (in -> in) : transformContext;
+            return this;
+        }
+
+        public Builder defaultToolTimeout(Duration defaultToolTimeout) {
+            if (defaultToolTimeout == null || defaultToolTimeout.isZero() || defaultToolTimeout.isNegative()) {
+                return this;
+            }
+            this.defaultToolTimeout = defaultToolTimeout;
             return this;
         }
 

@@ -16,13 +16,16 @@ import com.agent1.javaagent.tool.ToolExecutionUpdate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.Closeable;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.subjects.PublishSubject;
 import io.reactivex.rxjava3.subjects.Subject;
@@ -38,6 +41,8 @@ public final class AgentRuntime implements Closeable {
     private final List<AgentEventListener> listeners = new CopyOnWriteArrayList<>();
     private final Subject<AgentEvent> eventSubject = PublishSubject.<AgentEvent>create().toSerialized();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService toolExecutor = Executors.newCachedThreadPool();
+    private final Duration defaultToolTimeout;
 
     private CompletableFuture<Void> runningTask;
     private CancellationToken cancellationToken;
@@ -56,6 +61,7 @@ public final class AgentRuntime implements Closeable {
         this.llmClient = llmClient;
         this.transformContext = options.getTransformContext();
         this.mapper = mapper;
+        this.defaultToolTimeout = options.getDefaultToolTimeout();
     }
 
     public AgentStateSnapshot getStateSnapshot() {
@@ -243,15 +249,37 @@ public final class AgentRuntime implements Closeable {
             }
 
             JsonNode parameters = mapper.readTree(toolCall.getArgumentsJson());
-            result = tool.execute(
-                toolCall.getId(),
-                parameters,
-                token,
-                update -> emit(
-                    AgentEventType.TOOL_EXECUTION_UPDATE,
-                    new EventPayloads.ToolExecutionUpdatePayload(toolCall.getId(), sanitizeUpdate(update))
-                )
+            long timeoutMs = estimateToolTimeoutMs(toolCall.getName(), parameters);
+            CompletableFuture<ToolExecutionResult> toolTask = CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return tool.execute(
+                            toolCall.getId(),
+                            parameters,
+                            token,
+                            update -> emit(
+                                AgentEventType.TOOL_EXECUTION_UPDATE,
+                                new EventPayloads.ToolExecutionUpdatePayload(toolCall.getId(), sanitizeUpdate(update))
+                            )
+                        );
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                },
+                toolExecutor
             );
+
+            try {
+                result = toolTask.get(timeoutMs, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException timeout) {
+                toolTask.cancel(true);
+                isError = true;
+                errorMessage = "工具执行超时（" + timeoutMs + "ms）: " + toolCall.getName();
+                result = ToolExecutionResult.text(errorMessage + "。已中断本次调用，请调整参数后重试。");
+            } catch (ExecutionException exec) {
+                Throwable cause = exec.getCause() == null ? exec : exec.getCause();
+                throw new RuntimeException(cause);
+            }
         } catch (Exception e) {
             isError = true;
             errorMessage = e.getMessage() == null ? "Tool execution failed" : e.getMessage();
@@ -274,6 +302,34 @@ public final class AgentRuntime implements Closeable {
             return new ToolExecutionUpdate("", null);
         }
         return update;
+    }
+
+    private long estimateToolTimeoutMs(String toolName, JsonNode parameters) {
+        long fallback = Math.max(defaultToolTimeout.toMillis(), 1_000L);
+        if (toolName == null) {
+            return fallback;
+        }
+        return switch (toolName) {
+            case "read" -> Math.min(fallback, 10_000L);
+            case "run_bash" -> Math.max(fallback, 60_000L);
+            case "run_python" -> Math.max(fallback, 45_000L);
+            case "skill" -> estimateSkillToolTimeoutMs(fallback, parameters);
+            default -> fallback;
+        };
+    }
+
+    private long estimateSkillToolTimeoutMs(long fallback, JsonNode parameters) {
+        String action = parameters == null ? "" : parameters.path("action").asText("");
+        if ("search".equalsIgnoreCase(action)) {
+            return Math.max(fallback, 20_000L);
+        }
+        if ("install".equalsIgnoreCase(action)) {
+            return Math.max(fallback, 90_000L);
+        }
+        if ("uninstall".equalsIgnoreCase(action)) {
+            return Math.max(fallback, 15_000L);
+        }
+        return Math.max(fallback, 15_000L);
     }
 
     private List<AgentMessage> buildContextMessages() {
@@ -304,8 +360,14 @@ public final class AgentRuntime implements Closeable {
             runningTask.join();
         }
         executor.shutdown();
+        toolExecutor.shutdownNow();
         try {
             executor.awaitTermination(5, TimeUnit.SECONDS);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+        try {
+            toolExecutor.awaitTermination(2, TimeUnit.SECONDS);
         } catch (InterruptedException ignored) {
             Thread.currentThread().interrupt();
         }
