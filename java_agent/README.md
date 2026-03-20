@@ -78,6 +78,12 @@ CLI 输出增强：
 - 工具调用与结果预览（终端显示截断）
 - JSONL 结构化日志（`run_started/model_request/model_text_delta/tool_call/tool_result/model_response/run_completed`）
 
+Skill（Claude Code 风格）支持：
+- 自动发现项目目录下 `.claude/skills/*/SKILL.md`
+- 交互模式或单次模式可用 `/skill-name 参数` 手动触发
+- 当前支持变量替换：`$ARGUMENTS`、`$ARGUMENTS[N]`、`$0/$1...`、`${CLAUDE_SKILL_DIR}`
+- 示例：`/.claude/skills/shell-helper/SKILL.md`（调用示例：`/shell-helper 查看当前仓库状态`）
+
 ## Android 接入方式
 
 `core` 模块可发布到本地 Maven 并由 Android 工程以 artifact 依赖接入。

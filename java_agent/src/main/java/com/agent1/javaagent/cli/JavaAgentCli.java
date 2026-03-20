@@ -1,6 +1,9 @@
 package com.agent1.javaagent.cli;
 
 import com.agent1.javaagent.cli.logging.JsonlLogger;
+import com.agent1.javaagent.cli.skills.ClaudeSkill;
+import com.agent1.javaagent.cli.skills.ClaudeSkillLoader;
+import com.agent1.javaagent.cli.skills.ClaudeSkillPromptRenderer;
 import com.agent1.javaagent.cli.tools.RunBashTool;
 import com.agent1.javaagent.cli.tools.RunPythonTool;
 import com.agent1.javaagent.core.AgentOptions;
@@ -24,8 +27,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class JavaAgentCli {
+    private static final Pattern SKILL_COMMAND_PATTERN = Pattern.compile("^/([A-Za-z0-9:_-]+)(?:\\s+(.*))?$");
     private static final String ANSI_RESET = "\u001B[0m";
     private static final String ANSI_BOLD = "\u001B[1m";
     private static final String ANSI_DIM = "\u001B[2m";
@@ -66,6 +72,7 @@ public final class JavaAgentCli {
         final boolean enableColor = shouldEnableColor();
         final JsonlLogger logger = new JsonlLogger();
         final AtomicReference<RunContext> currentRun = new AtomicReference<>();
+        final Map<String, ClaudeSkill> skillsByName = loadDiscoveredSkills(enableColor);
 
         List<AgentTool> tools = List.of(new RunBashTool(), new RunPythonTool());
         String systemPrompt = "你是一个有帮助的 AI 助手，可以执行 bash 命令和 Python 脚本。"
@@ -89,12 +96,12 @@ public final class JavaAgentCli {
         System.out.println(colorize(ANSI_DIM, enableColor, "日志文件: " + logger.getLogPath()));
 
         if (!isBlank(prompt)) {
-            runOnce(runtime, logger, currentRun, prompt, streamDisabled, enableColor);
+            runOnce(runtime, logger, currentRun, skillsByName, prompt, streamDisabled, enableColor);
             runtime.close();
             return;
         }
 
-        runInteractive(runtime, logger, currentRun, streamDisabled, enableColor);
+        runInteractive(runtime, logger, currentRun, skillsByName, streamDisabled, enableColor);
         runtime.close();
     }
 
@@ -102,17 +109,19 @@ public final class JavaAgentCli {
         AgentRuntime runtime,
         JsonlLogger logger,
         AtomicReference<RunContext> currentRun,
+        Map<String, ClaudeSkill> skillsByName,
         String prompt,
         boolean noStream,
         boolean enableColor
     ) {
-        executePrompt(runtime, logger, currentRun, prompt, "single", noStream, enableColor);
+        executePrompt(runtime, logger, currentRun, skillsByName, prompt, "single", noStream, enableColor);
     }
 
     private static void runInteractive(
         AgentRuntime runtime,
         JsonlLogger logger,
         AtomicReference<RunContext> currentRun,
+        Map<String, ClaudeSkill> skillsByName,
         boolean noStream,
         boolean enableColor
     ) throws IOException {
@@ -133,7 +142,7 @@ public final class JavaAgentCli {
             if ("/exit".equalsIgnoreCase(trimmed) || "exit".equalsIgnoreCase(trimmed)) {
                 break;
             }
-            executePrompt(runtime, logger, currentRun, trimmed, "interactive", noStream, enableColor);
+            executePrompt(runtime, logger, currentRun, skillsByName, trimmed, "interactive", noStream, enableColor);
         }
     }
 
@@ -141,21 +150,27 @@ public final class JavaAgentCli {
         AgentRuntime runtime,
         JsonlLogger logger,
         AtomicReference<RunContext> currentRun,
-        String prompt,
+        Map<String, ClaudeSkill> skillsByName,
+        String userInput,
         String mode,
         boolean noStream,
         boolean enableColor
     ) {
+        ResolvedPrompt resolvedPrompt = resolvePrompt(userInput, skillsByName, enableColor);
+        String prompt = resolvedPrompt.prompt();
+        String runMode = resolvedPrompt.skillName() == null ? mode : mode + ":skill(" + resolvedPrompt.skillName() + ")";
         String runId = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        RunContext run = new RunContext(runId, prompt, mode);
+        RunContext run = new RunContext(runId, prompt, runMode);
         currentRun.set(run);
 
         logger.writeEvent(
             "run_started",
             runId,
             Map.of(
-                "mode", mode,
+                "mode", runMode,
                 "prompt", prompt,
+                "user_input", userInput,
+                "skill_name", resolvedPrompt.skillName() == null ? "" : resolvedPrompt.skillName(),
                 "log_file", logger.getLogPath().toString(),
                 "message_history_count", runtime.getStateSnapshot().getMessages().size()
             )
@@ -346,6 +361,56 @@ public final class JavaAgentCli {
             + shellPreference;
     }
 
+    private static Map<String, ClaudeSkill> loadDiscoveredSkills(boolean enableColor) {
+        ClaudeSkillLoader loader = new ClaudeSkillLoader();
+        ClaudeSkillLoader.SkillLoadResult loadResult = loader.loadFromProjectRoot(Path.of(".").toAbsolutePath().normalize());
+        Map<String, ClaudeSkill> skillsByName = new LinkedHashMap<>();
+        for (ClaudeSkill skill : loadResult.skills()) {
+            skillsByName.put(skill.getName(), skill);
+        }
+        int count = loadResult.skills().size();
+
+        if (count > 0) {
+            String names = loadResult.skills().stream()
+                .map(skill -> skill.getName())
+                .sorted()
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("");
+            System.out.println(colorize(ANSI_DIM, enableColor, "发现 Claude skills: " + count + " 个 [" + names + "]"));
+        } else {
+            System.out.println(colorize(ANSI_DIM, enableColor, "发现 Claude skills: 0 个"));
+        }
+
+        for (String warning : loadResult.warnings()) {
+            System.out.println(colorize(ANSI_YELLOW, enableColor, "[skills] " + warning));
+        }
+        return skillsByName;
+    }
+
+    private static ResolvedPrompt resolvePrompt(String userInput, Map<String, ClaudeSkill> skillsByName, boolean enableColor) {
+        String trimmed = userInput == null ? "" : userInput.trim();
+        if (!trimmed.startsWith("/")) {
+            return new ResolvedPrompt(userInput, null);
+        }
+
+        Matcher matcher = SKILL_COMMAND_PATTERN.matcher(trimmed);
+        if (!matcher.matches()) {
+            return new ResolvedPrompt(userInput, null);
+        }
+
+        String command = matcher.group(1);
+        String arguments = matcher.group(2) == null ? "" : matcher.group(2);
+        ClaudeSkill skill = skillsByName.get(command);
+        if (skill == null) {
+            System.out.println(colorize(ANSI_YELLOW, enableColor, "[skill] 未找到: " + command + "，按普通消息处理"));
+            return new ResolvedPrompt(userInput, null);
+        }
+
+        String rendered = ClaudeSkillPromptRenderer.render(skill, arguments);
+        System.out.println(colorize(ANSI_CYAN, enableColor, "[skill] 使用 " + command));
+        return new ResolvedPrompt(rendered, command);
+    }
+
     private static final class RunContext {
         private final String runId;
         @SuppressWarnings("unused")
@@ -360,5 +425,8 @@ public final class JavaAgentCli {
             this.mode = mode;
             this.sawTextDelta = false;
         }
+    }
+
+    private record ResolvedPrompt(String prompt, String skillName) {
     }
 }

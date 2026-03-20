@@ -67,7 +67,15 @@ fun LlmUiTestScreen(
         )
     }
 
-    var intent by remember { mutableStateOf("生成一个请假申请表单，包含姓名、开始日期、结束日期、请假类型和原因") }
+    var intent by remember {
+        mutableStateOf(
+            """
+            每月3日上午九点，提醒我开会。
+            根据以上内容生成一个UI界面，UI中针对以上内容的每个细节部分都有体现，并可以调节所有的可能选项。
+            你可以扩展想想一下用户可能会对哪些未提及的选项感兴趣，并添加到UI中，或者手动修改内容每一项内容。
+            """.trimIndent()
+        )
+    }
     var rawJson by remember { mutableStateOf("") }
     var parseError by remember { mutableStateOf<String?>(null) }
     var document by remember { mutableStateOf<UiDocument?>(null) }
