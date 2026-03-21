@@ -115,7 +115,8 @@ public final class OpenAiCompatibleClient implements LlmClient {
                                 // Ignore secondary parse failure.
                             }
                         }
-                        errors.add(new IllegalStateException("SSE failed: " + t.getMessage() + " " + body, t));
+                        String reason = describeFailure(t, response);
+                        errors.add(new IllegalStateException("SSE failed: " + reason + " " + body, t));
                     }
                     done.countDown();
                 }
@@ -249,6 +250,21 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 }
             }
         }
+    }
+
+    /** OkHttp may pass a null {@code Throwable} to {@code EventSourceListener#onFailure}. */
+    private static String describeFailure(Throwable t, okhttp3.Response response) {
+        if (t != null) {
+            String m = t.getMessage();
+            if (m != null && !m.isBlank()) {
+                return m;
+            }
+            return t.getClass().getSimpleName();
+        }
+        if (response != null) {
+            return "HTTP " + response.code() + " " + response.message();
+        }
+        return "unknown (no Throwable, no Response)";
     }
 
     private static final class PartialToolCall {
