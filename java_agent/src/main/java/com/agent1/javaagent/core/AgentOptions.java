@@ -14,6 +14,7 @@ public final class AgentOptions {
     private final List<AgentMessage> messages;
     private final ContextTransformer transformContext;
     private final Duration defaultToolTimeout;
+    private final int maxContextMessages;
 
     private AgentOptions(Builder builder) {
         this.systemPrompt = builder.systemPrompt;
@@ -22,6 +23,7 @@ public final class AgentOptions {
         this.messages = List.copyOf(builder.messages);
         this.transformContext = builder.transformContext;
         this.defaultToolTimeout = builder.defaultToolTimeout;
+        this.maxContextMessages = builder.maxContextMessages;
     }
 
     public String getSystemPrompt() {
@@ -48,6 +50,14 @@ public final class AgentOptions {
         return defaultToolTimeout;
     }
 
+    /**
+     * Max number of user/assistant/tool messages passed to the LLM per request; 0 = unlimited.
+     * Does not trim persisted {@link AgentState} history.
+     */
+    public int getMaxContextMessages() {
+        return maxContextMessages;
+    }
+
     public static Builder builder(String model) {
         return new Builder(model);
     }
@@ -59,6 +69,7 @@ public final class AgentOptions {
         private final List<AgentMessage> messages = new ArrayList<>();
         private ContextTransformer transformContext = in -> in;
         private Duration defaultToolTimeout = Duration.ofSeconds(30);
+        private int maxContextMessages;
 
         private Builder(String model) {
             this.model = model;
@@ -95,6 +106,14 @@ public final class AgentOptions {
                 return this;
             }
             this.defaultToolTimeout = defaultToolTimeout;
+            return this;
+        }
+
+        /**
+         * @param maxContextMessages {@code <= 0} keeps full history in LLM context (default).
+         */
+        public Builder maxContextMessages(int maxContextMessages) {
+            this.maxContextMessages = maxContextMessages;
             return this;
         }
 

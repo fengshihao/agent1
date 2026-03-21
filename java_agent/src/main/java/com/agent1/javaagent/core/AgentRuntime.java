@@ -43,6 +43,7 @@ public final class AgentRuntime implements Closeable {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final ExecutorService toolExecutor = Executors.newCachedThreadPool();
     private final Duration defaultToolTimeout;
+    private final int maxContextMessages;
 
     private CompletableFuture<Void> runningTask;
     private CancellationToken cancellationToken;
@@ -62,6 +63,7 @@ public final class AgentRuntime implements Closeable {
         this.transformContext = options.getTransformContext();
         this.mapper = mapper;
         this.defaultToolTimeout = options.getDefaultToolTimeout();
+        this.maxContextMessages = options.getMaxContextMessages();
     }
 
     public AgentStateSnapshot getStateSnapshot() {
@@ -334,12 +336,13 @@ public final class AgentRuntime implements Closeable {
 
     private List<AgentMessage> buildContextMessages() {
         List<AgentMessage> transformed = transformContext.transform(state.getMessages());
+        List<AgentMessage> forModel = MessageHistoryLimiter.limitTail(transformed, maxContextMessages);
         if (state.getSystemPrompt().isBlank()) {
-            return transformed;
+            return forModel;
         }
         List<AgentMessage> withSystem = new ArrayList<>();
         withSystem.add(AgentMessage.system(state.getSystemPrompt()));
-        withSystem.addAll(transformed);
+        withSystem.addAll(forModel);
         return withSystem;
     }
 

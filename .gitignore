@@ -8,6 +8,7 @@ java_agent/.gradle/
 java_agent/build/
 java_agent/**/.gradle/
 java_agent/**/build/
+java_agent/**/bin/
 
 # Local memory notes
 user_memory.md

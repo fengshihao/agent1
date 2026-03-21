@@ -72,6 +72,7 @@ public final class JavaAgentCli {
             "https://dashscope.aliyuncs.com/compatible-mode/v1"
         );
         String model = firstNonBlank(System.getenv("OPENAI_MODEL"), "qwen3.5-flash");
+        int maxContextMessages = parsePositiveIntOrZero(System.getenv("AGENT1_MAX_CONTEXT_MESSAGES"), 0);
         final boolean streamDisabled = noStream;
         final boolean enableColor = shouldEnableColor();
         final JsonlLogger logger = new JsonlLogger();
@@ -95,6 +96,7 @@ public final class JavaAgentCli {
             AgentOptions.builder(model)
                 .systemPrompt(systemPrompt)
                 .tools(tools)
+                .maxContextMessages(maxContextMessages)
                 .build(),
             new OpenAiCompatibleClient(
                 new OpenAiCompatibleConfig(apiKey, baseUrl, Duration.ofSeconds(120), 0.2)
@@ -105,6 +107,10 @@ public final class JavaAgentCli {
 
         Runtime.getRuntime().addShutdownHook(new Thread(runtime::close));
         System.out.println(colorize(ANSI_DIM, enableColor, "日志文件: " + logger.getLogPath()));
+        if (maxContextMessages > 0) {
+            System.out.println(colorize(ANSI_DIM, enableColor,
+                "LLM 上下文消息上限: " + maxContextMessages + "（环境变量 AGENT1_MAX_CONTEXT_MESSAGES；0=不截断）"));
+        }
 
         if (!isBlank(prompt)) {
             runOnce(runtime, logger, currentRun, skillsByName, prompt, streamDisabled, enableColor);
@@ -312,6 +318,19 @@ public final class JavaAgentCli {
 
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    /** Positive integer from env; blank or invalid yields {@code defaultIfInvalid}. Non-positive yields default. */
+    private static int parsePositiveIntOrZero(String raw, int defaultIfInvalid) {
+        if (isBlank(raw)) {
+            return defaultIfInvalid;
+        }
+        try {
+            int v = Integer.parseInt(raw.trim());
+            return v > 0 ? v : defaultIfInvalid;
+        } catch (NumberFormatException e) {
+            return defaultIfInvalid;
+        }
     }
 
     private static AgentMessage findLatestAssistantMessage(AgentRuntime runtime) {
