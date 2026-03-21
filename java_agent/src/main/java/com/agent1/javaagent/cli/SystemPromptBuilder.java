@@ -19,8 +19,17 @@ public final class SystemPromptBuilder {
         + "请使用 Markdown 格式回复。";
 
     private final List<ClaudeSkill> availableSkills = new ArrayList<>();
+    private Path memoryDatabasePath;
 
     public SystemPromptBuilder() {
+    }
+
+    /**
+     * SQLite file for long-term memory (run_bash + sqlite3). If null, the memory section is omitted.
+     */
+    public SystemPromptBuilder memoryDatabasePath(Path path) {
+        this.memoryDatabasePath = path;
+        return this;
     }
 
     /**
@@ -84,6 +93,8 @@ public final class SystemPromptBuilder {
         // 可用 skill 列表
         sb.append(buildSkillListSection());
 
+        sb.append(buildMemorySection());
+
         return sb.toString();
     }
 
@@ -146,6 +157,39 @@ public final class SystemPromptBuilder {
         sb.append("\n示例：当用户问天气时，先 read 对应 weather skill 的 SKILL.md，再决定是否调用 run_bash。");
 
         return sb.toString();
+    }
+
+    private String buildMemorySection() {
+        if (memoryDatabasePath == null) {
+            return "";
+        }
+        Path abs = memoryDatabasePath.toAbsolutePath().normalize();
+        Path cwd = Path.of(".").toAbsolutePath().normalize();
+        String relativeDisplay = abs.toString();
+        try {
+            Path rel = cwd.relativize(abs);
+            if (!rel.startsWith("..")) {
+                relativeDisplay = rel.toString();
+            }
+        } catch (Exception ignored) {
+        }
+        String env = firstNonBlank(System.getenv("AGENT1_MEMORY_DB"));
+        String envLine = env.isEmpty()
+            ? "默认路径见下；也可设置环境变量 AGENT1_MEMORY_DB 指向其它 .sqlite 文件。"
+            : "当前由环境变量 AGENT1_MEMORY_DB 指向该文件。";
+
+        return "\n\n=== 长期记忆（SQLite）===\n"
+            + "你可以在本地 SQLite 中持久化跨会话的信息（偏好、结论、项目事实等）。"
+            + "系统提示里会附带「记忆库结构」快照（每条用户消息后的首次模型请求更新一次）；表内数据需你通过工具自行查询。\n"
+            + envLine
+            + "\n- 绝对路径（供 sqlite3 使用）：" + abs
+            + "\n- 相对当前工作目录：" + relativeDisplay
+            + "\n- 读写方式：仅使用 **run_bash** 执行 `sqlite3`；示例："
+            + "`sqlite3 \"" + abs.toString().replace("\"", "\\\"") + "\" \"SELECT 1 LIMIT 1;\"`。"
+            + "路径含空格时必须为路径加引号；不要用交互式点命令，优先一条 SQL 字符串。\n"
+            + "何时读：回答不确定、缺少上下文、需要延续历史结论时先 SELECT（带 LIMIT）。\n"
+            + "何时写：在即将结束本轮、不再调用工具并回复用户之前，判断是否有值得长期保留的信息；若有则先 sqlite3 写入，再回复。避免无意义刷屏。\n"
+            + "若本机没有 sqlite3 可执行文件，请如实说明，不要假装已写入。\n";
     }
 
     private static String firstNonBlank(String... values) {

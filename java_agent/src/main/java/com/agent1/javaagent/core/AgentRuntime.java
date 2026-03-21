@@ -11,15 +11,19 @@ import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
 import com.agent1.javaagent.model.ToolCall;
 import com.agent1.javaagent.tool.AgentTool;
+import com.agent1.javaagent.memory.MemorySqliteCatalog;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolExecutionUpdate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.Closeable;
 import java.time.Duration;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -44,6 +48,8 @@ public final class AgentRuntime implements Closeable {
     private final ExecutorService toolExecutor = Executors.newCachedThreadPool();
     private final Duration defaultToolTimeout;
     private final int maxContextMessages;
+    private final Optional<Path> memoryDatabasePath;
+    private final AtomicBoolean attachMemoryCatalogNextLlmCall = new AtomicBoolean(false);
 
     private CompletableFuture<Void> runningTask;
     private CancellationToken cancellationToken;
@@ -64,6 +70,7 @@ public final class AgentRuntime implements Closeable {
         this.mapper = mapper;
         this.defaultToolTimeout = options.getDefaultToolTimeout();
         this.maxContextMessages = options.getMaxContextMessages();
+        this.memoryDatabasePath = options.getMemoryDatabasePath();
     }
 
     public AgentStateSnapshot getStateSnapshot() {
@@ -108,6 +115,9 @@ public final class AgentRuntime implements Closeable {
             throw new IllegalArgumentException("prompt(message) only accepts role=user");
         }
         state.appendMessage(message);
+        if (memoryDatabasePath.isPresent()) {
+            attachMemoryCatalogNextLlmCall.set(true);
+        }
         return startRunLocked();
     }
 
@@ -335,13 +345,17 @@ public final class AgentRuntime implements Closeable {
     }
 
     private List<AgentMessage> buildContextMessages() {
+        String systemPrompt = state.getSystemPrompt();
+        if (attachMemoryCatalogNextLlmCall.getAndSet(false) && memoryDatabasePath.isPresent()) {
+            systemPrompt = systemPrompt + "\n\n" + MemorySqliteCatalog.buildSection(memoryDatabasePath.get());
+        }
         List<AgentMessage> transformed = transformContext.transform(state.getMessages());
         List<AgentMessage> forModel = MessageHistoryLimiter.limitTail(transformed, maxContextMessages);
-        if (state.getSystemPrompt().isBlank()) {
+        if (systemPrompt.isBlank()) {
             return forModel;
         }
         List<AgentMessage> withSystem = new ArrayList<>();
-        withSystem.add(AgentMessage.system(state.getSystemPrompt()));
+        withSystem.add(AgentMessage.system(systemPrompt));
         withSystem.addAll(forModel);
         return withSystem;
     }

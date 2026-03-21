@@ -73,6 +73,7 @@ fat jar（可单独运行）：
 - `OPENAI_MODEL`（默认 `qwen3.5-flash`）
 - `AGENT1_LOG_FILE`（覆盖 JSONL 日志路径，默认 `./logs/agent1.jsonl`）
 - `AGENT1_MAX_CONTEXT_MESSAGES`（发往 LLM 的 user/assistant/tool 消息最多保留最近 N 条；`0` 或未设置表示不截断。内存中的完整历史仍保留在 `AgentState`，仅请求上下文缩短；配合 SQLite 记忆可把 N 调小）
+- `AGENT1_MEMORY_DB`（可选，覆盖长期记忆 SQLite 文件路径；默认 `./.agent1/memory.sqlite`。模型通过 `run_bash` + `sqlite3` 读写；每条用户消息后的**首次**模型请求会在 system 中附带当前库的表结构快照）
 
 CLI 输出增强：
 - 彩色状态提示（可通过 `NO_COLOR=1` 关闭）

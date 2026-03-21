@@ -12,3 +12,6 @@ java_agent/**/bin/
 
 # Local memory notes
 user_memory.md
+
+# Java agent local SQLite long-term memory
+.agent1/

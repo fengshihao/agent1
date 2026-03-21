@@ -2,10 +2,12 @@ package com.agent1.javaagent.core;
 
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.tool.AgentTool;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class AgentOptions {
     private final String systemPrompt;
@@ -15,6 +17,7 @@ public final class AgentOptions {
     private final ContextTransformer transformContext;
     private final Duration defaultToolTimeout;
     private final int maxContextMessages;
+    private final Optional<Path> memoryDatabasePath;
 
     private AgentOptions(Builder builder) {
         this.systemPrompt = builder.systemPrompt;
@@ -24,6 +27,7 @@ public final class AgentOptions {
         this.transformContext = builder.transformContext;
         this.defaultToolTimeout = builder.defaultToolTimeout;
         this.maxContextMessages = builder.maxContextMessages;
+        this.memoryDatabasePath = builder.memoryDatabasePath;
     }
 
     public String getSystemPrompt() {
@@ -58,6 +62,13 @@ public final class AgentOptions {
         return maxContextMessages;
     }
 
+    /**
+     * Optional path to the SQLite file used for long-term memory; empty disables catalog injection.
+     */
+    public Optional<Path> getMemoryDatabasePath() {
+        return memoryDatabasePath;
+    }
+
     public static Builder builder(String model) {
         return new Builder(model);
     }
@@ -70,6 +81,7 @@ public final class AgentOptions {
         private ContextTransformer transformContext = in -> in;
         private Duration defaultToolTimeout = Duration.ofSeconds(30);
         private int maxContextMessages;
+        private Optional<Path> memoryDatabasePath = Optional.empty();
 
         private Builder(String model) {
             this.model = model;
@@ -114,6 +126,11 @@ public final class AgentOptions {
          */
         public Builder maxContextMessages(int maxContextMessages) {
             this.maxContextMessages = maxContextMessages;
+            return this;
+        }
+
+        public Builder memoryDatabasePath(Path path) {
+            this.memoryDatabasePath = path == null ? Optional.empty() : Optional.of(path);
             return this;
         }
 
