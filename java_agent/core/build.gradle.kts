@@ -19,6 +19,7 @@ dependencies {
     api("com.squareup.okhttp3:okhttp-sse:4.12.0")
     api("com.fasterxml.jackson.core:jackson-databind:2.17.2")
     api("io.reactivex.rxjava3:rxjava:3.1.9")
+    api("org.xerial:sqlite-jdbc:3.51.3.0")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")

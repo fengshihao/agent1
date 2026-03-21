@@ -178,18 +178,26 @@ public final class SystemPromptBuilder {
             ? "默认路径见下；也可设置环境变量 AGENT1_MEMORY_DB 指向其它 .sqlite 文件。"
             : "当前由环境变量 AGENT1_MEMORY_DB 指向该文件。";
 
-        return "\n\n=== 长期记忆（SQLite）===\n"
-            + "你可以在本地 SQLite 中持久化跨会话的信息（偏好、结论、项目事实等）。"
-            + "系统提示里会附带「记忆库结构」快照（每条用户消息后的首次模型请求更新一次）；表内数据需你通过工具自行查询。\n"
+        return "\n\n=== 长期记忆（SQLite + memory 工具）===\n"
+            + "你可以通过 memory 工具持久化跨会话信息（偏好、结论、项目事实等），不要再用 run_bash + sqlite3 操作记忆库。\n"
+            + "系统会在每条用户消息后的首次模型请求附带「记忆库结构」快照；表内数据请用 memory(search/read) 查看。\n"
             + envLine
-            + "\n- 绝对路径（供 sqlite3 使用）：" + abs
+            + "\n- 数据库路径（内部维护，供你理解上下文）：" + abs
             + "\n- 相对当前工作目录：" + relativeDisplay
-            + "\n- 读写方式：仅使用 **run_bash** 执行 `sqlite3`；示例："
-            + "`sqlite3 \"" + abs.toString().replace("\"", "\\\"") + "\" \"SELECT 1 LIMIT 1;\"`。"
-            + "路径含空格时必须为路径加引号；不要用交互式点命令，优先一条 SQL 字符串。\n"
-            + "何时读：回答不确定、缺少上下文、需要延续历史结论时先 SELECT（带 LIMIT）。\n"
-            + "何时写：在即将结束本轮、不再调用工具并回复用户之前，判断是否有值得长期保留的信息；若有则先 sqlite3 写入，再回复。避免无意义刷屏。\n"
-            + "若本机没有 sqlite3 可执行文件，请如实说明，不要假装已写入。\n";
+            + "\n- 固定表结构（memories）：id（唯一标识）, created_at, type(data/code/txt/calen), keywords（逗号分隔）, summary（<100字，必填）, content。"
+            + "\n- memory 工具 action：search/read/write。"
+            + "\n  - search：按 query/type 搜索，最多20条，返回 id + summary 供你判断是否继续 read。"
+            + "\n  - read：按 id 读取完整内容。"
+            + "\n  - write：写入一条记忆（type/summary/content 必填，keywords 建议填写）。\n"
+            + "通用决策原则（优先级高于业务工具调用）："
+            + "\n1) 先判断任务是否依赖“当前上下文中不可直接验证的信息”（用户偏好、历史事实、约束、既往决策等）。若依赖，则先 memory(search)。"
+            + "\n2) search 命中后，先基于 summary 选择并 memory(read) 最相关记录，再继续业务推理或工具调用。"
+            + "\n3) 仅当任务所需信息已在本轮输入或当前上下文中充分给出，且不依赖历史信息时，才可跳过 memory(search)。"
+            + "\n4) 若信息不确定且 search 未命中，应明确告知不确定性，并向用户补充提问或请求确认，而不是直接假设。\n"
+            + "搜索表达式提示：这是字符串匹配。建议给多个可能关键词，支持通配符 * 和 ?，"
+            + "支持与或非，如 `k1 & k2`、`k1 || k2`、`!k3`。若不写操作符，空格分隔词会按 OR 处理。\n"
+            + "何时读：回答不确定、缺少上下文、需要延续历史结论时先 search/read。\n"
+            + "何时写：在即将结束本轮、不再调用工具并回复用户之前，判断是否有值得长期保留的信息；若有则先 memory(write) 再回复。避免无意义刷屏。\n";
     }
 
     private static String firstNonBlank(String... values) {

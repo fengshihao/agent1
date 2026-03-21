@@ -4,6 +4,7 @@ import com.agent1.javaagent.cli.logging.JsonlLogger;
 import com.agent1.javaagent.cli.skills.ClaudeSkill;
 import com.agent1.javaagent.cli.skills.ClaudeSkillLoader;
 import com.agent1.javaagent.cli.skills.ClaudeSkillPromptRenderer;
+import com.agent1.javaagent.cli.tools.MemoryTool;
 import com.agent1.javaagent.cli.tools.ReadFileTool;
 import com.agent1.javaagent.cli.tools.RunBashTool;
 import com.agent1.javaagent.cli.tools.RunPythonTool;
@@ -92,6 +93,7 @@ public final class JavaAgentCli {
 
         List<AgentTool> tools = List.of(
             new ReadFileTool(workspaceRoot),
+            new MemoryTool(memoryDb),
             new RunBashTool(),
             new RunPythonTool(),
             new SkillTool(workspaceRoot)
