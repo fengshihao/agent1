@@ -35,9 +35,6 @@ import io.reactivex.rxjava3.subjects.PublishSubject;
 import io.reactivex.rxjava3.subjects.Subject;
 
 public final class AgentRuntime implements Closeable {
-    private static final int MAX_TURNS_PER_RUN = 12;
-    private static final int MAX_TOOL_CALLS_PER_RUN = 24;
-
     private final AgentState state;
     private final LlmClient llmClient;
     private final ContextTransformer transformContext;
@@ -48,6 +45,8 @@ public final class AgentRuntime implements Closeable {
     private final ExecutorService toolExecutor = Executors.newCachedThreadPool();
     private final Duration defaultToolTimeout;
     private final int maxContextMessages;
+    private final int maxTurnsPerRun;
+    private final int maxToolCallsPerRun;
     private final Optional<Path> memoryDatabasePath;
     private final AtomicBoolean attachMemoryCatalogNextLlmCall = new AtomicBoolean(false);
 
@@ -70,6 +69,8 @@ public final class AgentRuntime implements Closeable {
         this.mapper = mapper;
         this.defaultToolTimeout = options.getDefaultToolTimeout();
         this.maxContextMessages = options.getMaxContextMessages();
+        this.maxTurnsPerRun = options.getMaxTurnsPerRun();
+        this.maxToolCallsPerRun = options.getMaxToolCallsPerRun();
         this.memoryDatabasePath = options.getMemoryDatabasePath();
     }
 
@@ -164,7 +165,7 @@ public final class AgentRuntime implements Closeable {
         int toolCallCount = 0;
 
         try {
-            while (!token.isCancelled() && turnIndex < MAX_TURNS_PER_RUN) {
+            while (!token.isCancelled() && turnIndex < maxTurnsPerRun) {
                 emit(AgentEventType.TURN_START, new EventPayloads.TurnStart(turnIndex));
 
                 AssistantResponse assistantResponse = runSingleTurn(token);
@@ -181,9 +182,9 @@ public final class AgentRuntime implements Closeable {
                         if (token.isCancelled()) {
                             break;
                         }
-                        if (toolCallCount >= MAX_TOOL_CALLS_PER_RUN) {
+                        if (toolCallCount >= maxToolCallsPerRun) {
                             throw new IllegalStateException(
-                                "工具调用次数超过上限（" + MAX_TOOL_CALLS_PER_RUN + "），已停止本轮以避免循环重试"
+                                "工具调用次数超过上限（" + maxToolCallsPerRun + "），已停止本轮以避免循环重试"
                             );
                         }
                         toolResults.add(executeToolCall(toolCall, token));
@@ -197,9 +198,9 @@ public final class AgentRuntime implements Closeable {
                 }
                 turnIndex += 1;
             }
-            if (turnIndex >= MAX_TURNS_PER_RUN) {
+            if (turnIndex >= maxTurnsPerRun) {
                 throw new IllegalStateException(
-                    "对话回合超过上限（" + MAX_TURNS_PER_RUN + "），已停止本轮以避免循环重试"
+                    "对话回合超过上限（" + maxTurnsPerRun + "），已停止本轮以避免循环重试"
                 );
             }
         } catch (Exception e) {

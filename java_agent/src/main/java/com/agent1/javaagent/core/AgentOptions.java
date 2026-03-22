@@ -10,6 +10,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class AgentOptions {
+    public static final int DEFAULT_MAX_TURNS_PER_RUN = 12;
+    public static final int DEFAULT_MAX_TOOL_CALLS_PER_RUN = 24;
+
     private final String systemPrompt;
     private final String model;
     private final List<AgentTool> tools;
@@ -18,6 +21,8 @@ public final class AgentOptions {
     private final Duration defaultToolTimeout;
     private final int maxContextMessages;
     private final Optional<Path> memoryDatabasePath;
+    private final int maxTurnsPerRun;
+    private final int maxToolCallsPerRun;
 
     private AgentOptions(Builder builder) {
         this.systemPrompt = builder.systemPrompt;
@@ -28,6 +33,9 @@ public final class AgentOptions {
         this.defaultToolTimeout = builder.defaultToolTimeout;
         this.maxContextMessages = builder.maxContextMessages;
         this.memoryDatabasePath = builder.memoryDatabasePath;
+        this.maxTurnsPerRun = builder.maxTurnsPerRun > 0 ? builder.maxTurnsPerRun : DEFAULT_MAX_TURNS_PER_RUN;
+        this.maxToolCallsPerRun =
+            builder.maxToolCallsPerRun > 0 ? builder.maxToolCallsPerRun : DEFAULT_MAX_TOOL_CALLS_PER_RUN;
     }
 
     public String getSystemPrompt() {
@@ -69,6 +77,20 @@ public final class AgentOptions {
         return memoryDatabasePath;
     }
 
+    /**
+     * Max model rounds that may end with tool calls before the run aborts (default 12).
+     */
+    public int getMaxTurnsPerRun() {
+        return maxTurnsPerRun;
+    }
+
+    /**
+     * Max tool invocations per user prompt run (default 24).
+     */
+    public int getMaxToolCallsPerRun() {
+        return maxToolCallsPerRun;
+    }
+
     public static Builder builder(String model) {
         return new Builder(model);
     }
@@ -82,6 +104,10 @@ public final class AgentOptions {
         private Duration defaultToolTimeout = Duration.ofSeconds(30);
         private int maxContextMessages;
         private Optional<Path> memoryDatabasePath = Optional.empty();
+        /** {@code <= 0} uses {@link AgentOptions#DEFAULT_MAX_TURNS_PER_RUN}. */
+        private int maxTurnsPerRun;
+        /** {@code <= 0} uses {@link AgentOptions#DEFAULT_MAX_TOOL_CALLS_PER_RUN}. */
+        private int maxToolCallsPerRun;
 
         private Builder(String model) {
             this.model = model;
@@ -131,6 +157,16 @@ public final class AgentOptions {
 
         public Builder memoryDatabasePath(Path path) {
             this.memoryDatabasePath = path == null ? Optional.empty() : Optional.of(path);
+            return this;
+        }
+
+        public Builder maxTurnsPerRun(int maxTurnsPerRun) {
+            this.maxTurnsPerRun = maxTurnsPerRun;
+            return this;
+        }
+
+        public Builder maxToolCallsPerRun(int maxToolCallsPerRun) {
+            this.maxToolCallsPerRun = maxToolCallsPerRun;
             return this;
         }
 

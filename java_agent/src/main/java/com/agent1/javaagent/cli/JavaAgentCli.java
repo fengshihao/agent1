@@ -75,6 +75,8 @@ public final class JavaAgentCli {
         );
         String model = firstNonBlank(System.getenv("OPENAI_MODEL"), "qwen3.5-flash");
         int maxContextMessages = parsePositiveIntOrZero(System.getenv("AGENT1_MAX_CONTEXT_MESSAGES"), 0);
+        int maxTurnsPerRun = parsePositiveIntOrZero(System.getenv("AGENT1_MAX_TURNS_PER_RUN"), 0);
+        int maxToolCallsPerRun = parsePositiveIntOrZero(System.getenv("AGENT1_MAX_TOOL_CALLS_PER_RUN"), 0);
         final boolean streamDisabled = noStream;
         final boolean enableColor = shouldEnableColor();
         final JsonlLogger logger = new JsonlLogger();
@@ -110,6 +112,8 @@ public final class JavaAgentCli {
                 .systemPrompt(systemPrompt)
                 .tools(tools)
                 .maxContextMessages(maxContextMessages)
+                .maxTurnsPerRun(maxTurnsPerRun)
+                .maxToolCallsPerRun(maxToolCallsPerRun)
                 .memoryDatabasePath(memoryDb)
                 .build(),
             new OpenAiCompatibleClient(
@@ -126,6 +130,14 @@ public final class JavaAgentCli {
         if (maxContextMessages > 0) {
             System.out.println(colorize(ANSI_DIM, enableColor,
                 "LLM 上下文消息上限: " + maxContextMessages + "（环境变量 AGENT1_MAX_CONTEXT_MESSAGES；0=不截断）"));
+        }
+        if (maxTurnsPerRun > 0 || maxToolCallsPerRun > 0) {
+            int rt = maxTurnsPerRun > 0 ? maxTurnsPerRun : AgentOptions.DEFAULT_MAX_TURNS_PER_RUN;
+            int tc = maxToolCallsPerRun > 0 ? maxToolCallsPerRun : AgentOptions.DEFAULT_MAX_TOOL_CALLS_PER_RUN;
+            System.out.println(colorize(ANSI_DIM, enableColor,
+                "Agent 回合/工具上限: " + rt + " 回合, " + tc + " 次工具（AGENT1_MAX_TURNS_PER_RUN /"
+                    + " AGENT1_MAX_TOOL_CALLS_PER_RUN；未设置则用默认 "
+                    + AgentOptions.DEFAULT_MAX_TURNS_PER_RUN + " / " + AgentOptions.DEFAULT_MAX_TOOL_CALLS_PER_RUN + "）"));
         }
 
         if (!isBlank(prompt)) {

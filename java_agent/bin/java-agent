@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# 本脚本在 java_agent/bin/，工程根目录为其上一级（含 settings.gradle.kts、gradlew）
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+PROJECT_DIR="$(cd "${BIN_DIR}/.." && pwd -P)"
 JAR_PATH="${PROJECT_DIR}/cli/build/libs/cli-0.1.0-SNAPSHOT-all.jar"
 JAVA17_BIN="/Users/fengshihao/.jdks/jdk-17.jdk/Contents/Home/bin/java"
 
 if [[ "${JAVA_AGENT_SKIP_BUILD:-0}" != "1" ]]; then
   echo "[java-agent] 检查并构建 fat jar（Gradle 增量）..." >&2
-  gradle --no-daemon -p "${PROJECT_DIR}" :cli:fatJar >/dev/null
+  (cd "${PROJECT_DIR}" && ./gradlew --no-daemon ":cli:fatJar") >/dev/null
 elif [[ ! -f "${JAR_PATH}" ]]; then
   echo "错误: 未找到 fat jar，且已设置 JAVA_AGENT_SKIP_BUILD=1" >&2
   exit 1
