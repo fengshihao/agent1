@@ -1,6 +1,7 @@
-"""Bash 命令执行工具."""
+"""Bash 命令执行工具。"""
 
 import os
+import platform
 import shutil
 import subprocess
 from typing import Optional, Tuple
@@ -71,17 +72,44 @@ def run_bash(command: str) -> str:
                     timeout=60,
                 )
         else:
-            bash_path = shutil.which("bash")
-            run_kwargs = {
-                "args": command,
-                "shell": True,
-                "capture_output": True,
-                "text": True,
-                "timeout": 60,
-            }
-            if bash_path:
-                run_kwargs["executable"] = bash_path
-            result = subprocess.run(**run_kwargs)
+            # 与 java_agent RunBashTool 对齐：macOS 优先 zsh -lc，其余优先 bash
+            if platform.system() == "Darwin":
+                zsh_path = shutil.which("zsh")
+                if zsh_path:
+                    result = subprocess.run(
+                        [zsh_path, "-lc", command],
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                    )
+                else:
+                    bash_path = shutil.which("bash")
+                    if bash_path:
+                        result = subprocess.run(
+                            [bash_path, "-lc", command],
+                            capture_output=True,
+                            text=True,
+                            timeout=60,
+                        )
+                    else:
+                        result = subprocess.run(
+                            ["/bin/sh", "-lc", command],
+                            capture_output=True,
+                            text=True,
+                            timeout=60,
+                        )
+            else:
+                bash_path = shutil.which("bash")
+                run_kwargs = {
+                    "args": command,
+                    "shell": True,
+                    "capture_output": True,
+                    "text": True,
+                    "timeout": 60,
+                }
+                if bash_path:
+                    run_kwargs["executable"] = bash_path
+                result = subprocess.run(**run_kwargs)
         output_parts = []
         if result.stdout:
             output_parts.append(result.stdout)

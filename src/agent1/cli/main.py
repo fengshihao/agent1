@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
+import re
 import sys
 import uuid
+from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from pydantic_ai.exceptions import ModelHTTPError
@@ -17,14 +20,103 @@ from rich.console import Console, Group
 from rich.live import Live
 from rich.markdown import Markdown
 
-from agent1.agent import agent
+from agent1.agent_factory import create_workspace_agent
+from agent1.core.runtime import Agent1Runtime
 from agent1.logging_utils import get_log_path, write_jsonl_event
+from agent1.skills.loader import ClaudeSkill
+from agent1.skills.prompt_renderer import render_skill_prompt
+
+_SKILL_CMD = re.compile(r"^/([A-Za-z0-9:_-]+)(?:\s+(.*))?$")
+
+# 与 java_agent JavaAgentCli 中 TOOL_*_PREVIEW_LIMIT 对齐
+_TOOL_ARG_PREVIEW_LIMIT = 220
+_TOOL_TEXT_PREVIEW_LIMIT = 280
+
+
+def _truncate(text: str, max_len: int) -> str:
+    if text is None:
+        return ""
+    if len(text) <= max_len:
+        return text
+    return text[:max_len] + "...(truncated)"
+
+
+def _tool_args_preview(tool_args: object) -> str:
+    if tool_args is None:
+        return ""
+    if isinstance(tool_args, str):
+        raw = tool_args.strip()
+    elif isinstance(tool_args, dict):
+        try:
+            raw = json.dumps(tool_args, ensure_ascii=False, separators=(",", ":"))
+        except (TypeError, ValueError):
+            raw = str(tool_args)
+    else:
+        try:
+            raw = json.dumps(tool_args, ensure_ascii=False, separators=(",", ":"))
+        except (TypeError, ValueError):
+            raw = str(tool_args)
+    return _truncate(raw, _TOOL_ARG_PREVIEW_LIMIT)
+
+
+def _print_tool_call_line(out: Console, tool_name: str, tool_args: object, tool_call_id: str) -> None:
+    preview = _tool_args_preview(tool_args)
+    out.print()
+    out.print(f"[cyan][tool] 调用 {tool_name} args={preview}[/cyan]")
+
+
+def _print_tool_result_line(
+    out: Console,
+    tool_call_id: str,
+    result_text: str,
+    *,
+    is_error: bool = False,
+    error_message: str = "",
+) -> None:
+    if is_error:
+        msg = _truncate(error_message or result_text or "unknown", _TOOL_TEXT_PREVIEW_LIMIT)
+        out.print(f"[red][tool] 失败 {tool_call_id}: {msg}[/red]")
+    else:
+        preview = _truncate(result_text or "", _TOOL_TEXT_PREVIEW_LIMIT)
+        out.print(f"[green][tool] 完成 {tool_call_id} result={preview}[/green]")
+
+
+def _print_tool_logs_from_message_suffix(out: Console, previous: Optional[List], current: List) -> None:
+    """非流式 run_sync 后，从本轮新增的 ModelMessage 里还原工具调用/结果（对齐 Java 终端信息）。"""
+    if not current:
+        return
+    start = len(previous or [])
+    if start >= len(current):
+        return
+    for msg in current[start:]:
+        parts = getattr(msg, "parts", None) or []
+        for part in parts:
+            pname = type(part).__name__
+            tool_name = getattr(part, "tool_name", None)
+            tool_call_id = getattr(part, "tool_call_id", None)
+            if pname == "ToolCallPart" or (tool_name and tool_call_id):
+                args = getattr(part, "args", None)
+                if args is None and callable(getattr(part, "args_as_dict", None)):
+                    try:
+                        args = part.args_as_dict()
+                    except Exception:
+                        args = getattr(part, "arguments_json", None)
+                _print_tool_call_line(out, str(tool_name), args, str(tool_call_id))
+                continue
+            if pname == "ToolReturnPart" or (
+                tool_call_id and not tool_name and getattr(part, "content", None) is not None
+            ):
+                content = getattr(part, "content", None)
+                text = content if isinstance(content, str) else str(content)
+                err = bool(getattr(part, "is_error", False))
+                em = str(getattr(part, "error_message", "") or "")
+                _print_tool_result_line(out, str(tool_call_id), text, is_error=err, error_message=em)
 
 
 def main(args: Optional[Sequence[str]] = None) -> None:
     """CLI 入口。"""
     parser = argparse.ArgumentParser(
-        description="Pydantic AI 智能体：bash/python 工具，Rich Markdown 输出"
+        description="Agent1：read/memory/bash/python/skill 工具 + 与 java_agent 对齐的薄运行时"
     )
     parser.add_argument(
         "prompt",
@@ -38,18 +130,56 @@ def main(args: Optional[Sequence[str]] = None) -> None:
     )
     parsed = parser.parse_args(args)
 
-    if parsed.prompt:
-        if parsed.no_stream:
-            _run_once_sync(parsed.prompt)
+    try:
+        _, runtime, skills_by_name = create_workspace_agent(Path.cwd())
+    except RuntimeError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
+
+    _print_startup_hints(Console(), runtime)
+
+    try:
+        if parsed.prompt:
+            if parsed.no_stream:
+                _run_once_sync(parsed.prompt, runtime, skills_by_name)
+            else:
+                asyncio.run(_run_once_stream(parsed.prompt, runtime, skills_by_name))
         else:
-            asyncio.run(_run_once_stream(parsed.prompt))
-    else:
-        asyncio.run(_run_interactive(parsed.no_stream))
+            asyncio.run(_run_interactive(parsed.no_stream, runtime, skills_by_name))
+    except KeyboardInterrupt:
+        sys.exit(130)
 
 
-def _run_once_sync(prompt: str) -> None:
+def _print_startup_hints(console: Console, runtime: Agent1Runtime) -> None:
+    mem = runtime.memory_db_path
+    if mem is not None:
+        console.print(f"[dim]长期记忆 SQLite: {mem}（AGENT1_MEMORY_DB 可覆盖）[/dim]")
+    skills = list((Path.cwd() / ".claude" / "skills").glob("*/SKILL.md")) if (Path.cwd() / ".claude" / "skills").is_dir() else []
+    console.print(f"[dim]发现本地 skill 目录: {len(skills)} 个 SKILL.md[/dim]")
+
+
+def _resolve_cli_prompt(
+    user_input: str, skills_by_name: Dict[str, ClaudeSkill], console: Console
+) -> Tuple[str, Optional[str]]:
+    trimmed = (user_input or "").strip()
+    if not trimmed.startswith("/"):
+        return user_input, None
+    m = _SKILL_CMD.match(trimmed)
+    if not m:
+        return user_input, None
+    command, raw_args = m.group(1), m.group(2) or ""
+    sk = skills_by_name.get(command)
+    if sk is None:
+        console.print(f"[yellow][skill] 未找到: {command}，按普通消息处理[/yellow]")
+        return user_input, None
+    console.print(f"[cyan][skill] 使用 {command}[/cyan]")
+    return render_skill_prompt(sk, raw_args), command
+
+
+def _run_once_sync(user_input: str, runtime: Agent1Runtime, skills_by_name: Dict[str, ClaudeSkill]) -> None:
     """单次模式，非流式。"""
     console = Console()
+    prompt, skill_name = _resolve_cli_prompt(user_input, skills_by_name, console)
     run_id = _new_run_id()
     log_path = get_log_path()
     console.print(f"[dim]运行中（run_id={run_id}）...[/dim]")
@@ -59,12 +189,15 @@ def _run_once_sync(prompt: str) -> None:
         run_id,
         mode="single_sync",
         prompt=prompt,
+        user_input=user_input,
+        skill_name=skill_name or "",
         log_file=str(log_path),
     )
     write_jsonl_event("model_request", run_id, input_prompt=prompt)
 
     try:
-        result = agent.run_sync(prompt)
+        result = runtime.run_sync(prompt, inject_memory_catalog=True)
+        _print_tool_logs_from_message_suffix(console, None, list(result.all_messages()))
         output_text = result.output if isinstance(result.output, str) else str(result.output)
         _print_markdown(console, output_text)
 
@@ -89,18 +222,25 @@ def _run_once_sync(prompt: str) -> None:
         sys.exit(1)
 
 
-async def _run_once_stream(prompt: str) -> None:
+async def _run_once_stream(
+    user_input: str, runtime: Agent1Runtime, skills_by_name: Dict[str, ClaudeSkill]
+) -> None:
     """单次模式，流式输出。"""
-    await _run_stream_direct(Console(), prompt, session_usage=_new_empty_usage())
+    await _run_stream_direct(
+        Console(), user_input, runtime, skills_by_name, session_usage=_new_empty_usage()
+    )
 
 
 async def _run_stream_direct(
     console: Console,
-    prompt: str,
+    user_input: str,
+    runtime: Agent1Runtime,
+    skills_by_name: Dict[str, ClaudeSkill],
     message_history: Optional[List] = None,
     session_usage: Optional[Dict[str, int]] = None,
 ) -> Tuple[str, List]:
     """流式执行。返回 (最终文本, 更新后的 message_history)。"""
+    prompt, skill_name = _resolve_cli_prompt(user_input, skills_by_name, console)
     run_id = _new_run_id()
     log_path = get_log_path()
     kwargs = {"message_history": message_history} if message_history else {}
@@ -110,6 +250,8 @@ async def _run_stream_direct(
         run_id,
         mode="stream",
         prompt=prompt,
+        user_input=user_input,
+        skill_name=skill_name or "",
         message_history_count=len(message_history or []),
         log_file=str(log_path),
     )
@@ -126,7 +268,9 @@ async def _run_stream_direct(
     try:
         live.start()
         live.update(_build_stream_renderable("", _extract_usage_dict(stream_usage), dict(session_usage or _new_empty_usage()), run_id, "请求已发送"))
-        async for event in agent.run_stream_events(prompt, usage=stream_usage, **kwargs):
+        async for event in runtime.run_stream_events(
+            prompt, usage=stream_usage, inject_memory_catalog=True, **kwargs
+        ):
             if isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
                 delta = event.delta.content_delta or ""
                 if delta:
@@ -143,13 +287,13 @@ async def _run_stream_direct(
             elif isinstance(event, FunctionToolCallEvent):
                 tool_name = event.part.tool_name
                 tool_args = event.part.args
-                console.print(f"[dim]工具调用: {tool_name}[/dim]")
+                _print_tool_call_line(live.console, tool_name, tool_args, event.part.tool_call_id)
                 run_usage = _extract_usage_dict(stream_usage)
                 session_usage_live = dict(session_usage or _new_empty_usage())
                 _merge_usage(session_usage_live, run_usage)
                 live.update(
                     _build_stream_renderable(
-                        "".join(accumulated), run_usage, session_usage_live, run_id, f"工具调用: {tool_name}"
+                        "".join(accumulated), run_usage, session_usage_live, run_id, f"工具: {tool_name}"
                     )
                 )
                 write_jsonl_event(
@@ -160,20 +304,33 @@ async def _run_stream_direct(
                     tool_call_id=event.part.tool_call_id,
                 )
             elif isinstance(event, FunctionToolResultEvent):
-                console.print(f"[dim]工具返回: {event.tool_call_id}[/dim]")
+                res = event.result
+                rcontent = getattr(res, "content", "")
+                rtext = rcontent if isinstance(rcontent, str) else str(rcontent or "")
+                is_err = bool(getattr(res, "is_error", False))
+                err_msg = str(getattr(res, "error_message", "") or "")
+                _print_tool_result_line(
+                    live.console,
+                    event.tool_call_id,
+                    rtext,
+                    is_error=is_err,
+                    error_message=err_msg,
+                )
                 run_usage = _extract_usage_dict(stream_usage)
                 session_usage_live = dict(session_usage or _new_empty_usage())
                 _merge_usage(session_usage_live, run_usage)
                 live.update(
                     _build_stream_renderable(
-                        "".join(accumulated), run_usage, session_usage_live, run_id, f"工具返回: {event.tool_call_id}"
+                        "".join(accumulated), run_usage, session_usage_live, run_id, "流式生成中"
                     )
                 )
                 write_jsonl_event(
                     "tool_result",
                     run_id,
                     tool_call_id=event.tool_call_id,
-                    result=str(event.result.content),
+                    result=rtext,
+                    is_error=is_err,
+                    error_message=err_msg or None,
                 )
             elif isinstance(event, AgentRunResultEvent):
                 final_result = event.result
@@ -227,14 +384,16 @@ def _print_markdown(console: Console, text: str) -> None:
     console.print(Markdown(text))
 
 
-async def _run_interactive(no_stream: bool) -> None:
+async def _run_interactive(
+    no_stream: bool, runtime: Agent1Runtime, skills_by_name: Dict[str, ClaudeSkill]
+) -> None:
     """交互模式：REPL 多轮对话。"""
     console = Console()
     message_history: List = []
     session_usage = _new_empty_usage()
     log_path = get_log_path()
 
-    console.print("[bold]Agent1 交互模式[/bold]（输入 /exit 退出）")
+    console.print("[bold]Agent1 交互模式[/bold]（输入 /exit 退出；/技能名 触发 SKILL）")
     console.print(f"[dim]日志文件: {log_path}[/dim]\n")
 
     while True:
@@ -251,22 +410,29 @@ async def _run_interactive(no_stream: bool) -> None:
 
         if no_stream:
             run_id = _new_run_id()
+            prompt, skill_name = _resolve_cli_prompt(user_input, skills_by_name, console)
             write_jsonl_event(
                 "run_started",
                 run_id,
                 mode="interactive_sync",
-                prompt=user_input,
+                prompt=prompt,
+                user_input=user_input,
+                skill_name=skill_name or "",
                 message_history_count=len(message_history),
                 log_file=str(log_path),
             )
-            write_jsonl_event("model_request", run_id, input_prompt=user_input)
+            write_jsonl_event("model_request", run_id, input_prompt=prompt)
             console.print(f"[dim]运行中（run_id={run_id}）...[/dim]")
             try:
-                result = agent.run_sync(
-                    user_input,
+                prev_msgs = list(message_history) if message_history else []
+                result = runtime.run_sync(
+                    prompt,
                     message_history=message_history if message_history else None,
+                    inject_memory_catalog=True,
                 )
-                message_history = result.all_messages()
+                new_msgs = list(result.all_messages())
+                _print_tool_logs_from_message_suffix(console, prev_msgs, new_msgs)
+                message_history = new_msgs
                 output_text = result.output if isinstance(result.output, str) else str(result.output)
                 _print_markdown(console, output_text)
                 run_usage = _extract_usage_dict(result.usage())
@@ -293,6 +459,8 @@ async def _run_interactive(no_stream: bool) -> None:
             _, message_history = await _run_stream_direct(
                 console,
                 user_input,
+                runtime,
+                skills_by_name,
                 message_history=message_history if message_history else None,
                 session_usage=session_usage,
             )
