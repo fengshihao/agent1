@@ -3,15 +3,46 @@
 
 ## v1 当前实现（已落地）
 
-第一版已在 `android` 目录提供最小可运行工程，范围如下：
+`android` 目录为可运行 Demo 工程；**下文「后续增量」已在当前代码中实现**，详细运行方式、API Key 与 Tab 说明以 `android/README.md` 为准。
 
-- 仅 Android 本地资源 JSON 渲染（不依赖 AI 生成）
+### 基础能力（本地 JSON）
+
+- Android `assets` 本地 JSON 渲染（可完全离线浏览样例）
 - 支持组件：`text` `button` `column` `row` `image`
 - 支持样式：`padding` `backgroundColor` `textColor` `fontSize` `fontWeight`
 - 支持事件：`navigate(route, params)`
-- 提供样例 JSON 与解析单元测试
+- 样例：`app/src/main/assets/ui/*.json`，解析层单元测试：`app/src/test/.../UiParserTest.kt`
+
+### 后续增量（相对初版说明文档）
+
+以下能力在后续提交中加入，**GitHub 请以 `main` 为准**；若仓库默认分支仍为 `master`，需将 `master` 与 `main` 同步（见文末「仓库分支」），否则网页上看到的 `agent_ui` 可能是旧快照。
+
+1. **表单与交互组件**  
+   - 新增：`input`、`select`（选项 `label`/`value`）、`time_picker`、`date_picker`  
+   - 未知类型走 `unknown` 兜底，便于模型输出与解析迭代  
+
+2. **更多本地样例**  
+   - 除 `simple_text.json`、`button_nav.json` 外，还有 `mixed_layout.json`、`form_controls.json`、`survey_form.json` 等，覆盖混排布局与问卷场景。  
+
+3. **「Qwen 生成」工作流（第二 Tab）**  
+   - 通过阿里云 DashScope OpenAI 兼容接口调用 **Qwen** 生成 UI JSON；系统提示词位于 `app/src/main/assets/prompts/`（如 `ui_generation_system_prompt.txt`、`ui_summary_system_prompt.txt`），可按产品策略调整。  
+   - 生成界面支持用户填写表单后 **「提交用户选择」**，由模型根据填写内容做总结（详见 `android/README.md` 中的「快速验证」）。  
+
+4. **Java 侧 LLM 编排（`JavaBackedLlmUiAgent`）**  
+   - Demo 内通过本仓库 **`java-agent-core`** 制品（`java_agent` 工程中 core 与 CLI 拆分后的运行时核心）在设备上做多轮对话与工具调用，与仓库内 Java/Python agent 能力保持同一演进方向。  
+
+5. **崩溃与诊断**  
+   - `CrashReporter` 持久化上次崩溃信息；若存在历史崩溃，启动条会提示并可跳转到 Qwen 页查看报告，便于联调 LLM 与 UI 解析。  
+
+6. **工程与脚本**  
+   - 含 Gradle Wrapper、`android/run.sh` 等，便于在工程根目录执行构建/安装（脚本行为以仓库内最新说明为准）。  
 
 如需快速上手，请先看 `android/README.md`。
+
+### 仓库分支
+
+- **主开发分支为 `main`**，上述能力均在 `main` 上。  
+- 若 GitHub 默认分支或书签仍指向 **`master`**，且页面内容与本地不一致，请在本地执行：`git checkout master && git merge --ff-only main && git push origin master`，使 `master` 与 `main` 指向同一提交（仅快进、不产生额外合并提交）。
 
 ## 📋 项目概述
 
