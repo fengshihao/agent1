@@ -19,17 +19,8 @@ public final class SystemPromptBuilder {
         + "请使用 Markdown 格式回复。";
 
     private final List<ClaudeSkill> availableSkills = new ArrayList<>();
-    private Path memoryDatabasePath;
 
     public SystemPromptBuilder() {
-    }
-
-    /**
-     * SQLite file for long-term memory (run_bash + sqlite3). If null, the memory section is omitted.
-     */
-    public SystemPromptBuilder memoryDatabasePath(Path path) {
-        this.memoryDatabasePath = path;
-        return this;
     }
 
     /**
@@ -93,8 +84,6 @@ public final class SystemPromptBuilder {
         // 可用 skill 列表
         sb.append(buildSkillListSection());
 
-        sb.append(buildMemorySection());
-
         return sb.toString();
     }
 
@@ -157,47 +146,6 @@ public final class SystemPromptBuilder {
         sb.append("\n示例：当用户问天气时，先 read 对应 weather skill 的 SKILL.md，再决定是否调用 run_bash。");
 
         return sb.toString();
-    }
-
-    private String buildMemorySection() {
-        if (memoryDatabasePath == null) {
-            return "";
-        }
-        Path abs = memoryDatabasePath.toAbsolutePath().normalize();
-        Path cwd = Path.of(".").toAbsolutePath().normalize();
-        String relativeDisplay = abs.toString();
-        try {
-            Path rel = cwd.relativize(abs);
-            if (!rel.startsWith("..")) {
-                relativeDisplay = rel.toString();
-            }
-        } catch (Exception ignored) {
-        }
-        String env = firstNonBlank(System.getenv("AGENT1_MEMORY_DB"));
-        String envLine = env.isEmpty()
-            ? "默认路径见下；也可设置环境变量 AGENT1_MEMORY_DB 指向其它 .sqlite 文件。"
-            : "当前由环境变量 AGENT1_MEMORY_DB 指向该文件。";
-
-        return "\n\n=== 长期记忆（SQLite + memory 工具）===\n"
-            + "你可以通过 memory 工具持久化跨会话信息（偏好、结论、项目事实等），不要再用 run_bash + sqlite3 操作记忆库。\n"
-            + "系统会在每条用户消息后的首次模型请求附带「记忆库结构」快照；表内数据请用 memory(search/read) 查看。\n"
-            + envLine
-            + "\n- 数据库路径（内部维护，供你理解上下文）：" + abs
-            + "\n- 相对当前工作目录：" + relativeDisplay
-            + "\n- 固定表结构（memories）：id（唯一标识）, created_at, type(data/code/txt/calen), keywords（逗号分隔）, summary（<100字，必填）, content。"
-            + "\n- memory 工具 action：search/read/write。"
-            + "\n  - search：按 query/type 搜索，最多20条，返回 id + summary 供你判断是否继续 read。"
-            + "\n  - read：按 id 读取完整内容。"
-            + "\n  - write：写入一条记忆（type/summary/content 必填，keywords 建议填写）。\n"
-            + "通用决策原则（优先级高于业务工具调用）："
-            + "\n1) 先判断任务是否依赖“当前上下文中不可直接验证的信息”（用户偏好、历史事实、约束、既往决策等）。若依赖，则先 memory(search)。"
-            + "\n2) search 命中后，先基于 summary 选择并 memory(read) 最相关记录，再继续业务推理或工具调用。"
-            + "\n3) 仅当任务所需信息已在本轮输入或当前上下文中充分给出，且不依赖历史信息时，才可跳过 memory(search)。"
-            + "\n4) 若信息不确定且 search 未命中，应明确告知不确定性，并向用户补充提问或请求确认，而不是直接假设。\n"
-            + "搜索表达式提示：这是字符串匹配。建议给多个可能关键词，支持通配符 * 和 ?，"
-            + "支持与或非，如 `k1 & k2`、`k1 || k2`、`!k3`。若不写操作符，空格分隔词会按 OR 处理。\n"
-            + "何时读：回答不确定、缺少上下文、需要延续历史结论时先 search/read。\n"
-            + "何时写：在即将结束本轮、不再调用工具并回复用户之前，判断是否有值得长期保留的信息；若有则先 memory(write) 再回复。避免无意义刷屏。\n";
     }
 
     private static String firstNonBlank(String... values) {

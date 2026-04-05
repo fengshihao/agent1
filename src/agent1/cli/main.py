@@ -116,7 +116,7 @@ def _print_tool_logs_from_message_suffix(out: Console, previous: Optional[List],
 def main(args: Optional[Sequence[str]] = None) -> None:
     """CLI 入口。"""
     parser = argparse.ArgumentParser(
-        description="Agent1：read/memory/bash/python/skill 工具 + 与 java_agent 对齐的薄运行时"
+        description="Agent1：read/bash/python/skill 工具 + 与 java_agent 对齐的薄运行时"
     )
     parser.add_argument(
         "prompt",
@@ -151,9 +151,6 @@ def main(args: Optional[Sequence[str]] = None) -> None:
 
 
 def _print_startup_hints(console: Console, runtime: Agent1Runtime) -> None:
-    mem = runtime.memory_db_path
-    if mem is not None:
-        console.print(f"[dim]长期记忆 SQLite: {mem}（AGENT1_MEMORY_DB 可覆盖）[/dim]")
     skills = list((Path.cwd() / ".claude" / "skills").glob("*/SKILL.md")) if (Path.cwd() / ".claude" / "skills").is_dir() else []
     console.print(f"[dim]发现本地 skill 目录: {len(skills)} 个 SKILL.md[/dim]")
 
@@ -196,7 +193,7 @@ def _run_once_sync(user_input: str, runtime: Agent1Runtime, skills_by_name: Dict
     write_jsonl_event("model_request", run_id, input_prompt=prompt)
 
     try:
-        result = runtime.run_sync(prompt, inject_memory_catalog=True)
+        result = runtime.run_sync(prompt)
         _print_tool_logs_from_message_suffix(console, None, list(result.all_messages()))
         output_text = result.output if isinstance(result.output, str) else str(result.output)
         _print_markdown(console, output_text)
@@ -269,7 +266,7 @@ async def _run_stream_direct(
         live.start()
         live.update(_build_stream_renderable("", _extract_usage_dict(stream_usage), dict(session_usage or _new_empty_usage()), run_id, "请求已发送"))
         async for event in runtime.run_stream_events(
-            prompt, usage=stream_usage, inject_memory_catalog=True, **kwargs
+            prompt, usage=stream_usage, **kwargs
         ):
             if isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
                 delta = event.delta.content_delta or ""
@@ -428,7 +425,6 @@ async def _run_interactive(
                 result = runtime.run_sync(
                     prompt,
                     message_history=message_history if message_history else None,
-                    inject_memory_catalog=True,
                 )
                 new_msgs = list(result.all_messages())
                 _print_tool_logs_from_message_suffix(console, prev_msgs, new_msgs)

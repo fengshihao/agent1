@@ -14,7 +14,6 @@ from agent1.core.runtime import Agent1Runtime
 from agent1.skills.loader import ClaudeSkill, ClaudeSkillLoader
 from agent1.system_prompt_builder import SystemPromptBuilder
 from agent1.tools.run_bash import run_bash
-from agent1.tools.memory_tool import make_memory_tool
 from agent1.tools.run_python import make_run_python
 from agent1.tools.read_file import make_read_tool
 from agent1.tools.skill_tool import make_skill_tool
@@ -28,14 +27,6 @@ def _parse_positive_int(raw: Optional[str], default: int) -> int:
         return v if v > 0 else default
     except ValueError:
         return default
-
-
-def resolve_memory_database_path(workspace_root: Path) -> Path:
-    env = (os.environ.get("AGENT1_MEMORY_DB") or "").strip()
-    if env:
-        p = Path(env)
-        return p if p.is_absolute() else (workspace_root / p).resolve()
-    return (workspace_root / ".agent1" / "memory.sqlite").resolve()
 
 
 def build_model() -> OpenAIChatModel:
@@ -54,23 +45,19 @@ def build_model() -> OpenAIChatModel:
 def create_workspace_agent(
     workspace_root: Optional[Path] = None,
 ) -> Tuple[Any, Agent1Runtime, Dict[str, ClaudeSkill]]:
-    """Create Agent with read/memory/run_bash/run_python/skill tools and thin runtime shell."""
+    """Create Agent with read/run_bash/run_python/skill tools and thin runtime shell."""
     root = (workspace_root or Path(".")).resolve()
-    memory_db = resolve_memory_database_path(root)
-    memory_db.parent.mkdir(parents=True, exist_ok=True)
 
     loader = ClaudeSkillLoader()
     skill_result = loader.load_from_project_root(root)
 
     system_prompt = (
         SystemPromptBuilder()
-        .memory_database_path(memory_db)
         .add_all_skills(skill_result.skills)
         .build()
     )
 
     read_tool = make_read_tool(root)
-    memory_tool = make_memory_tool(memory_db)
     run_py = make_run_python(root)
     skill_tool = make_skill_tool(root)
 
@@ -78,7 +65,7 @@ def create_workspace_agent(
         build_model(),
         output_type=str,
         system_prompt=system_prompt,
-        tools=[read_tool, memory_tool, run_bash, run_py, skill_tool],
+        tools=[read_tool, run_bash, run_py, skill_tool],
     )
 
     max_turns = _parse_positive_int(os.environ.get("AGENT1_MAX_TURNS_PER_RUN"), 12)
@@ -86,7 +73,6 @@ def create_workspace_agent(
 
     runtime = Agent1Runtime(
         agent,
-        memory_db=memory_db,
         max_turns=max_turns,
         max_tool_calls=max_tools,
     )

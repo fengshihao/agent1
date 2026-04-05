@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import inspect
-from pathlib import Path
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
 from agent1.core.events import (
@@ -35,24 +34,18 @@ def _filter_run_kwargs(runner: Any, kwargs: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class Agent1Runtime:
-    """Thin shell: subscribe to AgentEventType, forward run_stream_events, optional memory catalog injection."""
+    """Thin shell: subscribe to AgentEventType, forward run_stream_events."""
 
     def __init__(
         self,
         agent: Any,
         *,
-        memory_db: Optional[Path] = None,
         max_turns: int = 12,
         max_tool_calls: int = 24,
     ) -> None:
         self._agent = agent
-        self._memory_db = memory_db
         self._listeners: List[Listener] = []
         self._usage_limits = _build_usage_limits(max_turns, max_tool_calls)
-
-    @property
-    def memory_db_path(self) -> Optional[Path]:
-        return self._memory_db
 
     def subscribe(self, listener: Listener) -> Callable[[], None]:
         self._listeners.append(listener)
@@ -76,9 +69,7 @@ class Agent1Runtime:
         *,
         message_history: Any = None,
         usage: Any = None,
-        inject_memory_catalog: bool = False,
     ) -> AsyncIterator[Any]:
-        from agent1.core.memory_catalog import build_memory_catalog_section
         from pydantic_ai.messages import (
             FunctionToolCallEvent,
             FunctionToolResultEvent,
@@ -87,11 +78,7 @@ class Agent1Runtime:
         )
         from pydantic_ai.run import AgentRunResultEvent
 
-        extra: dict[str, Any] = {}
-        if inject_memory_catalog and self._memory_db is not None:
-            extra["instructions"] = build_memory_catalog_section(self._memory_db)
-
-        run_kw: dict[str, Any] = dict(extra)
+        run_kw: dict[str, Any] = {}
         if usage is not None:
             run_kw["usage"] = usage
         if message_history is not None:
@@ -129,15 +116,8 @@ class Agent1Runtime:
         *,
         message_history: Any = None,
         usage: Any = None,
-        inject_memory_catalog: bool = False,
     ) -> Any:
-        from agent1.core.memory_catalog import build_memory_catalog_section
-
-        extra: dict[str, Any] = {}
-        if inject_memory_catalog and self._memory_db is not None:
-            extra["instructions"] = build_memory_catalog_section(self._memory_db)
-
-        run_kw: dict[str, Any] = dict(extra)
+        run_kw: dict[str, Any] = {}
         if usage is not None:
             run_kw["usage"] = usage
         if message_history is not None:

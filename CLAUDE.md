@@ -48,7 +48,7 @@ Java source is in `java_agent/src/main/java` shared between `:core` and `:cli` s
 export DASHSCOPE_API_KEY="your-key"     # or ALIBABA_API_KEY
 ```
 
-Optional: `ALIBABA_BASE_URL`, `AGENT1_LOG_FILE`, `AGENT1_MAX_TOTAL_TOKENS`, `AGENT1_MAX_TURNS_PER_RUN`, `AGENT1_MAX_TOOL_CALLS_PER_RUN`, `AGENT1_MEMORY_DB`, `OPENAI_MODEL`.
+Optional: `ALIBABA_BASE_URL`, `AGENT1_LOG_FILE`, `AGENT1_MAX_TOTAL_TOKENS`, `AGENT1_MAX_TURNS_PER_RUN`, `AGENT1_MAX_TOOL_CALLS_PER_RUN`, `OPENAI_MODEL`.
 
 ## Architecture
 
@@ -68,13 +68,9 @@ User Input → CLI Layer → AgentRuntime (thin shell) → LLM (Qwen via DashSco
 
 - **`agent_factory.py`** — Wires everything: builds model, creates tools, system prompt, runtime. Entry point for CLI.
 
-- **System Prompt** — `SystemPromptBuilder` auto-injects OS/Python/Shell/CWD context + memory catalog + skill descriptions.
-
-- **Tools** (both languages): `read_file`, `run_bash` (cross-platform shell detection), `run_python` (uses `sys.executable`), `memory_tool` (SQLite CRUD), `skill_tool` (Claude Code skill loader).
+- **System Prompt** — `SystemPromptBuilder` auto-injects OS/Python/Shell/CWD context + skill descriptions.
 
 - **Skills System** — Claude Code-compatible skills from `.claude/skills/*/SKILL.md`. Variables: `$ARGUMENTS`, `$0/$1...`, `${CLAUDE_SKILL_DIR}`. Invoked via `/skill-name args` in interactive mode.
-
-- **Memory** — SQLite-backed persistence at `.agent1/memory.sqlite` (overridable via `AGENT1_MEMORY_DB`). Schema auto-injected into first user message of each run.
 
 ### Event System
 
@@ -82,7 +78,7 @@ All operations emit structured JSONL events to `logs/agent1.jsonl`. Event types:
 
 ### Java Agent Structure
 
-- `core/` subproject: `AgentRuntime`, `AgentState`, LLM client, memory catalog — published as `java-agent-core` to local Maven for Android consumption
+- `core/` subproject: `AgentRuntime`, `AgentState`, LLM client — published as `java-agent-core` to local Maven for Android consumption
 - `cli/` subproject: `JavaAgentCli`, tool implementations, skill loader — builds fat jar
 
 ## Conventions

@@ -7,7 +7,7 @@ import platform
 import shutil
 import sys
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List
 
 from agent1.skills.loader import ClaudeSkill
 
@@ -16,20 +16,15 @@ class SystemPromptBuilder:
     def __init__(self) -> None:
         self._base = (
             "你是一个有帮助的 AI 助手，可以读取工作区文件、执行 bash 命令、Python 脚本，"
-            "使用 memory 长期记忆，以及 skill 管理。"
+            "以及 skill 管理。"
             "需要读文件时用 read；执行命令或脚本时用 run_bash 或 run_python。"
             "当用户用自然语言表达 skill 相关意图时，自动使用 skill 工具。"
             "请使用 Markdown 格式回复。"
         )
         self._skills: List[ClaudeSkill] = []
-        self._memory_db: Optional[Path] = None
 
     def base_prompt(self, text: str) -> SystemPromptBuilder:
         self._base = text or ""
-        return self
-
-    def memory_database_path(self, path: Optional[Path]) -> SystemPromptBuilder:
-        self._memory_db = path
         return self
 
     def add_skill(self, skill: Optional[ClaudeSkill]) -> SystemPromptBuilder:
@@ -51,7 +46,6 @@ class SystemPromptBuilder:
                 _run_bash_implementation_section(),
                 _shell_pitfalls_section(),
                 _skill_list_section(self._skills),
-                _memory_section(self._memory_db),
             ]
         )
 
@@ -191,37 +185,3 @@ def _skill_list_section(skills: List[ClaudeSkill]) -> str:
         "\n示例：当用户问天气时，先 read 对应 weather skill 的 SKILL.md，再决定是否调用 run_bash。"
     )
     return "".join(lines)
-
-
-def _memory_section(memory_db: Optional[Path]) -> str:
-    if memory_db is None:
-        return ""
-    abs_path = memory_db.resolve()
-    cwd = Path.cwd().resolve()
-    rel_display = str(abs_path)
-    try:
-        r = abs_path.relative_to(cwd)
-        if not str(r).startswith(".."):
-            rel_display = str(r)
-    except ValueError:
-        pass
-    env = (os.environ.get("AGENT1_MEMORY_DB") or "").strip()
-    env_line = (
-        "当前由环境变量 AGENT1_MEMORY_DB 指向该文件。"
-        if env
-        else "默认路径见下；也可设置环境变量 AGENT1_MEMORY_DB 指向其它 .sqlite 文件。"
-    )
-    return (
-        "\n\n=== 长期记忆（SQLite + memory 工具）===\n"
-        "你可以通过 memory 工具持久化跨会话信息（偏好、结论、项目事实等），不要再用 run_bash + sqlite3 操作记忆库。\n"
-        "系统会在每条用户消息后的首次模型请求附带「记忆库结构」快照；表内数据请用 memory(search/read) 查看。\n"
-        f"{env_line}\n"
-        f"- 数据库路径（内部维护，供你理解上下文）：{abs_path}\n"
-        f"- 相对当前工作目录：{rel_display}\n"
-        "- 固定表结构（memories）：id, created_at, type(data/code/txt/calen), keywords, summary（<100字）, content。\n"
-        "- memory 工具 action：search/read/write；search 使用参数 query、mem_type（对应 type）、limit；"
-        "read 使用 memory_id；write 使用 mem_type、keywords、summary、content。\n"
-        "通用决策原则：若任务依赖历史偏好或事实，先 memory(search)；命中后 memory(read)；"
-        "结束轮次前如有值得保留的信息可 memory(write)。\n"
-        "搜索支持通配符 * ?，以及与或非 & || !；不写操作符时空格分词按 OR。\n"
-    )

@@ -4,7 +4,6 @@ import com.agent1.javaagent.cli.logging.JsonlLogger;
 import com.agent1.javaagent.cli.skills.ClaudeSkill;
 import com.agent1.javaagent.cli.skills.ClaudeSkillLoader;
 import com.agent1.javaagent.cli.skills.ClaudeSkillPromptRenderer;
-import com.agent1.javaagent.cli.tools.MemoryTool;
 import com.agent1.javaagent.cli.tools.ReadFileTool;
 import com.agent1.javaagent.cli.tools.RunBashTool;
 import com.agent1.javaagent.cli.tools.RunPythonTool;
@@ -19,7 +18,6 @@ import com.agent1.javaagent.llm.openai.OpenAiCompatibleConfig;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.tool.AgentTool;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -83,19 +81,9 @@ public final class JavaAgentCli {
         final AtomicReference<RunContext> currentRun = new AtomicReference<>();
         final Map<String, ClaudeSkill> skillsByName = loadDiscoveredSkills(enableColor);
         final Path workspaceRoot = Path.of(".").toAbsolutePath().normalize();
-        Path memoryDb = resolveMemoryDatabasePath(workspaceRoot);
-        try {
-            Path parent = memoryDb.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-        } catch (IOException e) {
-            System.err.println("警告：无法创建记忆库父目录: " + e.getMessage());
-        }
 
         List<AgentTool> tools = List.of(
             new ReadFileTool(workspaceRoot),
-            new MemoryTool(memoryDb),
             new RunBashTool(),
             new RunPythonTool(),
             new SkillTool(workspaceRoot)
@@ -104,7 +92,6 @@ public final class JavaAgentCli {
         // 构建系统提示词，包含可用的 skills 列表
         String systemPrompt = new SystemPromptBuilder()
             .addAllSkills(skillsByName.values())
-            .memoryDatabasePath(memoryDb)
             .build();
 
         AgentRuntime runtime = new AgentRuntime(
@@ -114,7 +101,6 @@ public final class JavaAgentCli {
                 .maxContextMessages(maxContextMessages)
                 .maxTurnsPerRun(maxTurnsPerRun)
                 .maxToolCallsPerRun(maxToolCallsPerRun)
-                .memoryDatabasePath(memoryDb)
                 .build(),
             new OpenAiCompatibleClient(
                 new OpenAiCompatibleConfig(apiKey, baseUrl, Duration.ofSeconds(120), 0.2)
@@ -125,8 +111,6 @@ public final class JavaAgentCli {
 
         Runtime.getRuntime().addShutdownHook(new Thread(runtime::close));
         System.out.println(colorize(ANSI_DIM, enableColor, "日志文件: " + logger.getLogPath()));
-        System.out.println(colorize(ANSI_DIM, enableColor, "长期记忆 SQLite: " + memoryDb
-            + "（AGENT1_MEMORY_DB 可覆盖路径）"));
         if (maxContextMessages > 0) {
             System.out.println(colorize(ANSI_DIM, enableColor,
                 "LLM 上下文消息上限: " + maxContextMessages + "（环境变量 AGENT1_MAX_CONTEXT_MESSAGES；0=不截断）"));
@@ -333,15 +317,6 @@ public final class JavaAgentCli {
             logger.writeEvent("run_failed", run.runId, Map.of("error", payload.getMessage()));
             System.err.println("\n" + colorize(ANSI_RED, enableColor, "[error] " + payload.getMessage()));
         }
-    }
-
-    private static Path resolveMemoryDatabasePath(Path workspaceRoot) {
-        String env = System.getenv("AGENT1_MEMORY_DB");
-        if (env != null && !env.trim().isEmpty()) {
-            Path p = Path.of(env.trim());
-            return (p.isAbsolute() ? p : workspaceRoot.resolve(p)).normalize();
-        }
-        return workspaceRoot.resolve(".agent1/memory.sqlite").normalize();
     }
 
     private static String firstNonBlank(String... values) {

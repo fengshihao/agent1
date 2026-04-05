@@ -2,12 +2,10 @@ package com.agent1.javaagent.core;
 
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.tool.AgentTool;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 public final class AgentOptions {
     public static final int DEFAULT_MAX_TURNS_PER_RUN = 12;
@@ -20,7 +18,6 @@ public final class AgentOptions {
     private final ContextTransformer transformContext;
     private final Duration defaultToolTimeout;
     private final int maxContextMessages;
-    private final Optional<Path> memoryDatabasePath;
     private final int maxTurnsPerRun;
     private final int maxToolCallsPerRun;
 
@@ -32,7 +29,6 @@ public final class AgentOptions {
         this.transformContext = builder.transformContext;
         this.defaultToolTimeout = builder.defaultToolTimeout;
         this.maxContextMessages = builder.maxContextMessages;
-        this.memoryDatabasePath = builder.memoryDatabasePath;
         this.maxTurnsPerRun = builder.maxTurnsPerRun > 0 ? builder.maxTurnsPerRun : DEFAULT_MAX_TURNS_PER_RUN;
         this.maxToolCallsPerRun =
             builder.maxToolCallsPerRun > 0 ? builder.maxToolCallsPerRun : DEFAULT_MAX_TOOL_CALLS_PER_RUN;
@@ -71,13 +67,6 @@ public final class AgentOptions {
     }
 
     /**
-     * Optional path to the SQLite file used for long-term memory; empty disables catalog injection.
-     */
-    public Optional<Path> getMemoryDatabasePath() {
-        return memoryDatabasePath;
-    }
-
-    /**
      * Max model rounds that may end with tool calls before the run aborts (default 12).
      */
     public int getMaxTurnsPerRun() {
@@ -103,7 +92,6 @@ public final class AgentOptions {
         private ContextTransformer transformContext = in -> in;
         private Duration defaultToolTimeout = Duration.ofSeconds(30);
         private int maxContextMessages;
-        private Optional<Path> memoryDatabasePath = Optional.empty();
         /** {@code <= 0} uses {@link AgentOptions#DEFAULT_MAX_TURNS_PER_RUN}. */
         private int maxTurnsPerRun;
         /** {@code <= 0} uses {@link AgentOptions#DEFAULT_MAX_TOOL_CALLS_PER_RUN}. */
@@ -152,11 +140,6 @@ public final class AgentOptions {
          */
         public Builder maxContextMessages(int maxContextMessages) {
             this.maxContextMessages = maxContextMessages;
-            return this;
-        }
-
-        public Builder memoryDatabasePath(Path path) {
-            this.memoryDatabasePath = path == null ? Optional.empty() : Optional.of(path);
             return this;
         }
 
