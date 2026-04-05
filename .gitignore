@@ -15,3 +15,8 @@ user_memory.md
 
 # Java agent local SQLite long-term memory
 .agent1/
+
+# Editor configs
+.vscode/
+.cursor/
+.idea/
