@@ -2,12 +2,12 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-from agent1.tools.bash import _pick_windows_shell, run_bash
+from agent1.tools.run_bash import _pick_windows_shell, run_bash
 
 
 class TestWindowsShellPick(unittest.TestCase):
     def test_pick_windows_shell_prefers_bash(self) -> None:
-        with patch("agent1.tools.bash.shutil.which") as mock_which:
+        with patch("agent1.tools.run_bash.shutil.which") as mock_which:
             mock_which.side_effect = lambda name: {
                 "bash": r"C:\Program Files\Git\bin\bash.exe",
                 "powershell": r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
@@ -19,8 +19,8 @@ class TestWindowsShellPick(unittest.TestCase):
         self.assertEqual(shell_path, r"C:\Program Files\Git\bin\bash.exe")
 
     def test_pick_windows_shell_falls_back_to_cmd(self) -> None:
-        with patch("agent1.tools.bash.shutil.which", return_value=None):
-            with patch.dict("agent1.tools.bash.os.environ", {"ComSpec": r"C:\Windows\System32\cmd.exe"}, clear=True):
+        with patch("agent1.tools.run_bash.shutil.which", return_value=None):
+            with patch.dict("agent1.tools.run_bash.os.environ", {"ComSpec": r"C:\Windows\System32\cmd.exe"}, clear=True):
                 shell_kind, shell_path = _pick_windows_shell()
 
         self.assertEqual(shell_kind, "cmd")
@@ -28,9 +28,9 @@ class TestWindowsShellPick(unittest.TestCase):
 
 
 class TestRunBashOnWindows(unittest.TestCase):
-    @patch("agent1.tools.bash.subprocess.run")
-    @patch("agent1.tools.bash._pick_windows_shell", return_value=("bash", r"C:\Program Files\Git\bin\bash.exe"))
-    @patch("agent1.tools.bash.os.name", "nt")
+    @patch("agent1.tools.run_bash.subprocess.run")
+    @patch("agent1.tools.run_bash._pick_windows_shell", return_value=("bash", r"C:\Program Files\Git\bin\bash.exe"))
+    @patch("agent1.tools.run_bash.os.name", "nt")
     def test_run_bash_uses_git_bash_when_available(self, _mock_pick, mock_run) -> None:
         mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok\n", stderr="")
 
@@ -44,9 +44,9 @@ class TestRunBashOnWindows(unittest.TestCase):
             timeout=60,
         )
 
-    @patch("agent1.tools.bash.subprocess.run")
-    @patch("agent1.tools.bash._pick_windows_shell", return_value=("powershell", r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"))
-    @patch("agent1.tools.bash.os.name", "nt")
+    @patch("agent1.tools.run_bash.subprocess.run")
+    @patch("agent1.tools.run_bash._pick_windows_shell", return_value=("powershell", r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"))
+    @patch("agent1.tools.run_bash.os.name", "nt")
     def test_run_bash_uses_powershell_when_no_bash(self, _mock_pick, mock_run) -> None:
         mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ps\n", stderr="")
 
@@ -60,9 +60,9 @@ class TestRunBashOnWindows(unittest.TestCase):
             timeout=60,
         )
 
-    @patch("agent1.tools.bash.subprocess.run")
-    @patch("agent1.tools.bash._pick_windows_shell", return_value=("cmd", None))
-    @patch("agent1.tools.bash.os.name", "nt")
+    @patch("agent1.tools.run_bash.subprocess.run")
+    @patch("agent1.tools.run_bash._pick_windows_shell", return_value=("cmd", None))
+    @patch("agent1.tools.run_bash.os.name", "nt")
     def test_run_bash_falls_back_to_cmd(self, _mock_pick, mock_run) -> None:
         mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="cmd\n", stderr="")
 

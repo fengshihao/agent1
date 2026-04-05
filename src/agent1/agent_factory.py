@@ -13,10 +13,10 @@ from pydantic_ai.providers.alibaba import AlibabaProvider
 from agent1.core.runtime import Agent1Runtime
 from agent1.skills.loader import ClaudeSkill, ClaudeSkillLoader
 from agent1.system_prompt_builder import SystemPromptBuilder
-from agent1.tools.bash import run_bash
+from agent1.tools.run_bash import run_bash
 from agent1.tools.memory_tool import make_memory_tool
-from agent1.tools.python import make_run_python
-from agent1.tools.read_file_tool import make_read_tool
+from agent1.tools.run_python import make_run_python
+from agent1.tools.read_file import make_read_tool
 from agent1.tools.skill_tool import make_skill_tool
 
 

@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from agent1.tools.memory_tool import make_memory_tool
-from agent1.tools.read_file_tool import make_read_tool
+from agent1.tools.read_file import make_read_tool
 
 
 class TestReadTool(unittest.TestCase):
