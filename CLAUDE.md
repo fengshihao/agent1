@@ -57,14 +57,14 @@ Optional: `ALIBABA_BASE_URL`, `AGENT1_LOG_FILE`, `AGENT1_MAX_TOTAL_TOKENS`, `AGE
 ```
 User Input → CLI Layer → AgentRuntime (thin shell) → LLM (Qwen via DashScope)
                                   ↓
-                          Tool Loop (run_bash / run_python / read_file / memory / skill)
+                          Tool Loop (run_bash / run_python / read_file / skill)
                                   ↓
                           Event Emitter → JSONL logs + terminal UI updates
 ```
 
 ### Key Components
 
-- **`Agent1Runtime`** (Python: `src/agent1/core/runtime.py`, Java: `java_agent/src/.../core/AgentRuntime.java`) — Thin event-emitting wrapper. Subscribes listeners, manages usage limits, injects memory catalog. Does NOT contain business logic.
+- **`Agent1Runtime`** (Python: `src/agent1/core/runtime.py`, Java: `java_agent/src/.../core/AgentRuntime.java`) — Thin event-emitting wrapper. Subscribes listeners, manages usage limits. Does NOT contain business logic.
 
 - **`agent_factory.py`** — Wires everything: builds model, creates tools, system prompt, runtime. Entry point for CLI.
 
