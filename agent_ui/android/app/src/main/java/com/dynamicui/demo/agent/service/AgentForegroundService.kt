@@ -29,6 +29,8 @@ import com.dynamicui.demo.agent.accessibility.core.PageContextPromptBuilder
 import com.dynamicui.demo.agent.accessibility.core.PageSnapshotStore
 import com.dynamicui.demo.agent.accessibility.tools.ExtractMainContentTool
 import com.dynamicui.demo.agent.accessibility.tools.GetCurrentPageSnapshotTool
+import com.dynamicui.demo.agent.accessibility.tools.GetShellCapabilitiesTool
+import com.dynamicui.demo.agent.accessibility.tools.RunShellTool
 import com.dynamicui.demo.agent.accessibility.tools.SetInputTextTool
 import com.dynamicui.demo.agent.accessibility.tools.ScrollPageTool
 import com.dynamicui.demo.agent.accessibility.tools.TapElementTool
@@ -65,6 +67,8 @@ class AgentForegroundService : Service(), AgentEventListener {
         super.onCreate()
         createChannel()
         promoteForeground()
+        // 预热一次 shell 能力探测，减少首轮脚本生成误判。
+        ShellCapabilitiesProvider.probeIfNeeded(force = true)
         initRuntimeIfPossible()
     }
 
@@ -131,10 +135,12 @@ class AgentForegroundService : Service(), AgentEventListener {
             .tools(
                 listOf(
                     GetCurrentPageSnapshotTool(),
+                    GetShellCapabilitiesTool(),
                     ExtractMainContentTool(),
                     TapElementTool(),
                     SetInputTextTool(),
-                    ScrollPageTool()
+                    ScrollPageTool(),
+                    RunShellTool()
                 )
             )
             .build()
@@ -238,9 +244,12 @@ class AgentForegroundService : Service(), AgentEventListener {
         val msg = text.trim()
         if (msg.isEmpty()) return false
         val pageContext = PageContextPromptBuilder.build(PageSnapshotStore.latest())
+        val shellContext = ShellContextBuilder.build()
         val enriched = buildString {
             appendLine("[当前环境]")
             appendLine(pageContext)
+            appendLine()
+            appendLine(shellContext)
             appendLine()
             appendLine("[用户请求]")
             append(msg)
