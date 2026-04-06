@@ -12,8 +12,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
@@ -22,8 +24,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +42,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -56,6 +60,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.util.fastFirstOrNull
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -90,6 +95,15 @@ private class OverlayComposeHost : LifecycleOwner, SavedStateRegistryOwner {
         registry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
     }
 }
+
+private enum class PanelMode {
+    Hidden, Minimized, Expanded
+}
+
+private data class ChatBubble(
+    val role: String,
+    val content: String
+)
 
 class PetOverlayManager(private val appContext: Context) {
 
@@ -158,7 +172,7 @@ class PetOverlayManager(private val appContext: Context) {
                 PetOverlayScreen(
                     service = service,
                     runOnMain = { block -> main.post { block() } },
-                    onResultPanelVisibilityChanged = { expanded ->
+                    onPanelModeChanged = { expanded ->
                         main.post { applyWindowMode(expanded) }
                     }
                 )
@@ -181,15 +195,17 @@ class PetOverlayManager(private val appContext: Context) {
 private fun PetOverlayScreen(
     service: AgentForegroundService,
     runOnMain: (() -> Unit) -> Unit,
-    onResultPanelVisibilityChanged: (expanded: Boolean) -> Unit
+    onPanelModeChanged: (expanded: Boolean) -> Unit
 ) {
     val ctx = LocalContext.current
-    var assistantMarkdown by remember { mutableStateOf("") }
-    var showPanel by remember { mutableStateOf(false) }
+    var panelMode by remember { mutableStateOf(PanelMode.Hidden) }
     var phase by remember { mutableStateOf(AgentSessionPhase.Idle) }
     var lastUserUtterance by remember { mutableStateOf("") }
     var endedByUserAbort by remember { mutableStateOf(false) }
     var statusLine by remember { mutableStateOf("") }
+    var liveAssistantMarkdown by remember { mutableStateOf("") }
+    var panelManuallyHidden by remember { mutableStateOf(false) }
+    val chatHistory = remember { mutableStateListOf<ChatBubble>() }
     val scope = rememberCoroutineScope()
     val transport = remember(scope) { DashScopeAsrTransport(scope, runOnMain) }
     val voiceController = remember(transport, service) {
@@ -199,17 +215,13 @@ private fun PetOverlayScreen(
     val serviceRef = rememberUpdatedState(service)
     val phaseRef = rememberUpdatedState(phase)
 
-    fun dismissPanelToIdleIfTerminal() {
-        showPanel = false
-        if (phase == AgentSessionPhase.Done || phase == AgentSessionPhase.Error) {
-            phase = AgentSessionPhase.Idle
-            endedByUserAbort = false
-            statusLine = ""
-        }
+    fun closePanelOnly() {
+        panelMode = PanelMode.Hidden
+        panelManuallyHidden = true
     }
 
-    LaunchedEffect(showPanel) {
-        onResultPanelVisibilityChanged(showPanel)
+    LaunchedEffect(panelMode) {
+        onPanelModeChanged(panelMode != PanelMode.Hidden)
     }
 
     LaunchedEffect(voiceController) {
@@ -241,6 +253,10 @@ private fun PetOverlayScreen(
                     lastUserUtterance = signal.text
                     statusLine = ""
                     phase = AgentSessionPhase.Sending
+                    panelManuallyHidden = false
+                    chatHistory.add(ChatBubble(role = "user", content = signal.text))
+                    liveAssistantMarkdown = ""
+                    chatHistory.add(ChatBubble(role = "assistant", content = ""))
                 }
                 is VoiceInputSignal.Error -> {
                     statusLine = signal.message
@@ -260,37 +276,53 @@ private fun PetOverlayScreen(
     DisposableEffect(service) {
         val listener = object : AgentForegroundService.AgentUiListener {
             override fun onAssistantStreaming(fullMarkdown: String) {
-                assistantMarkdown = fullMarkdown
+                liveAssistantMarkdown = fullMarkdown
                 if (phaseRef.value == AgentSessionPhase.Sending && fullMarkdown.isNotBlank()) {
                     phase = AgentSessionPhase.Streaming
+                }
+                if (chatHistory.isNotEmpty() && chatHistory.last().role == "assistant") {
+                    chatHistory[chatHistory.lastIndex] = chatHistory.last().copy(content = fullMarkdown)
+                } else {
+                    chatHistory.add(ChatBubble(role = "assistant", content = fullMarkdown))
                 }
                 if (phaseRef.value == AgentSessionPhase.Streaming ||
                     phaseRef.value == AgentSessionPhase.Sending
                 ) {
-                    showPanel = true
+                    if (!panelManuallyHidden) panelMode = PanelMode.Expanded
                 }
             }
 
             override fun onAgentFinished(finalMarkdown: String) {
-                assistantMarkdown = finalMarkdown
+                liveAssistantMarkdown = finalMarkdown
+                if (chatHistory.isNotEmpty() && chatHistory.last().role == "assistant") {
+                    chatHistory[chatHistory.lastIndex] = chatHistory.last().copy(content = finalMarkdown)
+                } else {
+                    chatHistory.add(ChatBubble(role = "assistant", content = finalMarkdown))
+                }
                 phase = AgentSessionPhase.Done
                 endedByUserAbort = false
-                showPanel = true
+                if (!panelManuallyHidden) panelMode = PanelMode.Expanded
             }
 
             override fun onAgentAborted(partialMarkdown: String) {
-                assistantMarkdown = partialMarkdown
+                liveAssistantMarkdown = partialMarkdown
+                if (chatHistory.isNotEmpty() && chatHistory.last().role == "assistant") {
+                    chatHistory[chatHistory.lastIndex] = chatHistory.last().copy(content = partialMarkdown)
+                } else {
+                    chatHistory.add(ChatBubble(role = "assistant", content = partialMarkdown))
+                }
                 phase = AgentSessionPhase.Done
                 endedByUserAbort = true
-                showPanel = true
+                if (!panelManuallyHidden) panelMode = PanelMode.Expanded
             }
 
             override fun onAgentError(message: String) {
                 phase = AgentSessionPhase.Error
                 endedByUserAbort = false
                 statusLine = message
-                showPanel = true
-                assistantMarkdown = "**错误**\n\n$message"
+                if (!panelManuallyHidden) panelMode = PanelMode.Expanded
+                liveAssistantMarkdown = "**错误**\n\n$message"
+                chatHistory.add(ChatBubble(role = "assistant", content = liveAssistantMarkdown))
             }
         }
         service.addUiListener(listener)
@@ -333,6 +365,10 @@ private fun PetOverlayScreen(
     @Composable
     fun PetControlsColumn() {
         var fingerOnPet by remember { mutableStateOf(false) }
+        var dragX by remember { mutableFloatStateOf(0f) }
+        var dragY by remember { mutableFloatStateOf(0f) }
+        var userDraggedPet by remember { mutableStateOf(false) }
+        var lastShortTapAtMs by remember { mutableStateOf(0L) }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -368,7 +404,7 @@ private fun PetOverlayScreen(
                         .padding(6.dp)
                 )
             }
-            if (phase.isLlmActive() && !showPanel) {
+            if (phase.isLlmActive() && panelMode != PanelMode.Expanded) {
                 TextButton(
                     onClick = { serviceRef.value.abortAgent() },
                     modifier = Modifier.background(Color(0xCC000000), RoundedCornerShape(8.dp))
@@ -385,174 +421,251 @@ private fun PetOverlayScreen(
             val petListening =
                 voiceState == VoiceInputState.Listening ||
                     voiceState == VoiceInputState.Transcribing
+            val waitingServer =
+                phase == AgentSessionPhase.Sending || phase == AgentSessionPhase.Streaming
             val petFillColor = when {
                 petListening -> Color(0xFF66BB6A)
                 fingerOnPet -> Color(0xFFFFA726)
                 else -> Color(0xFFFFB74D)
             }
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(72.dp)
-                    .background(petFillColor, CircleShape)
-                    // 切勿把 phase 放进 keys：进入 Listening 会重启协程并立刻 stop ASR，导致服务端报协议错误。
-                    .pointerInput(cancelThresholdPx) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            fingerOnPet = true
-                            voiceController.onPressStart()
-                            try {
-                                val longPress = awaitLongPressOrCancellation(down.id)
-                                if (longPress == null) {
-                                    // 短按仅结束 Pressing，不启动语音。
-                                    voiceController.onPressEnd()
-                                    return@awaitEachGesture
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val density = LocalDensity.current
+                val maxOffsetX = with(density) { maxWidth.toPx() - 120.dp.toPx() }
+                val minOffsetX = with(density) { -maxWidth.toPx() + 120.dp.toPx() }
+                val maxOffsetY = with(density) { 80.dp.toPx() }
+                val minOffsetY = with(density) { -maxHeight.toPx() + 120.dp.toPx() }
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .align(if (userDraggedPet) Alignment.Center else Alignment.BottomEnd)
+                        .offset { IntOffset(dragX.toInt(), dragY.toInt()) }
+                        .size(72.dp)
+                        .background(petFillColor, CircleShape)
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragStart = { userDraggedPet = true },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragX = (dragX + dragAmount.x).coerceIn(minOffsetX, maxOffsetX)
+                                    dragY = (dragY + dragAmount.y).coerceIn(minOffsetY, maxOffsetY)
                                 }
-                                if (!phaseRef.value.allowsVoiceInput()) {
-                                    statusLine = ctx.getString(R.string.pet_phase_busy_hint)
-                                    voiceController.onPressCancel()
-                                    return@awaitEachGesture
-                                }
-                                swipeCancelled = false
-                                upward = 0f
-                                statusLine = ""
-                                voiceController.onLongPressTriggered()
+                            )
+                        }
+                        // 切勿把 phase 放进 keys：进入 Listening 会重启协程并立刻 stop ASR，导致服务端报协议错误。
+                        .pointerInput(cancelThresholdPx) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                fingerOnPet = true
+                                voiceController.onPressStart()
                                 try {
-                                    while (true) {
-                                        val event = awaitPointerEvent(PointerEventPass.Main)
-                                        val change = event.changes.fastFirstOrNull { it.id == down.id }
-                                            ?: continue
-                                        if (!change.pressed && change.previousPressed) {
-                                            break
+                                    val longPress = awaitLongPressOrCancellation(down.id)
+                                    if (longPress == null) {
+                                        val now = System.currentTimeMillis()
+                                        if (panelMode == PanelMode.Hidden &&
+                                            chatHistory.isNotEmpty() &&
+                                            now - lastShortTapAtMs <= 320L
+                                        ) {
+                                            panelManuallyHidden = false
+                                            panelMode = PanelMode.Expanded
                                         }
-                                        val drag = change.positionChange()
-                                        change.consume()
-                                        if (drag.y < 0) {
-                                            upward += -drag.y
-                                            if (upward >= cancelThresholdPx) {
-                                                swipeCancelled = true
+                                        lastShortTapAtMs = now
+                                        // 短按仅结束 Pressing，不启动语音。
+                                        voiceController.onPressEnd()
+                                        return@awaitEachGesture
+                                    }
+                                    if (!phaseRef.value.allowsVoiceInput()) {
+                                        statusLine = ctx.getString(R.string.pet_phase_busy_hint)
+                                        voiceController.onPressCancel()
+                                        return@awaitEachGesture
+                                    }
+                                    swipeCancelled = false
+                                    upward = 0f
+                                    statusLine = ""
+                                    voiceController.onLongPressTriggered()
+                                    try {
+                                        while (true) {
+                                            val event = awaitPointerEvent(PointerEventPass.Main)
+                                            val change = event.changes.fastFirstOrNull { it.id == down.id }
+                                                ?: continue
+                                            if (!change.pressed && change.previousPressed) {
+                                                break
                                             }
+                                            val drag = change.positionChange()
+                                            change.consume()
+                                            if (drag.y < 0) {
+                                                upward += -drag.y
+                                                if (upward >= cancelThresholdPx) {
+                                                    swipeCancelled = true
+                                                }
+                                            }
+                                        }
+                                    } finally {
+                                        if (swipeCancelled) {
+                                            voiceController.onPressCancel()
+                                        } else {
+                                            voiceController.onPressEnd()
                                         }
                                     }
                                 } finally {
-                                    if (swipeCancelled) {
-                                        voiceController.onPressCancel()
-                                    } else {
-                                        voiceController.onPressEnd()
-                                    }
+                                    fingerOnPet = false
                                 }
-                            } finally {
-                                fingerOnPet = false
                             }
                         }
+                ) {
+                    Text(text = "\uD83D\uDC3E", style = MaterialTheme.typography.headlineSmall)
+                    if (petListening) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .align(Alignment.TopEnd)
+                                .background(Color(0xFF00C853), CircleShape)
+                        )
                     }
-            ) {
-                Text(text = "\uD83D\uDC3E", style = MaterialTheme.typography.headlineSmall)
-                if (petListening || phase.isLlmActive()) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .align(Alignment.TopEnd),
-                        strokeWidth = 2.dp
-                    )
+                    if (waitingServer) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .align(Alignment.TopEnd),
+                            strokeWidth = 2.dp
+                        )
+                    }
                 }
             }
         }
     }
 
-    if (showPanel) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.45f))
-                    .clickable {
-                        dismissPanelToIdleIfTerminal()
-                    }
-            )
-            Card(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth(0.9f)
-                    .heightIn(max = 480.dp)
-                    .padding(8.dp)
-                    .clickable(enabled = false) { },
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Column(
-                    Modifier
-                        .padding(12.dp)
-                        .fillMaxWidth()
+    if (panelMode == PanelMode.Hidden) {
+        Column(
+            modifier = Modifier
+                .wrapContentSize()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            PetControlsColumn()
+        }
+    } else {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val panelMaxHeight = maxHeight * 0.75f
+            if (panelMode == PanelMode.Expanded) {
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(0.92f)
+                        .heightIn(max = panelMaxHeight)
+                        .padding(bottom = 24.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xCC1E1E1E)
+                    )
                 ) {
-                    Text(
-                        text = stringResource(
-                            when {
-                                endedByUserAbort -> R.string.pet_stopped_title
-                                else -> R.string.pet_result_title
-                            }
-                        ),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    if (phase == AgentSessionPhase.Sending || phase == AgentSessionPhase.Streaming) {
-                        Text(
-                            text = stringResource(
-                                if (phase == AgentSessionPhase.Sending)
-                                    R.string.pet_phase_sending_main
-                                else
-                                    R.string.pet_phase_streaming_main
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                    }
-                    Text(
-                        text = assistantMarkdown.ifBlank { "…" },
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier
+                    Column(
+                        Modifier
+                            .padding(12.dp)
                             .fillMaxWidth()
-                            .heightIn(max = 320.dp)
-                            .verticalScroll(rememberScrollState())
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (phase == AgentSessionPhase.Error && lastUserUtterance.isNotBlank()) {
-                            TextButton(
-                                onClick = {
-                                    statusLine = ""
-                                    phase = AgentSessionPhase.Sending
-                                    val ok = serviceRef.value.submitUserMessage(lastUserUtterance)
-                                    if (!ok) {
-                                        phase = AgentSessionPhase.Error
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    when {
+                                        endedByUserAbort -> R.string.pet_stopped_title
+                                        else -> R.string.pet_result_title
                                     }
+                                ),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White
+                            )
+                            Row {
+                                TextButton(onClick = { panelMode = PanelMode.Minimized }) {
+                                    Text("—", color = Color.White)
                                 }
-                            ) {
-                                Text(stringResource(R.string.pet_retry))
+                                TextButton(onClick = { closePanelOnly() }) {
+                                    Text("×", color = Color.White)
+                                }
                             }
                         }
                         if (phase == AgentSessionPhase.Sending || phase == AgentSessionPhase.Streaming) {
-                            TextButton(onClick = { serviceRef.value.abortAgent() }) {
-                                Text(stringResource(R.string.pet_stop_generation))
-                            }
-                        }
-                        TextButton(onClick = { dismissPanelToIdleIfTerminal() }) {
                             Text(
-                                if (phase == AgentSessionPhase.Sending || phase == AgentSessionPhase.Streaming)
-                                    stringResource(R.string.pet_dismiss_panel)
-                                else
-                                    stringResource(R.string.pet_close)
+                                text = stringResource(
+                                    if (phase == AgentSessionPhase.Sending)
+                                        R.string.pet_phase_sending_main
+                                    else
+                                        R.string.pet_phase_streaming_main
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.8f),
+                                modifier = Modifier.padding(bottom = 6.dp)
                             )
                         }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = panelMaxHeight - 140.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            chatHistory.forEach { bubble ->
+                                val bg =
+                                    if (bubble.role == "user") Color(0xFF424242) else Color(0xFF2D2D2D)
+                                Text(
+                                    text = bubble.content.ifBlank { "…" },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(bg, RoundedCornerShape(10.dp))
+                                        .padding(10.dp)
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (phase == AgentSessionPhase.Error && lastUserUtterance.isNotBlank()) {
+                                TextButton(
+                                    onClick = {
+                                        statusLine = ""
+                                        phase = AgentSessionPhase.Sending
+                                        val ok = serviceRef.value.submitUserMessage(lastUserUtterance)
+                                        if (!ok) {
+                                            phase = AgentSessionPhase.Error
+                                        }
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.pet_retry), color = Color.White)
+                                }
+                            }
+                            if (phase == AgentSessionPhase.Sending || phase == AgentSessionPhase.Streaming) {
+                                TextButton(onClick = { serviceRef.value.abortAgent() }) {
+                                    Text(stringResource(R.string.pet_stop_generation), color = Color.White)
+                                }
+                            }
+                        }
                     }
+                }
+            } else if (panelMode == PanelMode.Minimized) {
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 16.dp)
+                        .clickable { panelMode = PanelMode.Expanded },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xCC1E1E1E))
+                ) {
+                    Text(
+                        text = liveAssistantMarkdown.ifBlank { "聊天记录（点击展开）" }.replace('\n', ' ').take(28),
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
                 }
             }
             Column(
@@ -564,16 +677,6 @@ private fun PetOverlayScreen(
             ) {
                 PetControlsColumn()
             }
-        }
-    } else {
-        Column(
-            modifier = Modifier
-                .wrapContentSize()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            PetControlsColumn()
         }
     }
 }
