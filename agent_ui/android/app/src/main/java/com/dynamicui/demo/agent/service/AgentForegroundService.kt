@@ -25,6 +25,13 @@ import com.agent1.javaagent.model.AgentMessage
 import com.dynamicui.demo.BuildConfig
 import com.dynamicui.demo.MainActivity
 import com.dynamicui.demo.R
+import com.dynamicui.demo.agent.accessibility.core.PageContextPromptBuilder
+import com.dynamicui.demo.agent.accessibility.core.PageSnapshotStore
+import com.dynamicui.demo.agent.accessibility.tools.ExtractMainContentTool
+import com.dynamicui.demo.agent.accessibility.tools.GetCurrentPageSnapshotTool
+import com.dynamicui.demo.agent.accessibility.tools.SetInputTextTool
+import com.dynamicui.demo.agent.accessibility.tools.ScrollPageTool
+import com.dynamicui.demo.agent.accessibility.tools.TapElementTool
 import java.time.Duration
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
@@ -121,7 +128,15 @@ class AgentForegroundService : Service(), AgentEventListener {
         )
         val options = AgentOptions.builder("qwen3.5-flash")
             .systemPrompt(voicePrompt)
-            .tools(emptyList())
+            .tools(
+                listOf(
+                    GetCurrentPageSnapshotTool(),
+                    ExtractMainContentTool(),
+                    TapElementTool(),
+                    SetInputTextTool(),
+                    ScrollPageTool()
+                )
+            )
             .build()
         val rt = AgentRuntime(options, llmClient)
         rt.subscribe(this)
@@ -222,8 +237,16 @@ class AgentForegroundService : Service(), AgentEventListener {
         }
         val msg = text.trim()
         if (msg.isEmpty()) return false
+        val pageContext = PageContextPromptBuilder.build(PageSnapshotStore.latest())
+        val enriched = buildString {
+            appendLine("[当前环境]")
+            appendLine(pageContext)
+            appendLine()
+            appendLine("[用户请求]")
+            append(msg)
+        }
         return try {
-            rt.prompt(msg)
+            rt.prompt(enriched)
             true
         } catch (_: IllegalStateException) {
             postError("上一轮尚未结束，请稍候")

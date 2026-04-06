@@ -33,6 +33,7 @@ class DashScopeFunAsrSession(
     private var audioRecord: AudioRecord? = null
     private var recordJob: Job? = null
     private val stopped = AtomicBoolean(false)
+    private val aborted = AtomicBoolean(false)
     private var currentTaskId: String? = null
     private val resultBuffer = StringBuilder()
 
@@ -54,6 +55,7 @@ class DashScopeFunAsrSession(
         onError: (String) -> Unit
     ) {
         stopped.set(false)
+        aborted.set(false)
         resultBuffer.clear()
         currentTaskId = null
         if (apiKey.isEmpty()) {
@@ -97,11 +99,13 @@ class DashScopeFunAsrSession(
                             }
                         }
                         "task-finished" -> {
+                            stopped.set(true)
                             webSocket.close(1000, null)
                             val out = resultBuffer.toString()
                             runOnMain { onFinal(out) }
                         }
                         "task-failed" -> {
+                            stopped.set(true)
                             val err = header.optString("error_message", "语音识别失败")
                             Log.e(TAG, "task-failed: $err raw=$text")
                             runOnMain { onError(err) }
@@ -119,7 +123,7 @@ class DashScopeFunAsrSession(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                if (!stopped.get()) {
+                if (!aborted.get()) {
                     runOnMain { onError(t.message ?: "语音连接失败") }
                 }
             }
@@ -186,7 +190,6 @@ class DashScopeFunAsrSession(
      * @param submit true: send finish-task and wait for server; false: abort connection (cancel / swipe-up).
      */
     fun stop(submit: Boolean) {
-        stopped.set(true)
         recordJob?.cancel()
         recordJob = null
         try {
@@ -209,8 +212,13 @@ class DashScopeFunAsrSession(
             try {
                 ws.send(finish)
             } catch (_: Exception) {
+                stopped.set(true)
+                aborted.set(true)
+                ws.cancel()
             }
         } else {
+            stopped.set(true)
+            aborted.set(true)
             try {
                 ws.cancel()
             } catch (_: Exception) {

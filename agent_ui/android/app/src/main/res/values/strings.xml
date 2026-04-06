@@ -27,4 +27,6 @@
     <string name="pet_stop_generation">停止</string>
     <string name="pet_retry">重试</string>
     <string name="pet_dismiss_panel">关闭窗口</string>
+    <string name="a11y_service_label">Pet 助手页面感知</string>
+    <string name="a11y_service_desc">读取当前页面文本与按钮信息，按用户指令执行点击或滚动操作。</string>
 </resources>

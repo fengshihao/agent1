@@ -72,7 +72,8 @@ class VoiceInputController(
                         resetToIdle()
                         return@start
                     }
-                    val finalText = text.trim()
+                    // 某些服务端响应 final 可能为空，兜底使用最后一段 partial，避免“松手后无结果”。
+                    val finalText = text.trim().ifBlank { lastPartial.trim() }
                     if (finalText.isEmpty()) {
                         resetToIdle()
                         return@start

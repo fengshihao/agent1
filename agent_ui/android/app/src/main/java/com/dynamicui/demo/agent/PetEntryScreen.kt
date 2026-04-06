@@ -27,16 +27,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.dynamicui.demo.agent.overlay.PetOverlayManager
+import com.dynamicui.demo.agent.accessibility.service.PetAccessibilityService
 import com.dynamicui.demo.agent.service.AgentForegroundService
 
 @Composable
 fun PetEntryScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val app = context.applicationContext
+    val lifecycleOwner = LocalLifecycleOwner.current
     var boundService by remember { mutableStateOf<AgentForegroundService?>(null) }
     var overlayVisible by remember { mutableStateOf(false) }
+    var a11yEnabled by remember { mutableStateOf(isAccessibilityServiceEnabled(context)) }
     val overlay = remember(app) { PetOverlayManager(app) }
 
     val notificationPermission = rememberLauncherForActivityResult(
@@ -51,6 +57,17 @@ fun PetEntryScreen(modifier: Modifier = Modifier) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        a11yEnabled = isAccessibilityServiceEnabled(context)
+    }
+
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                a11yEnabled = isAccessibilityServiceEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     DisposableEffect(context) {
@@ -116,6 +133,25 @@ fun PetEntryScreen(modifier: Modifier = Modifier) {
         ) {
             Text("打开悬浮窗权限设置")
         }
+        Button(
+            onClick = {
+                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("打开无障碍设置")
+        }
+        Text(
+            text = if (a11yEnabled) {
+                "无障碍状态：已开启"
+            } else {
+                "无障碍状态：未开启（请在系统设置中手动开启 Pet 助手页面感知）"
+            },
+            style = MaterialTheme.typography.labelMedium
+        )
         val svc = boundService
         Button(
             onClick = {
@@ -147,4 +183,13 @@ fun PetEntryScreen(modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.labelMedium
         )
     }
+}
+
+private fun isAccessibilityServiceEnabled(context: Context): Boolean {
+    val expected = ComponentName(context, PetAccessibilityService::class.java).flattenToString()
+    val enabledServices = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ) ?: return false
+    return enabledServices.split(':').any { it.equals(expected, ignoreCase = true) }
 }
