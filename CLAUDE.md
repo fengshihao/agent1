@@ -40,6 +40,7 @@ Java source is in `java_agent/src/main/java` shared between `:core` and `:cli` s
 
 ```bash
 ./java_agent/bin/publish-core-and-verify-android                 # Publish core to local Maven + verify
+(cd agent_ui/android && ./run.sh)                                  # Demo: assembleDebug + adb install + 启动 App（需设备）
 ```
 
 ## Required Environment Variables

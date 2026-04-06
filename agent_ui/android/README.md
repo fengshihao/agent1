@@ -21,6 +21,19 @@
 
 ## 快速验证
 
+### 命令行一键编译、安装、启动（需 adb 已连上设备）
+
+在终端进入本目录后执行：
+
+```bash
+chmod +x run.sh   # 首次可选
+./run.sh
+```
+
+等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/app-debug.apk`、启动 `com.dynamicui.demo` 的主界面。
+
+### Android Studio
+
 1. 在 Android Studio 打开 `agent_ui/android`
 2. 同步 Gradle 后运行 `app`
 3. 在顶部 Tab 切换：
@@ -70,3 +83,27 @@ DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 - 增加 Schema 校验与版本迁移策略
 - 把 `onNavigate` 对接到正式 `NavController`
 - 增加敏感信息保护（正式环境建议走服务端代理，避免 API Key 下发到客户端）
+
+## 悬浮宠物（实验）
+
+第三 Tab **悬浮宠物**：启动前台 `AgentForegroundService`（内嵌长期 `AgentRuntime` + 语音助手提示词），通过 DashScope **Fun-ASR WebSocket** 边录边传 PCM，长按右下角宠物说话、上滑取消、松手结束听写并提交 LLM；回复在浮层 Markdown 卡片中显示。
+
+- 权限：麦克风、通知（API 33+）、**在其他应用上层显示**
+- 提示词：`app/src/main/assets/prompts/voice_assistant_system_prompt.txt`
+
+### 未捕获崩溃日志（adb）
+
+`CrashReporter` 会写入应用私有目录：`files/last_crash_report.txt`，并在 `files/crash-reports/` 下留一份带时间戳的归档。Debug 包可用 `run-as` 读出（无需 root）：
+
+```bash
+adb exec-out run-as com.dynamicui.demo cat files/last_crash_report.txt
+# 或列出归档
+adb shell run-as com.dynamicui.demo ls files/crash-reports
+```
+
+若需紧急退出应用（需 adb 已连接设备）：
+
+```bash
+./stop-app.sh
+# 等价：adb shell am force-stop com.dynamicui.demo
+```
