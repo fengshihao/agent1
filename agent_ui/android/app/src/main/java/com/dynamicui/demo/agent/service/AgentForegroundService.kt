@@ -34,6 +34,9 @@ import com.dynamicui.demo.agent.accessibility.tools.QueryMediaStoreTool
 import com.dynamicui.demo.agent.accessibility.tools.ActOnUiTool
 import com.dynamicui.demo.agent.accessibility.tools.RunShellTool
 import com.dynamicui.demo.agent.accessibility.tools.RunIntentTool
+import com.dynamicui.demo.agent.accessibility.tools.ListCalendarEventsTool
+import com.dynamicui.demo.agent.accessibility.tools.CreateCalendarEventTool
+import com.dynamicui.demo.agent.accessibility.tools.DeleteCalendarEventTool
 import java.time.Duration
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
@@ -139,6 +142,9 @@ class AgentForegroundService : Service(), AgentEventListener {
                     QueryMediaStoreTool(this),
                     RunIntentTool(this),
                     ActOnUiTool(),
+                    ListCalendarEventsTool(this),
+                    CreateCalendarEventTool(this),
+                    DeleteCalendarEventTool(this),
                     ExtractMainContentTool(),
                     RunShellTool()
                 )

@@ -28,7 +28,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.dynamicui.demo.R
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.dynamicui.demo.agent.overlay.PetOverlayManager
@@ -51,6 +53,10 @@ fun PetEntryScreen(modifier: Modifier = Modifier) {
 
     val micPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
+    ) { }
+
+    val calendarPermissions = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
     ) { }
 
     LaunchedEffect(Unit) {
@@ -110,6 +116,19 @@ fun PetEntryScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("请求麦克风权限")
+        }
+        Button(
+            onClick = {
+                calendarPermissions.launch(
+                    arrayOf(
+                        Manifest.permission.READ_CALENDAR,
+                        Manifest.permission.WRITE_CALENDAR
+                    )
+                )
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.pet_calendar_permission))
         }
         Button(
             onClick = {
