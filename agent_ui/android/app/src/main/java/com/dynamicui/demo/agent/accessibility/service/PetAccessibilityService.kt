@@ -36,6 +36,20 @@ data class InputSelector(
     val index: Int = 0
 )
 
+data class UiActionRequest(
+    val action: String,
+    val text: String = "",
+    val resourceId: String = "",
+    val className: String = "",
+    val index: Int = 0,
+    val inputText: String = "",
+    val direction: String = "forward",
+    val autoSubmit: Boolean = false,
+    val submitTexts: List<String> = emptyList(),
+    val fallbackX: Float? = null,
+    val fallbackY: Float? = null
+)
+
 private val DEFAULT_SUBMIT_LABELS = listOf("发送", "送出", "提交", "确定", "搜索", "Search", "Send", "Go")
 
 class PetAccessibilityService : AccessibilityService() {
@@ -137,6 +151,44 @@ class PetAccessibilityService : AccessibilityService() {
             }
         }
         return ActionResult(false, "目标输入框不支持写入")
+    }
+
+    fun actOnUi(request: UiActionRequest): ActionResult {
+        return when (request.action.lowercase()) {
+            "tap", "click" -> tapBySelector(
+                TapSelector(
+                    text = request.text,
+                    resourceId = request.resourceId,
+                    className = request.className,
+                    index = request.index,
+                    fallbackX = request.fallbackX,
+                    fallbackY = request.fallbackY
+                )
+            )
+            "scroll" -> scrollPage(request.direction)
+            "input", "set_text" -> setInputText(
+                selector = InputSelector(
+                    text = request.text,
+                    resourceId = request.resourceId,
+                    className = request.className,
+                    index = request.index
+                ),
+                inputText = request.inputText,
+                autoSubmit = request.autoSubmit,
+                submitTexts = request.submitTexts
+            )
+            "back" -> {
+                val ok = performGlobalAction(GLOBAL_ACTION_BACK)
+                if (ok) refreshSnapshot()
+                ActionResult(ok, if (ok) "返回成功" else "返回失败")
+            }
+            "home" -> {
+                val ok = performGlobalAction(GLOBAL_ACTION_HOME)
+                if (ok) refreshSnapshot()
+                ActionResult(ok, if (ok) "回到桌面成功" else "回到桌面失败")
+            }
+            else -> ActionResult(false, "不支持的 action: ${request.action}")
+        }
     }
 
     private fun tryAutoSubmit(submitTexts: List<String>): ActionResult {

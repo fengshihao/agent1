@@ -30,10 +30,10 @@ import com.dynamicui.demo.agent.accessibility.core.PageSnapshotStore
 import com.dynamicui.demo.agent.accessibility.tools.ExtractMainContentTool
 import com.dynamicui.demo.agent.accessibility.tools.GetCurrentPageSnapshotTool
 import com.dynamicui.demo.agent.accessibility.tools.GetShellCapabilitiesTool
+import com.dynamicui.demo.agent.accessibility.tools.QueryMediaStoreTool
+import com.dynamicui.demo.agent.accessibility.tools.ActOnUiTool
 import com.dynamicui.demo.agent.accessibility.tools.RunShellTool
-import com.dynamicui.demo.agent.accessibility.tools.SetInputTextTool
-import com.dynamicui.demo.agent.accessibility.tools.ScrollPageTool
-import com.dynamicui.demo.agent.accessibility.tools.TapElementTool
+import com.dynamicui.demo.agent.accessibility.tools.RunIntentTool
 import java.time.Duration
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
@@ -136,10 +136,10 @@ class AgentForegroundService : Service(), AgentEventListener {
                 listOf(
                     GetCurrentPageSnapshotTool(),
                     GetShellCapabilitiesTool(),
+                    QueryMediaStoreTool(this),
+                    RunIntentTool(this),
+                    ActOnUiTool(),
                     ExtractMainContentTool(),
-                    TapElementTool(),
-                    SetInputTextTool(),
-                    ScrollPageTool(),
                     RunShellTool()
                 )
             )
