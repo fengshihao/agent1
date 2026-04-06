@@ -12,25 +12,30 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,10 +60,10 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.util.fastFirstOrNull
@@ -77,6 +82,8 @@ import com.dynamicui.demo.agent.voice.core.VoiceInputController
 import com.dynamicui.demo.agent.voice.core.VoiceInputSignal
 import com.dynamicui.demo.agent.voice.core.VoiceInputState
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.abs
 
 /**
  * Compose 1.6+ 要求宿主 View 同时具备 [LifecycleOwner] 与 [SavedStateRegistryOwner]；悬浮窗里的 [ComposeView] 默认没有。
@@ -110,6 +117,9 @@ class PetOverlayManager(private val appContext: Context) {
     private val wm = appContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var composeView: ComposeView? = null
     private val main = Handler(Looper.getMainLooper())
+    private var petOffsetXPx: Int = 0
+    private var petOffsetYPx: Int = 0
+    private var panelExpandedForWindow: Boolean = false
 
     private val layoutType: Int =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -145,12 +155,13 @@ class PetOverlayManager(private val appContext: Context) {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.END
-            x = 0
-            y = 0
+            x = petOffsetXPx
+            y = petOffsetYPx
         }
     }
 
     private fun applyWindowMode(expanded: Boolean) {
+        panelExpandedForWindow = expanded
         val view = composeView ?: return
         val params = if (expanded) paramsForExpanded() else paramsForPetOnly()
         if (view.parent == null) {
@@ -174,6 +185,15 @@ class PetOverlayManager(private val appContext: Context) {
                     runOnMain = { block -> main.post { block() } },
                     onPanelModeChanged = { expanded ->
                         main.post { applyWindowMode(expanded) }
+                    },
+                    initialPetOffsetXPx = petOffsetXPx,
+                    initialPetOffsetYPx = petOffsetYPx,
+                    onPetOffsetChanged = { x, y ->
+                        petOffsetXPx = x
+                        petOffsetYPx = y
+                        if (!panelExpandedForWindow) {
+                            main.post { applyWindowMode(expanded = false) }
+                        }
                     }
                 )
             }
@@ -195,16 +215,21 @@ class PetOverlayManager(private val appContext: Context) {
 private fun PetOverlayScreen(
     service: AgentForegroundService,
     runOnMain: (() -> Unit) -> Unit,
-    onPanelModeChanged: (expanded: Boolean) -> Unit
+    onPanelModeChanged: (expanded: Boolean) -> Unit,
+    initialPetOffsetXPx: Int,
+    initialPetOffsetYPx: Int,
+    onPetOffsetChanged: (x: Int, y: Int) -> Unit
 ) {
     val ctx = LocalContext.current
     var panelMode by remember { mutableStateOf(PanelMode.Hidden) }
     var phase by remember { mutableStateOf(AgentSessionPhase.Idle) }
     var lastUserUtterance by remember { mutableStateOf("") }
     var endedByUserAbort by remember { mutableStateOf(false) }
-    var statusLine by remember { mutableStateOf("") }
     var liveAssistantMarkdown by remember { mutableStateOf("") }
     var panelManuallyHidden by remember { mutableStateOf(false) }
+    var petOffsetX by remember { mutableFloatStateOf(initialPetOffsetXPx.toFloat()) }
+    var petOffsetY by remember { mutableFloatStateOf(initialPetOffsetYPx.toFloat()) }
+    var draftUserBubbleIndex by remember { mutableStateOf<Int?>(null) }
     val chatHistory = remember { mutableStateListOf<ChatBubble>() }
     val scope = rememberCoroutineScope()
     val transport = remember(scope) { DashScopeAsrTransport(scope, runOnMain) }
@@ -244,31 +269,53 @@ private fun PetOverlayScreen(
                     }
                 }
                 is VoiceInputSignal.PartialText -> {
-                    statusLine = signal.text.ifBlank { ctx.getString(R.string.pet_phase_listening) }
+                    val preview = signal.text.trim()
+                    if (preview.isNotEmpty()) {
+                        val content = "识别中：$preview"
+                        val idx = draftUserBubbleIndex
+                        if (idx != null && idx in 0 until chatHistory.size) {
+                            chatHistory[idx] = chatHistory[idx].copy(content = content)
+                        } else {
+                            chatHistory.add(ChatBubble(role = "user", content = content))
+                            draftUserBubbleIndex = chatHistory.lastIndex
+                        }
+                    }
                 }
                 is VoiceInputSignal.FinalText -> {
-                    statusLine = signal.text
+                    val finalText = signal.text.trim()
+                    if (finalText.isNotEmpty()) {
+                        val idx = draftUserBubbleIndex
+                        if (idx != null && idx in 0 until chatHistory.size) {
+                            chatHistory[idx] = chatHistory[idx].copy(content = finalText)
+                        } else {
+                            chatHistory.add(ChatBubble(role = "user", content = finalText))
+                        }
+                    }
                 }
                 is VoiceInputSignal.Submitted -> {
-                    lastUserUtterance = signal.text
-                    statusLine = ""
+                    val submitted = signal.text.trim()
+                    lastUserUtterance = submitted
                     phase = AgentSessionPhase.Sending
                     panelManuallyHidden = false
-                    chatHistory.add(ChatBubble(role = "user", content = signal.text))
+                    val idx = draftUserBubbleIndex
+                    if (idx != null && idx in 0 until chatHistory.size) {
+                        chatHistory[idx] = chatHistory[idx].copy(content = submitted)
+                    } else {
+                        chatHistory.add(ChatBubble(role = "user", content = submitted))
+                    }
+                    draftUserBubbleIndex = null
                     liveAssistantMarkdown = ""
                     chatHistory.add(ChatBubble(role = "assistant", content = ""))
                 }
                 is VoiceInputSignal.Error -> {
-                    statusLine = signal.message
                     phase = AgentSessionPhase.Error
+                    draftUserBubbleIndex = null
                 }
                 is VoiceInputSignal.Cancelled -> {
-                    statusLine = ctx.getString(R.string.pet_cancelled)
                     phase = AgentSessionPhase.Idle
+                    draftUserBubbleIndex = null
                 }
-                VoiceInputSignal.Busy -> {
-                    statusLine = ctx.getString(R.string.pet_phase_busy_hint)
-                }
+                VoiceInputSignal.Busy -> {}
             }
         }
     }
@@ -319,7 +366,6 @@ private fun PetOverlayScreen(
             override fun onAgentError(message: String) {
                 phase = AgentSessionPhase.Error
                 endedByUserAbort = false
-                statusLine = message
                 if (!panelManuallyHidden) panelMode = PanelMode.Expanded
                 liveAssistantMarkdown = "**错误**\n\n$message"
                 chatHistory.add(ChatBubble(role = "assistant", content = liveAssistantMarkdown))
@@ -333,89 +379,27 @@ private fun PetOverlayScreen(
     }
 
     val density = LocalDensity.current
-    val cancelThresholdPx = remember(density) { with(density) { 72.dp.toPx() } }
+    val cancelThresholdPx = remember(density) { with(density) { 48.dp.toPx() } }
 
-    val phaseHintMain = stringResource(
-        when (phase) {
-            AgentSessionPhase.Idle -> R.string.pet_phase_idle
-            AgentSessionPhase.Listening -> R.string.pet_phase_listening
-            AgentSessionPhase.Transcribing -> R.string.pet_phase_transcribing
-            AgentSessionPhase.Sending -> R.string.pet_phase_sending_main
-            AgentSessionPhase.Streaming -> R.string.pet_phase_streaming_main
-            AgentSessionPhase.Done ->
-                if (endedByUserAbort) R.string.pet_stopped_title
-                else R.string.pet_phase_idle
-            AgentSessionPhase.Error -> R.string.pet_phase_idle
+    val configuration = LocalConfiguration.current
+    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val petSizePx = with(density) { 44.dp.toPx() }
+    val maxPetOffsetX = (screenWidthPx - petSizePx).coerceAtLeast(0f)
+    val maxPetOffsetY = (screenHeightPx - petSizePx).coerceAtLeast(0f)
+    val chatListState = rememberLazyListState()
+
+    LaunchedEffect(chatHistory.size, chatHistory.lastOrNull()?.content) {
+        if (chatHistory.isNotEmpty()) {
+            chatListState.animateScrollToItem(chatHistory.lastIndex)
         }
-    )
-    val phaseHintSub = stringResource(
-        when (phase) {
-            AgentSessionPhase.Sending -> R.string.pet_phase_sending_sub
-            AgentSessionPhase.Streaming -> R.string.pet_phase_streaming_sub
-            else -> R.string.pet_phase_sending_sub
-        }
-    )
-    val showPhaseSub = phase == AgentSessionPhase.Sending || phase == AgentSessionPhase.Streaming
-    val statusCompact = remember(statusLine) {
-        statusLine
-            .replace('\n', ' ')
-            .let { if (it.length > 24) it.take(24) + "..." else it }
     }
 
     @Composable
     fun PetControlsColumn() {
         var fingerOnPet by remember { mutableStateOf(false) }
-        var dragX by remember { mutableFloatStateOf(0f) }
-        var dragY by remember { mutableFloatStateOf(0f) }
-        var userDraggedPet by remember { mutableStateOf(false) }
         var lastShortTapAtMs by remember { mutableStateOf(0L) }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .width(180.dp)
-                .defaultMinSize(minHeight = 260.dp)
-        ) {
-            if (statusLine.isNotBlank()) {
-                Text(
-                    text = statusCompact,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
-            }
-            Text(
-                text = phaseHintMain,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White,
-                modifier = Modifier
-                    .background(Color(0x88000000), RoundedCornerShape(8.dp))
-                    .padding(8.dp)
-            )
-            if (showPhaseSub) {
-                Text(
-                    text = phaseHintSub,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.9f),
-                    modifier = Modifier
-                        .background(Color(0x66000000), RoundedCornerShape(6.dp))
-                        .padding(6.dp)
-                )
-            }
-            if (phase.isLlmActive() && panelMode != PanelMode.Expanded) {
-                TextButton(
-                    onClick = { serviceRef.value.abortAgent() },
-                    modifier = Modifier.background(Color(0xCC000000), RoundedCornerShape(8.dp))
-                ) {
-                    Text(
-                        stringResource(R.string.pet_stop_generation),
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
-            }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             var upward by remember { mutableFloatStateOf(0f) }
             var swipeCancelled by remember { mutableStateOf(false) }
             val petListening =
@@ -428,38 +412,94 @@ private fun PetOverlayScreen(
                 fingerOnPet -> Color(0xFFFFA726)
                 else -> Color(0xFFFFB74D)
             }
-            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val density = LocalDensity.current
-                val maxOffsetX = with(density) { maxWidth.toPx() - 120.dp.toPx() }
-                val minOffsetX = with(density) { -maxWidth.toPx() + 120.dp.toPx() }
-                val maxOffsetY = with(density) { 80.dp.toPx() }
-                val minOffsetY = with(density) { -maxHeight.toPx() + 120.dp.toPx() }
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .align(if (userDraggedPet) Alignment.Center else Alignment.BottomEnd)
-                        .offset { IntOffset(dragX.toInt(), dragY.toInt()) }
-                        .size(72.dp)
-                        .background(petFillColor, CircleShape)
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDragStart = { userDraggedPet = true },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    dragX = (dragX + dragAmount.x).coerceIn(minOffsetX, maxOffsetX)
-                                    dragY = (dragY + dragAmount.y).coerceIn(minOffsetY, maxOffsetY)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(petFillColor, CircleShape)
+                    // 切勿把 phase 放进 keys：进入 Listening 会重启协程并立刻 stop ASR，导致服务端报协议错误。
+                    .pointerInput(cancelThresholdPx) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            fingerOnPet = true
+                            voiceController.onPressStart()
+                            try {
+                                var totalDx = 0f
+                                var totalDy = 0f
+                                var dragging = false
+                                var longPressTriggered = false
+                                var blockedByBusy = false
+                                var releasedBeforeTrigger = false
+                                swipeCancelled = false
+                                upward = 0f
+                                val longPressReached = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                                    while (true) {
+                                        val event = awaitPointerEvent(PointerEventPass.Main)
+                                        val change = event.changes.fastFirstOrNull { it.id == down.id } ?: continue
+                                        if (!change.pressed && change.previousPressed) {
+                                            releasedBeforeTrigger = true
+                                            return@withTimeoutOrNull false
+                                        }
+                                        val delta = change.positionChange()
+                                        if (delta != androidx.compose.ui.geometry.Offset.Zero) {
+                                            change.consume()
+                                        }
+                                        totalDx += delta.x
+                                        totalDy += delta.y
+                                        if (abs(totalDx) > viewConfiguration.touchSlop ||
+                                            abs(totalDy) > viewConfiguration.touchSlop
+                                        ) {
+                                            dragging = true
+                                            voiceController.onPressCancel()
+                                            return@withTimeoutOrNull false
+                                        }
+                                    }
+                                } == null
+
+                                if (longPressReached && !dragging) {
+                                    if (!phaseRef.value.allowsVoiceInput()) {
+                                        blockedByBusy = true
+                                        voiceController.onPressCancel()
+                                    } else {
+                                        longPressTriggered = true
+                                        panelManuallyHidden = false
+                                        panelMode = PanelMode.Expanded
+                                        voiceController.onLongPressTriggered()
+                                    }
                                 }
-                            )
-                        }
-                        // 切勿把 phase 放进 keys：进入 Listening 会重启协程并立刻 stop ASR，导致服务端报协议错误。
-                        .pointerInput(cancelThresholdPx) {
-                            awaitEachGesture {
-                                val down = awaitFirstDown(requireUnconsumed = false)
-                                fingerOnPet = true
-                                voiceController.onPressStart()
-                                try {
-                                    val longPress = awaitLongPressOrCancellation(down.id)
-                                    if (longPress == null) {
+
+                                while (!releasedBeforeTrigger) {
+                                    val event = awaitPointerEvent(PointerEventPass.Main)
+                                    val change = event.changes.fastFirstOrNull { it.id == down.id } ?: continue
+                                    if (!change.pressed && change.previousPressed) {
+                                        break
+                                    }
+                                    val delta = change.positionChange()
+                                    if (delta != androidx.compose.ui.geometry.Offset.Zero) {
+                                        change.consume()
+                                    }
+                                    if (dragging) {
+                                        petOffsetX = (petOffsetX - delta.x).coerceIn(0f, maxPetOffsetX)
+                                        petOffsetY = (petOffsetY - delta.y).coerceIn(0f, maxPetOffsetY)
+                                        onPetOffsetChanged(petOffsetX.toInt(), petOffsetY.toInt())
+                                    } else if (longPressTriggered && delta.y < 0) {
+                                        upward += -delta.y
+                                        if (upward >= cancelThresholdPx) {
+                                            swipeCancelled = true
+                                        }
+                                    }
+                                }
+                                when {
+                                    dragging -> Unit
+                                    longPressTriggered -> {
+                                        if (swipeCancelled) {
+                                            voiceController.onPressCancel()
+                                        } else {
+                                            voiceController.onPressEnd()
+                                        }
+                                    }
+                                    blockedByBusy -> Unit
+                                    else -> {
                                         val now = System.currentTimeMillis()
                                         if (panelMode == PanelMode.Hidden &&
                                             chatHistory.isNotEmpty() &&
@@ -469,91 +509,59 @@ private fun PetOverlayScreen(
                                             panelMode = PanelMode.Expanded
                                         }
                                         lastShortTapAtMs = now
-                                        // 短按仅结束 Pressing，不启动语音。
                                         voiceController.onPressEnd()
-                                        return@awaitEachGesture
                                     }
-                                    if (!phaseRef.value.allowsVoiceInput()) {
-                                        statusLine = ctx.getString(R.string.pet_phase_busy_hint)
-                                        voiceController.onPressCancel()
-                                        return@awaitEachGesture
-                                    }
-                                    swipeCancelled = false
-                                    upward = 0f
-                                    statusLine = ""
-                                    voiceController.onLongPressTriggered()
-                                    try {
-                                        while (true) {
-                                            val event = awaitPointerEvent(PointerEventPass.Main)
-                                            val change = event.changes.fastFirstOrNull { it.id == down.id }
-                                                ?: continue
-                                            if (!change.pressed && change.previousPressed) {
-                                                break
-                                            }
-                                            val drag = change.positionChange()
-                                            change.consume()
-                                            if (drag.y < 0) {
-                                                upward += -drag.y
-                                                if (upward >= cancelThresholdPx) {
-                                                    swipeCancelled = true
-                                                }
-                                            }
-                                        }
-                                    } finally {
-                                        if (swipeCancelled) {
-                                            voiceController.onPressCancel()
-                                        } else {
-                                            voiceController.onPressEnd()
-                                        }
-                                    }
-                                } finally {
-                                    fingerOnPet = false
                                 }
+                            } finally {
+                                fingerOnPet = false
                             }
                         }
-                ) {
-                    Text(text = "\uD83D\uDC3E", style = MaterialTheme.typography.headlineSmall)
-                    if (petListening) {
-                        Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .align(Alignment.TopEnd)
-                                .background(Color(0xFF00C853), CircleShape)
-                        )
                     }
-                    if (waitingServer) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .align(Alignment.TopEnd),
-                            strokeWidth = 2.dp
-                        )
-                    }
+            ) {
+                Text(text = "\uD83D\uDC3E", style = MaterialTheme.typography.titleMedium)
+                if (petListening) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .align(Alignment.TopEnd)
+                            .background(Color(0xFF00C853), CircleShape)
+                    )
+                }
+                if (waitingServer) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .align(Alignment.TopEnd),
+                        strokeWidth = 2.dp
+                    )
                 }
             }
         }
     }
 
     if (panelMode == PanelMode.Hidden) {
-        Column(
+        Box(
             modifier = Modifier
                 .wrapContentSize()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(20.dp)
         ) {
             PetControlsColumn()
         }
     } else {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val panelMaxHeight = maxHeight * 0.75f
-            if (panelMode == PanelMode.Expanded) {
+            AnimatedVisibility(
+                visible = panelMode == PanelMode.Expanded,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 5 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 5 }),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
+            ) {
                 Card(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
                         .fillMaxWidth(0.92f)
-                        .heightIn(max = panelMaxHeight)
-                        .padding(bottom = 24.dp),
+                        .heightIn(max = panelMaxHeight),
                     shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = Color(0xCC1E1E1E)
@@ -588,27 +596,13 @@ private fun PetOverlayScreen(
                                 }
                             }
                         }
-                        if (phase == AgentSessionPhase.Sending || phase == AgentSessionPhase.Streaming) {
-                            Text(
-                                text = stringResource(
-                                    if (phase == AgentSessionPhase.Sending)
-                                        R.string.pet_phase_sending_main
-                                    else
-                                        R.string.pet_phase_streaming_main
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.8f),
-                                modifier = Modifier.padding(bottom = 6.dp)
-                            )
-                        }
-                        Column(
+                        LazyColumn(
+                            state = chatListState,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = panelMaxHeight - 140.dp)
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            chatHistory.forEach { bubble ->
+                            itemsIndexed(chatHistory) { _, bubble ->
                                 val bg =
                                     if (bubble.role == "user") Color(0xFF424242) else Color(0xFF2D2D2D)
                                 Text(
@@ -617,41 +611,20 @@ private fun PetOverlayScreen(
                                     color = Color.White,
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .padding(bottom = 8.dp)
                                         .background(bg, RoundedCornerShape(10.dp))
                                         .padding(10.dp)
                                 )
                             }
                         }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (phase == AgentSessionPhase.Error && lastUserUtterance.isNotBlank()) {
-                                TextButton(
-                                    onClick = {
-                                        statusLine = ""
-                                        phase = AgentSessionPhase.Sending
-                                        val ok = serviceRef.value.submitUserMessage(lastUserUtterance)
-                                        if (!ok) {
-                                            phase = AgentSessionPhase.Error
-                                        }
-                                    }
-                                ) {
-                                    Text(stringResource(R.string.pet_retry), color = Color.White)
-                                }
-                            }
-                            if (phase == AgentSessionPhase.Sending || phase == AgentSessionPhase.Streaming) {
-                                TextButton(onClick = { serviceRef.value.abortAgent() }) {
-                                    Text(stringResource(R.string.pet_stop_generation), color = Color.White)
-                                }
-                            }
-                        }
                     }
                 }
-            } else if (panelMode == PanelMode.Minimized) {
+            }
+            AnimatedVisibility(
+                visible = panelMode == PanelMode.Minimized,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 3 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 3 })
+            ) {
                 Card(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -671,7 +644,8 @@ private fun PetOverlayScreen(
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(20.dp),
+                    .padding(20.dp)
+                    .offset { IntOffset(-petOffsetX.toInt(), -petOffsetY.toInt()) },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
