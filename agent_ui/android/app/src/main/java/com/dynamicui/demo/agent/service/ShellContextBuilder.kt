@@ -20,8 +20,9 @@ object ShellContextBuilder {
             appendLine("- run_shell constraints:")
             appendLine("  - timeoutMs: 1000-30000 (default 10000)")
             appendLine("  - outputLimit: stdout/stderr 各 8000 chars")
-            appendLine("  - blockedRiskyPatterns: su, rm -rf /, reboot, shutdown, setenforce, mkfs, dd if=, stop/start")
-            appendLine("  - use allow_risky=true 才可尝试绕过风险拦截")
+            appendLine("  - 任意 PATH 内命令均可尝试；不存在则由 shell 报错")
+            appendLine("  - blockedRiskyPatterns(默认): su/sudo, rm -rf /, reboot/shutdown, setenforce, mkfs, dd if=, am force-stop/kill, svc power/reboot")
+            appendLine("  - allow_risky=true 可绕过上述风险拦截（仍受系统权限限制）")
         }.trim()
     }
 }

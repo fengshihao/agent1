@@ -4,7 +4,6 @@ import com.agent1.javaagent.core.CancellationToken
 import com.agent1.javaagent.tool.AgentTool
 import com.agent1.javaagent.tool.ToolExecutionResult
 import com.agent1.javaagent.tool.ToolUpdateListener
-import com.dynamicui.demo.agent.service.ShellCapabilitiesProvider
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.util.concurrent.TimeUnit
@@ -34,16 +33,6 @@ class RunShellTool : AgentTool {
         val script = parameters.path("script").asText("").trim()
         if (script.isEmpty()) return ToolExecutionResult.text(jsonFailure(stderr = "script 不能为空"))
         if (cancellationToken.isCancelled) return ToolExecutionResult.text(jsonFailure(stderr = "执行已取消"))
-
-        val commandName = firstCommand(script)
-        if (commandName.isNotEmpty()) {
-            val cap = ShellCapabilitiesProvider.getCachedOrProbe()
-            if (!cap.availableCommands.contains(commandName)) {
-                return ToolExecutionResult.text(
-                    jsonFailure(stderr = "当前设备缺少命令: $commandName（可先调用 get_shell_capabilities）")
-                )
-            }
-        }
 
         val allowRisky = parameters.path("allow_risky").asBoolean(false)
         if (!allowRisky) {
@@ -105,23 +94,6 @@ class RunShellTool : AgentTool {
         return ""
     }
 
-    private fun firstCommand(script: String): String {
-        val firstLine = script.lineSequence().firstOrNull()?.trim().orEmpty()
-        if (firstLine.isEmpty()) return ""
-        val tokens = firstLine.split(Regex("\\s+"))
-        if (tokens.isEmpty()) return ""
-        var head = tokens[0]
-        if (head == "export" && tokens.size > 1) {
-            head = tokens[1]
-        }
-        return when {
-            head == "sh" || head == "/system/bin/sh" -> "sh"
-            head.startsWith("./") -> ""
-            head.contains("=") -> ""
-            else -> head.substringAfterLast('/')
-        }
-    }
-
     private fun truncate(text: String, limit: Int): Pair<String, Boolean> {
         if (text.length <= limit) return text to false
         return text.take(limit) + "\n...<truncated>" to true
@@ -147,16 +119,20 @@ class RunShellTool : AgentTool {
         private val MAPPER = ObjectMapper()
         private const val DEFAULT_TIMEOUT_MS = 10000L
         private const val OUTPUT_LIMIT = 8000
+        // 默认拦截极危险子串；allow_risky=true 时放行。避免过宽匹配（如普通英文里的 "stop"）。
         private val DANGEROUS_PATTERNS = listOf(
             "su ",
+            "sudo ",
             "rm -rf /",
             "reboot",
             "shutdown",
             "setenforce ",
             "mkfs",
             "dd if=",
-            " stop ",
-            " start "
+            "am force-stop",
+            "am kill",
+            "svc power",
+            "svc reboot"
         )
     }
 }

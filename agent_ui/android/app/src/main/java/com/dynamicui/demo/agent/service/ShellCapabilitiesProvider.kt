@@ -1,6 +1,8 @@
 package com.dynamicui.demo.agent.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 data class ShellCapabilities(
@@ -13,9 +15,90 @@ data class ShellCapabilities(
 object ShellCapabilitiesProvider {
     private const val SHELL_PATH = "/system/bin/sh"
     private const val COMMAND_TIMEOUT_MS = 1200L
+    private const val PROBE_THREADS = 8
+    private const val FUTURE_GET_SEC = 3L
+    /** 供 get_shell_capabilities 探测并在上下文中列出；run_shell 不再仅限此列表。 */
     private val CANDIDATES = listOf(
-        "sh", "toybox", "toolbox", "getprop", "pm", "am", "settings",
-        "dumpsys", "logcat", "input", "cmd", "svc", "top", "ps"
+        "sh",
+        "toybox",
+        "toolbox",
+        "busybox",
+        "getprop",
+        "setprop",
+        "pm",
+        "am",
+        "settings",
+        "cmd",
+        "dumpsys",
+        "logcat",
+        "log",
+        "input",
+        "svc",
+        "top",
+        "ps",
+        "ls",
+        "cat",
+        "echo",
+        "printf",
+        "grep",
+        "egrep",
+        "fgrep",
+        "find",
+        "xargs",
+        "sort",
+        "uniq",
+        "wc",
+        "head",
+        "tail",
+        "cut",
+        "tr",
+        "sed",
+        "awk",
+        "mkdir",
+        "rmdir",
+        "cp",
+        "mv",
+        "ln",
+        "chmod",
+        "chown",
+        "touch",
+        "stat",
+        "id",
+        "uname",
+        "hostname",
+        "date",
+        "uptime",
+        "df",
+        "du",
+        "mount",
+        "umount",
+        "which",
+        "basename",
+        "dirname",
+        "readlink",
+        "realpath",
+        "md5sum",
+        "sha1sum",
+        "base64",
+        "tar",
+        "gzip",
+        "gunzip",
+        "zip",
+        "unzip",
+        "curl",
+        "wget",
+        "nc",
+        "netstat",
+        "ss",
+        "ping",
+        "iptables",
+        "ip",
+        "ifconfig",
+        "sqlite3",
+        "screencap",
+        "screenrecord",
+        "content",
+        "service"
     )
 
     @Volatile
@@ -26,17 +109,31 @@ object ShellCapabilitiesProvider {
         if (!force && cached != null) return cached
         val available = mutableListOf<String>()
         val missing = mutableListOf<String>()
-        for (cmd in CANDIDATES) {
-            if (isCommandAvailable(cmd)) {
-                available += cmd
-            } else {
-                missing += cmd
+        val pool = Executors.newFixedThreadPool(PROBE_THREADS)
+        try {
+            val futures = CANDIDATES.map { cmd ->
+                cmd to pool.submit(Callable { isCommandAvailable(cmd) })
             }
+            for ((cmd, future) in futures) {
+                val ok = try {
+                    future.get(FUTURE_GET_SEC, TimeUnit.SECONDS)
+                } catch (_: Exception) {
+                    future.cancel(true)
+                    false
+                }
+                if (ok) {
+                    available += cmd
+                } else {
+                    missing += cmd
+                }
+            }
+        } finally {
+            pool.shutdownNow()
         }
         val snapshot = ShellCapabilities(
             shellPath = SHELL_PATH,
-            availableCommands = available,
-            missingCommands = missing,
+            availableCommands = available.sorted(),
+            missingCommands = missing.sorted(),
             detectedAtMs = System.currentTimeMillis()
         )
         cache = snapshot
