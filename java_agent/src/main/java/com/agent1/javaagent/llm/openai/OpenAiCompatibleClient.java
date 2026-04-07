@@ -106,19 +106,33 @@ public final class OpenAiCompatibleClient implements LlmClient {
 
                 @Override
                 public void onFailure(EventSource eventSource, Throwable t, okhttp3.Response response) {
-                    if (!cancellationToken.isCancelled()) {
-                        String body = "";
-                        if (response != null && response.body() != null) {
-                            try {
-                                body = response.body().string();
-                            } catch (IOException ignored) {
-                                // Ignore secondary parse failure.
+                    try {
+                        if (!cancellationToken.isCancelled()) {
+                            String body = "";
+                            if (response != null && response.body() != null) {
+                                try {
+                                    body = response.body().string();
+                                } catch (IOException ignored) {
+                                    // Ignore secondary parse failure.
+                                }
+                            }
+                            String reason = describeFailure(t, response);
+                            if (t != null) {
+                                errors.add(new IllegalStateException("SSE failed: " + reason + " " + body, t));
+                            } else {
+                                errors.add(new IllegalStateException("SSE failed: " + reason + " " + body));
                             }
                         }
-                        String reason = describeFailure(t, response);
-                        errors.add(new IllegalStateException("SSE failed: " + reason + " " + body, t));
+                    } catch (Throwable handlerFailure) {
+                        errors.add(
+                            new IllegalStateException(
+                                "SSE onFailure handler error (original failure may be lost)",
+                                handlerFailure
+                            )
+                        );
+                    } finally {
+                        done.countDown();
                     }
-                    done.countDown();
                 }
 
                 @Override
@@ -252,19 +266,35 @@ public final class OpenAiCompatibleClient implements LlmClient {
         }
     }
 
-    /** OkHttp may pass a null {@code Throwable} to {@code EventSourceListener#onFailure}. */
+    /**
+     * OkHttp SSE may pass a null {@code Throwable} to {@code EventSourceListener#onFailure}; never call
+     * {@code t.getMessage()} unless {@code t} is non-null.
+     */
     private static String describeFailure(Throwable t, okhttp3.Response response) {
-        if (t != null) {
-            String m = t.getMessage();
-            if (m != null && !m.isBlank()) {
-                return m;
-            }
-            return t.getClass().getSimpleName();
+        String fromThrowable = safeThrowableSummary(t);
+        if (fromThrowable != null) {
+            return fromThrowable;
         }
         if (response != null) {
             return "HTTP " + response.code() + " " + response.message();
         }
         return "unknown (no Throwable, no Response)";
+    }
+
+    /** Returns null if {@code t} is null; never dereferences a null throwable. */
+    private static String safeThrowableSummary(Throwable t) {
+        if (t == null) {
+            return null;
+        }
+        try {
+            String m = t.getMessage();
+            if (m != null && !m.isBlank()) {
+                return m;
+            }
+            return t.getClass().getSimpleName();
+        } catch (Throwable ignored) {
+            return t.getClass().getSimpleName();
+        }
     }
 
     private static final class PartialToolCall {
