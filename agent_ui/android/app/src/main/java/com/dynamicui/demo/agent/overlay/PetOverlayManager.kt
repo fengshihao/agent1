@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.AbstractComposeView
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -203,11 +204,34 @@ class PetOverlayManager(private val appContext: Context) {
     }
 
     fun hide() {
+        // WindowManager 的 add/remove 必须在主线程且成对；异步移除可避免与 Compose 卸载竞态导致的「残影/无法点击」。
+        main.post { hideOnMainThread() }
+    }
+
+    private fun hideOnMainThread() {
         val v = composeView ?: return
-        if (v.parent != null) {
-            wm.removeView(v)
+        try {
+            if (v.parent != null) {
+                (v as? AbstractComposeView)?.disposeComposition()
+                wm.removeView(v)
+            }
+        } catch (_: IllegalArgumentException) {
+            try {
+                if (v.parent != null) {
+                    wm.removeViewImmediate(v)
+                }
+            } catch (_: Exception) {
+            }
+        } catch (_: Exception) {
+            try {
+                if (v.parent != null) {
+                    wm.removeViewImmediate(v)
+                }
+            } catch (_: Exception) {
+            }
+        } finally {
+            composeView = null
         }
-        composeView = null
     }
 }
 
