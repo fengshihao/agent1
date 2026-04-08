@@ -15,6 +15,7 @@ import androidx.core.app.ServiceCompat
 import android.content.pm.ServiceInfo
 import com.agent1.javaagent.core.AgentOptions
 import com.agent1.javaagent.core.AgentRuntime
+import com.agent1.javaagent.core.MessageHistoryLimiter
 import com.agent1.javaagent.event.AgentEvent
 import com.agent1.javaagent.event.AgentEventListener
 import com.agent1.javaagent.event.AgentEventType
@@ -135,6 +136,10 @@ class AgentForegroundService : Service(), AgentEventListener {
         )
         val options = AgentOptions.builder("qwen3.5-flash")
             .systemPrompt(voicePrompt)
+            // 只把最近上下文送进模型，避免长会话导致时延/成本持续上升。
+            .maxContextMessages(MAX_CONTEXT_MESSAGES_FOR_MODEL)
+            .maxTurnsPerRun(MAX_TURNS_PER_RUN)
+            .maxToolCallsPerRun(MAX_TOOL_CALLS_PER_RUN)
             .tools(
                 listOf(
                     GetCurrentPageSnapshotTool(),
@@ -261,6 +266,7 @@ class AgentForegroundService : Service(), AgentEventListener {
             append(msg)
         }
         return try {
+            pruneInMemoryHistoryIfNeeded(rt)
             rt.prompt(enriched)
             true
         } catch (_: IllegalStateException) {
@@ -270,6 +276,13 @@ class AgentForegroundService : Service(), AgentEventListener {
             postError(e.message ?: "请求失败")
             false
         }
+    }
+
+    private fun pruneInMemoryHistoryIfNeeded(rt: AgentRuntime) {
+        val messages = rt.stateSnapshot.messages
+        if (messages.size <= MAX_PERSISTED_MESSAGES_IN_MEMORY) return
+        val kept = MessageHistoryLimiter.limitTail(messages, PERSISTED_MESSAGES_TAIL_KEEP)
+        rt.replaceMessages(kept)
     }
 
     fun abortAgent() {
@@ -287,5 +300,10 @@ class AgentForegroundService : Service(), AgentEventListener {
         const val CHANNEL_ID = "agent1_agent_service"
         private const val NOTIF_ID = 1001
         private const val VOICE_PROMPT_ASSET = "prompts/voice_assistant_system_prompt.txt"
+        private const val MAX_CONTEXT_MESSAGES_FOR_MODEL = 60
+        private const val MAX_TURNS_PER_RUN = 12
+        private const val MAX_TOOL_CALLS_PER_RUN = 24
+        private const val MAX_PERSISTED_MESSAGES_IN_MEMORY = 220
+        private const val PERSISTED_MESSAGES_TAIL_KEEP = 160
     }
 }

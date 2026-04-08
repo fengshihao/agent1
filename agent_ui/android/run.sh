@@ -6,6 +6,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$ROOT_DIR/../.." && pwd)"
 APK_PATH="$ROOT_DIR/app/build/outputs/apk/debug/app-debug.apk"
 APP_ID="com.dynamicui.demo"
 ACTIVITY=".MainActivity"
@@ -15,16 +16,22 @@ if [[ "$(adb get-state 2>/dev/null || true)" != "device" ]]; then
   exit 1
 fi
 
-echo "==> 1/3 编译 APK"
+echo "==> 1/4 发布 java-agent-core 到本地 Maven"
+(
+  cd "$REPO_ROOT"
+  ./java_agent/bin/publish-core-and-verify-android
+)
+
+echo "==> 2/4 编译 APK"
 (
   cd "$ROOT_DIR"
   ./gradlew :app:assembleDebug
 )
 
-echo "==> 2/3 安装 APK"
+echo "==> 3/4 安装 APK"
 adb install -r "$APK_PATH"
 
-echo "==> 3/3 启动 App"
+echo "==> 4/4 启动 App"
 adb shell am start -n "${APP_ID}/${ACTIVITY}"
 
 echo "==> 完成"

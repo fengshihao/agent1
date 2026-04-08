@@ -17,6 +17,7 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString.Companion.toByteString
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -36,6 +37,8 @@ class DashScopeFunAsrSession(
     private val aborted = AtomicBoolean(false)
     private var currentTaskId: String? = null
     private val resultBuffer = StringBuilder()
+    private val capturedAudio = ByteArrayOutputStream()
+    private var leadingTrimBytesRemaining: Int = 0
 
     private val apiKey: String
         get() = BuildConfig.DASHSCOPE_API_KEY.trim()
@@ -57,6 +60,10 @@ class DashScopeFunAsrSession(
         stopped.set(false)
         aborted.set(false)
         resultBuffer.clear()
+        synchronized(capturedAudio) {
+            capturedAudio.reset()
+        }
+        leadingTrimBytesRemaining = LEADING_TRIM_BYTES
         currentTaskId = null
         if (apiKey.isEmpty()) {
             runOnMain { onError("缺少 DASHSCOPE_API_KEY") }
@@ -91,9 +98,9 @@ class DashScopeFunAsrSession(
                                 ?.optJSONObject("sentence") ?: return
                             val t = sentence.optString("text", "")
                             if (t.isNotBlank()) {
-                                // 服务端多数情况下返回“当前句累计文本”，这里覆盖而非追加，避免重复叠字。
+                                val merged = mergeStreamingText(resultBuffer.toString(), t)
                                 resultBuffer.setLength(0)
-                                resultBuffer.append(t)
+                                resultBuffer.append(merged)
                                 val snap = resultBuffer.toString()
                                 runOnMain { onPartial(snap) }
                             }
@@ -169,12 +176,25 @@ class DashScopeFunAsrSession(
         }
 
         recordJob = scope.launch(Dispatchers.IO) {
-            val buf = ByteArray(3200)
+            val buf = ByteArray(STREAM_CHUNK_BYTES)
             while (scope.isActive && !stopped.get()) {
                 val n = record.read(buf, 0, buf.size)
                 if (n > 0) {
+                    var start = 0
+                    if (leadingTrimBytesRemaining > 0) {
+                        val drop = minOf(leadingTrimBytesRemaining, n)
+                        leadingTrimBytesRemaining -= drop
+                        start = drop
+                    }
+                    if (start >= n) continue
+                    val validLen = n - start
+                    synchronized(capturedAudio) {
+                        capturedAudio.write(buf, start, validLen)
+                    }
                     try {
-                        webSocket.send(buf.copyOfRange(0, n).toByteString())
+                        if (REALTIME_STREAMING_ENABLED) {
+                            webSocket.send(buf.copyOfRange(start, n).toByteString())
+                        }
                     } catch (e: Exception) {
                         Log.e(TAG, "send chunk", e)
                         break
@@ -208,6 +228,22 @@ class DashScopeFunAsrSession(
         currentTaskId = null
         if (ws == null) return
         if (submit && taskId != null) {
+            if (!REALTIME_STREAMING_ENABLED) {
+                val audio = synchronized(capturedAudio) { capturedAudio.toByteArray() }
+                var offset = 0
+                while (offset < audio.size) {
+                    val end = minOf(offset + STREAM_CHUNK_BYTES, audio.size)
+                    try {
+                        ws.send(audio.copyOfRange(offset, end).toByteString())
+                    } catch (_: Exception) {
+                        stopped.set(true)
+                        aborted.set(true)
+                        ws.cancel()
+                        return
+                    }
+                    offset = end
+                }
+            }
             val finish = buildFinishTaskMessageText(taskId)
             try {
                 ws.send(finish)
@@ -229,6 +265,48 @@ class DashScopeFunAsrSession(
     companion object {
         private const val TAG = "DashScopeFunAsr"
         private const val SAMPLE_RATE = 16000
+        // 实时字幕默认开启。
+        private const val REALTIME_STREAMING_ENABLED = true
+        // 丢弃起录瞬间的短噪声，降低首字被误识别成“对/嗯”等语气词的概率。
+        private const val LEADING_TRIM_MS = 220
+        private const val LEADING_TRIM_BYTES = SAMPLE_RATE * 2 * LEADING_TRIM_MS / 1000
+        private const val STREAM_CHUNK_BYTES = 6400 // 200ms @ 16kHz, 16-bit, mono
+        private val LEADING_FILLER_TOKENS = setOf("对", "嗯", "呃", "啊", "唉")
+
+        /**
+         * 兼容两类服务端返回：
+         * 1) 累计文本（新串以前缀包含旧串）
+         * 2) 断句后只返回新片段（停顿后开始新句）
+         */
+        internal fun mergeStreamingText(previous: String, incoming: String): String {
+            val prev = previous.trim()
+            val next = incoming.trim()
+            if (prev.isEmpty()) return next
+            if (next.isEmpty()) return prev
+            // 首段极短识别（常见为单字噪声）允许被后续更长文本直接替换纠正。
+            if (prev.length <= 1 && next.length >= 2) return next
+            if (prev in LEADING_FILLER_TOKENS && !next.startsWith(prev) && next.length >= 2) return next
+            if (next.startsWith(prev)) return next
+            if (prev.startsWith(next)) return prev
+            if (prev.contains(next)) return prev
+            if (next.contains(prev)) return next
+
+            val overlap = maxPrefixSuffixOverlap(prev, next)
+            if (overlap > 0) {
+                return prev + next.drop(overlap)
+            }
+            return prev + next
+        }
+
+        private fun maxPrefixSuffixOverlap(a: String, b: String): Int {
+            val max = minOf(a.length, b.length)
+            for (len in max downTo 1) {
+                if (a.regionMatches(a.length - len, b, 0, len, ignoreCase = false)) {
+                    return len
+                }
+            }
+            return 0
+        }
 
         internal fun buildRunTaskMessageText(taskId: String, sampleRate: Int): String {
             return """

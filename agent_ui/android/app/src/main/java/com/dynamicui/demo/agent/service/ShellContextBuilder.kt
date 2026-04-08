@@ -1,15 +1,24 @@
 package com.dynamicui.demo.agent.service
 
 import android.os.Build
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 object ShellContextBuilder {
     fun build(): String {
         val cap = ShellCapabilitiesProvider.getCachedOrProbe()
         val path = System.getenv("PATH").orEmpty()
+        val now = Instant.now()
+        val zone = ZoneId.systemDefault()
+        val humanTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(zone).format(now)
         return buildString {
             appendLine("当前 shell 环境:")
+            appendLine("- nowLocal: $humanTime")
+            appendLine("- timezone: ${zone.id}")
+            appendLine("- epochMs: ${System.currentTimeMillis()}")
+            appendLine("- os: Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
             appendLine("- shellPath: ${cap.shellPath}")
-            appendLine("- sdkInt: ${Build.VERSION.SDK_INT}")
             appendLine("- brand: ${Build.BRAND}")
             appendLine("- model: ${Build.MODEL}")
             appendLine("- abi: ${Build.SUPPORTED_ABIS.firstOrNull().orEmpty()}")

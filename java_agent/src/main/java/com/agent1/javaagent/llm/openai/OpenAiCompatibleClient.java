@@ -108,6 +108,11 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 public void onFailure(EventSource eventSource, Throwable t, okhttp3.Response response) {
                     try {
                         if (!cancellationToken.isCancelled()) {
+                            // OkHttp SSE 在部分失败路径会传 null Throwable；禁止任何直接解引用。
+                            if (t == null && response == null) {
+                                errors.add(new IllegalStateException("SSE failed: unknown (no Throwable, no Response)"));
+                                return;
+                            }
                             String body = "";
                             if (response != null && response.body() != null) {
                                 try {
@@ -287,7 +292,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
             return null;
         }
         try {
-            String m = t.getMessage();
+            String m = String.valueOf(t.getMessage());
             if (m != null && !m.isBlank()) {
                 return m;
             }
