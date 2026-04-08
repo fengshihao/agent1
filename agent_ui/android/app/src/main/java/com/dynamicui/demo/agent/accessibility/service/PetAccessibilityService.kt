@@ -1,4 +1,4 @@
-package com.dynamicui.demo.agent.accessibility.service
+package com.dynamicui.demo.pet.logic.data.accessibility.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
@@ -10,8 +10,8 @@ import android.os.Bundle
 import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.dynamicui.demo.agent.accessibility.core.PageSnapshotCollector
-import com.dynamicui.demo.agent.accessibility.core.PageSnapshotStore
+import com.dynamicui.demo.pet.logic.data.accessibility.core.PageSnapshotCollector
+import com.dynamicui.demo.pet.logic.data.accessibility.core.PageSnapshotStore
 import java.lang.ref.WeakReference
 
 data class ActionResult(

@@ -1,4 +1,4 @@
-package com.dynamicui.demo.agent.accessibility.core
+package com.dynamicui.demo.pet.logic.data.accessibility.core
 
 object PageContextPromptBuilder {
     fun build(snapshot: PageSnapshot?): String {

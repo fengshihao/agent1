@@ -1,4 +1,4 @@
-package com.dynamicui.demo.agent.accessibility.tools
+package com.dynamicui.demo.pet.logic.data.accessibility.tools
 
 import com.agent1.javaagent.core.CancellationToken
 import com.agent1.javaagent.tool.AgentTool

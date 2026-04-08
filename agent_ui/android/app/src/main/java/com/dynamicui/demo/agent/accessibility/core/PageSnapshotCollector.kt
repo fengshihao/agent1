@@ -1,4 +1,4 @@
-package com.dynamicui.demo.agent.accessibility.core
+package com.dynamicui.demo.pet.logic.data.accessibility.core
 
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo

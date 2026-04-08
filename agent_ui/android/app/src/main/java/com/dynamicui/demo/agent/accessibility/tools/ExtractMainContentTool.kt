@@ -1,10 +1,10 @@
-package com.dynamicui.demo.agent.accessibility.tools
+package com.dynamicui.demo.pet.logic.data.accessibility.tools
 
 import com.agent1.javaagent.core.CancellationToken
 import com.agent1.javaagent.tool.AgentTool
 import com.agent1.javaagent.tool.ToolExecutionResult
 import com.agent1.javaagent.tool.ToolUpdateListener
-import com.dynamicui.demo.agent.accessibility.core.PageSnapshotStore
+import com.dynamicui.demo.pet.logic.data.accessibility.core.PageSnapshotStore
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 

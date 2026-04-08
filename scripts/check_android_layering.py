@@ -23,7 +23,7 @@ IMPORT_RE = re.compile(r"^\s*import\s+([A-Za-z0-9_.*]+)\s*$", re.MULTILINE)
 UI_FRAMEWORK_PREFIXES = (
     "android.app.",
     "androidx.fragment.",
-    "android.view.",
+    "android.view.View",
     "androidx.compose.",
 )
 

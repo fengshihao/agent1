@@ -7,7 +7,7 @@ import android.content.ServiceConnection
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
-import com.dynamicui.demo.agent.accessibility.service.PetAccessibilityService
+import com.dynamicui.demo.pet.logic.data.accessibility.service.PetAccessibilityService
 import com.dynamicui.demo.pet.ui.overlay.PetOverlayManager
 import com.dynamicui.demo.agent.service.AgentForegroundService
 import kotlinx.coroutines.flow.MutableStateFlow

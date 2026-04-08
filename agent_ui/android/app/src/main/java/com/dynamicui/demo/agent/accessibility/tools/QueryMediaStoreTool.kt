@@ -1,4 +1,4 @@
-package com.dynamicui.demo.agent.accessibility.tools
+package com.dynamicui.demo.pet.logic.data.accessibility.tools
 
 import android.content.ContentUris
 import android.content.Context

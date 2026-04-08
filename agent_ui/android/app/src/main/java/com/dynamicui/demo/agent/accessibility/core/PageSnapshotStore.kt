@@ -1,4 +1,4 @@
-package com.dynamicui.demo.agent.accessibility.core
+package com.dynamicui.demo.pet.logic.data.accessibility.core
 
 import java.util.concurrent.atomic.AtomicReference
 
