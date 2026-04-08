@@ -79,9 +79,9 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.dynamicui.demo.R
 import com.dynamicui.demo.agent.asr.DashScopeAsrTransport
 import com.dynamicui.demo.agent.service.AgentForegroundService
-import com.dynamicui.demo.agent.voice.core.VoiceInputController
-import com.dynamicui.demo.agent.voice.core.VoiceInputSignal
-import com.dynamicui.demo.agent.voice.core.VoiceInputState
+import com.dynamicui.demo.pet.logic.business.voice.VoiceInputController
+import com.dynamicui.demo.pet.logic.business.voice.VoiceInputSignal
+import com.dynamicui.demo.pet.logic.business.voice.VoiceInputState
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs

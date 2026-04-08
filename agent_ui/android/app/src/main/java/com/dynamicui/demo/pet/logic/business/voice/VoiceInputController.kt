@@ -1,4 +1,4 @@
-package com.dynamicui.demo.agent.voice.core
+package com.dynamicui.demo.pet.logic.business.voice
 
 import com.dynamicui.demo.agent.asr.AsrTransport
 import com.dynamicui.demo.agent.service.AgentFileLogger
@@ -78,7 +78,6 @@ class VoiceInputController(
                         resetToIdle()
                         return@start
                     }
-                    // 某些服务端响应 final 可能为空，兜底使用最后一段 partial，避免“松手后无结果”。
                     val finalText = text.trim().ifBlank { lastPartial.trim() }
                     if (finalText.isEmpty()) {
                         resetToIdle()
@@ -105,7 +104,6 @@ class VoiceInputController(
                     AgentFileLogger.log("VoiceInputController", "asr error: $msg")
                     setState(VoiceInputState.Error)
                     emit(VoiceInputSignal.Error(msg))
-                    // 错误后自动回到 Idle，保证下一次长按可立即重试。
                     resetToIdle()
                 }
             )
@@ -169,4 +167,3 @@ class VoiceInputController(
         _signals.tryEmit(signal)
     }
 }
-
