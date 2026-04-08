@@ -92,3 +92,19 @@ All operations emit structured JSONL events to `logs/agent1.jsonl`. Event types:
 - Tool preview limits (Python & Java aligned): args 220 chars, result 280 chars
 - Runtime limits: default 12 turns/run, 24 tool calls/run
 - Default model: `qwen3.5-flash` (overridable via `OPENAI_MODEL`)
+
+## Android Layering Rules (Mandatory)
+
+- For Android feature modules, package by layer: `com.xyz.<feature>.ui.view`, `com.xyz.<feature>.ui.viewmodel`, `com.xyz.<feature>.logic.business`, `com.xyz.<feature>.logic.data`.
+- Dependency direction is one-way and downward only:
+  - `ui.view -> ui.viewmodel, logic.business`
+  - `ui.viewmodel -> logic.business`
+  - `logic.business -> logic.data`
+  - `logic.data` must not depend on upper layers.
+- Any lower-to-upper dependency is forbidden (for example, `logic.* -> ui.*`).
+- Android UI framework classes (`Activity`, `Fragment`, `View`, Compose APIs) are only allowed in `ui.*`; `logic.*` must not import or reference them.
+- `ui.view` must not perform direct IO (file/network/database/thread management). IO belongs to `logic.data`; view code only forwards intent and renders state.
+- `utils` is not a separate architecture layer:
+  - Forbidden: generic cross-layer `*.utils` packages used as shortcuts.
+  - Allowed: layer-owned utils only (`ui.utils`, `logic.business.utils`, `logic.data.utils`) and pure `common/foundation` helpers that do not depend on `ui.*` or `logic.*`.
+- Exceptions require explicit annotation/comment and review approval.

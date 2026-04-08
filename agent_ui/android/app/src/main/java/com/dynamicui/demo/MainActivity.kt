@@ -29,7 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dynamicui.demo.llm.LlmUiTestScreen
-import com.dynamicui.demo.agent.PetEntryScreen
+import com.dynamicui.demo.pet.ui.view.PetEntryScreen
 import com.dynamicui.demo.llm.CrashReporter
 import com.dynamicui.demo.dynamicui.ui.DynamicScreenFromAsset
 

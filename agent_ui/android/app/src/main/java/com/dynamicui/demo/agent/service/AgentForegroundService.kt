@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
-import android.os.Binder
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -13,36 +12,14 @@ import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import android.content.pm.ServiceInfo
-import com.agent1.javaagent.core.AgentOptions
-import com.agent1.javaagent.core.AgentRuntime
-import com.agent1.javaagent.core.MessageHistoryLimiter
-import com.agent1.javaagent.event.AgentEvent
-import com.agent1.javaagent.event.AgentEventListener
-import com.agent1.javaagent.event.AgentEventType
-import com.agent1.javaagent.event.EventPayloads
-import com.agent1.javaagent.llm.openai.OpenAiCompatibleClient
-import com.agent1.javaagent.llm.openai.OpenAiCompatibleConfig
-import com.agent1.javaagent.model.AgentMessage
-import com.dynamicui.demo.BuildConfig
 import com.dynamicui.demo.MainActivity
 import com.dynamicui.demo.R
-import com.dynamicui.demo.agent.accessibility.core.PageContextPromptBuilder
-import com.dynamicui.demo.agent.accessibility.core.PageSnapshotStore
-import com.dynamicui.demo.agent.accessibility.tools.ExtractMainContentTool
-import com.dynamicui.demo.agent.accessibility.tools.GetCurrentPageSnapshotTool
-import com.dynamicui.demo.agent.accessibility.tools.GetShellCapabilitiesTool
-import com.dynamicui.demo.agent.accessibility.tools.QueryMediaStoreTool
-import com.dynamicui.demo.agent.accessibility.tools.ActOnUiTool
-import com.dynamicui.demo.agent.accessibility.tools.RunShellTool
-import com.dynamicui.demo.agent.accessibility.tools.RunIntentTool
-import com.dynamicui.demo.agent.accessibility.tools.ListCalendarEventsTool
-import com.dynamicui.demo.agent.accessibility.tools.CreateCalendarEventTool
-import com.dynamicui.demo.agent.accessibility.tools.DeleteCalendarEventTool
-import java.time.Duration
+import com.dynamicui.demo.pet.logic.business.AgentSessionCoordinator
+import com.dynamicui.demo.pet.logic.business.AgentUiEvent
+import android.os.Binder
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicBoolean
 
-class AgentForegroundService : Service(), AgentEventListener {
+class AgentForegroundService : Service() {
 
     inner class LocalBinder : Binder() {
         val service: AgentForegroundService
@@ -51,11 +28,8 @@ class AgentForegroundService : Service(), AgentEventListener {
 
     private val binder = LocalBinder()
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var runtime: AgentRuntime? = null
     private val listeners = CopyOnWriteArrayList<AgentUiListener>()
-
-    private val abortRequested = AtomicBoolean(false)
-    private var hadErrorThisRun = false
+    private lateinit var sessionCoordinator: AgentSessionCoordinator
 
     interface AgentUiListener {
         fun onAssistantStreaming(fullMarkdown: String) {}
@@ -76,7 +50,12 @@ class AgentForegroundService : Service(), AgentEventListener {
         promoteForeground()
         // 预热一次 shell 能力探测，减少首轮脚本生成误判。
         ShellCapabilitiesProvider.probeIfNeeded(force = true)
-        initRuntimeIfPossible()
+        sessionCoordinator = AgentSessionCoordinator(
+            appContext = this,
+            emitUiEvent = { postUiEvent(it) },
+            logger = { tag, message -> AgentFileLogger.log(tag, message) }
+        )
+        sessionCoordinator.initRuntimeIfPossible()
     }
 
     private fun createChannel() {
@@ -113,122 +92,14 @@ class AgentForegroundService : Service(), AgentEventListener {
         ServiceCompat.startForeground(this, NOTIF_ID, notification, fgsType)
     }
 
-    private fun initRuntimeIfPossible() {
-        val key = BuildConfig.DASHSCOPE_API_KEY.trim()
-        if (key.isEmpty()) {
-            postError("未配置 DASHSCOPE_API_KEY")
-            return
+    private fun postUiEvent(event: AgentUiEvent) {
+        when (event) {
+            is AgentUiEvent.Streaming -> postStreaming(event.markdown)
+            is AgentUiEvent.Finished -> postFinished(event.markdown)
+            is AgentUiEvent.Aborted -> postAborted(event.markdown)
+            is AgentUiEvent.Error -> postError(event.message)
+            is AgentUiEvent.BusyChanged -> postBusy(event.busy)
         }
-        val voicePrompt = try {
-            assets.open(VOICE_PROMPT_ASSET).bufferedReader().use { it.readText() }.trim()
-        } catch (e: Exception) {
-            postError("无法读取语音助手提示词: " + (e.message ?: ""))
-            return
-        }
-        if (voicePrompt.isBlank()) {
-            postError("语音助手提示词为空")
-            return
-        }
-        val llmClient = OpenAiCompatibleClient(
-            OpenAiCompatibleConfig(
-                key,
-                BuildConfig.DASHSCOPE_BASE_URL.trim(),
-                Duration.ofSeconds(120),
-                0.2
-            )
-        )
-        val options = AgentOptions.builder("qwen3.5-flash")
-            .systemPrompt(voicePrompt)
-            // 只把最近上下文送进模型，避免长会话导致时延/成本持续上升。
-            .maxContextMessages(MAX_CONTEXT_MESSAGES_FOR_MODEL)
-            .maxTurnsPerRun(MAX_TURNS_PER_RUN)
-            .maxToolCallsPerRun(MAX_TOOL_CALLS_PER_RUN)
-            .tools(
-                listOf(
-                    GetCurrentPageSnapshotTool(),
-                    GetShellCapabilitiesTool(),
-                    QueryMediaStoreTool(this),
-                    RunIntentTool(this),
-                    ActOnUiTool(),
-                    ListCalendarEventsTool(this),
-                    CreateCalendarEventTool(this),
-                    DeleteCalendarEventTool(this),
-                    ExtractMainContentTool(),
-                    RunShellTool()
-                )
-            )
-            .build()
-        val rt = AgentRuntime(options, llmClient)
-        rt.subscribe(this)
-        runtime = rt
-    }
-
-    override fun onEvent(event: AgentEvent) {
-        AgentFileLogger.log("AgentEvent", "type=${event.type}")
-        when (event.type) {
-            AgentEventType.AGENT_START -> {
-                hadErrorThisRun = false
-                postBusy(true)
-                postStreaming("")
-            }
-            AgentEventType.MESSAGE_UPDATE -> {
-                val p = event.payload as? EventPayloads.MessageUpdate ?: return
-                val text = p.partialMessage.content
-                postStreaming(text)
-            }
-            AgentEventType.AGENT_END -> {
-                val p = event.payload as? EventPayloads.AgentEnd ?: return
-                val finalText = lastAssistantContent(p.messages)
-                AgentFileLogger.log("AgentEvent", "agent_end finalLen=${finalText.length}")
-                postBusy(false)
-                when {
-                    abortRequested.getAndSet(false) -> {
-                        hadErrorThisRun = false
-                        postAborted(finalText)
-                    }
-                    hadErrorThisRun -> {
-                        hadErrorThisRun = false
-                    }
-                    else -> postFinished(finalText)
-                }
-            }
-            AgentEventType.AGENT_ERROR -> {
-                val p = event.payload as? EventPayloads.AgentError
-                AgentFileLogger.log("AgentEvent", "agent_error=${p?.message ?: "未知错误"}")
-                hadErrorThisRun = true
-                postBusy(false)
-                postError(p?.message ?: "未知错误")
-            }
-            AgentEventType.TURN_START -> {
-                val p = event.payload as? EventPayloads.TurnStart
-                AgentFileLogger.log("AgentEvent", "turn_start index=${p?.turnIndex ?: -1}")
-            }
-            AgentEventType.TOOL_EXECUTION_START -> {
-                val p = event.payload as? EventPayloads.ToolExecutionStart
-                AgentFileLogger.log(
-                    "AgentEvent",
-                    "tool_start name=${p?.toolCall?.name ?: "unknown"} id=${p?.toolCall?.id ?: "unknown"}"
-                )
-            }
-            AgentEventType.TOOL_EXECUTION_END -> {
-                val p = event.payload as? EventPayloads.ToolExecutionEnd
-                AgentFileLogger.log(
-                    "AgentEvent",
-                    "tool_end id=${p?.toolCallId ?: "unknown"} isError=${p?.isError ?: false}"
-                )
-            }
-            else -> Unit
-        }
-    }
-
-    private fun lastAssistantContent(messages: List<AgentMessage>): String {
-        for (i in messages.indices.reversed()) {
-            val m = messages[i]
-            if (AgentMessage.ROLE_ASSISTANT == m.role) {
-                return m.content
-            }
-        }
-        return ""
     }
 
     private fun postStreaming(text: String) {
@@ -272,62 +143,20 @@ class AgentForegroundService : Service(), AgentEventListener {
     }
 
     fun submitUserMessage(text: String): Boolean {
-        val rt = runtime ?: run {
-            postError("Agent 未初始化，请检查 API Key")
-            return false
-        }
-        val msg = text.trim()
-        if (msg.isEmpty()) return false
-        val pageContext = PageContextPromptBuilder.build(PageSnapshotStore.latest())
-        val shellContext = ShellContextBuilder.build()
-        val enriched = buildString {
-            appendLine("[当前环境]")
-            appendLine(pageContext)
-            appendLine()
-            appendLine(shellContext)
-            appendLine()
-            appendLine("[用户请求]")
-            append(msg)
-        }
-        return try {
-            pruneInMemoryHistoryIfNeeded(rt)
-            rt.prompt(enriched)
-            true
-        } catch (_: IllegalStateException) {
-            postError("上一轮尚未结束，请稍候")
-            false
-        } catch (e: Exception) {
-            postError(e.message ?: "请求失败")
-            false
-        }
-    }
-
-    private fun pruneInMemoryHistoryIfNeeded(rt: AgentRuntime) {
-        val messages = rt.stateSnapshot.messages
-        if (messages.size <= MAX_PERSISTED_MESSAGES_IN_MEMORY) return
-        val kept = MessageHistoryLimiter.limitTail(messages, PERSISTED_MESSAGES_TAIL_KEEP)
-        rt.replaceMessages(kept)
+        return sessionCoordinator.submitUserMessage(text)
     }
 
     fun abortAgent() {
-        abortRequested.set(true)
-        runtime?.abort()
+        sessionCoordinator.abortAgent()
     }
 
     override fun onDestroy() {
-        runtime?.close()
-        runtime = null
+        sessionCoordinator.close()
         super.onDestroy()
     }
 
     companion object {
         const val CHANNEL_ID = "agent1_agent_service"
         private const val NOTIF_ID = 1001
-        private const val VOICE_PROMPT_ASSET = "prompts/voice_assistant_system_prompt.txt"
-        private const val MAX_CONTEXT_MESSAGES_FOR_MODEL = 60
-        private const val MAX_TURNS_PER_RUN = 12
-        private const val MAX_TOOL_CALLS_PER_RUN = 24
-        private const val MAX_PERSISTED_MESSAGES_IN_MEMORY = 220
-        private const val PERSISTED_MESSAGES_TAIL_KEEP = 160
     }
 }
