@@ -5,6 +5,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
 import com.dynamicui.demo.BuildConfig
+import com.dynamicui.demo.agent.service.AgentFileLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -71,6 +72,8 @@ class DashScopeFunAsrSession(
         }
         val taskId = UUID.randomUUID().toString().replace("-", "").take(32)
         currentTaskId = taskId
+        Log.i(TAG, "start asr taskId=$taskId")
+        AgentFileLogger.log(TAG, "start taskId=$taskId")
 
         val request = Request.Builder()
             .url(wsUrl())
@@ -79,6 +82,8 @@ class DashScopeFunAsrSession(
 
         socket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                Log.i(TAG, "ws open, send run-task taskId=$taskId")
+                AgentFileLogger.log(TAG, "ws open taskId=$taskId")
                 val runTask = buildRunTaskMessageText(taskId, SAMPLE_RATE)
                 webSocket.send(runTask)
             }
@@ -88,6 +93,10 @@ class DashScopeFunAsrSession(
                     val jo = JSONObject(text)
                     val header = jo.optJSONObject("header") ?: return
                     val event = header.optString("event", "")
+                    if (event.isNotBlank()) {
+                        Log.i(TAG, "ws event=$event")
+                        AgentFileLogger.log(TAG, "ws event=$event")
+                    }
                     when (event) {
                         "task-started" -> {
                             runOnMain { startRecording(webSocket, onError) }
@@ -98,6 +107,7 @@ class DashScopeFunAsrSession(
                                 ?.optJSONObject("sentence") ?: return
                             val t = sentence.optString("text", "")
                             if (t.isNotBlank()) {
+                                // 实时阶段采用“只增不减”的合并，避免停顿后新分句冲掉前半段内容。
                                 val merged = mergeStreamingText(resultBuffer.toString(), t)
                                 resultBuffer.setLength(0)
                                 resultBuffer.append(merged)
@@ -109,12 +119,15 @@ class DashScopeFunAsrSession(
                             stopped.set(true)
                             webSocket.close(1000, null)
                             val out = resultBuffer.toString()
+                            Log.i(TAG, "task-finished finalLen=${out.length}")
+                            AgentFileLogger.log(TAG, "task-finished finalLen=${out.length}")
                             runOnMain { onFinal(out) }
                         }
                         "task-failed" -> {
                             stopped.set(true)
                             val err = header.optString("error_message", "语音识别失败")
                             Log.e(TAG, "task-failed: $err raw=$text")
+                            AgentFileLogger.log(TAG, "task-failed: $err")
                             runOnMain { onError(err) }
                         }
                         else -> {
@@ -125,13 +138,17 @@ class DashScopeFunAsrSession(
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "ws text parse raw=$text", e)
+                    AgentFileLogger.log(TAG, "ws parse error: ${e.message ?: "unknown"}")
                     runOnMain { onError(e.message ?: "解析识别结果失败") }
                 }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 if (!aborted.get()) {
-                    runOnMain { onError(t.message ?: "语音连接失败") }
+                    val msg = t.message ?: "语音连接失败"
+                    Log.e(TAG, "ws failure msg=$msg code=${response?.code}", t)
+                    AgentFileLogger.log(TAG, "ws failure msg=$msg code=${response?.code ?: -1}")
+                    runOnMain { onError(msg) }
                 }
             }
         })
@@ -161,6 +178,7 @@ class DashScopeFunAsrSession(
             return
         }
         if (record.state != AudioRecord.STATE_INITIALIZED) {
+            AgentFileLogger.log(TAG, "AudioRecord not initialized")
             runOnMain { onError("麦克风未就绪") }
             record.release()
             return
@@ -169,6 +187,7 @@ class DashScopeFunAsrSession(
         try {
             record.startRecording()
         } catch (e: Exception) {
+            AgentFileLogger.log(TAG, "startRecording failed: ${e.message ?: "unknown"}")
             runOnMain { onError(e.message ?: "无法开始录音") }
             record.release()
             audioRecord = null
@@ -228,6 +247,7 @@ class DashScopeFunAsrSession(
         currentTaskId = null
         if (ws == null) return
         if (submit && taskId != null) {
+            AgentFileLogger.log(TAG, "stop submit=true taskId=$taskId")
             if (!REALTIME_STREAMING_ENABLED) {
                 val audio = synchronized(capturedAudio) { capturedAudio.toByteArray() }
                 var offset = 0
@@ -253,6 +273,7 @@ class DashScopeFunAsrSession(
                 ws.cancel()
             }
         } else {
+            AgentFileLogger.log(TAG, "stop submit=false")
             stopped.set(true)
             aborted.set(true)
             try {
@@ -271,39 +292,25 @@ class DashScopeFunAsrSession(
         private const val LEADING_TRIM_MS = 220
         private const val LEADING_TRIM_BYTES = SAMPLE_RATE * 2 * LEADING_TRIM_MS / 1000
         private const val STREAM_CHUNK_BYTES = 6400 // 200ms @ 16kHz, 16-bit, mono
-        private val LEADING_FILLER_TOKENS = setOf("对", "嗯", "呃", "啊", "唉")
 
-        /**
-         * 兼容两类服务端返回：
-         * 1) 累计文本（新串以前缀包含旧串）
-         * 2) 断句后只返回新片段（停顿后开始新句）
-         */
-        internal fun mergeStreamingText(previous: String, incoming: String): String {
+        private fun mergeStreamingText(previous: String, incoming: String): String {
             val prev = previous.trim()
             val next = incoming.trim()
             if (prev.isEmpty()) return next
             if (next.isEmpty()) return prev
-            // 首段极短识别（常见为单字噪声）允许被后续更长文本直接替换纠正。
-            if (prev.length <= 1 && next.length >= 2) return next
-            if (prev in LEADING_FILLER_TOKENS && !next.startsWith(prev) && next.length >= 2) return next
             if (next.startsWith(prev)) return next
             if (prev.startsWith(next)) return prev
             if (prev.contains(next)) return prev
             if (next.contains(prev)) return next
-
             val overlap = maxPrefixSuffixOverlap(prev, next)
-            if (overlap > 0) {
-                return prev + next.drop(overlap)
-            }
+            if (overlap > 0) return prev + next.drop(overlap)
             return prev + next
         }
 
         private fun maxPrefixSuffixOverlap(a: String, b: String): Int {
             val max = minOf(a.length, b.length)
             for (len in max downTo 1) {
-                if (a.regionMatches(a.length - len, b, 0, len, ignoreCase = false)) {
-                    return len
-                }
+                if (a.regionMatches(a.length - len, b, 0, len, ignoreCase = false)) return len
             }
             return 0
         }

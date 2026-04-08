@@ -1,6 +1,7 @@
 package com.dynamicui.demo.agent.voice.core
 
 import com.dynamicui.demo.agent.asr.AsrTransport
+import com.dynamicui.demo.agent.service.AgentFileLogger
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -48,14 +49,17 @@ class VoiceInputController(
     private var lastPartial = ""
 
     fun onPressStart() {
+        AgentFileLogger.log("VoiceInputController", "onPressStart state=${_state.value}")
         if (_state.value != VoiceInputState.Idle && _state.value != VoiceInputState.Error) {
             emit(VoiceInputSignal.Busy)
+            AgentFileLogger.log("VoiceInputController", "onPressStart busy")
             return
         }
         setState(VoiceInputState.Pressing)
     }
 
     fun onLongPressTriggered() {
+        AgentFileLogger.log("VoiceInputController", "onLongPressTriggered state=${_state.value}")
         if (_state.value != VoiceInputState.Pressing) return
         cancelled = false
         lastPartial = ""
@@ -64,9 +68,11 @@ class VoiceInputController(
             transport.start(
                 onPartial = { text ->
                     lastPartial = text
+                    AgentFileLogger.log("VoiceInputController", "onPartial len=${text.length}")
                     emit(VoiceInputSignal.PartialText(text))
                 },
                 onFinal = { text ->
+                    AgentFileLogger.log("VoiceInputController", "onFinal len=${text.length}")
                     emit(VoiceInputSignal.FinalText(text))
                     if (cancelled) {
                         resetToIdle()
@@ -85,15 +91,18 @@ class VoiceInputController(
                         false
                     }
                     if (ok) {
+                        AgentFileLogger.log("VoiceInputController", "submit ok len=${finalText.length}")
                         emit(VoiceInputSignal.Submitted(finalText))
                         resetToIdle()
                     } else {
+                        AgentFileLogger.log("VoiceInputController", "submit failed")
                         setState(VoiceInputState.Error)
                         emit(VoiceInputSignal.Error("发送失败或未就绪"))
                         resetToIdle()
                     }
                 },
                 onError = { msg ->
+                    AgentFileLogger.log("VoiceInputController", "asr error: $msg")
                     setState(VoiceInputState.Error)
                     emit(VoiceInputSignal.Error(msg))
                     // 错误后自动回到 Idle，保证下一次长按可立即重试。
@@ -101,6 +110,7 @@ class VoiceInputController(
                 }
             )
         } catch (_: Exception) {
+            AgentFileLogger.log("VoiceInputController", "onLongPressTriggered exception")
             setState(VoiceInputState.Error)
             emit(VoiceInputSignal.Error("语音启动失败"))
             resetToIdle()
@@ -108,6 +118,7 @@ class VoiceInputController(
     }
 
     fun onPressEnd() {
+        AgentFileLogger.log("VoiceInputController", "onPressEnd state=${_state.value}")
         when (_state.value) {
             VoiceInputState.Pressing -> resetToIdle()
             VoiceInputState.Listening -> {
@@ -119,6 +130,7 @@ class VoiceInputController(
     }
 
     fun onPressCancel() {
+        AgentFileLogger.log("VoiceInputController", "onPressCancel state=${_state.value}")
         when (_state.value) {
             VoiceInputState.Pressing -> {
                 cancelled = true
@@ -138,6 +150,7 @@ class VoiceInputController(
     }
 
     fun stopAll() {
+        AgentFileLogger.log("VoiceInputController", "stopAll")
         cancelled = true
         transport.stop(submit = false)
         resetToIdle()

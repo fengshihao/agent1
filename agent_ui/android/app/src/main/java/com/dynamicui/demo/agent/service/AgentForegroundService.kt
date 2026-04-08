@@ -69,6 +69,9 @@ class AgentForegroundService : Service(), AgentEventListener {
 
     override fun onCreate() {
         super.onCreate()
+        AgentFileLogger.init(this)
+        AgentFileLogger.clear()
+        AgentFileLogger.log("AgentForegroundService", "onCreate")
         createChannel()
         promoteForeground()
         // 预热一次 shell 能力探测，减少首轮脚本生成误判。
@@ -161,6 +164,7 @@ class AgentForegroundService : Service(), AgentEventListener {
     }
 
     override fun onEvent(event: AgentEvent) {
+        AgentFileLogger.log("AgentEvent", "type=${event.type}")
         when (event.type) {
             AgentEventType.AGENT_START -> {
                 hadErrorThisRun = false
@@ -175,6 +179,7 @@ class AgentForegroundService : Service(), AgentEventListener {
             AgentEventType.AGENT_END -> {
                 val p = event.payload as? EventPayloads.AgentEnd ?: return
                 val finalText = lastAssistantContent(p.messages)
+                AgentFileLogger.log("AgentEvent", "agent_end finalLen=${finalText.length}")
                 postBusy(false)
                 when {
                     abortRequested.getAndSet(false) -> {
@@ -189,9 +194,28 @@ class AgentForegroundService : Service(), AgentEventListener {
             }
             AgentEventType.AGENT_ERROR -> {
                 val p = event.payload as? EventPayloads.AgentError
+                AgentFileLogger.log("AgentEvent", "agent_error=${p?.message ?: "未知错误"}")
                 hadErrorThisRun = true
                 postBusy(false)
                 postError(p?.message ?: "未知错误")
+            }
+            AgentEventType.TURN_START -> {
+                val p = event.payload as? EventPayloads.TurnStart
+                AgentFileLogger.log("AgentEvent", "turn_start index=${p?.turnIndex ?: -1}")
+            }
+            AgentEventType.TOOL_EXECUTION_START -> {
+                val p = event.payload as? EventPayloads.ToolExecutionStart
+                AgentFileLogger.log(
+                    "AgentEvent",
+                    "tool_start name=${p?.toolCall?.name ?: "unknown"} id=${p?.toolCall?.id ?: "unknown"}"
+                )
+            }
+            AgentEventType.TOOL_EXECUTION_END -> {
+                val p = event.payload as? EventPayloads.ToolExecutionEnd
+                AgentFileLogger.log(
+                    "AgentEvent",
+                    "tool_end id=${p?.toolCallId ?: "unknown"} isError=${p?.isError ?: false}"
+                )
             }
             else -> Unit
         }
