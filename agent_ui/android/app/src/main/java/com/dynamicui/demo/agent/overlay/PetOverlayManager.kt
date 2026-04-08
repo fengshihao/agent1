@@ -1,4 +1,4 @@
-package com.dynamicui.demo.agent.overlay
+package com.dynamicui.demo.pet.ui.overlay
 
 import android.content.Context
 import android.graphics.PixelFormat

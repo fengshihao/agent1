@@ -1,4 +1,4 @@
-package com.dynamicui.demo.agent.overlay
+package com.dynamicui.demo.pet.ui.overlay
 
 /**
  * 悬浮宠物一轮对话的 UI 阶段（与 ASR / AgentForegroundService 事件对齐）。
