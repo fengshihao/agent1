@@ -129,6 +129,23 @@ def collect_files(root: pathlib.Path) -> list[KotlinFile]:
     return files
 
 
+def check_package_dir_alignment(file: KotlinFile, java_root: pathlib.Path) -> str | None:
+    """Ensure .../src/main/java/<package path>/<File>.kt matches declared package."""
+    root = java_root.resolve()
+    try:
+        rel_parent = file.path.resolve().parent.relative_to(root)
+    except ValueError:
+        return None
+    expected = tuple(file.package.split("."))
+    actual = rel_parent.parts
+    if actual != expected:
+        return (
+            f"{file.path}: directory does not match package '{file.package}'; "
+            f"expected parent .../{'/'.join(expected)}"
+        )
+    return None
+
+
 def check_edge(source: KotlinFile, target_pkg: str) -> str | None:
     source_layer = source.layer
     if source_layer is None:
@@ -223,6 +240,9 @@ def run(root: pathlib.Path) -> int:
 
     errors: list[str] = []
     for f in files:
+        align_err = check_package_dir_alignment(f, root)
+        if align_err:
+            errors.append(align_err)
         errors.extend(check_file(f, all_packages))
 
     if errors:

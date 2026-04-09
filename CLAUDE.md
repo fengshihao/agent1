@@ -96,6 +96,8 @@ All operations emit structured JSONL events to `logs/agent1.jsonl`. Event types:
 ## Android Layering Rules (Mandatory)
 
 - For Android feature modules, package by layer: `com.xyz.<feature>.ui.view`, `com.xyz.<feature>.ui.viewmodel`, `com.xyz.<feature>.logic.business`, `com.xyz.<feature>.logic.data`.
+- Source paths under `src/main/java` must match the declared `package` (no package/directory drift).
+- Foreground `Service` and similar Android process hosts use `com.xyz.<feature>.runtime` (thin shell; not under `logic.data`).
 - Dependency direction is one-way and downward only:
   - `ui.view -> ui.viewmodel, logic.business`
   - `ui.viewmodel -> logic.business`
