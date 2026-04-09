@@ -73,7 +73,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.dynamicui.demo.R
-import com.dynamicui.demo.agent.service.AgentForegroundService
+import com.dynamicui.demo.pet.runtime.AgentForegroundService
 import com.dynamicui.demo.pet.logic.business.voice.VoiceInputController
 import com.dynamicui.demo.pet.logic.business.voice.VoiceInputSignal
 import com.dynamicui.demo.pet.logic.business.voice.VoiceInputState

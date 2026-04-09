@@ -24,7 +24,7 @@ import com.dynamicui.demo.pet.logic.data.accessibility.tools.ListCalendarEventsT
 import com.dynamicui.demo.pet.logic.data.accessibility.tools.QueryMediaStoreTool
 import com.dynamicui.demo.pet.logic.data.accessibility.tools.RunIntentTool
 import com.dynamicui.demo.pet.logic.data.accessibility.tools.RunShellTool
-import com.dynamicui.demo.agent.service.ShellContextBuilder
+import com.dynamicui.demo.pet.logic.data.service.ShellContextBuilder
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 

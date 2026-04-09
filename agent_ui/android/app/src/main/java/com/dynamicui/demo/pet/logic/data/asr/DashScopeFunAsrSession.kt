@@ -5,7 +5,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
 import com.dynamicui.demo.BuildConfig
-import com.dynamicui.demo.agent.service.AgentFileLogger
+import com.dynamicui.demo.pet.logic.data.service.AgentFileLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

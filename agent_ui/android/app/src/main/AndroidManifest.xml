@@ -29,11 +29,11 @@
             </intent-filter>
         </activity>
         <service
-            android:name=".agent.service.AgentForegroundService"
+            android:name=".pet.runtime.AgentForegroundService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
         <service
-            android:name=".agent.accessibility.service.PetAccessibilityService"
+            android:name=".pet.logic.data.accessibility.service.PetAccessibilityService"
             android:enabled="true"
             android:exported="false"
             android:label="@string/a11y_service_label"

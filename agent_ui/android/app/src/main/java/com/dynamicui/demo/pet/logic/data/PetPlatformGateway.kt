@@ -9,7 +9,7 @@ import android.os.IBinder
 import android.provider.Settings
 import com.dynamicui.demo.pet.logic.data.accessibility.service.PetAccessibilityService
 import com.dynamicui.demo.pet.ui.overlay.PetOverlayManager
-import com.dynamicui.demo.agent.service.AgentForegroundService
+import com.dynamicui.demo.pet.runtime.AgentForegroundService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

@@ -4,7 +4,7 @@ import com.agent1.javaagent.core.CancellationToken
 import com.agent1.javaagent.tool.AgentTool
 import com.agent1.javaagent.tool.ToolExecutionResult
 import com.agent1.javaagent.tool.ToolUpdateListener
-import com.dynamicui.demo.agent.service.ShellCapabilitiesProvider
+import com.dynamicui.demo.pet.logic.data.service.ShellCapabilitiesProvider
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 

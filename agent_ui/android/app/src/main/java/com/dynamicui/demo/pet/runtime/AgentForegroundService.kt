@@ -1,4 +1,4 @@
-package com.dynamicui.demo.agent.service
+package com.dynamicui.demo.pet.runtime
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -16,6 +16,8 @@ import com.dynamicui.demo.MainActivity
 import com.dynamicui.demo.R
 import com.dynamicui.demo.pet.logic.business.AgentSessionCoordinator
 import com.dynamicui.demo.pet.logic.business.AgentUiEvent
+import com.dynamicui.demo.pet.logic.data.service.AgentFileLogger
+import com.dynamicui.demo.pet.logic.data.service.ShellCapabilitiesProvider
 import android.os.Binder
 import java.util.concurrent.CopyOnWriteArrayList
 
