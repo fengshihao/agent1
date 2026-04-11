@@ -1,0 +1,21 @@
+*.iml
+.gradle/
+local.properties
+/.idea
+/build
+**/build
+.DS_Store
+
+# NDK / CMake
+.externalNativeBuild/
+.cxx/
+
+# Kotlin
+.kotlin/
+
+# Captures / profiling
+captures/
+
+# Keystores (never commit real secrets)
+*.jks
+*.keystore

@@ -47,7 +47,9 @@ gradle -Dorg.gradle.java.home="/Users/fengshihao/.jdks/jdk-17.jdk/Contents/Home"
 - 单次模式：`gradle -p java_agent runJavaAgentCli --args="帮我查看当前目录文件"`
 - 交互模式：`gradle -p java_agent runJavaAgentCli`
 - 非流式：`gradle -p java_agent runJavaAgentCli --args="--no-stream 你好"`
-- 快捷命令（仓库根目录）：`./java-agent` 或 `./java-agent --no-stream 你好`
+- 快捷命令（仓库根目录）：
+  - `./run-java-agent`：打 fat-jar 后用 `java -jar` 跑（与 `java_agent/bin/java-agent` 相同，脚本内有中文说明）
+  - `./run-java-agent-gradle`：不经 jar，直接用 Gradle `runJavaAgentCli` 跑（适合刚改源码要立刻试）
 - 标准入口（推荐）：`java_agent/bin/java-agent`
 
 fat jar（可单独运行）：
@@ -100,6 +102,7 @@ gradle -p java_agent publishCoreToLocalRepo
 一键发布并验证 Android 编译：
 
 ```bash
+./publish-java-agent-core.sh   # 仓库根薄脚本（推荐）
 java_agent/bin/publish-core-and-verify-android
 ```
 

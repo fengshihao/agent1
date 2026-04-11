@@ -37,32 +37,35 @@
 ### 1) Install dependencies
 
 ```bash
-cd agent1
+cd python_agent
 uv sync
 ```
+
+若你已处在仓库根目录、不想 `cd`，可使用：`uv sync --project python_agent`。
 
 ### 1.5) One-click install (from scratch)
 
 Linux / Ubuntu / macOS / Windows Git Bash:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fengshihao/agent1/refs/heads/master/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fengshihao/agent1/refs/heads/master/install-python-agent.sh | sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/fengshihao/agent1/refs/heads/master/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/fengshihao/agent1/refs/heads/master/install-python-agent.ps1 | iex
 ```
 
 Notes:
 
+- 安装入口为仓库根 `install-python-agent.sh` / `install-python-agent.ps1`（薄转调）；实现源码在 `python_agent/scripts/install.*`。
 - The installer auto-installs `uv` if missing.
 - If the current package index fails, the installer clears `UV_*` index env vars and retries with official PyPI (`https://pypi.org/simple`).
-- Override install source via `AGENT1_GIT_URL` when needed.
+- Override install source via `AGENT1_GIT_URL` when needed（默认已带 `#subdirectory=python_agent`，指向本仓库中的 Python 包）。
 - After install, reopen terminal if `agent1` is not found in `PATH`.
 - If your network path serves stale raw cache, add a timestamp query to bypass cache:
-  - `curl -fsSL "https://raw.githubusercontent.com/fengshihao/agent1/refs/heads/master/scripts/install.sh?v=$(date +%s)" | sh`
+  - `curl -fsSL "https://raw.githubusercontent.com/fengshihao/agent1/refs/heads/master/install-python-agent.sh?v=$(date +%s)" | sh`
 
 ### 2) Configure model credentials
 
@@ -80,7 +83,11 @@ export ALIBABA_BASE_URL="https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 
 ### 3) Run
 
+在 `python_agent` 目录下（与 `uv sync` 相同）：
+
 ```bash
+cd python_agent
+
 # streaming single-run
 uv run agent1 "列出当前目录文件"
 
@@ -91,7 +98,13 @@ uv run agent1 "1+1等于几" --no-stream
 uv run agent1
 ```
 
-If installed globally (`uv tool install -e .`), use `agent1` directly.
+在仓库根目录下可等价执行：
+
+```bash
+uv run --project python_agent agent1 "列出当前目录文件"
+```
+
+若已通过安装脚本或 `uv tool install` 将 CLI 装到全局环境，可直接运行 `agent1`。
 
 ## Configuration
 
@@ -107,6 +120,8 @@ If installed globally (`uv tool install -e .`), use `agent1` directly.
 ### Common workflows
 
 ```bash
+cd python_agent
+
 # ask a coding question
 uv run agent1 "帮我写一个读取 JSON 文件并校验字段的 Python 脚本"
 
@@ -186,10 +201,11 @@ Key event types:
 Run unit tests:
 
 ```bash
+cd python_agent
 PYTHONPATH=src python -m unittest discover -s tests -v
 ```
 
-The Windows shell adaptation tests are in `tests/test_bash_tool.py`, covering:
+The Windows shell adaptation tests are in `python_agent/tests/test_bash_tool.py`, covering:
 
 - Git Bash preferred on Windows when available
 - PowerShell fallback when bash is unavailable
@@ -198,23 +214,28 @@ The Windows shell adaptation tests are in `tests/test_bash_tool.py`, covering:
 ## Project Structure
 
 ```text
-agent1/
-├── scripts/
-│   ├── install.sh
-│   └── install.ps1
-├── src/agent1/
-│   ├── agent.py
-│   ├── cli/main.py
-│   ├── tools/
-│   ├── logging_utils.py
-│   └── __init__.py
-├── docs/
-│   ├── ARCHITECTURE.md
-│   └── TECH_STACK.md
+<repo>/
+├── python_agent/                 # Python CLI（Pydantic AI）
+│   ├── pyproject.toml
+│   ├── uv.lock
+│   ├── src/agent1/
+│   └── tests/
+├── agent_core/                   # Java 核心库
+├── java_agent/                   # Java CLI（Gradle 工程）
+├── android_agent/                # Android 应用（Gradle 工程根）
+├── install-python-agent.sh       # 根目录薄脚本：一键安装 Python CLI（→ python_agent/scripts）
+├── install-python-agent.ps1
+├── sync-python-agent.sh          # 根目录薄脚本：uv sync python_agent
+├── build-android-agent.sh        # 根目录薄脚本：Android 编译安装启动（→ android_agent/run.sh）
+├── check-android-agent-layering.sh  # 根目录薄脚本：Kotlin 分层检查（→ android_agent/scripts）
+├── publish-java-agent-core.sh    # 根目录薄脚本：发布 core + 校验 Android 编译（→ java_agent/bin）
+├── run-java-agent                # 根目录薄脚本：Java CLI fat-jar（→ java_agent/bin/java-agent）
+├── run-java-agent-gradle         # 根目录薄脚本：Java CLI Gradle 直跑（→ runJavaAgentCli）
+├── python_agent/scripts/        # install.sh / install.ps1（实现）
+├── android_agent/scripts/       # check_android_layering.py（实现）
 ├── .github/
 │   ├── workflows/ci.yml
 │   └── ISSUE_TEMPLATE/
-├── pyproject.toml
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
 └── LICENSE

@@ -17,17 +17,6 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
 }
 
-sourceSets {
-    named("main") {
-        java.srcDir("../src/main/java")
-        java.include("com/agent1/javaagent/cli/**")
-    }
-    named("test") {
-        java.srcDir("../src/test/java")
-        java.include("com/agent1/javaagent/cli/**")
-    }
-}
-
 application {
     mainClass.set("com.agent1.javaagent.cli.JavaAgentCli")
 }

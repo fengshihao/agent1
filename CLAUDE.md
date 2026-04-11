@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Agent1 is a multi-language agent system providing production-ready CLI agents with tool calling, observability, and cost control. It consists of three components:
 
-- **Python CLI** (`src/agent1/`) — Pydantic AI + Qwen/DashScope, Rich terminal UI
-- **Java Agent** (`java_agent/`) — OkHttp SSE + RxJava3, OpenAI-compatible client, no Spring
-- **Android UI** (`agent_ui/android/`) — Jetpack Compose dynamic UI generation
+- **Python CLI** (`python_agent/src/agent1/`) — Pydantic AI + Qwen/DashScope, Rich terminal UI
+- **Java core** (`agent_core/`) + **Java CLI** (`java_agent/cli/`) — OkHttp SSE + RxJava3, OpenAI-compatible client, no Spring
+- **Android Agent** (`android_agent/`) — Jetpack Compose dynamic UI generation
 
 Python and Java implementations maintain feature parity. Both share the same tool set, event model, and skill system.
 
@@ -17,13 +17,16 @@ Python and Java implementations maintain feature parity. Both share the same too
 ### Python
 
 ```bash
-uv sync                                                          # Install dependencies
-PYTHONPATH=src python -m unittest discover -s tests -v           # Run all tests
-PYTHONPATH=src python -m pytest tests/test_bash_tool.py -v       # Run single test file
-uv run agent1 "prompt"                                           # Single run (streaming)
-uv run agent1 "prompt" --no-stream                               # Single run (non-streaming)
-uv run agent1                                                    # Interactive REPL mode
+cd python_agent && uv sync                                       # Install dependencies
+cd python_agent && PYTHONPATH=src python -m unittest discover -s tests -v   # Run all tests
+cd python_agent && PYTHONPATH=src python -m pytest tests/test_bash_tool.py -v  # Single test file
+cd python_agent && uv run agent1 "prompt"                       # Single run (streaming)
+cd python_agent && uv run agent1 "prompt" --no-stream            # Single run (non-streaming)
+cd python_agent && uv run agent1                               # Interactive REPL mode
+# 在仓库根目录也可：uv run --project python_agent agent1 "prompt"
 ```
+
+仓库根还有薄脚本（均中文注释在文件头）：`./sync-python-agent.sh`、`./install-python-agent.sh` / `install-python-agent.ps1`、`./run-java-agent`、`./run-java-agent-gradle`、`./publish-java-agent-core.sh`、`./build-android-agent.sh`、`./check-android-agent-layering.sh`。
 
 ### Java Agent
 
@@ -34,13 +37,13 @@ gradle -p java_agent :cli:fatJar                                 # Build standal
 gradle -p java_agent runJavaAgentCli --args="prompt"             # Run CLI
 ```
 
-Java source is in `java_agent/src/main/java` shared between `:core` and `:cli` subprojects via source set filtering (`cli/**` excluded from core). Java toolchain: JDK 17.
+Java core sources are in `agent_core/src/main/java`; CLI sources are in `java_agent/cli/src/main/java`. The `java_agent` Gradle build includes `:core` from `../agent_core` and `:cli` for the executable. Java toolchain: JDK 17.
 
 ### Android
 
 ```bash
-./java_agent/bin/publish-core-and-verify-android                 # Publish core to local Maven + verify
-(cd agent_ui/android && ./run.sh)                                  # Demo: assembleDebug + adb install + 启动 App（需设备）
+./publish-java-agent-core.sh                                       # 根目录薄脚本 → java_agent/bin（发布 core + 校验 Android 编译）
+./build-android-agent.sh                                           # 根目录薄脚本 → android_agent/run.sh（编译安装并启动 Demo，需 adb）
 ```
 
 ## Required Environment Variables
@@ -65,9 +68,9 @@ User Input → CLI Layer → AgentRuntime (thin shell) → LLM (Qwen via DashSco
 
 ### Key Components
 
-- **`Agent1Runtime`** (Python: `src/agent1/core/runtime.py`, Java: `java_agent/src/.../core/AgentRuntime.java`) — Thin event-emitting wrapper. Subscribes listeners, manages usage limits. Does NOT contain business logic.
+- **`Agent1Runtime`** (Python: `python_agent/src/agent1/core/runtime.py`, Java: `agent_core/src/main/java/.../core/AgentRuntime.java`) — Thin event-emitting wrapper. Subscribes listeners, manages usage limits. Does NOT contain business logic.
 
-- **`agent_factory.py`** — Wires everything: builds model, creates tools, system prompt, runtime. Entry point for CLI.
+- **`agent_factory.py`** (`python_agent/src/agent1/agent_factory.py`) — Wires everything: builds model, creates tools, system prompt, runtime. Entry point for CLI.
 
 - **System Prompt** — `SystemPromptBuilder` auto-injects OS/Python/Shell/CWD context + skill descriptions.
 
@@ -95,12 +98,14 @@ All operations emit structured JSONL events to `logs/agent1.jsonl`. Event types:
 
 ## Android Layering Rules (Mandatory)
 
-- For Android feature modules, package by layer: `com.xyz.<feature>.ui.view`, `com.xyz.<feature>.ui.viewmodel`, `com.xyz.<feature>.logic.business`, `com.xyz.<feature>.logic.data`.
+- For Android feature modules, package by layer: `com.xyz.<feature>.ui.view`, `com.xyz.<feature>.ui.viewmodel`, `com.xyz.<feature>.ui.overlay`, `com.xyz.<feature>.logic.business`, `com.xyz.<feature>.logic.data`.
+- **`logic.data` 的定位**：以**数据访问实现**为主——网络请求、本地数据库/文件持久化、CRUD、上传下载等。系统权限判断（如 `canDrawOverlays`）、纯进程绑定等**不属于**数据访问，应放在 `ui.viewmodel` / `logic.business` / `logic.business.platform` / `logic.business.entry`（如 `PetPlatformGateway`）等更合适的位置。demo 里 `pet.logic.data` 仍有历史混放，可逐步迁出。
 - Source paths under `src/main/java` must match the declared `package` (no package/directory drift).
-- Foreground `Service` and similar Android process hosts use `com.xyz.<feature>.runtime` (thin shell; not under `logic.data`).
+- Foreground `Service` 宿主：`com.xyz.<feature>.logic.business.platform`；启动/绑定编排：`com.xyz.<feature>.logic.business.entry`（`PetPlatformGateway`）。`logic.data` 仅可在同 feature 下依赖 `logic.business.platform`（例如 ASR 等），不依赖其余 `logic.business` 编排类型。
 - Dependency direction is one-way and downward only:
-  - `ui.view -> ui.viewmodel, logic.business`
-  - `ui.viewmodel -> logic.business`
+  - `ui.view -> ui.viewmodel, ui.overlay, logic.business`
+  - `ui.viewmodel -> ui.view, ui.overlay, logic.business`
+  - `ui.overlay -> ui.viewmodel, ui.view, logic.business, logic.data`
   - `logic.business -> logic.data`
   - `logic.data` must not depend on upper layers.
 - Any lower-to-upper dependency is forbidden (for example, `logic.* -> ui.*`).

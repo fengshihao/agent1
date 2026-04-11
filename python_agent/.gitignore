@@ -1,0 +1,25 @@
+# Virtualenv (uv / venv)
+.venv/
+
+# Bytecode & caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Packaging / distribution
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Logs / local env files
+*.log
+.env
+.env.*

@@ -27,10 +27,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
+        working-directory: python_agent
         run: uv sync
 
       - name: Compile source
+        working-directory: python_agent
         run: uv run python -m compileall src
 
       - name: Import smoke test
+        working-directory: python_agent
         run: uv run python -c "from agent1.tools.bash import run_bash; from agent1.tools.python import run_python; print('smoke-ok')"

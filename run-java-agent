@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# =============================================================================
+# 作用（仓库根目录快捷脚本）
+#   启动「Java 版命令行智能体」：内部转调 java_agent/bin/java-agent。
+#   该入口会先按需用 Gradle 打 fat-jar（增量构建），再用 JDK 执行 jar；
+#   适合日常对话 / 单次提问 / 与 Python agent1 对齐的工具与 JSONL 日志。
+# 相关环境变量：DASHSCOPE_API_KEY 或 OPENAI_API_KEY；跳过构建见 JAVA_AGENT_SKIP_BUILD。
+# =============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+ENTRYPOINT="${SCRIPT_DIR}/java_agent/bin/java-agent"
+
+if [[ ! -x "${ENTRYPOINT}" ]]; then
+  echo "错误: 找不到可执行入口 ${ENTRYPOINT}" >&2
+  exit 1
+fi
+
+exec "${ENTRYPOINT}" "$@"

@@ -1,14 +1,35 @@
 .venv/
 logs/
+
+# Local scratch / one-off captures (never commit)
+.tmp_*
 __pycache__/
 *.pyc
+*.pyo
 
-# Java agent build outputs
+# Python tooling caches (any subproject)
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# agent_core — Java library (standalone Gradle; also `java_agent :core` projectDir)
+agent_core/.gradle/
+agent_core/build/
+agent_core/bin/
+
+# java_agent — CLI + composite build
 java_agent/.gradle/
 java_agent/build/
 java_agent/**/.gradle/
 java_agent/**/build/
 java_agent/**/bin/
+
+# android_agent — Gradle / Android Studio outputs
+android_agent/**/.gradle/
+android_agent/**/build/
+android_agent/**/local.properties
 
 # Local memory notes
 user_memory.md

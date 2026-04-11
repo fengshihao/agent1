@@ -5,8 +5,11 @@
 ## 开发环境
 
 ```bash
+cd python_agent
 uv sync
 ```
+
+或在仓库根目录：`uv sync --project python_agent`。
 
 ## 代码规范
 
@@ -27,8 +30,8 @@ uv sync
 
 ## 建议自测清单
 
-- `uv run agent1 "1+1等于几" --no-stream`
-- `uv run agent1 "请用 run_python 运行 print(2+3)" --no-stream`
+- `cd python_agent && uv run agent1 "1+1等于几" --no-stream`
+- `cd python_agent && uv run agent1 "请用 run_python 运行 print(2+3)" --no-stream`
 - 检查 `logs/agent1.jsonl` 是否有 `run_started/model_request/model_response/usage/run_completed`
 
 ## Issue 建议信息
