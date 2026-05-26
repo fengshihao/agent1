@@ -51,7 +51,7 @@
 
 ### `android_agent`（可选示例应用）
 
-- **定位**：依赖已发布的 `java-agent-core`，演示在移动端集成语音、无障碍上下文、业务工具等（**非**与 CLI 1:1 的功能对齐表）；具体以 `android_agent` 内实现为准。
+- **定位**：依赖已发布的 `java-agent-core`，演示本地 JSON 动态界面和 Qwen 生成界面。语音宠物示例已挪到分支 `archive/android-voice-pet`。
 
 ---
 

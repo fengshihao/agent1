@@ -99,9 +99,9 @@ All operations emit structured JSONL events to `logs/agent1.jsonl`. Event types:
 ## Android Layering Rules (Mandatory)
 
 - For Android feature modules, package by layer: `com.xyz.<feature>.ui.view`, `com.xyz.<feature>.ui.viewmodel`, `com.xyz.<feature>.ui.overlay`, `com.xyz.<feature>.logic.business`, `com.xyz.<feature>.logic.data`.
-- **`logic.data` 的定位**：以**数据访问实现**为主——网络请求、本地数据库/文件持久化、CRUD、上传下载等。系统权限判断（如 `canDrawOverlays`）、纯进程绑定等**不属于**数据访问，应放在 `ui.viewmodel` / `logic.business` / `logic.business.platform` / `logic.business.entry`（如 `PetPlatformGateway`）等更合适的位置。demo 里 `pet.logic.data` 仍有历史混放，可逐步迁出。
+- **`logic.data` 的定位**：以**数据访问实现**为主——网络请求、本地数据库/文件持久化、CRUD、上传下载等。系统权限判断（如 `canDrawOverlays`）、纯进程绑定等**不属于**数据访问，应放在 `ui.viewmodel` / `logic.business` / `logic.business.platform` / `logic.business.entry`。
 - Source paths under `src/main/java` must match the declared `package` (no package/directory drift).
-- Foreground `Service` 宿主：`com.xyz.<feature>.logic.business.platform`；启动/绑定编排：`com.xyz.<feature>.logic.business.entry`（`PetPlatformGateway`）。`logic.data` 仅可在同 feature 下依赖 `logic.business.platform`（例如 ASR 等），不依赖其余 `logic.business` 编排类型。
+- Foreground `Service` 宿主：`com.xyz.<feature>.logic.business.platform`；启动/绑定编排：`com.xyz.<feature>.logic.business.entry`。`logic.data` 仅可在同 feature 下依赖 `logic.business.platform`，不依赖其余 `logic.business` 编排类型。
 - Dependency direction is one-way and downward only:
   - `ui.view -> ui.viewmodel, ui.overlay, logic.business`
   - `ui.viewmodel -> ui.view, ui.overlay, logic.business`

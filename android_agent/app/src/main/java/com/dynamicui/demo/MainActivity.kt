@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dynamicui.demo.llm.LlmUiTestScreen
-import com.dynamicui.demo.pet.ui.view.PetEntryScreen
 import com.dynamicui.demo.llm.CrashReporter
 import com.dynamicui.demo.dynamicui.ui.DynamicScreenFromAsset
 
@@ -72,7 +71,7 @@ private fun sampleTitle(asset: String): String {
 @Composable
 private fun DemoScreen(onNavigate: (String, Map<String, String>) -> Unit) {
     val context = LocalContext.current
-    var mode by rememberSaveable { mutableStateOf("local") } // local | llm | pet
+    var mode by rememberSaveable { mutableStateOf("local") } // local | llm
     var selected by rememberSaveable { mutableStateOf(sampleAssets.first()) }
     var hasCrash by rememberSaveable { mutableStateOf(false) }
 
@@ -94,7 +93,7 @@ private fun DemoScreen(onNavigate: (String, Map<String, String>) -> Unit) {
                 }
             }
         }
-        TabRow(selectedTabIndex = when (mode) { "local" -> 0; "llm" -> 1; else -> 2 }) {
+        TabRow(selectedTabIndex = if (mode == "llm") 1 else 0) {
             Tab(
                 selected = mode == "local",
                 onClick = { mode = "local" },
@@ -104,11 +103,6 @@ private fun DemoScreen(onNavigate: (String, Map<String, String>) -> Unit) {
                 selected = mode == "llm",
                 onClick = { mode = "llm" },
                 text = { Text("Qwen 生成") }
-            )
-            Tab(
-                selected = mode == "pet",
-                onClick = { mode = "pet" },
-                text = { Text("悬浮宠物") }
             )
         }
 
@@ -144,12 +138,6 @@ private fun DemoScreen(onNavigate: (String, Map<String, String>) -> Unit) {
             )
         } else if (mode == "llm") {
             LlmUiTestScreen(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            )
-        } else {
-            PetEntryScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
