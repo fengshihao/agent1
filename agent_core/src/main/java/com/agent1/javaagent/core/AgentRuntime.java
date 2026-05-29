@@ -40,6 +40,7 @@ public final class AgentRuntime implements Closeable {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final ExecutorService toolExecutor = Executors.newCachedThreadPool();
     private final Duration defaultToolTimeout;
+    private final int maxContextTurns;
     private final int maxContextMessages;
     private final int maxTurnsPerRun;
     private final int maxToolCallsPerRun;
@@ -62,6 +63,7 @@ public final class AgentRuntime implements Closeable {
         this.transformContext = options.getTransformContext();
         this.mapper = mapper;
         this.defaultToolTimeout = options.getDefaultToolTimeout();
+        this.maxContextTurns = options.getMaxContextTurns();
         this.maxContextMessages = options.getMaxContextMessages();
         this.maxTurnsPerRun = options.getMaxTurnsPerRun();
         this.maxToolCallsPerRun = options.getMaxToolCallsPerRun();
@@ -338,7 +340,8 @@ public final class AgentRuntime implements Closeable {
     private List<AgentMessage> buildContextMessages() {
         String systemPrompt = state.getSystemPrompt();
         List<AgentMessage> transformed = transformContext.transform(state.getMessages());
-        List<AgentMessage> forModel = MessageHistoryLimiter.limitTail(transformed, maxContextMessages);
+        List<AgentMessage> forModel = ContextTurnLimiter.limitByUserTurns(transformed, maxContextTurns);
+        forModel = MessageHistoryLimiter.limitTail(forModel, maxContextMessages);
         if (systemPrompt.isBlank()) {
             return forModel;
         }

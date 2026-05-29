@@ -1,9 +1,8 @@
 package com.dynamicui.demo.llm
 
-import com.agent1.javaagent.core.AgentOptions
+import com.agent1.javaagent.config.AgentRuntimeConfig
 import com.agent1.javaagent.core.AgentRuntime
 import com.agent1.javaagent.llm.openai.OpenAiCompatibleClient
-import com.agent1.javaagent.llm.openai.OpenAiCompatibleConfig
 import com.agent1.javaagent.model.AgentMessage
 import java.time.Duration
 import kotlinx.coroutines.Dispatchers
@@ -13,9 +12,19 @@ import kotlinx.serialization.json.Json
 
 data class JavaAgentClientConfig(
     val apiKey: String,
-    val baseUrl: String = "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    val model: String = "qwen3.5-flash"
-)
+    val baseUrl: String,
+    val model: String
+) {
+    companion object {
+        /** BuildConfig 优先，缺项用 AgentRuntimeConfig 环境/默认值补全。 */
+        fun resolve(buildConfigApiKey: String, buildConfigBaseUrl: String): JavaAgentClientConfig {
+            val env = AgentRuntimeConfig.fromEnvironment()
+            val key = buildConfigApiKey.trim().ifEmpty { env.apiKey }
+            val base = buildConfigBaseUrl.trim().ifEmpty { env.baseUrl }
+            return JavaAgentClientConfig(key, base, env.model)
+        }
+    }
+}
 
 class JavaBackedLlmUiAgent(
     private val config: JavaAgentClientConfig,
@@ -64,22 +73,21 @@ class JavaBackedLlmUiAgent(
     }
 
     private suspend fun chat(systemPrompt: String, userPrompt: String): Result<String> = withContext(Dispatchers.IO) {
-        if (config.apiKey.isBlank()) {
-            return@withContext Result.failure(IllegalStateException("缺少 API Key，请配置 DASHSCOPE_API_KEY"))
+        val runtimeConfig = AgentRuntimeConfig.builder()
+            .apiKey(config.apiKey)
+            .baseUrl(config.baseUrl)
+            .model(config.model)
+            .build()
+        val configError = runtimeConfig.configurationError()
+        if (configError != null) {
+            return@withContext Result.failure(IllegalStateException(configError))
         }
         runCatching {
             val llmClient = OpenAiCompatibleClient(
-                OpenAiCompatibleConfig(
-                    config.apiKey,
-                    config.baseUrl,
-                    Duration.ofSeconds(120),
-                    0.2
-                )
+                runtimeConfig.toOpenAiCompatibleConfig(Duration.ofSeconds(120), 0.2)
             )
             AgentRuntime(
-                AgentOptions.builder(config.model)
-                    .systemPrompt(systemPrompt)
-                    .build(),
+                runtimeConfig.toAgentOptionsBuilder(systemPrompt).build(),
                 llmClient
             ).use { runtime ->
                 runtime.prompt(userPrompt).join()
