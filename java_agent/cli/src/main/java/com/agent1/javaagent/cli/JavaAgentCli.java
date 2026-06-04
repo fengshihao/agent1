@@ -50,6 +50,13 @@ public final class JavaAgentCli {
     }
 
     public static void main(String[] args) throws IOException {
+        if (args.length > 0 && "--productivity".equals(args[0])) {
+            String[] rest = new String[args.length - 1];
+            System.arraycopy(args, 1, rest, 0, rest.length);
+            ProductivityCli.main(rest);
+            return;
+        }
+
         String prompt = null;
         boolean noStream = false;
         for (String arg : args) {

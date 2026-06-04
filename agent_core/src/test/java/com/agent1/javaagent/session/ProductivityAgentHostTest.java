@@ -1,0 +1,83 @@
+package com.agent1.javaagent.session;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.agent1.javaagent.config.AgentRuntimeConfig;
+import com.agent1.javaagent.core.CancellationToken;
+import com.agent1.javaagent.llm.LlmClient;
+import com.agent1.javaagent.llm.LlmStreamListener;
+import com.agent1.javaagent.model.AgentMessage;
+import com.agent1.javaagent.model.AssistantResponse;
+import com.agent1.javaagent.model.ChatRequest;
+import com.agent1.javaagent.run.FileRunStore;
+import com.agent1.javaagent.run.RunState;
+import com.agent1.javaagent.tool.AgentTool;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import java.nio.file.Path;
+
+class ProductivityAgentHostTest {
+
+    @TempDir
+    Path temp;
+
+    @Test
+    void runUserMessagePersistsTranscriptAndRunRecord() {
+        LlmClient fake = new LlmClient() {
+            @Override
+            public AssistantResponse streamChat(
+                ChatRequest request,
+                List<AgentTool> tools,
+                LlmStreamListener streamListener,
+                CancellationToken cancellationToken
+            ) {
+                streamListener.onTextDelta("OK");
+                return new AssistantResponse("OK", List.of());
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            host.createSession();
+            String runId = host.runUserMessage("hello");
+
+            FileSessionStore store = new FileSessionStore(temp);
+            List<AgentMessage> transcript = store.loadTranscript(host.getActiveSessionId());
+            assertEquals(2, transcript.size());
+            assertEquals("hello", transcript.get(0).getContent());
+            assertEquals("OK", transcript.get(1).getContent());
+
+            FileRunStore runs = new FileRunStore(store);
+            assertEquals(RunState.SUCCEEDED, runs.read(host.getActiveSessionId(), runId).getState());
+        }
+    }
+
+    @Test
+    void switchSessionReloadsTranscript() {
+        LlmClient fake = (request, tools, streamListener, cancellationToken) ->
+            new AssistantResponse("x", List.of());
+
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            SessionMeta a = host.createSession();
+            host.runUserMessage("only-a");
+
+            SessionMeta b = host.createSession();
+            host.runUserMessage("only-b");
+
+            host.switchSession(a.getSessionId());
+            assertEquals(2, host.runtime().getStateSnapshot().getMessages().size());
+            assertEquals("only-a", host.runtime().getStateSnapshot().getMessages().get(0).getContent());
+
+            host.switchSession(b.getSessionId());
+            assertEquals("only-b", host.runtime().getStateSnapshot().getMessages().get(0).getContent());
+            assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("工作区"));
+        }
+    }
+}
