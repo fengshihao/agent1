@@ -48,6 +48,15 @@ class FileSessionStoreTest {
     }
 
     @Test
+    void createSessionPreparesWorkspaceLayout() throws Exception {
+        FileSessionStore store = new FileSessionStore(temp);
+        SessionMeta s = store.createSession();
+        Path ws = store.workspaceDir(s.getSessionId());
+        assertTrue(Files.isDirectory(ws.resolve("artifacts")));
+        assertTrue(Files.isDirectory(ws.resolve(".spill")));
+    }
+
+    @Test
     void listSessionsSortedByUpdatedAt() throws Exception {
         FileSessionStore store = new FileSessionStore(temp);
         SessionMeta older = store.createSession();
