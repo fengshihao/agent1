@@ -4,19 +4,20 @@
 
 ## 开发环境
 
-```bash
-cd python_agent
-uv sync
-```
+- **JDK 17**（Temurin 或等价发行版）
+- **Gradle**：使用仓库内 wrapper（`gradle -p java_agent …`）
+- Android 贡献需 Android SDK 与 adb（见 `android_agent/QUICKSTART.md`）
 
-或在仓库根目录：`uv sync --project python_agent`。
+```bash
+gradle -p java_agent :core:test :cli:test
+```
 
 ## 代码规范
 
 - 保持改动最小且聚焦
-- 新增行为要同步更新 README / docs
-- 工具相关改动需考虑跨平台（macOS / Ubuntu / Windows）
-- 涉及模型调用链路的改动，需确认日志字段不回退
+- 新增行为要同步更新 README / `doc/基础能力/` 对应篇
+- 工具相关改动需考虑 **macOS 与 Ubuntu**（桌面官方支持平台）
+- 涉及模型调用链路的改动，需确认 JSONL 事件字段不回退
 
 ## 提交流程
 
@@ -30,13 +31,13 @@ uv sync
 
 ## 建议自测清单
 
-- `cd python_agent && uv run agent1 "1+1等于几" --no-stream`
-- `cd python_agent && uv run agent1 "请用 run_python 运行 print(2+3)" --no-stream`
-- 检查 `logs/agent1.jsonl` 是否有 `run_started/model_request/model_response/usage/run_completed`
+- `gradle -p java_agent :core:test :cli:test`
+- 配置 `DASHSCOPE_API_KEY` 后：`./run-java-agent-gradle --no-stream "1+1等于几"`
+- 生产力路径：`gradle -p java_agent runJavaAgentCli --args="--productivity 你好"`（检查 `.agent1/` 与 `events.jsonl`）
 
 ## Issue 建议信息
 
-- 环境信息（OS、Python、Shell）
+- 环境信息（OS、JDK 版本、是否在 Android）
 - 复现步骤
 - 预期行为与实际行为
 - 关键日志片段（可脱敏）

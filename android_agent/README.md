@@ -29,7 +29,7 @@ Gradle 工程位于 `android_agent/` 根目录（与 `app/`、`gradlew` 同级�
    - 生成界面支持用户填写表单后 **「提交用户选择」**，由模型根据填写内容做总结（详见 `QUICKSTART.md` 中的「快速验证」）。  
 
 4. **Java 侧 LLM 编排（`JavaBackedLlmUiAgent`）**  
-   - Demo 内通过本仓库 **`java-agent-core`** 制品（`java_agent` 工程中 core 与 CLI 拆分后的运行时核心）在设备上做多轮对话与工具调用，与仓库内 Java/Python agent 能力保持同一演进方向。  
+   - Demo 内通过本仓库 **`java-agent-core`** 制品（`java_agent` 工程中 core 与 CLI 拆分后的运行时核心）在设备上做多轮对话与工具调用，与桌面 Java CLI 及 `doc/基础能力/` 生产力内核同一演进方向。  
 
 5. **崩溃与诊断**  
    - `CrashReporter` 持久化上次崩溃信息；若存在历史崩溃，启动条会提示并可跳转到 Qwen 页查看报告，便于联调 LLM 与 UI 解析。  

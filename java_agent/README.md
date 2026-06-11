@@ -39,7 +39,7 @@ gradle -Dorg.gradle.java.home="/Users/fengshihao/.jdks/jdk-17.jdk/Contents/Home"
 - `OPENAI_BASE_URL` 或 `DASHSCOPE_BASE_URL`
 - `OPENAI_MODEL`（可选）
 
-## Java CLI（仿 Python agent.py）
+## Java CLI（经典终端）
 
 入口：`com.agent1.javaagent.cli.JavaAgentCli`
 
