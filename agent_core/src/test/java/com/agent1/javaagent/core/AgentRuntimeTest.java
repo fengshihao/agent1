@@ -10,9 +10,17 @@ import com.agent1.javaagent.llm.LlmStreamListener;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
+import com.agent1.javaagent.model.ToolCall;
 import com.agent1.javaagent.tool.AgentTool;
+import com.agent1.javaagent.tool.ToolExecutionResult;
+import com.agent1.javaagent.tool.ToolUpdateListener;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 
@@ -101,6 +109,92 @@ class AgentRuntimeTest {
         assertTrue(rxEvents.contains(AgentEventType.AGENT_END));
 
         disposable.dispose();
+        runtime.close();
+    }
+
+    @Test
+    void maxTurnsReached_shouldAppendSummaryAndMarkPaused() {
+        ToolCall call = new ToolCall("c1", "noop", "{}");
+        ArrayDeque<AssistantResponse> queue = new ArrayDeque<>();
+        queue.add(new AssistantResponse("", List.of(call)));
+        queue.add(new AssistantResponse("进度摘要", List.of()));
+
+        ObjectMapper mapper = new ObjectMapper();
+        AgentTool noop = new AgentTool() {
+            @Override
+            public String name() {
+                return "noop";
+            }
+
+            @Override
+            public String description() {
+                return "noop";
+            }
+
+            @Override
+            public JsonNode parametersSchema() {
+                ObjectNode schema = mapper.createObjectNode();
+                schema.put("type", "object");
+                return schema;
+            }
+
+            @Override
+            public ToolExecutionResult execute(
+                String toolCallId,
+                JsonNode parameters,
+                CancellationToken cancellationToken,
+                ToolUpdateListener onUpdate
+            ) {
+                return ToolExecutionResult.text("ok");
+            }
+        };
+
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            if (tools.isEmpty()) {
+                streamListener.onTextDelta("进度摘要");
+                return new AssistantResponse("进度摘要", List.of());
+            }
+            return queue.removeFirst();
+        };
+
+        AgentRuntime runtime = new AgentRuntime(
+            AgentOptions.builder("test-model")
+                .tools(List.of(noop))
+                .maxTurnsPerRun(1)
+                .build(),
+            fake
+        );
+
+        runtime.prompt("go").join();
+        runtime.waitForIdle();
+
+        AgentStateSnapshot snapshot = runtime.getStateSnapshot();
+        assertTrue(RunOutcome.isPaused(snapshot.getError()));
+        assertTrue(
+            snapshot.getMessages().stream()
+                .anyMatch(m -> AgentMessage.ROLE_ASSISTANT.equals(m.getRole())
+                    && "进度摘要".equals(m.getContent()))
+        );
+        runtime.close();
+    }
+
+    @Test
+    void abort_shouldMarkCancelled() throws Exception {
+        LlmClient slow = (request, tools, streamListener, cancellationToken) -> {
+            while (!cancellationToken.isCancelled()) {
+                Thread.sleep(5);
+            }
+            return new AssistantResponse("", List.of());
+        };
+
+        AgentRuntime runtime = new AgentRuntime(AgentOptions.builder("test-model").build(), slow);
+        CompletableFuture<Void> task = runtime.prompt("wait");
+        Thread.sleep(30);
+        runtime.abort();
+        task.join();
+        runtime.waitForIdle();
+
+        assertTrue(RunOutcome.isCancelled(runtime.getStateSnapshot().getError()));
         runtime.close();
     }
 }

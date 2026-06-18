@@ -77,18 +77,28 @@ public final class FileRunStore {
         root.put("startedAt", record.getStartedAt());
         root.put("updatedAt", record.getUpdatedAt());
         record.getLastError().ifPresent(err -> root.put("lastError", err));
+        if (record.getCompletedTurns() > 0) {
+            root.put("completedTurns", record.getCompletedTurns());
+        }
+        if (record.getMessageCount() > 0) {
+            root.put("messageCount", record.getMessageCount());
+        }
         return root;
     }
 
     private RunRecord fromJson(JsonNode root) {
         String lastError = root.hasNonNull("lastError") ? root.get("lastError").asText() : null;
+        int completedTurns = root.path("completedTurns").asInt(0);
+        int messageCount = root.path("messageCount").asInt(0);
         return new RunRecord(
             root.path("runId").asText(""),
             root.path("sessionId").asText(""),
             RunState.fromWire(root.path("state").asText("")),
             root.path("startedAt").asText(""),
             root.path("updatedAt").asText(""),
-            lastError
+            lastError,
+            completedTurns,
+            messageCount
         );
     }
 }

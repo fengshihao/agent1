@@ -3,6 +3,10 @@ package com.agent1.javaagent.session;
 import com.agent1.javaagent.config.AgentRuntimeConfig;
 import com.agent1.javaagent.core.AgentRuntime;
 import com.agent1.javaagent.core.AgentStateSnapshot;
+import com.agent1.javaagent.core.RunOutcome;
+import com.agent1.javaagent.event.AgentEvent;
+import com.agent1.javaagent.event.AgentEventType;
+import com.agent1.javaagent.event.EventPayloads;
 import com.agent1.javaagent.llm.LlmClient;
 import com.agent1.javaagent.log.AgentEventJsonlBridge;
 import com.agent1.javaagent.log.AgentDataPaths;
@@ -32,8 +36,6 @@ import com.agent1.javaagent.llm.openai.OpenAiCompatibleClient;
  * 生产力助手宿主：多会话、Run 落盘、工作区工具与 transcript 同步（01 + 02 MVP）。
  */
 public final class ProductivityAgentHost implements Closeable {
-
-    private static final String PAUSED_MARKER = "对话回合超过上限";
 
     private final Path agentRoot;
     private final FileSessionStore sessionStore;
@@ -98,6 +100,16 @@ public final class ProductivityAgentHost implements Closeable {
         return runtime;
     }
 
+    public boolean isRunInProgress() {
+        return runtime.isRunning();
+    }
+
+    /** 停止当前 Run（工具返回后生效；进行中的模型请求会被取消）。 */
+    public void abortActiveRun() {
+        runtime.abort();
+        runtime.waitForIdle();
+    }
+
     /**
      * 处理一条用户消息：新建 Run、写事件、同步 transcript、更新 Run 终态。
      */
@@ -115,35 +127,95 @@ public final class ProductivityAgentHost implements Closeable {
 
         RunLogContext logContext = new RunLogContext(sessionId, runId, "", "main");
         AgentEventJsonlBridge bridge = new AgentEventJsonlBridge(logContext, AgentDataPaths.eventsJsonl(agentRoot));
-        AutoCloseable subscription = runtime.subscribe(bridge);
+        bridge.setDeferRunTerminal(true);
+        AutoCloseable bridgeSubscription = runtime.subscribe(bridge);
 
-        int messageCountBefore = runtime.getStateSnapshot().getMessages().size();
+        int[] messageCountBefore = {runtime.getStateSnapshot().getMessages().size()};
+        int[] completedTurns = {0};
+        RunRecord[] runningRef = {running};
+
+        AutoCloseable checkpointSubscription = runtime.subscribe(event -> onRunCheckpoint(
+            event,
+            sessionId,
+            runId,
+            messageCountBefore,
+            completedTurns,
+            runningRef
+        ));
+
         RunState terminal = RunState.SUCCEEDED;
         String lastError = null;
+        RuntimeException toThrow = null;
 
         try {
             runtime.prompt(text.trim()).join();
             runtime.waitForIdle();
             AgentStateSnapshot snapshot = runtime.getStateSnapshot();
-            String err = snapshot.getError();
-            if (err != null && !err.isBlank()) {
-                lastError = err;
-                terminal = err.contains(PAUSED_MARKER) ? RunState.PAUSED : RunState.FAILED;
-                if (terminal == RunState.PAUSED) {
-                    bridge.writeRunPaused(err);
-                }
-            }
-            persistNewMessages(sessionId, runId, messageCountBefore, snapshot.getMessages());
+            lastError = snapshot.getError();
+            terminal = resolveTerminal(lastError);
         } catch (Exception e) {
-            terminal = RunState.FAILED;
-            lastError = e.getMessage() == null ? e.toString() : e.getMessage();
-            bridge.writeRunCancelled(lastError);
-            throw e;
+            toThrow = e instanceof RuntimeException re ? re : new RuntimeException(e);
+            AgentStateSnapshot snapshot = runtime.getStateSnapshot();
+            lastError = snapshot.getError();
+            if (lastError == null || lastError.isBlank()) {
+                lastError = toThrow.getMessage();
+            }
+            terminal = resolveTerminal(lastError);
+            if (terminal == RunState.SUCCEEDED) {
+                terminal = RunState.FAILED;
+            }
         } finally {
-            closeQuietly(subscription);
-            runStore.write(running.withTerminal(terminal, Instant.now().toString(), lastError));
+            AgentStateSnapshot snapshot = runtime.getStateSnapshot();
+            persistNewMessages(sessionId, runId, messageCountBefore[0], snapshot.getMessages());
+            bridge.writeRunTerminal(terminal, lastError, snapshot.getMessages().size());
+            runStore.write(
+                runningRef[0].withTerminal(terminal, Instant.now().toString(), lastError)
+            );
+            closeQuietly(checkpointSubscription);
+            closeQuietly(bridgeSubscription);
+        }
+        if (toThrow != null) {
+            throw toThrow;
         }
         return runId;
+    }
+
+    private void onRunCheckpoint(
+        AgentEvent event,
+        String sessionId,
+        String runId,
+        int[] messageCountBefore,
+        int[] completedTurns,
+        RunRecord[] runningRef
+    ) {
+        if (event.getType() != AgentEventType.TURN_END) {
+            return;
+        }
+        EventPayloads.TurnEnd payload = (EventPayloads.TurnEnd) event.getPayload();
+        completedTurns[0] += 1;
+        AgentStateSnapshot snapshot = runtime.getStateSnapshot();
+        persistNewMessages(sessionId, runId, messageCountBefore[0], snapshot.getMessages());
+        messageCountBefore[0] = snapshot.getMessages().size();
+        String now = Instant.now().toString();
+        runningRef[0] = runningRef[0].withCheckpoint(
+            completedTurns[0],
+            snapshot.getMessages().size(),
+            now
+        );
+        runStore.write(runningRef[0]);
+    }
+
+    private static RunState resolveTerminal(String error) {
+        if (error == null || error.isBlank()) {
+            return RunState.SUCCEEDED;
+        }
+        if (RunOutcome.isCancelled(error)) {
+            return RunState.CANCELLED;
+        }
+        if (RunOutcome.isPaused(error)) {
+            return RunState.PAUSED;
+        }
+        return RunState.FAILED;
     }
 
     private void persistNewMessages(
@@ -186,6 +258,7 @@ public final class ProductivityAgentHost implements Closeable {
         Path workspace = sessionStore.workspaceDir(sessionId);
         runtime.setSystemPrompt(new ProductivitySystemPromptBuilder().buildMainPrompt(workspace, false));
         runtime.setTools(buildTools(sessionId, workspace));
+        runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace));
     }
 
     private List<AgentTool> buildTools(String sessionId, Path workspace) {

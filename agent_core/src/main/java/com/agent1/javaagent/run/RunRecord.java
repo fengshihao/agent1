@@ -12,6 +12,8 @@ public final class RunRecord {
     private final String startedAt;
     private final String updatedAt;
     private final String lastError;
+    private final int completedTurns;
+    private final int messageCount;
 
     public RunRecord(
         String runId,
@@ -21,12 +23,27 @@ public final class RunRecord {
         String updatedAt,
         String lastError
     ) {
+        this(runId, sessionId, state, startedAt, updatedAt, lastError, 0, 0);
+    }
+
+    public RunRecord(
+        String runId,
+        String sessionId,
+        RunState state,
+        String startedAt,
+        String updatedAt,
+        String lastError,
+        int completedTurns,
+        int messageCount
+    ) {
         this.runId = Objects.requireNonNull(runId, "runId");
         this.sessionId = Objects.requireNonNull(sessionId, "sessionId");
         this.state = Objects.requireNonNull(state, "state");
         this.startedAt = Objects.requireNonNull(startedAt, "startedAt");
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
         this.lastError = lastError;
+        this.completedTurns = Math.max(0, completedTurns);
+        this.messageCount = Math.max(0, messageCount);
     }
 
     public String getRunId() {
@@ -60,6 +77,20 @@ public final class RunRecord {
     }
 
     public RunRecord withTerminal(RunState terminalState, String newUpdatedAt, String error) {
-        return new RunRecord(runId, sessionId, terminalState, startedAt, newUpdatedAt, error);
+        return new RunRecord(
+            runId, sessionId, terminalState, startedAt, newUpdatedAt, error, completedTurns, messageCount
+        );
+    }
+
+    public RunRecord withCheckpoint(int turns, int messages, String newUpdatedAt) {
+        return new RunRecord(runId, sessionId, state, startedAt, newUpdatedAt, lastError, turns, messages);
+    }
+
+    public int getCompletedTurns() {
+        return completedTurns;
+    }
+
+    public int getMessageCount() {
+        return messageCount;
     }
 }

@@ -6,6 +6,7 @@ import com.agent1.javaagent.event.AgentEventListener;
 import com.agent1.javaagent.event.AgentEventType;
 import com.agent1.javaagent.event.EventPayloads;
 import com.agent1.javaagent.model.AgentMessage;
+import com.agent1.javaagent.run.RunState;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -17,6 +18,7 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
     private final RunLogContext context;
     private final EventJsonlWriter writer;
     private volatile boolean runFailed;
+    private volatile boolean deferRunTerminal;
     private final Map<String, Long> toolStartEpochMs = new ConcurrentHashMap<>();
 
     public AgentEventJsonlBridge(RunLogContext context, EventJsonlWriter writer) {
@@ -30,6 +32,11 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
 
     public AgentEventJsonlBridge(RunLogContext context) {
         this(context, AgentDataPaths.eventsJsonl());
+    }
+
+    /** 为 true 时 {@code run_completed} / {@code run_failed} 由宿主在 Run 结束时显式写入。 */
+    public void setDeferRunTerminal(boolean deferRunTerminal) {
+        this.deferRunTerminal = deferRunTerminal;
     }
 
     @Override
@@ -99,14 +106,51 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
 
     private void onAgentError(EventPayloads.AgentError payload) {
         runFailed = true;
-        writer.write(context, "run_failed", Map.of("error", payload.getMessage()));
+        if (!deferRunTerminal) {
+            writer.write(context, "run_failed", Map.of("error", payload.getMessage()));
+        }
     }
 
     private void onAgentEnd(EventPayloads.AgentEnd payload) {
-        if (runFailed) {
+        if (deferRunTerminal || runFailed) {
             return;
         }
         writer.write(context, "run_completed", Map.of("status", "ok", "message_count", payload.getMessages().size()));
+    }
+
+    /** 生产力宿主在 Run 终态确定后调用（需 {@link #setDeferRunTerminal(boolean)}）。 */
+    public void writeRunTerminal(RunState state, String reason, int messageCount) {
+        runFailed = true;
+        switch (state) {
+            case SUCCEEDED -> writer.write(
+                context,
+                "run_completed",
+                Map.of("status", "ok", "message_count", messageCount)
+            );
+            case PAUSED -> {
+                Map<String, Object> fields = new LinkedHashMap<>();
+                if (reason != null && !reason.isBlank()) {
+                    fields.put("reason", reason);
+                }
+                fields.put("message_count", messageCount);
+                writer.write(context, "run_paused", fields);
+            }
+            case CANCELLED -> {
+                Map<String, Object> fields = new LinkedHashMap<>();
+                if (reason != null && !reason.isBlank()) {
+                    fields.put("reason", reason);
+                }
+                writer.write(context, "run_cancelled", fields);
+            }
+            case FAILED -> {
+                Map<String, Object> fields = new LinkedHashMap<>();
+                fields.put("error", reason == null || reason.isBlank() ? "unknown" : reason);
+                fields.put("message_count", messageCount);
+                writer.write(context, "run_failed", fields);
+            }
+            default -> {
+            }
+        }
     }
 
     /** 供宿主在取消 Run 时显式写入终态。 */

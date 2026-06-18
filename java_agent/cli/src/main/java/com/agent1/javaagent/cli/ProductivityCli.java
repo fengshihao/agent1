@@ -91,7 +91,14 @@ public final class ProductivityCli {
                 final String input;
                 try {
                     input = lineReader.readLine(promptText);
-                } catch (UserInterruptException | EndOfFileException e) {
+                } catch (UserInterruptException e) {
+                    if (host.isRunInProgress()) {
+                        host.abortActiveRun();
+                        System.out.println(colorize(ANSI_DIM, enableColor, "\n已停止当前 Run（Ctrl+C）"));
+                        continue;
+                    }
+                    break;
+                } catch (EndOfFileException e) {
                     break;
                 }
                 String trimmed = input == null ? "" : input.trim();
@@ -109,6 +116,15 @@ public final class ProductivityCli {
     private static boolean handleCommand(ProductivityAgentHost host, String trimmed, boolean enableColor) {
         if ("/quit".equalsIgnoreCase(trimmed) || "/exit".equalsIgnoreCase(trimmed)) {
             return true;
+        }
+        if ("/stop".equalsIgnoreCase(trimmed)) {
+            if (host.isRunInProgress()) {
+                host.abortActiveRun();
+                System.out.println("已请求停止当前 Run");
+            } else {
+                System.out.println("当前没有进行中的 Run");
+            }
+            return false;
         }
         if ("/new".equalsIgnoreCase(trimmed)) {
             SessionMeta meta = host.createSession();
@@ -133,7 +149,7 @@ public final class ProductivityCli {
             return false;
         }
         if (trimmed.startsWith("/")) {
-            System.out.println("未知命令。可用: /new /list /use <id> /quit");
+            System.out.println("未知命令。可用: /new /list /use <id> /stop /quit");
             return false;
         }
         runOnce(host, trimmed, enableColor);
@@ -163,7 +179,7 @@ public final class ProductivityCli {
 
     private static void printHelp(boolean enableColor) {
         System.out.println(colorize(ANSI_DIM, enableColor,
-            "命令: /new  /list  /use <sessionId>  /quit"));
+            "命令: /new  /list  /use <sessionId>  /stop  /quit"));
     }
 
     private static boolean shouldEnableColor() {
