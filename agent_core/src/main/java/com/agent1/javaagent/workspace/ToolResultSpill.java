@@ -10,7 +10,7 @@ import java.util.UUID;
 /** 工具结果超过内联上限时写入工作区 {@code .spill/}（08-工具）。 */
 public final class ToolResultSpill {
 
-    public static final int MAX_INLINE_BYTES = 4096;
+    public static final int MAX_INLINE_BYTES = 16 * 1024;
     public static final int PREVIEW_CHARS = 280;
 
     private ToolResultSpill() {

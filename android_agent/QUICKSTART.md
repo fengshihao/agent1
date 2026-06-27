@@ -33,6 +33,17 @@ chmod +x run.sh   # 首次可选
 
 等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/app-debug.apk`、启动 `com.dynamicui.demo` 的主界面。
 
+### 真机连通测试（Compose 冒烟，不调用 LLM）
+
+已连接 `adb devices` 为 `device` 时：
+
+```bash
+chmod +x run-connected-tests.sh   # 首次可选
+./run-connected-tests.sh
+```
+
+会先发布 `java-agent-core`，再在设备上运行 `MainActivitySmokeTest`（断言「本地样例」Tab 可见）。
+
 ### Android Studio
 
 1. 在 Android Studio 打开 `android_agent` 目录

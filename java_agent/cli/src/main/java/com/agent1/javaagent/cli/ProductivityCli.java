@@ -7,7 +7,9 @@ import com.agent1.javaagent.event.EventPayloads;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.session.ProductivityAgentHost;
 import com.agent1.javaagent.session.SessionMeta;
+import com.agent1.javaagent.cli.productivity.ProductivityLogsCommand;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.List;
 import org.jline.reader.EndOfFileException;
@@ -38,7 +40,21 @@ public final class ProductivityCli {
             return;
         }
 
-        Path agentRoot = Path.of(".").toAbsolutePath().normalize().resolve(".agent1");
+        Path agentRoot = resolveAgentRoot();
+
+        if (args.length > 0 && "logs".equalsIgnoreCase(args[0])) {
+            String[] rest = new String[args.length - 1];
+            System.arraycopy(args, 1, rest, 0, rest.length);
+            int code = ProductivityLogsCommand.run(
+                agentRoot,
+                rest,
+                new PrintWriter(System.out, true),
+                new PrintWriter(System.err, true)
+            );
+            System.exit(code);
+            return;
+        }
+
         boolean enableColor = shouldEnableColor();
 
         try (ProductivityAgentHost host = new ProductivityAgentHost(agentRoot, runtimeConfig)) {
@@ -148,8 +164,20 @@ public final class ProductivityCli {
             System.out.println("已切换至 " + id);
             return false;
         }
+        if (trimmed.toLowerCase().startsWith("/logs")) {
+            String[] parts = trimmed.split("\\s+");
+            String[] rest = new String[parts.length - 1];
+            System.arraycopy(parts, 1, rest, 0, rest.length);
+            ProductivityLogsCommand.run(
+                host.agentRoot(),
+                rest,
+                new PrintWriter(System.out, true),
+                new PrintWriter(System.err, true)
+            );
+            return false;
+        }
         if (trimmed.startsWith("/")) {
-            System.out.println("未知命令。可用: /new /list /use <id> /stop /quit");
+            System.out.println("未知命令。可用: /new /list /use /logs /stop /quit");
             return false;
         }
         runOnce(host, trimmed, enableColor);
@@ -179,7 +207,17 @@ public final class ProductivityCli {
 
     private static void printHelp(boolean enableColor) {
         System.out.println(colorize(ANSI_DIM, enableColor,
-            "命令: /new  /list  /use <sessionId>  /stop  /quit"));
+            "命令: /new  /list  /use <sessionId>  /logs …  /stop  /quit"));
+        System.out.println(colorize(ANSI_DIM, enableColor,
+            "非交互: gradle … --args=\"--productivity logs failed\""));
+    }
+
+    public static Path resolveAgentRoot() {
+        String fromEnv = System.getenv("AGENT1_AGENT_ROOT");
+        if (fromEnv != null && !fromEnv.isBlank()) {
+            return Path.of(fromEnv).toAbsolutePath().normalize();
+        }
+        return Path.of(".").toAbsolutePath().normalize().resolve(".agent1");
     }
 
     private static boolean shouldEnableColor() {
