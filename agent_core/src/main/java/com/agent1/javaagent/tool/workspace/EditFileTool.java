@@ -1,5 +1,6 @@
 package com.agent1.javaagent.tool.workspace;
 
+import com.agent1.javaagent.util.PathIo;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
@@ -101,12 +102,12 @@ public final class EditFileTool implements AgentTool {
         }
 
         try {
-            String content = Files.readString(resolvedPath, StandardCharsets.UTF_8);
+            String content = PathIo.readString(resolvedPath, StandardCharsets.UTF_8);
             if (!content.contains(oldString)) {
                 return ToolExecutionResult.text("错误：未找到 old_string: " + displayPath);
             }
             String updated = content.replace(oldString, newString);
-            Files.writeString(resolvedPath, updated, StandardCharsets.UTF_8);
+            PathIo.writeString(resolvedPath, updated, StandardCharsets.UTF_8);
             return ToolExecutionResult.text("已编辑: " + displayPath);
         } catch (IOException e) {
             return ToolExecutionResult.text("错误：编辑文件失败: " + e.getMessage());

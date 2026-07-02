@@ -1,5 +1,6 @@
 package com.agent1.javaagent.workspace;
 
+import com.agent1.javaagent.util.PathIo;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -40,7 +41,7 @@ public final class ToolResultSpill {
             Path spillDir = sandbox.resolve(".spill");
             Files.createDirectories(spillDir);
             Path spillFile = spillDir.resolve(spillName);
-            Files.writeString(spillFile, text, StandardCharsets.UTF_8);
+            PathIo.writeString(spillFile, text, StandardCharsets.UTF_8);
             String relative = sandbox.relativize(spillFile);
             String preview = preview(text);
             String message =

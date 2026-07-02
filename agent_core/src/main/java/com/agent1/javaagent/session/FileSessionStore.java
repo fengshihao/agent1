@@ -1,5 +1,6 @@
 package com.agent1.javaagent.session;
 
+import com.agent1.javaagent.util.PathIo;
 import com.agent1.javaagent.model.AgentMessage;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -156,7 +157,7 @@ public final class FileSessionStore implements SessionStore {
         Path transcript = dir.resolve("transcript.jsonl");
         String line = codec.toLine(runId, message);
         try {
-            Files.writeString(
+            PathIo.writeString(
                 transcript,
                 line + System.lineSeparator(),
                 StandardCharsets.UTF_8,
@@ -198,7 +199,7 @@ public final class FileSessionStore implements SessionStore {
     }
 
     private SessionMeta readMeta(Path metaFile) throws IOException {
-        JsonNode root = mapper.readTree(Files.readString(metaFile, StandardCharsets.UTF_8));
+        JsonNode root = mapper.readTree(PathIo.readString(metaFile, StandardCharsets.UTF_8));
         return new SessionMeta(
             root.path("sessionId").asText(""),
             root.path("title").asText(""),
@@ -216,7 +217,7 @@ public final class FileSessionStore implements SessionStore {
         Path file = metaFile(sessionDir);
         Path tmp = sessionDir.resolve("meta.json.tmp");
         try {
-            Files.writeString(tmp, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root),
+            PathIo.writeString(tmp, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root),
                 StandardCharsets.UTF_8);
             Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                 java.nio.file.StandardCopyOption.ATOMIC_MOVE);

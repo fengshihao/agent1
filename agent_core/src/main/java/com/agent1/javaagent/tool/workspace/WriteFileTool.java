@@ -1,5 +1,6 @@
 package com.agent1.javaagent.tool.workspace;
 
+import com.agent1.javaagent.util.PathIo;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
@@ -88,7 +89,7 @@ public final class WriteFileTool implements AgentTool {
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            Files.writeString(resolvedPath, content, StandardCharsets.UTF_8);
+            PathIo.writeString(resolvedPath, content, StandardCharsets.UTF_8);
             return ToolExecutionResult.text("已写入: " + displayPath + " (" + content.length() + " chars)");
         } catch (IOException e) {
             return ToolExecutionResult.text("错误：写入文件失败: " + e.getMessage());

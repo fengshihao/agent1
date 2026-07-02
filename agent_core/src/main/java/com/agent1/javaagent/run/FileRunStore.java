@@ -1,5 +1,6 @@
 package com.agent1.javaagent.run;
 
+import com.agent1.javaagent.util.PathIo;
 import com.agent1.javaagent.session.FileSessionStore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,7 +41,7 @@ public final class FileRunStore {
         }
         Path tmp = dir.resolve(record.getRunId() + ".json.tmp");
         try {
-            Files.writeString(
+            PathIo.writeString(
                 tmp,
                 mapper.writerWithDefaultPrettyPrinter().writeValueAsString(toJson(record)),
                 StandardCharsets.UTF_8
@@ -62,7 +63,7 @@ public final class FileRunStore {
             return Optional.empty();
         }
         try {
-            JsonNode root = mapper.readTree(Files.readString(file, StandardCharsets.UTF_8));
+            JsonNode root = mapper.readTree(PathIo.readString(file, StandardCharsets.UTF_8));
             return Optional.of(fromJson(root));
         } catch (IOException e) {
             throw new IllegalStateException("read run record failed: " + file, e);

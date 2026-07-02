@@ -1,5 +1,6 @@
 package com.agent1.javaagent.log;
 
+import com.agent1.javaagent.util.PathIo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
@@ -49,7 +50,7 @@ public final class EventJsonlWriter {
             }
             Files.createDirectories(eventsPath.getParent());
             String line = mapper.writeValueAsString(root) + "\n";
-            Files.writeString(
+            PathIo.writeString(
                 eventsPath,
                 line,
                 StandardCharsets.UTF_8,
