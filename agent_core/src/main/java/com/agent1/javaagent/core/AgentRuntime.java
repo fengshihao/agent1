@@ -1,5 +1,6 @@
 package com.agent1.javaagent.core;
 
+import com.agent1.javaagent.config.AgentRuntimeDefaults;
 import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.event.AgentEventListener;
 import com.agent1.javaagent.event.AgentEventType;
@@ -390,6 +391,10 @@ public final class AgentRuntime implements Closeable {
         String systemPrompt = state.getSystemPrompt();
         List<AgentMessage> transformed = transformContext.transform(state.getMessages());
         List<AgentMessage> forModel = ContextTurnLimiter.limitByUserTurns(transformed, maxContextTurns);
+        forModel = ToolResultTruncator.truncateOldTurns(
+            forModel,
+            AgentRuntimeDefaults.DEFAULT_TOOL_RESULT_TRUNCATE_CHARS
+        );
         forModel = MessageHistoryLimiter.limitTail(forModel, maxContextMessages);
         if (systemPrompt.isBlank()) {
             return forModel;
