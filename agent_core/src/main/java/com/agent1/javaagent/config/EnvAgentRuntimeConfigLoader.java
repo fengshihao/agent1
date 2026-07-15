@@ -16,14 +16,19 @@ public final class EnvAgentRuntimeConfigLoader {
         AgentRuntimeConfig.Builder b = AgentRuntimeConfig.builder();
         b.apiKey(firstNonBlank(
             prop(overrides, "apiKey"),
+            env("QWEN_API_KEY"),
             env("DASHSCOPE_API_KEY"),
             env("OPENAI_API_KEY"),
             env("ALIBABA_API_KEY")));
         b.baseUrl(firstNonBlank(
             prop(overrides, "baseUrl"),
+            env("QWEN_BASE_URL"),
             env("ALIBABA_BASE_URL"),
             env("OPENAI_BASE_URL")));
-        b.model(firstNonBlank(prop(overrides, "model"), env("OPENAI_MODEL")));
+        b.model(firstNonBlank(
+            prop(overrides, "model"),
+            env("QWEN_MODEL"),
+            env("OPENAI_MODEL")));
         b.maxContextTurns(parseIntOrDefault(
             firstNonBlank(prop(overrides, "maxContextTurns"), env("AGENT1_MAX_CONTEXT_TURNS")),
             AgentRuntimeDefaults.DEFAULT_MAX_CONTEXT_TURNS));
