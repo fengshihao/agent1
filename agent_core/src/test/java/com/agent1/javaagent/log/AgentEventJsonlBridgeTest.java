@@ -43,4 +43,23 @@ class AgentEventJsonlBridgeTest {
         assertEquals(2, end.get("seq").asInt());
         assertEquals("ok", end.get("status").asText());
     }
+
+    @Test
+    void usageEventWritesUsageLine() throws Exception {
+        Path logFile = temp.resolve("events.jsonl");
+        RunLogContext ctx = new RunLogContext("s1", "r1", "", "main");
+        AgentEventJsonlBridge bridge = new AgentEventJsonlBridge(ctx, logFile);
+
+        var snap = new AgentState("sys", "qwen3.7-flash", List.of(), List.of()).snapshot();
+        bridge.onEvent(new AgentEvent(AgentEventType.AGENT_START, snap));
+        bridge.onEvent(new AgentEvent(AgentEventType.USAGE, new EventPayloads.Usage(11, 3, 2L)));
+
+        List<String> lines = Files.readAllLines(logFile);
+        assertEquals(2, lines.size());
+        JsonNode usage = MAPPER.readTree(lines.get(1));
+        assertEquals("usage", usage.get("type").asText());
+        assertEquals(11, usage.get("input_tokens").asInt());
+        assertEquals(3, usage.get("output_tokens").asInt());
+        assertEquals(2, usage.get("cached_tokens").asInt());
+    }
 }

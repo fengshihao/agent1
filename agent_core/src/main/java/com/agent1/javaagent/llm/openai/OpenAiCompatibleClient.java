@@ -1,11 +1,14 @@
 package com.agent1.javaagent.llm.openai;
 
 import com.agent1.javaagent.core.CancellationToken;
+import com.agent1.javaagent.llm.LlmCancelledException;
 import com.agent1.javaagent.llm.LlmClient;
+import com.agent1.javaagent.llm.LlmHttpException;
 import com.agent1.javaagent.llm.LlmStreamListener;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
+import com.agent1.javaagent.model.ChatUsage;
 import com.agent1.javaagent.model.ToolCall;
 import com.agent1.javaagent.tool.AgentTool;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -31,18 +34,33 @@ import okhttp3.sse.EventSources;
 
 public final class OpenAiCompatibleClient implements LlmClient {
     private static final MediaType JSON = MediaType.parse("application/json");
+    static final int DEFAULT_MAX_RETRIES = 2;
+    static final long DEFAULT_RETRY_BACKOFF_MS = 500L;
 
     private final OpenAiCompatibleConfig config;
     private final OkHttpClient httpClient;
     private final ObjectMapper mapper;
+    private final int maxRetries;
+    private final long retryBackoffMs;
 
     public OpenAiCompatibleClient(OpenAiCompatibleConfig config) {
         this(config, new ObjectMapper());
     }
 
     public OpenAiCompatibleClient(OpenAiCompatibleConfig config, ObjectMapper mapper) {
+        this(config, mapper, DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MS);
+    }
+
+    OpenAiCompatibleClient(
+        OpenAiCompatibleConfig config,
+        ObjectMapper mapper,
+        int maxRetries,
+        long retryBackoffMs
+    ) {
         this.config = config;
         this.mapper = mapper;
+        this.maxRetries = Math.max(0, maxRetries);
+        this.retryBackoffMs = Math.max(0L, retryBackoffMs);
         this.httpClient = new OkHttpClient.Builder()
             .connectTimeout(config.getTimeout())
             .readTimeout(config.getTimeout())
@@ -57,9 +75,37 @@ public final class OpenAiCompatibleClient implements LlmClient {
         LlmStreamListener streamListener,
         CancellationToken cancellationToken
     ) throws Exception {
+        byte[] body = mapper.writeValueAsBytes(buildPayload(request, tools));
+        Exception last = null;
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            if (cancellationToken.isCancelled()) {
+                throw new LlmCancelledException();
+            }
+            try {
+                return streamOnce(body, streamListener, cancellationToken);
+            } catch (LlmCancelledException cancelled) {
+                throw cancelled;
+            } catch (Exception e) {
+                last = e;
+                if (cancellationToken.isCancelled()) {
+                    throw new LlmCancelledException();
+                }
+                if (attempt == maxRetries || !shouldRetry(e)) {
+                    throw e;
+                }
+                sleepBackoff(attempt);
+            }
+        }
+        throw last == null ? new IllegalStateException("SSE failed: unknown") : last;
+    }
+
+    ObjectNode buildPayload(ChatRequest request, List<AgentTool> tools) {
         ObjectNode payload = mapper.createObjectNode();
         payload.put("model", request.getModel());
         payload.put("stream", true);
+        ObjectNode streamOptions = mapper.createObjectNode();
+        streamOptions.put("include_usage", true);
+        payload.set("stream_options", streamOptions);
         if (config.getTemperature() != null) {
             payload.put("temperature", config.getTemperature());
         }
@@ -67,16 +113,22 @@ public final class OpenAiCompatibleClient implements LlmClient {
         if (!tools.isEmpty()) {
             payload.set("tools", toOpenAiTools(tools));
         }
+        return payload;
+    }
 
+    private AssistantResponse streamOnce(
+        byte[] body,
+        LlmStreamListener streamListener,
+        CancellationToken cancellationToken
+    ) throws Exception {
         Request httpRequest = new Request.Builder()
             .url(config.getBaseUrl().replaceAll("/+$", "") + "/chat/completions")
             .addHeader("Authorization", "Bearer " + config.getApiKey())
             .addHeader("Content-Type", "application/json")
-            .post(RequestBody.create(mapper.writeValueAsBytes(payload), JSON))
+            .post(RequestBody.create(body, JSON))
             .build();
 
-        StringBuilder textBuilder = new StringBuilder();
-        Map<Integer, PartialToolCall> toolCallByIndex = new HashMap<>();
+        StreamAccumulator acc = new StreamAccumulator();
         CountDownLatch done = new CountDownLatch(1);
         List<Exception> errors = new ArrayList<>();
 
@@ -96,7 +148,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
                     }
                     try {
                         JsonNode root = mapper.readTree(data);
-                        parseDelta(root, textBuilder, toolCallByIndex, streamListener);
+                        parseDelta(root, acc, streamListener);
                     } catch (Exception e) {
                         errors.add(e);
                         done.countDown();
@@ -108,25 +160,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 public void onFailure(EventSource eventSource, Throwable t, okhttp3.Response response) {
                     try {
                         if (!cancellationToken.isCancelled()) {
-                            // OkHttp SSE 在部分失败路径会传 null Throwable；禁止任何直接解引用。
-                            if (t == null && response == null) {
-                                errors.add(new IllegalStateException("SSE failed: unknown (no Throwable, no Response)"));
-                                return;
-                            }
-                            String body = "";
-                            if (response != null && response.body() != null) {
-                                try {
-                                    body = response.body().string();
-                                } catch (IOException ignored) {
-                                    // Ignore secondary parse failure.
-                                }
-                            }
-                            String reason = describeFailure(t, response);
-                            if (t != null) {
-                                errors.add(new IllegalStateException("SSE failed: " + reason + " " + body, t));
-                            } else {
-                                errors.add(new IllegalStateException("SSE failed: " + reason + " " + body));
-                            }
+                            errors.add(toFailure(t, response));
                         }
                     } catch (Throwable handlerFailure) {
                         errors.add(
@@ -155,15 +189,70 @@ public final class OpenAiCompatibleClient implements LlmClient {
             }
         }
 
+        if (cancellationToken.isCancelled()) {
+            throw new LlmCancelledException();
+        }
         if (!errors.isEmpty()) {
             throw errors.get(0);
         }
+        return acc.toResponse();
+    }
 
-        List<ToolCall> toolCalls = toolCallByIndex.entrySet().stream()
-            .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
-            .map(entry -> entry.getValue().toToolCall())
-            .collect(Collectors.toList());
-        return new AssistantResponse(textBuilder.toString(), toolCalls);
+    private Exception toFailure(Throwable t, okhttp3.Response response) {
+        if (t == null && response == null) {
+            return new IllegalStateException("SSE failed: unknown (no Throwable, no Response)");
+        }
+        String body = "";
+        if (response != null && response.body() != null) {
+            try {
+                body = response.body().string();
+            } catch (IOException ignored) {
+                // Ignore secondary parse failure.
+            }
+        }
+        String reason = describeFailure(t, response);
+        String message = "SSE failed: " + reason + " " + body;
+        if (response != null) {
+            if (t != null) {
+                return new LlmHttpException(response.code(), message, t);
+            }
+            return new LlmHttpException(response.code(), message);
+        }
+        if (t != null) {
+            return new IllegalStateException(message, t);
+        }
+        return new IllegalStateException(message);
+    }
+
+    static boolean shouldRetry(Exception e) {
+        if (e instanceof LlmCancelledException) {
+            return false;
+        }
+        if (e instanceof LlmHttpException http) {
+            int code = http.getStatusCode();
+            return code == 429 || code >= 500;
+        }
+        String message = e.getMessage();
+        if (message != null && DashScopeSseError.looksRetryable(message)) {
+            return true;
+        }
+        if (message == null) {
+            return false;
+        }
+        String lower = message.toLowerCase();
+        return lower.contains("timeout") || lower.contains("timed out") || lower.contains("connection reset");
+    }
+
+    private void sleepBackoff(int attempt) {
+        long delay = retryBackoffMs * (attempt + 1);
+        if (delay <= 0L) {
+            return;
+        }
+        try {
+            Thread.sleep(delay);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private ArrayNode toOpenAiMessages(List<AgentMessage> messages) {
@@ -225,20 +314,29 @@ public final class OpenAiCompatibleClient implements LlmClient {
 
     private void parseDelta(
         JsonNode root,
-        StringBuilder textBuilder,
-        Map<Integer, PartialToolCall> toolCallByIndex,
+        StreamAccumulator acc,
         LlmStreamListener streamListener
     ) {
+        String gatewayError = DashScopeSseError.messageOf(root);
+        if (gatewayError != null) {
+            throw new IllegalStateException(gatewayError);
+        }
+        acc.mergeUsage(root.get("usage"));
+
         JsonNode choices = root.path("choices");
         if (!choices.isArray()) {
             return;
         }
         for (JsonNode choice : choices) {
+            JsonNode finish = choice.get("finish_reason");
+            if (finish != null && finish.isTextual() && !finish.asText("").isBlank()) {
+                acc.finishReason = finish.asText();
+            }
             JsonNode delta = choice.path("delta");
             JsonNode content = delta.get("content");
             if (content != null && content.isTextual()) {
                 String value = content.asText("");
-                textBuilder.append(value);
+                acc.text.append(value);
                 streamListener.onTextDelta(value);
             }
 
@@ -246,7 +344,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
             if (toolCalls != null && toolCalls.isArray()) {
                 for (JsonNode callDelta : toolCalls) {
                     int index = callDelta.path("index").asInt(0);
-                    PartialToolCall partial = toolCallByIndex.computeIfAbsent(index, key -> new PartialToolCall());
+                    PartialToolCall partial = acc.toolCallByIndex.computeIfAbsent(index, key -> new PartialToolCall());
                     if (callDelta.has("id")) {
                         String id = callDelta.get("id").asText();
                         if (id != null && !id.isBlank()) {
@@ -299,6 +397,44 @@ public final class OpenAiCompatibleClient implements LlmClient {
             return t.getClass().getSimpleName();
         } catch (Throwable ignored) {
             return t.getClass().getSimpleName();
+        }
+    }
+
+    private static final class StreamAccumulator {
+        private final StringBuilder text = new StringBuilder();
+        private final Map<Integer, PartialToolCall> toolCallByIndex = new HashMap<>();
+        private String finishReason;
+        private ChatUsage usage;
+
+        private void mergeUsage(JsonNode usageNode) {
+            if (usageNode == null || usageNode.isMissingNode() || usageNode.isNull()) {
+                return;
+            }
+            long input = firstLong(usageNode, "prompt_tokens", "input_tokens");
+            long output = firstLong(usageNode, "completion_tokens", "output_tokens");
+            Long cached = null;
+            JsonNode details = usageNode.get("prompt_tokens_details");
+            if (details != null && details.has("cached_tokens")) {
+                cached = details.path("cached_tokens").asLong(0L);
+            } else if (usageNode.has("cached_tokens")) {
+                cached = usageNode.path("cached_tokens").asLong(0L);
+            }
+            usage = new ChatUsage(input, output, cached);
+        }
+
+        private static long firstLong(JsonNode node, String primary, String fallback) {
+            if (node.has(primary)) {
+                return node.path(primary).asLong(0L);
+            }
+            return node.path(fallback).asLong(0L);
+        }
+
+        private AssistantResponse toResponse() {
+            List<ToolCall> toolCalls = toolCallByIndex.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .map(entry -> entry.getValue().toToolCall())
+                .collect(Collectors.toList());
+            return new AssistantResponse(text.toString(), toolCalls, finishReason, usage);
         }
     }
 

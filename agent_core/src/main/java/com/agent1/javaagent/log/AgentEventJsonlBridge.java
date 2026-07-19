@@ -47,6 +47,7 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
             case AGENT_START -> onAgentStart((AgentStateSnapshot) payload);
             case MESSAGE_START -> onMessageStart((EventPayloads.MessageEvent) payload);
             case MESSAGE_UPDATE -> onMessageUpdate((EventPayloads.MessageUpdate) payload);
+            case USAGE -> onUsage((EventPayloads.Usage) payload);
             case TOOL_EXECUTION_START -> onToolStart((EventPayloads.ToolExecutionStart) payload);
             case TOOL_EXECUTION_END -> onToolEnd((EventPayloads.ToolExecutionEnd) payload);
             case AGENT_ERROR -> onAgentError((EventPayloads.AgentError) payload);
@@ -77,6 +78,16 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
 
     private void onMessageUpdate(EventPayloads.MessageUpdate payload) {
         writer.write(context, "model_text_delta", Map.of("delta", payload.getDelta()));
+    }
+
+    private void onUsage(EventPayloads.Usage payload) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("input_tokens", payload.getInputTokens());
+        fields.put("output_tokens", payload.getOutputTokens());
+        if (payload.getCachedTokens() != null) {
+            fields.put("cached_tokens", payload.getCachedTokens());
+        }
+        writer.write(context, "usage", fields);
     }
 
     private void onToolStart(EventPayloads.ToolExecutionStart payload) {
@@ -172,7 +183,7 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
         writer.write(context, "run_paused", fields);
     }
 
-    /** 模型 usage 尚未从 runtime 事件透出时，由宿主补写。 */
+    /** 宿主手动补写 usage（runtime 已会从模型响应发 {@link AgentEventType#USAGE}）。 */
     public void writeUsage(long inputTokens, long outputTokens) {
         writer.write(
             context,

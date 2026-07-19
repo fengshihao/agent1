@@ -5,11 +5,13 @@ import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.event.AgentEventListener;
 import com.agent1.javaagent.event.AgentEventType;
 import com.agent1.javaagent.event.EventPayloads;
+import com.agent1.javaagent.llm.LlmCancelledException;
 import com.agent1.javaagent.llm.LlmClient;
 import com.agent1.javaagent.llm.LlmStreamListener;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
+import com.agent1.javaagent.model.ChatUsage;
 import com.agent1.javaagent.model.ToolCall;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolArgumentValidator;
@@ -175,6 +177,7 @@ public final class AgentRuntime implements Closeable {
                 emit(AgentEventType.TURN_START, new EventPayloads.TurnStart(turnIndex));
 
                 AssistantResponse assistantResponse = runSingleTurn(token);
+                emitUsage(assistantResponse);
                 AgentMessage assistantMessage = AgentMessage.assistant(
                     assistantResponse.getContent(),
                     assistantResponse.getToolCalls()
@@ -183,7 +186,11 @@ public final class AgentRuntime implements Closeable {
                 emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(assistantMessage));
 
                 List<AgentMessage> toolResults = new ArrayList<>();
-                if (!assistantResponse.getToolCalls().isEmpty()) {
+                if (assistantResponse.isTruncatedToolCall()) {
+                    for (ToolCall toolCall : assistantResponse.getToolCalls()) {
+                        toolResults.add(recordTruncatedToolCall(toolCall));
+                    }
+                } else if (!assistantResponse.getToolCalls().isEmpty()) {
                     for (ToolCall toolCall : assistantResponse.getToolCalls()) {
                         if (token.isCancelled()) {
                             break;
@@ -215,7 +222,14 @@ public final class AgentRuntime implements Closeable {
                 state.setError(RunOutcome.pausedMessage(maxTurnsPerRun));
                 return;
             }
+        } catch (LlmCancelledException cancelled) {
+            state.setError(RunOutcome.CANCELLED_MESSAGE);
+            return;
         } catch (Exception e) {
+            if (token.isCancelled()) {
+                state.setError(RunOutcome.CANCELLED_MESSAGE);
+                return;
+            }
             String message = e.getMessage() == null ? e.toString() : e.getMessage();
             state.setError(message);
             emit(AgentEventType.AGENT_ERROR, new EventPayloads.AgentError(message));
@@ -230,6 +244,7 @@ public final class AgentRuntime implements Closeable {
     private void appendProgressSummaryTurn(CancellationToken token) throws Exception {
         state.appendMessage(AgentMessage.user(RunOutcome.progressSummaryUserPrompt()));
         AssistantResponse summary = runSingleTurn(token, List.of());
+        emitUsage(summary);
         AgentMessage assistantMessage = AgentMessage.assistant(
             summary.getContent(),
             summary.getToolCalls()
@@ -274,6 +289,35 @@ public final class AgentRuntime implements Closeable {
         state.setStreaming(false);
         state.setStreamMessage(null);
         return response;
+    }
+
+    private void emitUsage(AssistantResponse response) {
+        ChatUsage usage = response.getUsage();
+        if (usage == null) {
+            return;
+        }
+        emit(
+            AgentEventType.USAGE,
+            new EventPayloads.Usage(usage.getInputTokens(), usage.getOutputTokens(), usage.getCachedTokens())
+        );
+    }
+
+    private AgentMessage recordTruncatedToolCall(ToolCall toolCall) {
+        String errorMessage =
+            "模型输出被 max_tokens 截断，工具参数不完整，本次调用未执行。请拆成更小的写入或减少体积后重试。";
+        AgentMessage toolResult = AgentMessage.toolResult(toolCall.getId(), errorMessage, true);
+        state.appendMessage(toolResult);
+        emit(AgentEventType.TOOL_EXECUTION_START, new EventPayloads.ToolExecutionStart(toolCall));
+        emit(
+            AgentEventType.TOOL_EXECUTION_END,
+            new EventPayloads.ToolExecutionEnd(
+                toolCall.getId(),
+                ToolExecutionResult.text(errorMessage),
+                true,
+                errorMessage
+            )
+        );
+        return toolResult;
     }
 
     private AgentMessage executeToolCall(ToolCall toolCall, CancellationToken token) {

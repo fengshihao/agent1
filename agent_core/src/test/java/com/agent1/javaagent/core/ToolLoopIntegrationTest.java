@@ -173,4 +173,100 @@ class ToolLoopIntegrationTest {
 
         runtime.close();
     }
+
+    @Test
+    void prompt_shouldSkipTruncatedToolCallsAndContinue() {
+        ToolCall call = new ToolCall("call_trunc", "echo", "{\"text\":\"huge");
+        ArrayDeque<AssistantResponse> responses = new ArrayDeque<>();
+        responses.add(new AssistantResponse("", List.of(call), AssistantResponse.FINISH_LENGTH, null));
+        responses.add(new AssistantResponse("recovered", List.of()));
+
+        int[] executed = {0};
+        LlmClient fakeClient = new LlmClient() {
+            @Override
+            public AssistantResponse streamChat(
+                ChatRequest request,
+                List<AgentTool> tools,
+                LlmStreamListener streamListener,
+                CancellationToken cancellationToken
+            ) {
+                return responses.removeFirst();
+            }
+        };
+
+        AgentTool echoTool = new AgentTool() {
+            @Override
+            public String name() {
+                return "echo";
+            }
+
+            @Override
+            public String description() {
+                return "echo";
+            }
+
+            @Override
+            public JsonNode parametersSchema() {
+                ObjectNode node = MAPPER.createObjectNode();
+                node.put("type", "object");
+                return node;
+            }
+
+            @Override
+            public ToolExecutionResult execute(
+                String toolCallId,
+                JsonNode parameters,
+                CancellationToken cancellationToken,
+                ToolUpdateListener onUpdate
+            ) {
+                executed[0] += 1;
+                return ToolExecutionResult.text("should-not-run");
+            }
+        };
+
+        AgentRuntime runtime = new AgentRuntime(
+            AgentOptions.builder("test-model").tools(List.of(echoTool)).build(),
+            fakeClient
+        );
+        runtime.prompt("write big").join();
+        AgentStateSnapshot snapshot = runtime.getStateSnapshot();
+
+        assertEquals(0, executed[0]);
+        assertEquals(4, snapshot.getMessages().size());
+        assertEquals(AgentMessage.ROLE_TOOL_RESULT, snapshot.getMessages().get(2).getRole());
+        assertTrue(snapshot.getMessages().get(2).isError());
+        assertTrue(snapshot.getMessages().get(2).getContent().contains("max_tokens"));
+        assertEquals("recovered", snapshot.getMessages().get(3).getContent());
+        runtime.close();
+    }
+
+    @Test
+    void prompt_shouldTruncateOldToolResultsInNextModelRequest() {
+        String oldResult = "z".repeat(281);
+        List<String> seenToolResults = new ArrayList<>();
+        ArrayDeque<AssistantResponse> responses = new ArrayDeque<>();
+        responses.add(new AssistantResponse("first", List.of()));
+        responses.add(new AssistantResponse("second", List.of()));
+
+        LlmClient fakeClient = (request, tools, streamListener, cancellationToken) -> {
+            for (AgentMessage message : request.getMessages()) {
+                if (AgentMessage.ROLE_TOOL_RESULT.equals(message.getRole())) {
+                    seenToolResults.add(message.getContent());
+                }
+            }
+            return responses.removeFirst();
+        };
+
+        AgentRuntime runtime = new AgentRuntime(AgentOptions.builder("test-model").build(), fakeClient);
+        runtime.replaceMessages(List.of(
+            AgentMessage.user("u1"),
+            AgentMessage.assistant("", List.of(new ToolCall("c1", "read_file", "{}"))),
+            AgentMessage.toolResult("c1", oldResult, false)
+        ));
+        runtime.prompt("u2").join();
+
+        assertEquals(1, seenToolResults.size());
+        assertTrue(seenToolResults.get(0).contains("已省略"), seenToolResults.get(0));
+        runtime.close();
+    }
 }

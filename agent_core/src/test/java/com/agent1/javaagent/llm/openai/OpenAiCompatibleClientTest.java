@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.core.CancellationToken;
+import com.agent1.javaagent.llm.LlmCancelledException;
+import com.agent1.javaagent.llm.LlmHttpException;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
@@ -20,6 +22,7 @@ import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -100,7 +103,144 @@ class OpenAiCompatibleClientTest {
             assertEquals("echo", response.getToolCalls().get(0).getName());
             assertEquals("{\"text\":\"ping\"}", response.getToolCalls().get(0).getArgumentsJson());
             assertEquals(List.of("Hel", "lo"), deltas);
+
+            okhttp3.mockwebserver.RecordedRequest recorded = server.takeRequest();
+            JsonNode sent = MAPPER.readTree(recorded.getBody().readUtf8());
+            assertTrue(sent.path("stream_options").path("include_usage").asBoolean());
         }
+    }
+
+    @Test
+    void streamChat_parsesUsageAndFinishReason() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            String sseBody = ""
+                + "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"},\"finish_reason\":\"stop\"}]}\n\n"
+                + "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":11,\"completion_tokens\":3,\"prompt_tokens_details\":{\"cached_tokens\":2}}}\n\n"
+                + "data: [DONE]\n\n";
+            server.enqueue(
+                new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody(sseBody)
+            );
+            server.start();
+
+            OpenAiCompatibleClient client = new OpenAiCompatibleClient(
+                new OpenAiCompatibleConfig("k", server.url("/v1").toString(), Duration.ofSeconds(5), null)
+            );
+            AssistantResponse response = client.streamChat(
+                new ChatRequest("m", List.of(AgentMessage.user("hi"))),
+                List.of(),
+                s -> {},
+                new CancellationToken()
+            );
+            assertEquals("hi", response.getContent());
+            assertEquals("stop", response.getFinishReason());
+            assertEquals(11, response.getUsage().getInputTokens());
+            assertEquals(3, response.getUsage().getOutputTokens());
+            assertEquals(2L, response.getUsage().getCachedTokens());
+        }
+    }
+
+    @Test
+    void streamChat_http200GatewayError_doesNotReturnEmptyReply() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            String sseBody = "data: {\"error_code\":\"InvalidApiKey\",\"message\":\"invalid\"}\n\n";
+            server.enqueue(
+                new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody(sseBody)
+            );
+            server.start();
+            OpenAiCompatibleClient client = new OpenAiCompatibleClient(
+                new OpenAiCompatibleConfig("k", server.url("/v1").toString(), Duration.ofSeconds(5), null)
+            );
+            IllegalStateException ex = assertThrows(
+                IllegalStateException.class,
+                () -> client.streamChat(
+                    new ChatRequest("m", List.of(AgentMessage.user("hi"))),
+                    List.of(),
+                    s -> {},
+                    new CancellationToken()
+                )
+            );
+            assertTrue(ex.getMessage().contains("InvalidApiKey"), ex.getMessage());
+        }
+    }
+
+    @Test
+    void streamChat_retries429ThenSucceeds() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse().setResponseCode(429).setBody("slow down"));
+            server.enqueue(
+                new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody("data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\n"
+                        + "data: [DONE]\n\n")
+            );
+            server.start();
+            OpenAiCompatibleClient client = new OpenAiCompatibleClient(
+                new OpenAiCompatibleConfig("k", server.url("/v1").toString(), Duration.ofSeconds(5), null),
+                MAPPER,
+                2,
+                1L
+            );
+            AssistantResponse response = client.streamChat(
+                new ChatRequest("m", List.of(AgentMessage.user("hi"))),
+                List.of(),
+                s -> {},
+                new CancellationToken()
+            );
+            assertEquals("ok", response.getContent());
+            assertEquals(2, server.getRequestCount());
+        }
+    }
+
+    @Test
+    void streamChat_cancel_throwsLlmCancelled() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(
+                new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBodyDelay(2, TimeUnit.SECONDS)
+                    .setBody("data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\n")
+            );
+            server.start();
+            OpenAiCompatibleClient client = new OpenAiCompatibleClient(
+                new OpenAiCompatibleConfig("k", server.url("/v1").toString(), Duration.ofSeconds(5), null)
+            );
+            CancellationToken token = new CancellationToken();
+            Thread canceller = new Thread(() -> {
+                try {
+                    Thread.sleep(80);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
+                token.cancel();
+            });
+            canceller.start();
+            assertThrows(
+                LlmCancelledException.class,
+                () -> client.streamChat(
+                    new ChatRequest("m", List.of(AgentMessage.user("hi"))),
+                    List.of(),
+                    s -> {},
+                    token
+                )
+            );
+            canceller.join();
+        }
+    }
+
+    @Test
+    void shouldRetry_429And5xxOnly() {
+        assertTrue(OpenAiCompatibleClient.shouldRetry(new LlmHttpException(429, "SSE failed: HTTP 429")));
+        assertTrue(OpenAiCompatibleClient.shouldRetry(new LlmHttpException(503, "SSE failed: HTTP 503")));
+        assertFalse(OpenAiCompatibleClient.shouldRetry(new LlmHttpException(401, "SSE failed: HTTP 401")));
+        assertFalse(OpenAiCompatibleClient.shouldRetry(new LlmCancelledException()));
     }
 
     @Test

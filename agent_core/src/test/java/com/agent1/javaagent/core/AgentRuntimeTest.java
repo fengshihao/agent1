@@ -10,6 +10,7 @@ import com.agent1.javaagent.llm.LlmStreamListener;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
+import com.agent1.javaagent.model.ChatUsage;
 import com.agent1.javaagent.model.ToolCall;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
@@ -195,6 +196,20 @@ class AgentRuntimeTest {
         runtime.waitForIdle();
 
         assertTrue(RunOutcome.isCancelled(runtime.getStateSnapshot().getError()));
+        runtime.close();
+    }
+
+    @Test
+    void prompt_shouldEmitUsageWhenModelReturnsTokens() {
+        LlmClient fakeClient = (request, tools, streamListener, cancellationToken) -> {
+            streamListener.onTextDelta("ok");
+            return new AssistantResponse("ok", List.of(), "stop", new ChatUsage(4, 2, 1L));
+        };
+        AgentRuntime runtime = new AgentRuntime(AgentOptions.builder("test-model").build(), fakeClient);
+        List<AgentEventType> types = new ArrayList<>();
+        runtime.subscribe(event -> types.add(event.getType()));
+        runtime.prompt("hi").join();
+        assertTrue(types.contains(AgentEventType.USAGE));
         runtime.close();
     }
 }
