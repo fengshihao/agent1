@@ -209,7 +209,7 @@ public final class ProductivityCli {
         System.out.println(colorize(ANSI_DIM, enableColor,
             "命令: /new  /list  /use <sessionId>  /logs …  /stop  /quit"));
         System.out.println(colorize(ANSI_DIM, enableColor,
-            "非交互: gradle … --args=\"--productivity logs failed\""));
+            "非交互: ./agent1 logs failed   ./agent1 models   ./agent1 你好"));
     }
 
     public static Path resolveAgentRoot() {
