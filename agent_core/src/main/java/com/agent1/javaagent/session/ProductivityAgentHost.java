@@ -21,6 +21,8 @@ import com.agent1.javaagent.tool.ChatHistoryTool;
 import com.agent1.javaagent.tool.workspace.EditFileTool;
 import com.agent1.javaagent.tool.workspace.ListDirTool;
 import com.agent1.javaagent.tool.workspace.ReadFileTool;
+import com.agent1.javaagent.script.ScriptEngineFactory;
+import com.agent1.javaagent.tool.script.ExecuteScriptTool;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import java.io.Closeable;
@@ -41,12 +43,29 @@ public final class ProductivityAgentHost implements Closeable {
     private final FileSessionStore sessionStore;
     private final FileRunStore runStore;
     private final AgentRuntime runtime;
+    private final ScriptEngineFactory scriptEngineFactory;
+    private final long executeScriptTimeoutMs;
+    private final String scriptPromptAppend;
     private String activeSessionId;
 
     public ProductivityAgentHost(Path agentRoot, AgentRuntimeConfig config, LlmClient llmClient) {
+        this(agentRoot, config, llmClient, null, 0L, "");
+    }
+
+    public ProductivityAgentHost(
+        Path agentRoot,
+        AgentRuntimeConfig config,
+        LlmClient llmClient,
+        ScriptEngineFactory scriptEngineFactory,
+        long executeScriptTimeoutMs,
+        String scriptPromptAppend
+    ) {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
         this.sessionStore = new FileSessionStore(this.agentRoot);
         this.runStore = new FileRunStore(sessionStore);
+        this.scriptEngineFactory = scriptEngineFactory;
+        this.executeScriptTimeoutMs = executeScriptTimeoutMs;
+        this.scriptPromptAppend = scriptPromptAppend == null ? "" : scriptPromptAppend.trim();
         this.runtime = new AgentRuntime(
             config.toAgentOptionsBuilder("").tools(List.of()).build(),
             llmClient
@@ -59,6 +78,24 @@ public final class ProductivityAgentHost implements Closeable {
             agentRoot,
             config,
             new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(Duration.ofSeconds(120), 0.2))
+        );
+    }
+
+    /** CLI 用：可选 Weizhi 脚本引擎。 */
+    public ProductivityAgentHost(
+        Path agentRoot,
+        AgentRuntimeConfig config,
+        ScriptEngineFactory scriptEngineFactory,
+        long executeScriptTimeoutMs,
+        String scriptPromptAppend
+    ) {
+        this(
+            agentRoot,
+            config,
+            new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(Duration.ofSeconds(120), 0.2)),
+            scriptEngineFactory,
+            executeScriptTimeoutMs,
+            scriptPromptAppend
         );
     }
 
@@ -256,7 +293,10 @@ public final class ProductivityAgentHost implements Closeable {
         List<AgentMessage> transcript = sessionStore.loadTranscript(sessionId);
         runtime.replaceMessages(transcript);
         Path workspace = sessionStore.workspaceDir(sessionId);
-        runtime.setSystemPrompt(new ProductivitySystemPromptBuilder().buildMainPrompt(workspace, false));
+        boolean scriptTool = scriptEngineFactory != null;
+        runtime.setSystemPrompt(new ProductivitySystemPromptBuilder()
+            .hostAppend(scriptPromptAppend)
+            .buildMainPrompt(workspace, scriptTool));
         runtime.setTools(buildTools(sessionId, workspace));
         runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace));
     }
@@ -269,6 +309,9 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
+        if (scriptEngineFactory != null) {
+            tools.add(new ExecuteScriptTool(sandbox, scriptEngineFactory, executeScriptTimeoutMs));
+        }
         return tools;
     }
 

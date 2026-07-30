@@ -12,8 +12,10 @@ import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
 import com.agent1.javaagent.run.FileRunStore;
 import com.agent1.javaagent.run.RunState;
+import com.agent1.javaagent.script.FakeScriptEngineFactory;
 import com.agent1.javaagent.tool.AgentTool;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
@@ -78,6 +80,33 @@ class ProductivityAgentHostTest {
             host.switchSession(b.getSessionId());
             assertEquals("only-b", host.runtime().getStateSnapshot().getMessages().get(0).getContent());
             assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("工作区"));
+        }
+    }
+
+    @Test
+    void registersExecuteScriptWhenEngineFactoryPresent() {
+        java.util.concurrent.atomic.AtomicReference<List<String>> toolNames =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            toolNames.set(tools.stream().map(AgentTool::name).collect(Collectors.toList()));
+            return new AssistantResponse("x", List.of());
+        };
+
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        FakeScriptEngineFactory factory = new FakeScriptEngineFactory("\"x\"");
+        try (ProductivityAgentHost host = new ProductivityAgentHost(
+            temp,
+            config,
+            fake,
+            factory,
+            30_000,
+            "沙盒契约片段"
+        )) {
+            host.createSession();
+            host.runUserMessage("ping");
+            assertTrue(toolNames.get().contains("execute_script"));
+            assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("execute_script"));
+            assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("沙盒契约片段"));
         }
     }
 }
