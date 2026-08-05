@@ -23,5 +23,15 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Build Weizhi native (optional)
+        run: |
+          if [ -d weizhi ]; then
+            (cd weizhi && WEIZHI_SKIP_ASAN=1 ./scripts/test.sh)
+          else
+            echo "skip weizhi: checkout weizhi into ./weizhi to run JNI integration tests"
+          fi
+
       - name: Run tests
-        run: gradle -p java_agent :core:test :cli:test
+        run: gradle -p java_agent :core:test :cli:test :weizhi-bridge:test
+        env:
+          AGENT1_WEIZHI_REPO: ${{ github.workspace }}/weizhi

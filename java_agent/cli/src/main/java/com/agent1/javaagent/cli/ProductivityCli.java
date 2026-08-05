@@ -8,6 +8,10 @@ import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.session.ProductivityAgentHost;
 import com.agent1.javaagent.session.SessionMeta;
 import com.agent1.javaagent.cli.productivity.ProductivityLogsCommand;
+import com.agent1.javaagent.cli.productivity.ProductivityModelsCommand;
+import com.agent1.javaagent.script.ScriptEngineFactory;
+import com.agent1.javaagent.weizhi.WeizhiHostSupport;
+import com.agent1.javaagent.weizhi.WeizhiRuntimeOptions;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
@@ -32,15 +36,16 @@ public final class ProductivityCli {
     }
 
     public static void main(String[] args) throws IOException {
-        AgentRuntimeConfig runtimeConfig = AgentRuntimeConfig.fromEnvironment();
-        String configError = runtimeConfig.configurationError();
-        if (configError != null) {
-            System.err.println(configError);
-            System.exit(1);
+        Path agentRoot = resolveAgentRoot();
+
+        if (args.length > 0 && "models".equalsIgnoreCase(args[0])) {
+            int code = ProductivityModelsCommand.run(
+                new PrintWriter(System.out, true),
+                new PrintWriter(System.err, true)
+            );
+            System.exit(code);
             return;
         }
-
-        Path agentRoot = resolveAgentRoot();
 
         if (args.length > 0 && "logs".equalsIgnoreCase(args[0])) {
             String[] rest = new String[args.length - 1];
@@ -55,14 +60,46 @@ public final class ProductivityCli {
             return;
         }
 
+        AgentRuntimeConfig runtimeConfig = AgentRuntimeConfig.fromEnvironment();
+        String configError = runtimeConfig.configurationError();
+        if (configError != null) {
+            System.err.println(configError);
+            System.exit(1);
+            return;
+        }
+
         boolean enableColor = shouldEnableColor();
 
-        try (ProductivityAgentHost host = new ProductivityAgentHost(agentRoot, runtimeConfig)) {
+        java.nio.file.Path weizhiRepo = WeizhiHostSupport.defaultWeizhiRepo();
+        WeizhiRuntimeOptions weizhiOptions = new WeizhiRuntimeOptions().installDesktopCaps(true);
+        java.util.Optional<ScriptEngineFactory> scriptEngine =
+            WeizhiHostSupport.tryCreateFactory(weizhiRepo, weizhiOptions);
+        String sandboxAppend = scriptEngine.isPresent()
+            ? WeizhiHostSupport.loadSandboxPromptAppend(weizhiRepo)
+            : "";
+
+        ProductivityAgentHost host = scriptEngine.isPresent()
+            ? new ProductivityAgentHost(
+                agentRoot,
+                runtimeConfig,
+                scriptEngine.get(),
+                WeizhiHostSupport.scriptTimeoutMs(),
+                sandboxAppend
+            )
+            : new ProductivityAgentHost(agentRoot, runtimeConfig);
+        try (host) {
             ensureActiveSession(host);
             host.runtime().observeEvents().subscribe(event -> onEvent(event, enableColor));
 
             Runtime.getRuntime().addShutdownHook(new Thread(host::close));
             System.out.println(colorize(ANSI_DIM, enableColor, "Agent 数据目录: " + agentRoot));
+            if (scriptEngine.isPresent()) {
+                System.out.println(colorize(ANSI_DIM, enableColor,
+                    "Weizhi 脚本: 已启用 (" + WeizhiHostSupport.platformLabel() + " caps)"));
+            } else {
+                System.out.println(colorize(ANSI_DIM, enableColor,
+                    "Weizhi 脚本: 未启用（构建 ../weizhi 或设置 AGENT1_WEIZHI_REPO）"));
+            }
             printHelp(enableColor);
 
             if (args.length > 0) {
