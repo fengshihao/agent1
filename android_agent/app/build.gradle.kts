@@ -17,16 +17,22 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val dashscopeApiKey = providers
-            .gradleProperty("DASHSCOPE_API_KEY")
-            .orElse(System.getenv("DASHSCOPE_API_KEY") ?: "")
-            .get()
-            .replace("\"", "\\\"")
-        val dashscopeBaseUrl = providers
-            .gradleProperty("DASHSCOPE_BASE_URL")
-            .orElse(System.getenv("DASHSCOPE_BASE_URL") ?: "https://dashscope.aliyuncs.com/compatible-mode/v1")
-            .get()
-            .replace("\"", "\\\"")
+        fun envOrProp(name: String, default: String = ""): String =
+            providers.gradleProperty(name).orElse(System.getenv(name) ?: default).get().replace("\"", "\\\"")
+
+        val qwenApiKey = envOrProp("QWEN_API_KEY", envOrProp("DASHSCOPE_API_KEY"))
+        val qwenBaseUrl = envOrProp(
+            "QWEN_BASE_URL",
+            envOrProp("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+        )
+        val qwenModel = envOrProp("QWEN_MODEL", "qwen3.7-flash")
+        val dashscopeApiKey = envOrProp("DASHSCOPE_API_KEY", qwenApiKey)
+        val dashscopeBaseUrl = envOrProp("DASHSCOPE_BASE_URL", qwenBaseUrl)
+
+        buildConfigField("String", "QWEN_API_KEY", "\"$qwenApiKey\"")
+        buildConfigField("String", "QWEN_BASE_URL", "\"$qwenBaseUrl\"")
+        buildConfigField("String", "QWEN_MODEL", "\"$qwenModel\"")
+        buildConfigField("String", "DEFAULT_MODEL", "\"$qwenModel\"")
         buildConfigField("String", "DASHSCOPE_API_KEY", "\"$dashscopeApiKey\"")
         buildConfigField("String", "DASHSCOPE_BASE_URL", "\"$dashscopeBaseUrl\"")
     }
@@ -68,6 +74,9 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-process:2.8.6")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
+    implementation("androidx.navigation:navigation-compose:2.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")

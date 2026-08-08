@@ -1,15 +1,16 @@
 package com.dynamicui.demo
 
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * 真机/模拟器连通测试：启动 MainActivity，断言本地 Tab 可见（不调用网络、不 mock LLM）。
+ * 真机连通：启动后可见会话列表，点新建能进入对话页（不调 LLM）。
  */
 @RunWith(AndroidJUnit4::class)
 class MainActivitySmokeTest {
@@ -18,8 +19,10 @@ class MainActivitySmokeTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun localSampleTabIsVisibleOnLaunch() {
-        composeRule.onNodeWithText("本地样例").assertIsDisplayed()
-        composeRule.onNodeWithText("Dynamic UI v1 (Local JSON)").assertIsDisplayed()
+    fun sessionListVisibleAndCreateOpensChat() {
+        composeRule.onNodeWithText("会话").assertIsDisplayed()
+        composeRule.onNodeWithText("新建").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("← 列表").assertIsDisplayed()
     }
 }
