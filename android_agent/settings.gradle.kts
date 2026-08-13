@@ -19,3 +19,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "DynamicUiDemo"
 include(":app")
+
+val weizhiAndroidRoot = file("../../weizhi/android")
+if (weizhiAndroidRoot.isDirectory) {
+    include(":weizhi", ":caps")
+    project(":weizhi").projectDir = weizhiAndroidRoot.resolve("weizhi")
+    project(":caps").projectDir = weizhiAndroidRoot.resolve("caps")
+}
