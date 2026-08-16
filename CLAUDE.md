@@ -21,13 +21,15 @@ Productivity path: `ProductivityCli` / `ProductivityAgentHost`, session store, w
 gradle -p java_agent :core:test :cli:test                        # Run tests
 gradle -p java_agent build                                       # Build all
 gradle -p java_agent :cli:fatJar                                 # Build standalone fat jar
-gradle -p java_agent runJavaAgentCli --args="prompt"             # Classic CLI
-gradle -p java_agent runJavaAgentCli --args="--productivity hi"  # Productivity CLI
+./agent1 "hi"                                                    # Productivity CLI
+./agent1 models                                                  # Qwen models / runtime
+./run-java-agent "prompt"                                        # Classic CLI
+AGENT1_USE_GRADLE=1 ./agent1 "hi"                                # Productivity via Gradle
 ```
 
 Java core sources are in `agent_core/src/main/java`; CLI sources are in `java_agent/cli/src/main/java`. The `java_agent` Gradle build includes `:core` from `../agent_core` and `:cli` for the executable. Java toolchain: JDK 17.
 
-Root helper scripts (Chinese comments in headers): `./run-java-agent`, `./run-java-agent-gradle`, `./publish-java-agent-core.sh`, `./build-android-agent.sh`, `./check-android-agent-layering.sh`.
+Root helper scripts (Chinese comments in headers): `./agent1`, `./run-java-agent`, `./run-java-agent-gradle`, `./publish-java-agent-core.sh`, `./build-android-agent.sh`, `./check-android-agent-layering.sh`.
 
 ### Android
 
@@ -39,10 +41,10 @@ Root helper scripts (Chinese comments in headers): `./run-java-agent`, `./run-ja
 ## Required Environment Variables
 
 ```bash
-export DASHSCOPE_API_KEY="your-key"     # or ALIBABA_API_KEY
+export DASHSCOPE_API_KEY="your-key"     # or QWEN_API_KEY / ALIBABA_API_KEY / OPENAI_API_KEY
 ```
 
-Optional: `ALIBABA_BASE_URL`, `AGENT1_AGENT_ROOT`, `AGENT1_MAX_CONTEXT_TURNS`, `AGENT1_MAX_TURNS_PER_RUN`, `AGENT1_MAX_TOOL_CALLS_PER_RUN`, `OPENAI_MODEL`, classic CLI: `AGENT1_LOG_FILE`, `AGENT1_MAX_CONTEXT_MESSAGES`.
+Optional: `QWEN_BASE_URL` / `ALIBABA_BASE_URL`, `QWEN_MODEL` / `OPENAI_MODEL`, `AGENT1_AGENT_ROOT`, `AGENT1_MAX_CONTEXT_TURNS`, `AGENT1_MAX_TURNS_PER_RUN`, `AGENT1_MAX_TOOL_CALLS_PER_RUN`, classic CLI: `AGENT1_LOG_FILE`, `AGENT1_MAX_CONTEXT_MESSAGES`.
 
 ## Architecture
 
@@ -82,7 +84,7 @@ Productivity path: structured JSONL via `EventJsonlWriter` / `AgentEventJsonlBri
 - Branch naming: `feature/xxx` or `fix/xxx`; archives: `archive/*`
 - Tool preview limits: args 220 chars, result 280 chars (aligned across tools)
 - Runtime limits: see `AgentRuntimeDefaults`
-- Default model: `qwen3.5-flash` (overridable via `OPENAI_MODEL`)
+- Default model: `qwen3.7-flash` (overridable via `QWEN_MODEL` / `OPENAI_MODEL`)
 
 ## Android Layering Rules (Mandatory)
 

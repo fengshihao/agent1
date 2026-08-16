@@ -58,11 +58,16 @@ gradle -p java_agent :core:test :cli:test
 ### Java CLI
 
 ```bash
-# 经典 CLI
-./run-java-agent-gradle "列出当前目录文件"
+# 生产力助手（推荐）
+./agent1                  # 交互
+./agent1 你好             # 单次提问
+./agent1 models           # 模型与运行时参数
+./agent1 logs failed      # 查事件日志
 
-# 生产力 CLI（数据根默认 .agent1/）
-gradle -p java_agent runJavaAgentCli --args="--productivity 你好"
+# 经典 CLI（bash/python/skill）
+./run-java-agent "列出当前目录文件"
+# 或跳过 fat-jar、直接 Gradle：
+./run-java-agent-gradle "列出当前目录文件"
 ```
 
 发布 core 给 Android：
@@ -113,6 +118,8 @@ flowchart LR
 ├── java_agent/           # CLI + Gradle
 ├── android_agent/        # Android Demo
 ├── doc/基础能力/         # 能力跟踪文档
+├── agent1                # 生产力助手 CLI 入口
+├── run-java-agent
 ├── run-java-agent-gradle
 ├── publish-java-agent-core.sh
 ├── build-android-agent.sh
