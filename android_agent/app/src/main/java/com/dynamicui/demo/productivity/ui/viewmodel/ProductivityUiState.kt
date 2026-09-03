@@ -10,6 +10,8 @@ data class SessionListUiState(
     val catalogModels: List<QwenModelInfo> = emptyList(),
     val configError: String? = null,
     val isLoading: Boolean = false,
+    val exportInProgress: Boolean = false,
+    val exportMessage: String? = null,
 )
 
 data class ChatLine(
@@ -28,4 +30,6 @@ data class ChatUiState(
     val configError: String? = null,
     val configSummary: RuntimeConfigSummary? = null,
     val showModelPanel: Boolean = true,
+    val exportInProgress: Boolean = false,
+    val exportMessage: String? = null,
 )

@@ -1,5 +1,6 @@
 package com.dynamicui.demo.productivity.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.agent1.javaagent.modelcatalog.QwenModelCatalog
 import com.agent1.javaagent.session.SessionMeta
@@ -22,12 +23,15 @@ class SessionListViewModel(
     fun refresh() {
         val summary = gateway.configurationSummary()
         val err = gateway.configurationError()
+        val current = _state.value
         _state.value = SessionListUiState(
             sessions = gateway.listSessions(),
             configSummary = summary,
             catalogModels = QwenModelCatalog.primaryModels(),
             configError = err,
             isLoading = false,
+            exportInProgress = current.exportInProgress,
+            exportMessage = current.exportMessage,
         )
     }
 
@@ -40,5 +44,14 @@ class SessionListViewModel(
     fun deleteSession(sessionId: String) {
         gateway.deleteSession(sessionId)
         refresh()
+    }
+
+    fun exportDiagnostics(activity: Context) {
+        if (_state.value.exportInProgress) return
+        launchDiagnosticExport(
+            activity,
+            onBusy = { busy -> _state.value = _state.value.copy(exportInProgress = busy) },
+            onMessage = { message -> _state.value = _state.value.copy(exportMessage = message) },
+        )
     }
 }

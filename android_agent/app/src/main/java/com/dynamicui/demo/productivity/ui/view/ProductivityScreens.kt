@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.agent1.javaagent.modelcatalog.QwenModelInfo
@@ -41,6 +42,7 @@ fun SessionListScreen(
     onOpenSession: (SessionMeta) -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
     Column(modifier = Modifier.fillMaxSize()) {
         ModelAndRuntimePanel(
             summary = state.configSummary,
@@ -55,11 +57,26 @@ fun SessionListScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text("会话", style = MaterialTheme.typography.titleMedium)
-            Button(onClick = {
-                onOpenSession(viewModel.createSession())
-            }) {
-                Text("新建")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = { viewModel.exportDiagnostics(context) },
+                    enabled = !state.exportInProgress,
+                ) {
+                    Text(if (state.exportInProgress) "打包中…" else "导出日志")
+                }
+                Button(onClick = {
+                    onOpenSession(viewModel.createSession())
+                }) {
+                    Text("新建")
+                }
             }
+        }
+        if (!state.exportMessage.isNullOrBlank()) {
+            Text(
+                state.exportMessage.orEmpty(),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         if (state.sessions.isEmpty()) {
             Text(
@@ -109,6 +126,7 @@ fun ChatScreen(
     onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
     var input by rememberSaveable { mutableStateOf("") }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -120,9 +138,24 @@ fun ChatScreen(
         ) {
             TextButton(onClick = onBack) { Text("← 列表") }
             Text(state.title, style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = { viewModel.toggleModelPanel() }) {
-                Text(if (state.showModelPanel) "隐藏模型" else "模型参数")
+            Row {
+                TextButton(
+                    onClick = { viewModel.exportDiagnostics(context) },
+                    enabled = !state.exportInProgress,
+                ) {
+                    Text(if (state.exportInProgress) "打包中…" else "导出")
+                }
+                TextButton(onClick = { viewModel.toggleModelPanel() }) {
+                    Text(if (state.showModelPanel) "隐藏模型" else "模型参数")
+                }
             }
+        }
+        if (!state.exportMessage.isNullOrBlank()) {
+            Text(
+                state.exportMessage.orEmpty(),
+                modifier = Modifier.padding(horizontal = 12.dp),
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         if (state.showModelPanel) {
             ModelAndRuntimePanel(

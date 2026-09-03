@@ -1,5 +1,6 @@
 package com.dynamicui.demo.productivity.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.agent1.javaagent.event.AgentEvent
@@ -113,6 +114,15 @@ class ChatViewModel(
     private fun AgentMessage.toChatLine(): ChatLine {
         val tool = AgentMessage.ROLE_TOOL_RESULT == role
         return ChatLine(role = role, content = content ?: "", isTool = tool)
+    }
+
+    fun exportDiagnostics(activity: Context) {
+        if (_state.value.exportInProgress) return
+        launchDiagnosticExport(
+            activity,
+            onBusy = { busy -> _state.value = _state.value.copy(exportInProgress = busy) },
+            onMessage = { message -> _state.value = _state.value.copy(exportMessage = message) },
+        )
     }
 
     companion object {
