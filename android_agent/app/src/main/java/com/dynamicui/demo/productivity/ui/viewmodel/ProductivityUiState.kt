@@ -29,7 +29,7 @@ data class ChatUiState(
     val isRunning: Boolean = false,
     val configError: String? = null,
     val configSummary: RuntimeConfigSummary? = null,
-    val showModelPanel: Boolean = true,
+    val showModelPanel: Boolean = false,
     val exportInProgress: Boolean = false,
     val exportMessage: String? = null,
 )

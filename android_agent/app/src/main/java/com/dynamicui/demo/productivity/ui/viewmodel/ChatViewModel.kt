@@ -10,6 +10,8 @@ import com.agent1.javaagent.model.AgentMessage
 import com.agent1.javaagent.modelcatalog.QwenModelCatalog
 import com.dynamicui.demo.productivity.logic.business.ProductivityAgentGateway
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +33,12 @@ class ChatViewModel(
         ),
     )
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
+
+    private val streamLock = Any()
+    private val streamBuffer = StringBuilder()
+    private var streamGeneration = 0
+    @Volatile
+    private var flushJob: Job? = null
 
     init {
         reloadTranscript()
@@ -57,13 +65,21 @@ class ChatViewModel(
             _state.value = _state.value.copy(configError = err)
             return
         }
+        resetStreamBuffer()
         _state.value = _state.value.copy(isRunning = true, streamingText = "", toolTrail = emptyList())
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
                     gateway.runUserMessage(sessionId, trimmed) { event ->
-                        viewModelScope.launch(Dispatchers.Main.immediate) {
-                            onAgentEvent(event)
+                        when (event.type) {
+                            AgentEventType.MESSAGE_UPDATE -> {
+                                val payload = event.payload as EventPayloads.MessageUpdate
+                                enqueueDelta(payload.delta)
+                            }
+                            else -> viewModelScope.launch(Dispatchers.Main) {
+                                publishStreamNow()
+                                onAgentEvent(event)
+                            }
                         }
                     }
                 }
@@ -72,6 +88,7 @@ class ChatViewModel(
                     lines = _state.value.lines + ChatLine("assistant", "错误: ${e.message}"),
                 )
             } finally {
+                resetStreamBuffer()
                 reloadTranscript()
                 _state.value = _state.value.copy(isRunning = false, streamingText = "")
             }
@@ -79,20 +96,63 @@ class ChatViewModel(
     }
 
     fun stopRun() {
-        if (!gateway.isRunInProgress()) return
         viewModelScope.launch(Dispatchers.IO) {
             gateway.abortActiveRun()
         }
     }
 
+    private fun enqueueDelta(delta: String) {
+        if (delta.isEmpty()) return
+        val generation = synchronized(streamLock) {
+            streamBuffer.append(delta)
+            streamGeneration
+        }
+        if (flushJob?.isActive == true) return
+        flushJob = viewModelScope.launch(Dispatchers.Main) {
+            delay(STREAM_FLUSH_MS)
+            publishStream(generation)
+        }
+    }
+
+    private fun publishStream(generation: Int) {
+        val text = synchronized(streamLock) {
+            if (generation != streamGeneration) return
+            streamBuffer.toString()
+        }
+        if (_state.value.isRunning) {
+            _state.value = _state.value.copy(streamingText = text)
+        }
+        val pending = synchronized(streamLock) {
+            generation == streamGeneration && streamBuffer.length > text.length
+        }
+        if (pending) {
+            flushJob = viewModelScope.launch(Dispatchers.Main) {
+                delay(STREAM_FLUSH_MS)
+                publishStream(generation)
+            }
+        }
+    }
+
+    private fun publishStreamNow() {
+        val text = synchronized(streamLock) {
+            if (streamBuffer.isEmpty()) return
+            streamBuffer.toString()
+        }
+        if (_state.value.isRunning) {
+            _state.value = _state.value.copy(streamingText = text)
+        }
+    }
+
+    private fun resetStreamBuffer() {
+        synchronized(streamLock) {
+            streamGeneration += 1
+            streamBuffer.setLength(0)
+        }
+    }
+
     private fun onAgentEvent(event: AgentEvent) {
         when (event.type) {
-            AgentEventType.MESSAGE_UPDATE -> {
-                val payload = event.payload as EventPayloads.MessageUpdate
-                _state.value = _state.value.copy(
-                    streamingText = _state.value.streamingText + payload.delta,
-                )
-            }
+            AgentEventType.MESSAGE_UPDATE -> Unit
             AgentEventType.TOOL_EXECUTION_START -> {
                 val payload = event.payload as EventPayloads.ToolExecutionStart
                 val name = payload.toolCall.name
@@ -127,5 +187,6 @@ class ChatViewModel(
 
     companion object {
         val catalogModels = QwenModelCatalog.primaryModels()
+        private const val STREAM_FLUSH_MS = 80L
     }
 }

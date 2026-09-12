@@ -15,7 +15,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.Future
 
 /**
- * 会话与 Run 编排入口（logic.business）；所有 Host 调用在同一线程串行。
+ * 会话与 Run 编排入口（logic.business）。
+ * 会话读写在同一线程串行。进行中的 Run 会占住该线程，因此停止与是否在跑不走这条队列，
+ * 否则停止要等本轮结束，点按钮的主线程也会一直堵住。
  */
 class ProductivityAgentGateway(
     context: Context,
@@ -71,9 +73,11 @@ class ProductivityAgentGateway(
         messages
     }
 
-    fun isRunInProgress(): Boolean = execute { host.isRunInProgress() }
+    fun isRunInProgress(): Boolean = host.isRunInProgress()
 
-    fun abortActiveRun() = execute { host.abortActiveRun() }
+    fun abortActiveRun() {
+        host.abortActiveRun()
+    }
 
     fun runUserMessage(
         sessionId: String,
