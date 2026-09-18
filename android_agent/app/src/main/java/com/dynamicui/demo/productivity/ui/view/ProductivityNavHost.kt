@@ -23,7 +23,6 @@ fun ProductivityNavHost() {
     val gateway = ProductivityGatewayProvider.get(context)
     val nav = rememberNavController()
 
-    ProductivityTheme {
     NavHost(navController = nav, startDestination = Routes.LIST) {
         composable(Routes.LIST) {
             val vm: SessionListViewModel = viewModel(
@@ -50,7 +49,6 @@ fun ProductivityNavHost() {
             )
             ChatScreen(viewModel = vm, onBack = { nav.popBackStack() })
         }
-    }
     }
 }
 

@@ -1,15 +1,23 @@
 package com.dynamicui.demo.productivity.ui.view
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -17,11 +25,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,6 +46,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,6 +60,8 @@ import com.dynamicui.demo.productivity.ui.viewmodel.ChatLine
 import com.dynamicui.demo.productivity.ui.viewmodel.ChatUiState
 import com.dynamicui.demo.productivity.ui.viewmodel.ChatViewModel
 import com.dynamicui.demo.productivity.ui.viewmodel.SessionListViewModel
+import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.m3.markdownColor
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -60,29 +76,44 @@ fun SessionListScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding(),
     ) {
-    Column(modifier = Modifier.statusBarsPadding()) {
-        SessionListHeader(
-            count = state.sessions.size,
-            exportInProgress = state.exportInProgress,
-            onExport = { viewModel.exportDiagnostics(context) },
-            onCreate = { onOpenSession(viewModel.createSession()) },
+        AgentTopBar(
+            title = "会话",
+            subtitle = if (state.sessions.isEmpty()) "从这里开始一条对话" else "${state.sessions.size} 条对话",
+            leading = null,
+            actions = {
+                TopBarIconButton(
+                    label = if (state.exportInProgress) "…" else "导出",
+                    onClick = { viewModel.exportDiagnostics(context) },
+                    enabled = !state.exportInProgress,
+                )
+                Button(
+                    onClick = { onOpenSession(viewModel.createSession()) },
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text("新建")
+                }
+            },
         )
+        AgentHairline()
         RuntimeSummaryStrip(
             summary = state.configSummary,
             catalog = state.catalogModels,
             configError = state.configError,
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         )
         if (!state.exportMessage.isNullOrBlank()) {
             Text(
                 state.exportMessage.orEmpty(),
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         if (state.sessions.isEmpty()) {
@@ -92,12 +123,7 @@ fun SessionListScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 12.dp,
-                    bottom = 24.dp,
-                ),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(state.sessions, key = { it.sessionId }) { meta ->
@@ -110,44 +136,233 @@ fun SessionListScreen(
             }
         }
     }
+}
+
+@Composable
+fun ChatScreen(
+    viewModel: ChatViewModel,
+    onBack: () -> Unit,
+) {
+    val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    var input by rememberSaveable { mutableStateOf("") }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding(),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            AgentTopBar(
+                title = state.title.ifBlank { "AI 助手" },
+                subtitle = null,
+                leading = {
+                    TopBarIconButton(label = "←", onClick = onBack)
+                },
+                actions = {
+                    TopBarIconButton(
+                        label = if (state.exportInProgress) "…" else "导出",
+                        onClick = { viewModel.exportDiagnostics(context) },
+                        enabled = !state.exportInProgress,
+                    )
+                    TopBarIconButton(
+                        label = "⚙",
+                        onClick = { viewModel.toggleModelPanel() },
+                    )
+                },
+            )
+            AgentHairline()
+            if (!state.exportMessage.isNullOrBlank()) {
+                Text(
+                    state.exportMessage.orEmpty(),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            if (!state.showModelPanel && state.configError != null) {
+                ConfigErrorBanner(state.configError.orEmpty())
+            }
+            ChatMessageList(
+                state = state,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            )
+            AgentHairline()
+            ChatComposer(
+                value = input,
+                onValueChange = { input = it },
+                isRunning = state.isRunning,
+                canSend = state.configError == null && input.isNotBlank(),
+                enabled = !state.isRunning && state.configError == null,
+                onSend = {
+                    viewModel.sendMessage(input)
+                    input = ""
+                },
+                onStop = { viewModel.stopRun() },
+            )
+        }
+
+        AnimatedVisibility(visible = state.showModelPanel) {
+            RuntimeConfigOverlay(
+                summary = state.configSummary,
+                catalog = ChatViewModel.catalogModels,
+                configError = state.configError,
+                onDismiss = { viewModel.toggleModelPanel() },
+            )
+        }
     }
 }
 
 @Composable
-private fun SessionListHeader(
-    count: Int,
-    exportInProgress: Boolean,
-    onExport: () -> Unit,
-    onCreate: () -> Unit,
+private fun AgentTopBar(
+    title: String,
+    subtitle: String?,
+    leading: (@Composable () -> Unit)?,
+    actions: @Composable () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                "会话",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                if (count == 0) "从这里开始一条对话" else "$count 条对话",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        TextButton(onClick = onExport, enabled = !exportInProgress) {
-            Text(if (exportInProgress) "打包中…" else "导出日志")
-        }
-        Button(
-            onClick = onCreate,
-            shape = RoundedCornerShape(14.dp),
+    Surface(color = MaterialTheme.colorScheme.surface) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .padding(start = if (leading == null) 16.dp else 4.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("新建")
+            leading?.invoke()
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                actions()
+            }
         }
     }
+}
+
+@Composable
+private fun TopBarIconButton(
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.height(40.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp),
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun AgentHairline() {
+    HorizontalDivider(
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.outline,
+    )
+}
+
+@Composable
+private fun ChatComposer(
+    value: String,
+    onValueChange: (String) -> Unit,
+    isRunning: Boolean,
+    canSend: Boolean,
+    enabled: Boolean,
+    onSend: () -> Unit,
+    onStop: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier
+            .navigationBarsPadding()
+            .imePadding(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("输入消息…") },
+                enabled = enabled,
+                shape = RoundedCornerShape(10.dp),
+                maxLines = 4,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                ),
+            )
+            AnimatedVisibility(visible = isRunning) {
+                OutlinedButton(
+                    onClick = onStop,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.height(40.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                ) {
+                    Text("中断")
+                }
+            }
+            Button(
+                onClick = onSend,
+                enabled = canSend && !isRunning,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.height(40.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+            ) {
+                Text("发送")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConfigErrorBanner(message: String) {
+    Text(
+        message,
+        modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        color = MaterialTheme.colorScheme.error,
+        style = MaterialTheme.typography.bodySmall,
+    )
 }
 
 @Composable
@@ -155,17 +370,17 @@ private fun EmptySessionState(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(24.dp),
+            .padding(32.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 "还没有会话",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
             )
             Text(
-                "点右上角「新建」开始。模型规格收在上方那一行里。",
+                "点右上角「新建」开始；模型规格收在上方可展开条目中。",
                 modifier = Modifier.padding(top = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -181,18 +396,19 @@ private fun SessionCard(
     onDelete: () -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(2.dp, RoundedCornerShape(14.dp), clip = false)
+            .clickable(onClick = onOpen),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onOpen)
-                .padding(start = 16.dp, top = 14.dp, end = 8.dp, bottom = 6.dp),
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+                .padding(start = 16.dp, top = 14.dp, end = 8.dp, bottom = 8.dp),
         ) {
             Text(
                 meta.title.ifBlank { "未命名会话" },
@@ -214,124 +430,13 @@ private fun SessionCard(
                 Text(
                     meta.sessionId.take(8),
                     modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.outline,
                 )
                 TextButton(onClick = onOpen) { Text("打开") }
                 TextButton(onClick = onDelete) { Text("删除") }
             }
         }
-    }
-}
-
-@Composable
-fun ChatScreen(
-    viewModel: ChatViewModel,
-    onBack: () -> Unit,
-) {
-    val state by viewModel.state.collectAsState()
-    val context = LocalContext.current
-    var input by rememberSaveable { mutableStateOf("") }
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
-    ) {
-    Column(modifier = Modifier.statusBarsPadding()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(onClick = onBack) { Text("← 列表") }
-            Text(
-                state.title.ifBlank { "新对话" },
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            TextButton(
-                onClick = { viewModel.exportDiagnostics(context) },
-                enabled = !state.exportInProgress,
-            ) {
-                Text(if (state.exportInProgress) "打包中…" else "导出")
-            }
-            TextButton(onClick = { viewModel.toggleModelPanel() }) {
-                Text(if (state.showModelPanel) "收起" else "运行时")
-            }
-        }
-        if (!state.exportMessage.isNullOrBlank()) {
-            Text(
-                state.exportMessage.orEmpty(),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (state.showModelPanel) {
-            RuntimeSummaryStrip(
-                summary = state.configSummary,
-                catalog = ChatViewModel.catalogModels,
-                configError = state.configError,
-                startExpanded = true,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            )
-        } else if (state.configError != null) {
-            Text(
-                state.configError.orEmpty(),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        ChatMessageList(state, modifier = Modifier.weight(1f))
-        if (state.isRunning) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("正在回复", color = MaterialTheme.colorScheme.primary)
-                Button(onClick = { viewModel.stopRun() }, shape = RoundedCornerShape(12.dp)) {
-                    Text("停止")
-                }
-            }
-        }
-        Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("输入消息") },
-                    enabled = !state.isRunning && state.configError == null,
-                    shape = RoundedCornerShape(16.dp),
-                    maxLines = 4,
-                )
-                Button(
-                    onClick = {
-                        viewModel.sendMessage(input)
-                        input = ""
-                    },
-                    enabled = !state.isRunning && state.configError == null && input.isNotBlank(),
-                    shape = RoundedCornerShape(14.dp),
-                ) {
-                    Text("发送")
-                }
-            }
-        }
-    }
     }
 }
 
@@ -347,76 +452,186 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
     }
     LazyColumn(
         state = listState,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp),
+        modifier = modifier.padding(horizontal = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
     ) {
         items(state.lines) { line ->
-            MessageBubble(line)
+            MessageBubble(line, markdown = !line.isTool && line.role != "user")
         }
         if (state.toolTrail.isNotEmpty()) {
             item {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("工具轨迹", fontWeight = FontWeight.SemiBold)
-                        state.toolTrail.forEach { trail ->
-                            Text(
-                                trail,
-                                modifier = Modifier.padding(top = 4.dp),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                }
+                ToolTrailBubble(state.toolTrail)
             }
         }
         if (state.streamingText.isNotEmpty()) {
             item {
-                MessageBubble(ChatLine("assistant", state.streamingText + "▌"))
+                MessageBubble(
+                    ChatLine("assistant", state.streamingText + "▌"),
+                    markdown = false,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun MessageBubble(line: ChatLine) {
-    val isUser = line.role == "user" && !line.isTool
-    val container = when {
-        line.isTool -> MaterialTheme.colorScheme.secondaryContainer
-        isUser -> MaterialTheme.colorScheme.primaryContainer
-        else -> MaterialTheme.colorScheme.surfaceContainerLowest
-    }
-    val label = when {
-        line.isTool -> "工具"
-        isUser -> "你"
-        else -> "助手"
-    }
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart,
+private fun ToolTrailBubble(trail: List<String>) {
+    val bubbles = chatBubbleColors()
+    BubbleShell(
+        alignEnd = false,
+        wide = true,
+        background = bubbles.systemBackground,
+        borderColor = bubbles.systemBorder,
     ) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = container),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth(if (line.isTool) 1f else 0.86f),
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(
-                    label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        trail.forEach { line ->
+            Text(
+                line,
+                modifier = Modifier.padding(vertical = 2.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MessageBubble(line: ChatLine, markdown: Boolean) {
+    val bubbles = chatBubbleColors()
+    val isUser = line.role == "user" && !line.isTool
+    val isTool = line.isTool
+    when {
+        isUser -> {
+            BubbleShell(
+                alignEnd = true,
+                wide = false,
+                background = bubbles.userBackground,
+                borderColor = Color.Transparent,
+            ) {
                 Text(
                     line.content,
-                    modifier = Modifier.padding(top = 4.dp),
                     style = MaterialTheme.typography.bodyLarge,
+                    color = bubbles.userContent,
                 )
             }
+        }
+        isTool -> {
+            BubbleShell(
+                alignEnd = false,
+                wide = true,
+                background = bubbles.systemBackground,
+                borderColor = bubbles.systemBorder,
+            ) {
+                Text(
+                    "🔧 ${line.content}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        else -> {
+            BubbleShell(
+                alignEnd = false,
+                wide = true,
+                background = bubbles.assistantBackground,
+                borderColor = bubbles.assistantBorder,
+            ) {
+                if (markdown) {
+                    Markdown(
+                        content = line.content,
+                        colors = markdownColor(
+                            text = MaterialTheme.colorScheme.onSurface,
+                            codeBackground = MaterialTheme.colorScheme.surfaceVariant,
+                        ),
+                    )
+                } else {
+                    Text(
+                        line.content,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BubbleShell(
+    alignEnd: Boolean,
+    wide: Boolean,
+    background: Color,
+    borderColor: Color,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = if (alignEnd) Alignment.CenterEnd else Alignment.CenterStart,
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = if (wide) 340.dp else 300.dp)
+                .shadow(if (alignEnd) 0.dp else 1.dp, RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(12.dp))
+                .background(background)
+                .then(
+                    if (borderColor.alpha > 0f) {
+                        Modifier.border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun RuntimeConfigOverlay(
+    summary: RuntimeConfigSummary?,
+    catalog: List<QwenModelInfo>,
+    configError: String?,
+    onDismiss: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f))
+            .clickable(onClick = onDismiss)
+            .padding(horizontal = 24.dp, vertical = 48.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceContainerLow,
+                        ),
+                    ),
+                )
+                .clickable(enabled = false) {}
+                .padding(20.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "模型与运行时",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                TextButton(onClick = onDismiss) { Text("关闭") }
+            }
+            ModelAndRuntimePanel(summary, catalog, configError)
         }
     }
 }
@@ -439,15 +654,16 @@ private fun RuntimeSummaryStrip(
     }
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        tonalElevation = 1.dp,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 1.dp,
+        tonalElevation = 0.dp,
     ) {
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable { expanded = !expanded }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -472,7 +688,7 @@ private fun RuntimeSummaryStrip(
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -483,7 +699,7 @@ private fun RuntimeSummaryStrip(
                 )
             }
             if (expanded) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+                AgentHairline()
                 Column(
                     modifier = Modifier
                         .heightIn(max = 280.dp)
@@ -551,7 +767,7 @@ fun ModelAndRuntimePanel(
 @Composable
 private fun DetailLine(label: String, value: String) {
     Column(modifier = Modifier.padding(bottom = 4.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyMedium)
     }
 }
