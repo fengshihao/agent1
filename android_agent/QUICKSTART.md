@@ -35,9 +35,9 @@ chmod +x run.sh   # 首次可选
 
 ### 从 GitHub Actions 下载 Debug APK（含手机浏览器）
 
-仓库 workflow **Android Debug APK**（`.github/workflows/android-apk.yml`）会在 push/PR 或手动 **Run workflow** 时编译并上传产物 **`dynamic-ui-demo-debug-apk`**（内含 `app-debug.apk`）。
+仓库 **CI** workflow（`.github/workflows/ci.yml` 中的 `android-assemble-debug` job）会在 push/PR 或手动 **Run workflow** 时编译并上传产物 **`dynamic-ui-demo-debug-apk`**（内含 `app-debug.apk`）。
 
-1. 打开 GitHub 仓库 → **Actions** → 选中成功的 **Android Debug APK** run。
+1. 打开 GitHub 仓库 → **Actions** → 选中成功的 **CI** run。
 2. 页面底部 **Artifacts** → 下载 `dynamic-ui-demo-debug-apk`（zip），解压得到 `app-debug.apk` 后安装。
 
 **说明**：CI **不会**把 `DASHSCOPE_API_KEY` 打进 APK（`BuildConfig` 中密钥为空）。「本地样例」等离线能力可用；「Qwen 生成」/ 悬浮宠物等需 DashScope 的功能，请在本机用下文「Qwen 配置」自行编译安装，或后续改为服务端代理。

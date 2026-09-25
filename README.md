@@ -90,7 +90,7 @@ flowchart LR
 ├── run-java-agent-gradle
 ├── publish-java-agent-core.sh
 ├── build-android-agent.sh
-├── .github/workflows/          # CI（Java 测试）+ Android APK
+├── .github/workflows/          # CI：Java 单测 + Android Debug APK 产物
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
 └── LICENSE
