@@ -11,4 +11,4 @@ SCRIPTS="${REPO_ROOT}/android_agent/scripts"
 python3 "${SCRIPTS}/check_android_layering.py"
 python3 "${SCRIPTS}/check_android_main_thread_gateway.py" --self-test
 python3 "${SCRIPTS}/check_android_main_thread_gateway.py"
-gradle -p "${REPO_ROOT}/android_agent" :app:detekt
+"${REPO_ROOT}/android_agent/gradlew" --no-daemon -p "${REPO_ROOT}/android_agent" :app:detekt

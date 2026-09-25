@@ -8,4 +8,4 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "${REPO_ROOT}"
 
-gradle -p java_agent :core:pmdMain :core:spotbugsMain :cli:pmdMain :cli:spotbugsMain
+./java_agent/gradlew --no-daemon -p java_agent :core:pmdMain :core:spotbugsMain :cli:pmdMain :cli:spotbugsMain
