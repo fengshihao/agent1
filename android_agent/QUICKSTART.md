@@ -79,12 +79,24 @@ DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
 **WebView、MCP、Weizhi 脚本与 grep/glob/zip/bash 等** 在代码里已写好（`app/src/weizhi/`、`WeizhiAgentTools`），但 **只有编译时存在 sibling 目录 `../weizhi/android` 才会打进 APK**（`BuildConfig.WEIZHI_INTEGRATED=true`）。GitHub Actions 上的 CI APK **通常不含 Weizhi**，所以模型侧只能看到上述基础工具。
 
-本地完整集成：
+本地完整集成（**weizhi 为你自己的独立仓库**）：
+
+```text
+方式 A（推荐，与 CI 一致）          方式 B（传统同级目录）
+agent1/                            parent/
+  weizhi/   ← clone 你的 weizhi       agent1/
+  android_agent/                     weizhi/
+                                       android/
+                                       agent1/
+```
 
 ```bash
-# 与 agent1 同级 checkout weizhi 仓库，保证存在 weizhi/android/
+export WEIZHI_GIT_URL='git@github.com:<你>/weizhi.git'   # 换成你的地址
+./sync-weizhi.sh
 cd android_agent && ./gradlew :app:assembleDebug
 ```
+
+GitHub Actions 若要在 CI APK 里带上 WebView / Weizhi 工具：在 **agent1 仓库 Settings → Secrets** 增加 **`WEIZHI_GIT_URL`**（HTTPS 或 SSH clone URL，私有库需 PAT 权限）。
 
 App 内 **模型配置** 与聊天页 **模型详情** 会显示当前包装配的「Agent 工具」摘要。
 

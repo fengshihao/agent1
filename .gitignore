@@ -31,6 +31,9 @@ android_agent/**/.gradle/
 android_agent/**/build/
 android_agent/**/local.properties
 
+# 本地 clone 的微智 weizhi 工程（./sync-weizhi.sh），勿提交
+/weizhi/
+
 # Local memory notes
 user_memory.md
 

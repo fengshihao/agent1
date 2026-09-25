@@ -20,8 +20,12 @@ dependencyResolutionManagement {
 rootProject.name = "DynamicUiDemo"
 include(":app")
 
-val weizhiAndroidRoot = file("../../weizhi/android")
-if (weizhiAndroidRoot.isDirectory) {
+/** 微智工程：优先 agent1 外同级 ../weizhi，其次 agent1/weizhi（CI / sync-weizhi.sh）。 */
+val weizhiAndroidRoot = sequenceOf(
+    file("../../weizhi/android"),
+    file("../weizhi/android"),
+).firstOrNull { it.isDirectory }
+if (weizhiAndroidRoot != null) {
     include(":weizhi", ":caps", ":agent-tools", ":agent-tools-webview", ":agent-tools-mcp")
     project(":weizhi").projectDir = weizhiAndroidRoot.resolve("weizhi")
     project(":caps").projectDir = weizhiAndroidRoot.resolve("caps")

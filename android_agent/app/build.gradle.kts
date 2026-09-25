@@ -6,8 +6,11 @@ plugins {
     id("io.gitlab.arturbosch.detekt")
 }
 
-val weizhiAndroidRoot = rootProject.file("../../weizhi/android")
-val weizhiIntegrated = weizhiAndroidRoot.isDirectory
+val weizhiAndroidRoot = sequenceOf(
+    rootProject.file("../../weizhi/android"),
+    rootProject.file("../weizhi/android"),
+).firstOrNull { it.isDirectory }
+val weizhiIntegrated = weizhiAndroidRoot != null
 
 detekt {
     buildUponDefaultConfig = true

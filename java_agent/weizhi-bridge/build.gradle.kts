@@ -8,7 +8,11 @@ version = "0.1.0-SNAPSHOT"
 val weizhiRepo: java.io.File =
     providers.gradleProperty("weizhiRepo")
         .map { file(it) }
-        .orElse(file("../../../weizhi"))
+        .orElse(
+            sequenceOf(file("../../../weizhi"), file("../../weizhi"))
+                .firstOrNull { it.isDirectory }
+                ?: file("../../../weizhi"),
+        )
         .get()
 
 java {
