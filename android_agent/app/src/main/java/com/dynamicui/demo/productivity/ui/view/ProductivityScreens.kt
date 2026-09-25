@@ -191,6 +191,7 @@ fun ChatScreen(
                 }
             },
             bottomBar = {
+                // edge-to-edge 下用 adjustNothing + 仅 bottomBar 消费 IME，避免 adjustResize 与 imePadding 叠加把输入条顶得过高。
                 Column(
                     modifier = Modifier
                         .navigationBarsPadding()
