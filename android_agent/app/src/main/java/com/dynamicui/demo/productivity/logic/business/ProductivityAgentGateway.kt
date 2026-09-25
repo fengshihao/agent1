@@ -16,8 +16,13 @@ import java.util.concurrent.Future
 
 /**
  * 会话与 Run 编排入口（logic.business）。
- * 会话读写在同一线程串行。进行中的 Run 会占住该线程，因此停止与是否在跑不走这条队列，
- * 否则停止要等本轮结束，点按钮的主线程也会一直堵住。
+ *
+ * **阻塞语义**：除 [configurationSummary]、[configurationError]、[isRunInProgress]、[abortActiveRun] 外，
+ * 公开方法均在内部 `Future.get()` 上等待 agent 线程，**调用方线程会被阻塞**。
+ * Android UI / 主线程须用 `withContext(Dispatchers.IO)`；禁止在 Compose 组合阶段直接调用。
+ * 静态检查：`./check-android-agent-main-thread.sh`。
+ *
+ * 进行中的 Run 会占住 agent 线程；[abortActiveRun] 不走该队列，避免停止被本轮 IO 拖住。
  */
 class ProductivityAgentGateway(
     context: Context,

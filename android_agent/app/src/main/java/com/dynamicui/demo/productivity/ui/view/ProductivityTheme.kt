@@ -11,7 +11,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-/** 对齐 agent-ui / agent_web 的层次与对比度，并略作增强。 */
+/** 生产力对话 UI 配色：浅灰底、蓝色主色，深浅色跟随 Material 语义色。 */
 private val AgentText = Color(0xFF1F2328)
 private val AgentMuted = Color(0xFF8B949E)
 private val AgentBg = Color(0xFFF5F6F8)

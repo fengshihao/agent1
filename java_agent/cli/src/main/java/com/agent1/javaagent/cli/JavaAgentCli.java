@@ -321,30 +321,8 @@ public final class JavaAgentCli {
         }
     }
 
-    private static String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (!isBlank(value)) {
-                return value;
-            }
-        }
-        return "";
-    }
-
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
-    }
-
-    /** Positive integer from env; blank or invalid yields {@code defaultIfInvalid}. Non-positive yields default. */
-    private static int parsePositiveIntOrZero(String raw, int defaultIfInvalid) {
-        if (isBlank(raw)) {
-            return defaultIfInvalid;
-        }
-        try {
-            int v = Integer.parseInt(raw.trim());
-            return v > 0 ? v : defaultIfInvalid;
-        } catch (NumberFormatException e) {
-            return defaultIfInvalid;
-        }
     }
 
     private static AgentMessage findLatestAssistantMessage(AgentRuntime runtime) {

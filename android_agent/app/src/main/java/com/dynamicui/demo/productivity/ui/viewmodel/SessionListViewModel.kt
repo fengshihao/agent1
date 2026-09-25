@@ -2,12 +2,16 @@ package com.dynamicui.demo.productivity.ui.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.agent1.javaagent.modelcatalog.QwenModelCatalog
 import com.agent1.javaagent.session.SessionMeta
 import com.dynamicui.demo.productivity.logic.business.ProductivityAgentGateway
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SessionListViewModel(
     private val gateway: ProductivityAgentGateway,
@@ -21,29 +25,37 @@ class SessionListViewModel(
     }
 
     fun refresh() {
-        val summary = gateway.configurationSummary()
-        val err = gateway.configurationError()
-        val current = _state.value
-        _state.value = SessionListUiState(
-            sessions = gateway.listSessions(),
-            configSummary = summary,
-            catalogModels = QwenModelCatalog.primaryModels(),
-            configError = err,
-            isLoading = false,
-            exportInProgress = current.exportInProgress,
-            exportMessage = current.exportMessage,
-        )
+        viewModelScope.launch {
+            val current = _state.value
+            _state.value = current.copy(isLoading = true)
+            val sessions = withContext(Dispatchers.IO) { gateway.listSessions() }
+            _state.value = SessionListUiState(
+                sessions = sessions,
+                configSummary = gateway.configurationSummary(),
+                catalogModels = QwenModelCatalog.primaryModels(),
+                configError = gateway.configurationError(),
+                isLoading = false,
+                exportInProgress = current.exportInProgress,
+                exportMessage = current.exportMessage,
+            )
+        }
     }
 
-    fun createSession(): SessionMeta {
-        val meta = gateway.createSession()
-        refresh()
-        return meta
+    fun createSession(onCreated: (SessionMeta) -> Unit) {
+        viewModelScope.launch {
+            val meta = withContext(Dispatchers.IO) { gateway.createSession() }
+            val sessions = withContext(Dispatchers.IO) { gateway.listSessions() }
+            val current = _state.value
+            _state.value = current.copy(sessions = sessions, isLoading = false)
+            onCreated(meta)
+        }
     }
 
     fun deleteSession(sessionId: String) {
-        gateway.deleteSession(sessionId)
-        refresh()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { gateway.deleteSession(sessionId) }
+            refresh()
+        }
     }
 
     fun exportDiagnostics(activity: Context) {

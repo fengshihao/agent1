@@ -29,7 +29,7 @@ AGENT1_USE_GRADLE=1 ./agent1 "hi"                                # Productivity 
 
 Java core sources are in `agent_core/src/main/java`; CLI sources are in `java_agent/cli/src/main/java`. The `java_agent` Gradle build includes `:core` from `../agent_core` and `:cli` for the executable. Java toolchain: JDK 17.
 
-Root helper scripts (Chinese comments in headers): `./agent1`, `./run-java-agent`, `./run-java-agent-gradle`, `./publish-java-agent-core.sh`, `./build-android-agent.sh`, `./check-android-agent-layering.sh`.
+Root helper scripts (Chinese comments in headers): `./agent1`, `./run-java-agent`, `./run-java-agent-gradle`, `./publish-java-agent-core.sh`, `./build-android-agent.sh`, `./check-android-agent-layering.sh`, `./check-android-agent-static.sh`, `./check-java-agent-static.sh`, `./check-agent1-quality.sh`（见 `doc/代码质量硬性要求与静态检测.md`）。
 
 ### Android
 

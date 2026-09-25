@@ -165,13 +165,13 @@ public final class ProductivityAgentHost implements Closeable {
         RunLogContext logContext = new RunLogContext(sessionId, runId, "", "main");
         AgentEventJsonlBridge bridge = new AgentEventJsonlBridge(logContext, AgentDataPaths.eventsJsonl(agentRoot));
         bridge.setDeferRunTerminal(true);
-        AutoCloseable bridgeSubscription = runtime.subscribe(bridge);
+        AutoCloseable bridgeSubscription = runtime.subscribe(bridge); // NOPMD CloseResource — finally 中 closeQuietly
 
         int[] messageCountBefore = {runtime.getStateSnapshot().getMessages().size()};
         int[] completedTurns = {0};
         RunRecord[] runningRef = {running};
 
-        AutoCloseable checkpointSubscription = runtime.subscribe(event -> onRunCheckpoint(
+        AutoCloseable checkpointSubscription = runtime.subscribe(event -> onRunCheckpoint( // NOPMD CloseResource — finally 中 closeQuietly
             event,
             sessionId,
             runId,
@@ -228,7 +228,9 @@ public final class ProductivityAgentHost implements Closeable {
         if (event.getType() != AgentEventType.TURN_END) {
             return;
         }
-        EventPayloads.TurnEnd payload = (EventPayloads.TurnEnd) event.getPayload();
+        if (!(event.getPayload() instanceof EventPayloads.TurnEnd)) {
+            return;
+        }
         completedTurns[0] += 1;
         AgentStateSnapshot snapshot = runtime.getStateSnapshot();
         persistNewMessages(sessionId, runId, messageCountBefore[0], snapshot.getMessages());

@@ -40,7 +40,7 @@ class WeizhiAndroidScriptEngineFactory(
 
         override fun eval(jsSource: String, timeoutMs: Long, cancellationToken: CancellationToken): String {
             if (cancellationToken.isCancelled) {
-                throw RuntimeException("cancelled")
+                throw java.util.concurrent.CancellationException("cancelled")
             }
             val timeout = timeoutMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
             return engine.runJs(jsSource, timeout)

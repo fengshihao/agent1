@@ -35,3 +35,21 @@ jobs:
         run: gradle -p java_agent :core:test :cli:test :weizhi-bridge:test
         env:
           AGENT1_WEIZHI_REPO: ${{ github.workspace }}/weizhi
+
+  quality-static:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Java PMD + SpotBugs
+        run: ./check-java-agent-static.sh
+
+      - name: Android layering + main-thread gateway
+        run: ./check-android-agent-static.sh

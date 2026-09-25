@@ -18,6 +18,7 @@
 - `app/src/main/java/com/dynamicui/demo/dynamicui/ui`：Compose 渲染器
 - `app/src/main/assets/ui`：本地 JSON 示例
 - `app/src/test`：解析层单元测试
+- 静态质量门禁：仓库根 `./check-agent1-quality.sh`（Java PMD/SpotBugs + Android 分层 + 主线程 Gateway）；仅 Android 见 `./check-android-agent-static.sh`
 - 分层检查：仓库根执行 `./check-android-agent-layering.sh`，或 `python android_agent/scripts/check_android_layering.py`（默认扫描本模块 `app/src/main/java`）
 
 ## 快速验证

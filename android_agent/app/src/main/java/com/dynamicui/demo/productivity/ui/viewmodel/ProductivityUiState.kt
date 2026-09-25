@@ -23,6 +23,7 @@ data class ChatLine(
 data class ChatUiState(
     val sessionId: String = "",
     val title: String = "",
+    val isLoadingTranscript: Boolean = true,
     val lines: List<ChatLine> = emptyList(),
     val streamingText: String = "",
     val toolTrail: List<String> = emptyList(),

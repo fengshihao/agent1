@@ -94,7 +94,7 @@ fun SessionListScreen(
                     enabled = !state.exportInProgress,
                 )
                 Button(
-                    onClick = { onOpenSession(viewModel.createSession()) },
+                    onClick = { viewModel.createSession(onCreated = onOpenSession) },
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 ) {
@@ -449,6 +449,19 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
         if (total > 0) {
             listState.scrollToItem(total - 1)
         }
+    }
+    if (state.isLoadingTranscript && state.lines.isEmpty()) {
+        Box(
+            modifier = modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "加载对话…",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
     }
     LazyColumn(
         state = listState,

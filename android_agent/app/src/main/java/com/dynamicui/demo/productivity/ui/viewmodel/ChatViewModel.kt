@@ -41,15 +41,27 @@ class ChatViewModel(
     private var flushJob: Job? = null
 
     init {
-        reloadTranscript()
+        viewModelScope.launch {
+            loadTranscriptIntoState()
+        }
     }
 
     fun reloadTranscript() {
-        val messages = gateway.loadTranscript(sessionId)
+        viewModelScope.launch {
+            loadTranscriptIntoState()
+        }
+    }
+
+    private suspend fun loadTranscriptIntoState() {
+        _state.value = _state.value.copy(isLoadingTranscript = true)
+        val messages = withContext(Dispatchers.IO) {
+            gateway.loadTranscript(sessionId)
+        }
         _state.value = _state.value.copy(
             lines = messages.map { it.toChatLine() },
             streamingText = "",
             toolTrail = emptyList(),
+            isLoadingTranscript = false,
         )
     }
 
@@ -83,13 +95,14 @@ class ChatViewModel(
                         }
                     }
                 }
-            } catch (e: Exception) {
+            } @Suppress("TooGenericExceptionCaught") catch (e: Exception) {
+                // Run 失败须在 UI 展示一条助手消息，不可静默；具体类型因 Gateway/Host 多样而宽 catch。
                 _state.value = _state.value.copy(
                     lines = _state.value.lines + ChatLine("assistant", "错误: ${e.message}"),
                 )
             } finally {
                 resetStreamBuffer()
-                reloadTranscript()
+                loadTranscriptIntoState()
                 _state.value = _state.value.copy(isRunning = false, streamingText = "")
             }
         }
