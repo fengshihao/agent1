@@ -866,6 +866,10 @@ fun ModelAndRuntimePanel(
                 "Run 限额",
                 "上下文 ${summary.maxContextTurns} 轮 · 每 Run ${summary.maxTurnsPerRun} 轮 · 工具 ${summary.maxToolCallsPerRun} 次",
             )
+            DetailLine(
+                "Agent 工具",
+                com.dynamicui.demo.productivity.logic.business.ProductivityToolCapabilities.summaryForUi(),
+            )
             val match = summary.catalogMatch.orElse(null)
             if (match != null) {
                 DetailLine(

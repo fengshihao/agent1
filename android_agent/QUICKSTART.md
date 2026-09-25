@@ -73,6 +73,23 @@ DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
 **推荐**：安装 APK 后在 App 内打开 **「模型」→ 模型配置**，填写 API Key、Base URL，点 **从网络拉取模型** 选择模型并保存。配置加密存在本机，无需把 Key 打进 APK。
 
+## 生产力助手 · Agent 工具（Weizhi / WebView 可选）
+
+聊天助手默认装配 **工作区五件套**：`read_file` / `write_file` / `edit_file` / `list_dir` / `chat_history`（见 `ProductivityAgentHost`）。
+
+**WebView、MCP、Weizhi 脚本与 grep/glob/zip/bash 等** 在代码里已写好（`app/src/weizhi/`、`WeizhiAgentTools`），但 **只有编译时存在 sibling 目录 `../weizhi/android` 才会打进 APK**（`BuildConfig.WEIZHI_INTEGRATED=true`）。GitHub Actions 上的 CI APK **通常不含 Weizhi**，所以模型侧只能看到上述基础工具。
+
+本地完整集成：
+
+```bash
+# 与 agent1 同级 checkout weizhi 仓库，保证存在 weizhi/android/
+cd android_agent && ./gradlew :app:assembleDebug
+```
+
+App 内 **模型配置** 与聊天页 **模型详情** 会显示当前包装配的「Agent 工具」摘要。
+
+桌面 Java 生产力模式：`java -jar … --productivity`（需 `../weizhi` 才有 Weizhi 脚本环）；普通 `JavaAgentCli` 仍是 read/bash/python/skill 四套老工具。
+
 ## JSON 示例（按钮导航）
 
 ```json

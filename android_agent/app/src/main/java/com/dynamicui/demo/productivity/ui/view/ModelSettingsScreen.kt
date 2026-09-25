@@ -71,6 +71,12 @@ fun ModelSettingsScreen(
                 )
             }
 
+            Text(
+                com.dynamicui.demo.productivity.logic.business.ProductivityToolCapabilities.summaryForUi(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             Text("服务商", style = MaterialTheme.typography.titleSmall)
             state.providerOptions.forEach { preset ->
                 Row(
