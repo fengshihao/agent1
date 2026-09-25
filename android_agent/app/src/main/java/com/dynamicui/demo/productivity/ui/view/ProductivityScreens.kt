@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,12 +30,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -147,60 +152,77 @@ fun ChatScreen(
     val context = LocalContext.current
     var input by rememberSaveable { mutableStateOf("") }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding(),
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            AgentTopBar(
-                title = state.title.ifBlank { "AI 助手" },
-                subtitle = null,
-                leading = {
-                    TopBarIconButton(label = "←", onClick = onBack)
-                },
-                actions = {
-                    TopBarIconButton(
-                        label = if (state.exportInProgress) "…" else "导出",
-                        onClick = { viewModel.exportDiagnostics(context) },
-                        enabled = !state.exportInProgress,
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = WindowInsets.statusBars,
+            topBar = {
+                Column {
+                    AgentTopBar(
+                        title = state.title.ifBlank { "AI 助手" },
+                        subtitle = null,
+                        leading = {
+                            TopBarIconButton(label = "←", onClick = onBack)
+                        },
+                        actions = {
+                            TopBarIconButton(
+                                label = if (state.exportInProgress) "…" else "导出",
+                                onClick = { viewModel.exportDiagnostics(context) },
+                                enabled = !state.exportInProgress,
+                            )
+                            TopBarIconButton(
+                                label = "⚙",
+                                onClick = { viewModel.toggleModelPanel() },
+                            )
+                        },
                     )
-                    TopBarIconButton(
-                        label = "⚙",
-                        onClick = { viewModel.toggleModelPanel() },
+                    AgentHairline()
+                    if (!state.exportMessage.isNullOrBlank()) {
+                        Text(
+                            state.exportMessage.orEmpty(),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    if (!state.showModelPanel && state.configError != null) {
+                        ConfigErrorBanner(state.configError.orEmpty())
+                    }
+                }
+            },
+            bottomBar = {
+                Column(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .imePadding(),
+                ) {
+                    if (state.isRunning) {
+                        RunActivityStrip(
+                            label = state.runActivityLabel ?: "等待助手…",
+                            showSpinner = state.streamingText.isEmpty(),
+                        )
+                        AgentHairline()
+                    }
+                    ChatComposer(
+                        value = input,
+                        onValueChange = { input = it },
+                        isRunning = state.isRunning,
+                        canSend = state.configError == null && input.isNotBlank() && !state.isRunning,
+                        enabled = state.configError == null,
+                        onSend = {
+                            viewModel.sendMessage(input)
+                            input = ""
+                        },
+                        onStop = { viewModel.stopRun() },
                     )
-                },
-            )
-            AgentHairline()
-            if (!state.exportMessage.isNullOrBlank()) {
-                Text(
-                    state.exportMessage.orEmpty(),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            if (!state.showModelPanel && state.configError != null) {
-                ConfigErrorBanner(state.configError.orEmpty())
-            }
+                }
+            },
+        ) { innerPadding ->
             ChatMessageList(
                 state = state,
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-            )
-            AgentHairline()
-            ChatComposer(
-                value = input,
-                onValueChange = { input = it },
-                isRunning = state.isRunning,
-                canSend = state.configError == null && input.isNotBlank(),
-                enabled = !state.isRunning && state.configError == null,
-                onSend = {
-                    viewModel.sendMessage(input)
-                    input = ""
-                },
-                onStop = { viewModel.stopRun() },
+                    .fillMaxSize()
+                    .padding(innerPadding),
             )
         }
 
@@ -287,6 +309,36 @@ private fun AgentHairline() {
 }
 
 @Composable
+private fun RunActivityStrip(
+    label: String,
+    showSpinner: Boolean,
+) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (showSpinner) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                )
+            }
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
 private fun ChatComposer(
     value: String,
     onValueChange: (String) -> Unit,
@@ -298,9 +350,7 @@ private fun ChatComposer(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
-            .navigationBarsPadding()
-            .imePadding(),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier
@@ -443,7 +493,13 @@ private fun SessionCard(
 @Composable
 private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
-    LaunchedEffect(state.lines.size, state.toolTrail.size, state.streamingText.length, state.isRunning) {
+    LaunchedEffect(
+        state.lines.size,
+        state.toolTrail.size,
+        state.streamingText.length,
+        state.isRunning,
+        state.runActivityLabel,
+    ) {
         if (!state.isRunning && state.streamingText.isEmpty()) return@LaunchedEffect
         val total = listState.layoutInfo.totalItemsCount
         if (total > 0) {
@@ -469,12 +525,21 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
         contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
     ) {
-        items(state.lines) { line ->
-            MessageBubble(line, markdown = !line.isTool && line.role != "user")
+        items(state.lines.size) { index ->
+            val line = state.lines[index]
+            val useMarkdown = !line.isTool && line.role != "user" && line.content.length <= 6_000
+            MessageBubble(line, markdown = useMarkdown)
         }
         if (state.toolTrail.isNotEmpty()) {
             item {
                 ToolTrailBubble(state.toolTrail)
+            }
+        }
+        if (state.isRunning && state.streamingText.isEmpty() && state.toolTrail.isEmpty()) {
+            item {
+                AssistantPendingBubble(
+                    label = state.runActivityLabel ?: "等待助手…",
+                )
             }
         }
         if (state.streamingText.isNotEmpty()) {
@@ -484,6 +549,32 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
                     markdown = false,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun AssistantPendingBubble(label: String) {
+    val bubbles = chatBubbleColors()
+    BubbleShell(
+        alignEnd = false,
+        wide = true,
+        background = bubbles.assistantBackground,
+        borderColor = bubbles.assistantBorder,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

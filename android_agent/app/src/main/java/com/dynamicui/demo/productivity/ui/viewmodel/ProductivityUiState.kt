@@ -27,6 +27,8 @@ data class ChatUiState(
     val lines: List<ChatLine> = emptyList(),
     val streamingText: String = "",
     val toolTrail: List<String> = emptyList(),
+    /** 运行中、尚未有流式正文时的状态文案（思考、等模型、工具等） */
+    val runActivityLabel: String? = null,
     val isRunning: Boolean = false,
     val configError: String? = null,
     val configSummary: RuntimeConfigSummary? = null,

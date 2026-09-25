@@ -42,18 +42,20 @@ class ChatViewModel(
 
     init {
         viewModelScope.launch {
-            loadTranscriptIntoState()
+            loadTranscriptIntoState(initialLoad = true)
         }
     }
 
     fun reloadTranscript() {
         viewModelScope.launch {
-            loadTranscriptIntoState()
+            loadTranscriptIntoState(initialLoad = false)
         }
     }
 
-    private suspend fun loadTranscriptIntoState() {
-        _state.value = _state.value.copy(isLoadingTranscript = true)
+    private suspend fun loadTranscriptIntoState(initialLoad: Boolean = false) {
+        if (initialLoad || _state.value.lines.isEmpty()) {
+            _state.value = _state.value.copy(isLoadingTranscript = true)
+        }
         val messages = withContext(Dispatchers.IO) {
             gateway.loadTranscript(sessionId)
         }
@@ -69,6 +71,7 @@ class ChatViewModel(
         _state.value = _state.value.copy(showModelPanel = !_state.value.showModelPanel)
     }
 
+    @Suppress("TooGenericExceptionCaught")
     fun sendMessage(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty() || _state.value.isRunning) return
@@ -78,7 +81,13 @@ class ChatViewModel(
             return
         }
         resetStreamBuffer()
-        _state.value = _state.value.copy(isRunning = true, streamingText = "", toolTrail = emptyList())
+        _state.value = _state.value.copy(
+            isRunning = true,
+            streamingText = "",
+            toolTrail = emptyList(),
+            runActivityLabel = "正在连接模型…",
+            lines = _state.value.lines + ChatLine(role = "user", content = trimmed),
+        )
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -95,15 +104,19 @@ class ChatViewModel(
                         }
                     }
                 }
-            } @Suppress("TooGenericExceptionCaught") catch (e: Exception) {
+            } catch (e: Exception) {
                 // Run 失败须在 UI 展示一条助手消息，不可静默；具体类型因 Gateway/Host 多样而宽 catch。
                 _state.value = _state.value.copy(
                     lines = _state.value.lines + ChatLine("assistant", "错误: ${e.message}"),
                 )
             } finally {
                 resetStreamBuffer()
-                loadTranscriptIntoState()
-                _state.value = _state.value.copy(isRunning = false, streamingText = "")
+                _state.value = _state.value.copy(
+                    isRunning = false,
+                    streamingText = "",
+                    runActivityLabel = null,
+                )
+                loadTranscriptIntoState(initialLoad = false)
             }
         }
     }
@@ -133,7 +146,10 @@ class ChatViewModel(
             streamBuffer.toString()
         }
         if (_state.value.isRunning) {
-            _state.value = _state.value.copy(streamingText = text)
+            _state.value = _state.value.copy(
+                streamingText = text,
+                runActivityLabel = if (text.isNotEmpty()) null else _state.value.runActivityLabel,
+            )
         }
         val pending = synchronized(streamLock) {
             generation == streamGeneration && streamBuffer.length > text.length
@@ -152,7 +168,10 @@ class ChatViewModel(
             streamBuffer.toString()
         }
         if (_state.value.isRunning) {
-            _state.value = _state.value.copy(streamingText = text)
+            _state.value = _state.value.copy(
+                streamingText = text,
+                runActivityLabel = if (text.isNotEmpty()) null else _state.value.runActivityLabel,
+            )
         }
     }
 
@@ -166,19 +185,48 @@ class ChatViewModel(
     private fun onAgentEvent(event: AgentEvent) {
         when (event.type) {
             AgentEventType.MESSAGE_UPDATE -> Unit
+            AgentEventType.AGENT_START -> {
+                _state.value = _state.value.copy(runActivityLabel = "助手运行中…")
+            }
+            AgentEventType.TURN_START -> {
+                _state.value = _state.value.copy(runActivityLabel = "思考中…")
+            }
+            AgentEventType.MESSAGE_START -> {
+                if (_state.value.streamingText.isEmpty()) {
+                    _state.value = _state.value.copy(runActivityLabel = "正在生成回复…")
+                }
+            }
             AgentEventType.TOOL_EXECUTION_START -> {
                 val payload = event.payload as EventPayloads.ToolExecutionStart
                 val name = payload.toolCall.name
                 _state.value = _state.value.copy(
+                    runActivityLabel = "调用工具 · $name",
                     toolTrail = _state.value.toolTrail + "▶ $name",
                 )
+            }
+            AgentEventType.TOOL_EXECUTION_UPDATE -> {
+                val payload = event.payload as EventPayloads.ToolExecutionUpdatePayload
+                val snippet = payload.update.text?.trim()?.take(100).orEmpty()
+                if (snippet.isNotEmpty()) {
+                    _state.value = _state.value.copy(runActivityLabel = "工具执行 · ${snippet.replace('\n', ' ')}")
+                }
             }
             AgentEventType.TOOL_EXECUTION_END -> {
                 val payload = event.payload as EventPayloads.ToolExecutionEnd
                 val preview = payload.result?.text?.take(120) ?: ""
                 _state.value = _state.value.copy(
+                    runActivityLabel = if (_state.value.streamingText.isEmpty()) "工具已完成" else null,
                     toolTrail = _state.value.toolTrail + "✓ ${preview.replace('\n', ' ')}",
                 )
+            }
+            AgentEventType.TURN_END -> {
+                if (_state.value.streamingText.isEmpty()) {
+                    _state.value = _state.value.copy(runActivityLabel = "准备下一步…")
+                }
+            }
+            AgentEventType.AGENT_ERROR -> {
+                val message = (event.payload as? EventPayloads.AgentError)?.message ?: "运行出错"
+                _state.value = _state.value.copy(runActivityLabel = message)
             }
             else -> Unit
         }
