@@ -28,8 +28,8 @@ jobs:
             (cd weizhi && WEIZHI_SKIP_ASAN=1 ./scripts/test.sh)
             ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test :weizhi-bridge:test
           else
-            echo "skip weizhi: no ./weizhi checkout — running core + cli tests only"
-            ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test
+            echo "skip weizhi: no ./weizhi checkout — running :core:test only (cli needs weizhi-bridge)"
+            ./java_agent/gradlew --no-daemon -p java_agent :core:test
           fi
         env:
           AGENT1_WEIZHI_REPO: ${{ github.workspace }}/weizhi
