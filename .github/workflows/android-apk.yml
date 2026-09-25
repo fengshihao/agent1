@@ -35,12 +35,22 @@ jobs:
           java-version: "17"
 
       - name: Install Android SDK components
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
         run: |
           echo "ANDROID_HOME=${ANDROID_HOME}" >> "$GITHUB_ENV"
-          echo "${ANDROID_HOME}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
+          if [ -x "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKM="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+            echo "${ANDROID_HOME}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          else
+            SDKM="${ANDROID_HOME}/cmdline-tools/16.0/bin/sdkmanager"
+            echo "${ANDROID_HOME}/cmdline-tools/16.0/bin" >> "$GITHUB_PATH"
+          fi
           echo "${ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          yes | "$SDKM" --licenses >/dev/null
+          "$SDKM" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Publish java-agent-core to local Maven
         run: ./java_agent/gradlew --no-daemon -p java_agent publishCoreToLocalRepo
