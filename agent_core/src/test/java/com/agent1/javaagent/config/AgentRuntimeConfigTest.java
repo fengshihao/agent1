@@ -19,7 +19,7 @@ class AgentRuntimeConfigTest {
         assertEquals(AgentRuntimeDefaults.DEFAULT_MAX_TURNS_PER_RUN, c.getMaxTurnsPerRun());
         assertFalse(c.isModelConfigured());
         assertEquals(
-            "未配置 API Key（请设置 QWEN_API_KEY、DASHSCOPE_API_KEY 或 OPENAI_API_KEY）",
+            "未配置 API Key（请在 App「模型配置」中填写，或编译时设置 QWEN_API_KEY / DASHSCOPE_API_KEY）",
             c.configurationError()
         );
     }

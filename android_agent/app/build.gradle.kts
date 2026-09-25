@@ -6,6 +6,9 @@ plugins {
     id("io.gitlab.arturbosch.detekt")
 }
 
+val weizhiAndroidRoot = rootProject.file("../../weizhi/android")
+val weizhiIntegrated = weizhiAndroidRoot.isDirectory
+
 detekt {
     buildUponDefaultConfig = true
     config.setFrom(rootProject.file("../config/detekt.yml"))
@@ -43,6 +46,7 @@ android {
         buildConfigField("String", "DEFAULT_MODEL", "\"$qwenModel\"")
         buildConfigField("String", "DASHSCOPE_API_KEY", "\"$dashscopeApiKey\"")
         buildConfigField("String", "DASHSCOPE_BASE_URL", "\"$dashscopeBaseUrl\"")
+        buildConfigField("boolean", "WEIZHI_INTEGRATED", weizhiIntegrated.toString())
     }
 
     buildTypes {
@@ -74,7 +78,10 @@ android {
         }
     }
     sourceSets.named("main") {
-        java.srcDir("../../java_agent/weizhi-bridge/src/shared/java")
+        if (weizhiIntegrated) {
+            java.srcDir("../../java_agent/weizhi-bridge/src/shared/java")
+            java.srcDir("src/weizhi/java")
+        }
     }
 }
 
@@ -82,6 +89,7 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
 
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-process:2.8.6")

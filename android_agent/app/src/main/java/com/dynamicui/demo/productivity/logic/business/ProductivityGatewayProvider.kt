@@ -15,9 +15,21 @@ object ProductivityGatewayProvider {
         synchronized(this) {
             ref.get()?.let { return it }
             val root = agentRoot(context)
-            val gateway = ProductivityAgentGateway(context.applicationContext, root, AndroidAgentRuntimeConfig.load())
+            val gateway = ProductivityAgentGateway(
+                context.applicationContext,
+                root,
+                AndroidAgentRuntimeConfig.load(context),
+            )
             ref.set(gateway)
             return gateway
+        }
+    }
+
+    /** 保存模型配置后重建 Gateway（会关闭旧会话 Host，新 Run 使用新 Key/模型）。 */
+    fun reload(context: Context): ProductivityAgentGateway {
+        synchronized(this) {
+            ref.getAndSet(null)?.close()
+            return get(context)
         }
     }
 

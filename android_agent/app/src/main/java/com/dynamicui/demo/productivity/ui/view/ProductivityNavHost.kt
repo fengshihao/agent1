@@ -1,6 +1,7 @@
 package com.dynamicui.demo.productivity.ui.view
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -10,11 +11,14 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import android.net.Uri
 import com.dynamicui.demo.productivity.logic.business.ProductivityGatewayProvider
+import com.dynamicui.demo.productivity.logic.business.ModelSettingsCoordinator
 import com.dynamicui.demo.productivity.ui.viewmodel.ChatViewModel
+import com.dynamicui.demo.productivity.ui.viewmodel.ModelSettingsViewModel
 import com.dynamicui.demo.productivity.ui.viewmodel.SessionListViewModel
 
 private object Routes {
     const val LIST = "sessions"
+    const val SETTINGS = "model-settings"
     const val CHAT = "chat/{sessionId}?title={title}"
 }
 
@@ -26,19 +30,30 @@ private fun chatRoute(sessionId: String, title: String): String {
 @Composable
 fun ProductivityNavHost() {
     val context = LocalContext.current
-    val gateway = ProductivityGatewayProvider.get(context)
+    val appContext = context.applicationContext
     val nav = rememberNavController()
 
     NavHost(navController = nav, startDestination = Routes.LIST) {
         composable(Routes.LIST) {
             val vm: SessionListViewModel = viewModel(
-                factory = simpleFactory { SessionListViewModel(gateway) },
+                factory = simpleFactory { SessionListViewModel(appContext) },
             )
             SessionListScreen(
                 viewModel = vm,
                 onOpenSession = { meta ->
                     nav.navigate(chatRoute(meta.sessionId, meta.title.ifBlank { "新对话" }))
                 },
+                onOpenSettings = { nav.navigate(Routes.SETTINGS) },
+            )
+        }
+        composable(Routes.SETTINGS) {
+            val coordinator = remember(appContext) { ModelSettingsCoordinator(appContext) }
+            val vm: ModelSettingsViewModel = viewModel(
+                factory = simpleFactory { ModelSettingsViewModel(coordinator) },
+            )
+            ModelSettingsScreen(
+                viewModel = vm,
+                onBack = { nav.popBackStack() },
             )
         }
         composable(
@@ -54,9 +69,13 @@ fun ProductivityNavHost() {
             val sessionId = entry.arguments?.getString("sessionId").orEmpty()
             val title = entry.arguments?.getString("title").orEmpty().ifBlank { "新对话" }
             val vm: ChatViewModel = viewModel(
-                factory = simpleFactory { ChatViewModel(gateway, sessionId, title) },
+                factory = simpleFactory { ChatViewModel(appContext, sessionId, title) },
             )
-            ChatScreen(viewModel = vm, onBack = { nav.popBackStack() })
+            ChatScreen(
+                viewModel = vm,
+                onBack = { nav.popBackStack() },
+                onOpenSettings = { nav.navigate(Routes.SETTINGS) },
+            )
         }
     }
 }

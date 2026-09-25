@@ -42,6 +42,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -55,6 +56,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,9 +82,21 @@ import java.util.Locale
 fun SessionListScreen(
     viewModel: SessionListViewModel,
     onOpenSession: (SessionMeta) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         modifier = Modifier
@@ -93,6 +109,7 @@ fun SessionListScreen(
             subtitle = if (state.sessions.isEmpty()) "从这里开始一条对话" else "${state.sessions.size} 条对话",
             leading = null,
             actions = {
+                TopBarIconButton(label = "模型", onClick = onOpenSettings)
                 TopBarIconButton(
                     label = if (state.exportInProgress) "…" else "导出",
                     onClick = { viewModel.exportDiagnostics(context) },
@@ -147,10 +164,22 @@ fun SessionListScreen(
 fun ChatScreen(
     viewModel: ChatViewModel,
     onBack: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var input by rememberSaveable { mutableStateOf("") }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshConfigSummary()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -171,8 +200,9 @@ fun ChatScreen(
                                 onClick = { viewModel.exportDiagnostics(context) },
                                 enabled = !state.exportInProgress,
                             )
+                            TopBarIconButton(label = "模型", onClick = onOpenSettings)
                             TopBarIconButton(
-                                label = "⚙",
+                                label = "规格",
                                 onClick = { viewModel.toggleModelPanel() },
                             )
                         },
@@ -191,6 +221,7 @@ fun ChatScreen(
                 }
             },
             bottomBar = {
+                // edge-to-edge 下用 adjustNothing + 仅 bottomBar 消费 IME，避免 adjustResize 与 imePadding 叠加把输入条顶得过高。
                 Column(
                     modifier = Modifier
                         .navigationBarsPadding()
@@ -238,7 +269,7 @@ fun ChatScreen(
 }
 
 @Composable
-private fun AgentTopBar(
+internal fun AgentTopBar(
     title: String,
     subtitle: String?,
     leading: (@Composable () -> Unit)?,
@@ -281,7 +312,7 @@ private fun AgentTopBar(
 }
 
 @Composable
-private fun TopBarIconButton(
+internal fun TopBarIconButton(
     label: String,
     onClick: () -> Unit,
     enabled: Boolean = true,
@@ -301,7 +332,7 @@ private fun TopBarIconButton(
 }
 
 @Composable
-private fun AgentHairline() {
+internal fun AgentHairline() {
     HorizontalDivider(
         thickness = 1.dp,
         color = MaterialTheme.colorScheme.outline,
