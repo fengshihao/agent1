@@ -73,6 +73,9 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    sourceSets.named("main") {
+        java.srcDir("../../java_agent/weizhi-bridge/src/shared/java")
+    }
 }
 
 dependencies {
@@ -94,6 +97,9 @@ dependencies {
     if (findProject(":weizhi") != null) {
         implementation(project(":weizhi"))
         implementation(project(":caps"))
+        implementation(project(":agent-tools"))
+        implementation(project(":agent-tools-webview"))
+        implementation(project(":agent-tools-mcp"))
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.27.0")

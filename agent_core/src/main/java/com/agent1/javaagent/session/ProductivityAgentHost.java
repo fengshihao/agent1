@@ -21,7 +21,11 @@ import com.agent1.javaagent.tool.ChatHistoryTool;
 import com.agent1.javaagent.tool.workspace.EditFileTool;
 import com.agent1.javaagent.tool.workspace.ListDirTool;
 import com.agent1.javaagent.tool.workspace.ReadFileTool;
+import com.agent1.javaagent.script.AgentToolsScriptBridge;
+import com.agent1.javaagent.script.MutableScriptToolBridge;
 import com.agent1.javaagent.script.ScriptEngineFactory;
+import com.agent1.javaagent.script.ScriptToolBridge;
+import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import com.agent1.javaagent.tool.script.ExecuteScriptTool;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
@@ -46,6 +50,8 @@ public final class ProductivityAgentHost implements Closeable {
     private final ScriptEngineFactory scriptEngineFactory;
     private final long executeScriptTimeoutMs;
     private final String scriptPromptAppend;
+    private final ScriptToolBridge scriptToolBridge;
+    private final WorkspaceToolProvider extraTools;
     private String activeSessionId;
 
     public ProductivityAgentHost(Path agentRoot, AgentRuntimeConfig config, LlmClient llmClient) {
@@ -60,12 +66,36 @@ public final class ProductivityAgentHost implements Closeable {
         long executeScriptTimeoutMs,
         String scriptPromptAppend
     ) {
+        this(
+            agentRoot,
+            config,
+            llmClient,
+            scriptEngineFactory,
+            executeScriptTimeoutMs,
+            scriptPromptAppend,
+            null,
+            null
+        );
+    }
+
+    public ProductivityAgentHost(
+        Path agentRoot,
+        AgentRuntimeConfig config,
+        LlmClient llmClient,
+        ScriptEngineFactory scriptEngineFactory,
+        long executeScriptTimeoutMs,
+        String scriptPromptAppend,
+        ScriptToolBridge scriptToolBridge,
+        WorkspaceToolProvider extraTools
+    ) {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
         this.sessionStore = new FileSessionStore(this.agentRoot);
         this.runStore = new FileRunStore(sessionStore);
         this.scriptEngineFactory = scriptEngineFactory;
         this.executeScriptTimeoutMs = executeScriptTimeoutMs;
         this.scriptPromptAppend = scriptPromptAppend == null ? "" : scriptPromptAppend.trim();
+        this.scriptToolBridge = scriptToolBridge;
+        this.extraTools = extraTools;
         this.runtime = new AgentRuntime(
             config.toAgentOptionsBuilder("").tools(List.of()).build(),
             llmClient
@@ -96,6 +126,28 @@ public final class ProductivityAgentHost implements Closeable {
             scriptEngineFactory,
             executeScriptTimeoutMs,
             scriptPromptAppend
+        );
+    }
+
+    /** CLI / Android：Weizhi 工具环与脚本 {@code $tools} 桥。 */
+    public ProductivityAgentHost(
+        Path agentRoot,
+        AgentRuntimeConfig config,
+        ScriptEngineFactory scriptEngineFactory,
+        long executeScriptTimeoutMs,
+        String scriptPromptAppend,
+        ScriptToolBridge scriptToolBridge,
+        WorkspaceToolProvider extraTools
+    ) {
+        this(
+            agentRoot,
+            config,
+            new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(Duration.ofSeconds(120), 0.2)),
+            scriptEngineFactory,
+            executeScriptTimeoutMs,
+            scriptPromptAppend,
+            scriptToolBridge,
+            extraTools
         );
     }
 
@@ -298,7 +350,7 @@ public final class ProductivityAgentHost implements Closeable {
         boolean scriptTool = scriptEngineFactory != null;
         runtime.setSystemPrompt(new ProductivitySystemPromptBuilder()
             .hostAppend(scriptPromptAppend)
-            .buildMainPrompt(workspace, scriptTool));
+            .buildMainPrompt(workspace, scriptTool, scriptToolBridge != null));
         runtime.setTools(buildTools(sessionId, workspace));
         runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace));
     }
@@ -311,8 +363,17 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
+        if (extraTools != null) {
+            List<AgentTool> extra = extraTools.toolsFor(sandbox);
+            if (extra != null && !extra.isEmpty()) {
+                tools.addAll(extra);
+            }
+        }
         if (scriptEngineFactory != null) {
             tools.add(new ExecuteScriptTool(sandbox, scriptEngineFactory, executeScriptTimeoutMs));
+        }
+        if (scriptToolBridge instanceof MutableScriptToolBridge mutable) {
+            mutable.set(new AgentToolsScriptBridge(tools));
         }
         return tools;
     }

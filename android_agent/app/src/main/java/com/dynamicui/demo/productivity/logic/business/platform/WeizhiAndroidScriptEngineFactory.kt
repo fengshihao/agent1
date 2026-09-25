@@ -4,6 +4,8 @@ import android.content.Context
 import com.agent1.javaagent.core.CancellationToken
 import com.agent1.javaagent.script.ScriptEngine
 import com.agent1.javaagent.script.ScriptEngineFactory
+import com.agent1.javaagent.script.ScriptToolBridge
+import com.agent1.javaagent.weizhi.WeizhiScriptToolInstaller
 import com.weizhi.WeizhiEngine
 import com.weizhi.caps.AndroidCaps
 import com.weizhi.platform.PlatformHost
@@ -15,16 +17,18 @@ import java.nio.file.Path
 class WeizhiAndroidScriptEngineFactory(
     private val appContext: Context,
     private val confirmer: (String) -> Boolean = { true },
+    private val scriptToolBridge: ScriptToolBridge? = null,
 ) : ScriptEngineFactory {
 
     override fun open(workspace: Path): ScriptEngine {
-        return AndroidWeizhiScriptEngine(appContext, workspace, confirmer)
+        return AndroidWeizhiScriptEngine(appContext, workspace, confirmer, scriptToolBridge)
     }
 
     private class AndroidWeizhiScriptEngine(
         appContext: Context,
         workspace: Path,
         confirmer: (String) -> Boolean,
+        private val scriptToolBridge: ScriptToolBridge?,
     ) : ScriptEngine {
 
         private val engine = WeizhiEngine()
@@ -36,6 +40,7 @@ class WeizhiAndroidScriptEngineFactory(
             val session = AndroidCaps.Session(appContext, workspaceFile)
             session.confirmer = PlatformHost.Confirmer { message -> confirmer(message) }
             AndroidCaps.install(engine, session)
+            WeizhiScriptToolInstaller.install(engine, scriptToolBridge)
         }
 
         override fun eval(jsSource: String, timeoutMs: Long, cancellationToken: CancellationToken): String {
@@ -43,7 +48,8 @@ class WeizhiAndroidScriptEngineFactory(
                 throw java.util.concurrent.CancellationException("cancelled")
             }
             val timeout = timeoutMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-            return engine.runJs(jsSource, timeout)
+            val source = WeizhiScriptToolInstaller.wrap(jsSource, scriptToolBridge)
+            return engine.runJs(source, timeout)
         }
 
         override fun cancel() {

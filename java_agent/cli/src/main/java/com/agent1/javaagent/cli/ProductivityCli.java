@@ -9,9 +9,12 @@ import com.agent1.javaagent.session.ProductivityAgentHost;
 import com.agent1.javaagent.session.SessionMeta;
 import com.agent1.javaagent.cli.productivity.ProductivityLogsCommand;
 import com.agent1.javaagent.cli.productivity.ProductivityModelsCommand;
+import com.agent1.javaagent.script.MutableScriptToolBridge;
 import com.agent1.javaagent.script.ScriptEngineFactory;
+import com.agent1.javaagent.script.ScriptToolBridge;
 import com.agent1.javaagent.weizhi.WeizhiHostSupport;
 import com.agent1.javaagent.weizhi.WeizhiRuntimeOptions;
+import com.agent1.javaagent.weizhi.WeizhiWorkspaceTools;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
@@ -71,22 +74,26 @@ public final class ProductivityCli {
         boolean enableColor = shouldEnableColor();
 
         java.nio.file.Path weizhiRepo = WeizhiHostSupport.defaultWeizhiRepo();
-        WeizhiRuntimeOptions weizhiOptions = new WeizhiRuntimeOptions().installDesktopCaps(true);
+        MutableScriptToolBridge scriptTools = new MutableScriptToolBridge();
+        WeizhiRuntimeOptions weizhiOptions = new WeizhiRuntimeOptions()
+            .installDesktopCaps(true)
+            .scriptToolBridge(scriptTools);
         java.util.Optional<ScriptEngineFactory> scriptEngine =
             WeizhiHostSupport.tryCreateFactory(weizhiRepo, weizhiOptions);
         String sandboxAppend = scriptEngine.isPresent()
             ? WeizhiHostSupport.loadSandboxPromptAppend(weizhiRepo)
             : "";
+        ScriptToolBridge bridge = scriptEngine.isPresent() ? scriptTools : null;
 
-        ProductivityAgentHost host = scriptEngine.isPresent()
-            ? new ProductivityAgentHost(
-                agentRoot,
-                runtimeConfig,
-                scriptEngine.get(),
-                WeizhiHostSupport.scriptTimeoutMs(),
-                sandboxAppend
-            )
-            : new ProductivityAgentHost(agentRoot, runtimeConfig);
+        ProductivityAgentHost host = new ProductivityAgentHost(
+            agentRoot,
+            runtimeConfig,
+            scriptEngine.orElse(null),
+            WeizhiHostSupport.scriptTimeoutMs(),
+            sandboxAppend,
+            bridge,
+            WeizhiWorkspaceTools::create
+        );
         try (host) {
             ensureActiveSession(host);
             host.runtime().observeEvents().subscribe(event -> onEvent(event, enableColor));
@@ -95,11 +102,13 @@ public final class ProductivityCli {
             System.out.println(colorize(ANSI_DIM, enableColor, "Agent 数据目录: " + agentRoot));
             if (scriptEngine.isPresent()) {
                 System.out.println(colorize(ANSI_DIM, enableColor,
-                    "Weizhi 脚本: 已启用 (" + WeizhiHostSupport.platformLabel() + " caps)"));
+                    "Weizhi 脚本: 已启用 (" + WeizhiHostSupport.platformLabel() + " caps，$tools)"));
             } else {
                 System.out.println(colorize(ANSI_DIM, enableColor,
                     "Weizhi 脚本: 未启用（构建 ../weizhi 或设置 AGENT1_WEIZHI_REPO）"));
             }
+            System.out.println(colorize(ANSI_DIM, enableColor,
+                "Weizhi 工具环: grep / glob / zip / bash / load_skill_through_path"));
             printHelp(enableColor);
 
             if (args.length > 0) {

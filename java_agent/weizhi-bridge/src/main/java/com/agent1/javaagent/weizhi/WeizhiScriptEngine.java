@@ -7,9 +7,11 @@ import java.nio.file.Path;
 
 final class WeizhiScriptEngine implements ScriptEngine {
 
+    private final WeizhiRuntimeOptions options;
     private final WeizhiEngine engine;
 
     WeizhiScriptEngine(Path workspace, WeizhiRuntimeOptions options) {
+        this.options = options;
         this.engine = new WeizhiEngine(options.limits());
         engine.setFsRoot(workspace.toAbsolutePath().normalize().toString());
         if (options.scriptFolder() != null && !options.scriptFolder().isBlank()) {
@@ -39,6 +41,7 @@ final class WeizhiScriptEngine implements ScriptEngine {
                 throw new IllegalStateException("DesktopCaps.install failed", e);
             }
         }
+        WeizhiScriptToolInstaller.install(engine, options.scriptToolBridge());
     }
 
     @Override
@@ -47,7 +50,8 @@ final class WeizhiScriptEngine implements ScriptEngine {
             throw new RuntimeException("cancelled");
         }
         int timeout = timeoutMs > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) timeoutMs;
-        return engine.runJs(jsSource, timeout);
+        String source = WeizhiScriptToolInstaller.wrap(jsSource, options.scriptToolBridge());
+        return engine.runJs(source, timeout);
     }
 
     @Override

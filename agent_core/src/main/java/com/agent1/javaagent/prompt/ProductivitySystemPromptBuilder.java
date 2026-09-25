@@ -22,6 +22,10 @@ public final class ProductivitySystemPromptBuilder {
         需要运行的多步处理交给 execute_script 脚本接口。
         """.trim();
 
+    static final String WORK_MODE_SCRIPT_HOST_TOOLS = """
+        脚本里可以用 await $tools.工具名({...}) 调用当前已注册的工具（表达式结果即本轮返回值），不能调用 execute_script。
+        """.trim();
+
     static final String TOOL_STRATEGY = """
         工具策略：大段内容写入工作区文件，不要在回复里重复粘贴全文。
         缺少关键信息时向用户提问，不要编造事实。
@@ -46,11 +50,22 @@ public final class ProductivitySystemPromptBuilder {
     }
 
     public String buildMainPrompt(Path workspaceRoot, boolean scriptToolRegistered) {
+        return buildMainPrompt(workspaceRoot, scriptToolRegistered, false);
+    }
+
+    public String buildMainPrompt(
+        Path workspaceRoot,
+        boolean scriptToolRegistered,
+        boolean scriptHostTools
+    ) {
         StringBuilder sb = new StringBuilder();
         sb.append(IDENTITY).append("\n\n");
         sb.append(WORK_MODE_FILES);
         if (scriptToolRegistered) {
             sb.append("\n").append(WORK_MODE_SCRIPT);
+            if (scriptHostTools) {
+                sb.append("\n").append(WORK_MODE_SCRIPT_HOST_TOOLS);
+            }
         }
         sb.append("\n\n");
         sb.append(buildEnvironmentSection(workspaceRoot)).append("\n\n");

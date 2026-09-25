@@ -1,5 +1,6 @@
 package com.agent1.javaagent.weizhi;
 
+import com.agent1.javaagent.script.ScriptToolBridge;
 import com.weizhi.WeizhiLimits;
 
 /** 宿主侧 Weizhi 引擎开关（桌面生产力 CLI 默认值）。 */
@@ -12,6 +13,7 @@ public final class WeizhiRuntimeOptions {
     private boolean installDesktopCaps = true;
     private boolean enableNativeMock;
     private String nativePluginDir;
+    private ScriptToolBridge scriptToolBridge;
 
     public WeizhiLimits limits() {
         return limits;
@@ -73,6 +75,15 @@ public final class WeizhiRuntimeOptions {
 
     public WeizhiRuntimeOptions nativePluginDir(String nativePluginDir) {
         this.nativePluginDir = nativePluginDir;
+        return this;
+    }
+
+    public ScriptToolBridge scriptToolBridge() {
+        return scriptToolBridge;
+    }
+
+    public WeizhiRuntimeOptions scriptToolBridge(ScriptToolBridge scriptToolBridge) {
+        this.scriptToolBridge = scriptToolBridge;
         return this;
     }
 }

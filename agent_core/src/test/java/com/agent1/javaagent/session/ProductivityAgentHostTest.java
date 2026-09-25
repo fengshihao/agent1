@@ -1,6 +1,7 @@
 package com.agent1.javaagent.session;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.config.AgentRuntimeConfig;
@@ -13,7 +14,10 @@ import com.agent1.javaagent.model.ChatRequest;
 import com.agent1.javaagent.run.FileRunStore;
 import com.agent1.javaagent.run.RunState;
 import com.agent1.javaagent.script.FakeScriptEngineFactory;
+import com.agent1.javaagent.script.MutableScriptToolBridge;
 import com.agent1.javaagent.tool.AgentTool;
+import com.agent1.javaagent.tool.DelegatingAgentTool;
+import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
@@ -107,6 +111,44 @@ class ProductivityAgentHostTest {
             assertTrue(toolNames.get().contains("execute_script"));
             assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("execute_script"));
             assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("沙盒契约片段"));
+        }
+    }
+
+    @Test
+    void registersExtraToolsAndExposesThemToScripts() {
+        java.util.concurrent.atomic.AtomicReference<List<String>> toolNames =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            toolNames.set(tools.stream().map(AgentTool::name).collect(Collectors.toList()));
+            return new AssistantResponse("x", List.of());
+        };
+        MutableScriptToolBridge bridge = new MutableScriptToolBridge();
+        WorkspaceToolProvider extra = sandbox -> List.of(new DelegatingAgentTool(
+            "grep",
+            "search",
+            null,
+            (params, token) -> "hit"
+        ));
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(
+            temp,
+            config,
+            fake,
+            new FakeScriptEngineFactory("\"x\""),
+            30_000,
+            "",
+            bridge,
+            extra
+        )) {
+            host.createSession();
+            host.runUserMessage("ping");
+            assertTrue(toolNames.get().contains("grep"));
+            assertTrue(toolNames.get().contains("execute_script"));
+            assertTrue(bridge.exposedNames().contains("grep"));
+            assertTrue(bridge.exposedNames().contains("read_file"));
+            assertFalse(bridge.exposedNames().contains("execute_script"));
+            assertEquals("hit", bridge.call("grep", java.util.Map.of()));
+            assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("$tools"));
         }
     }
 }

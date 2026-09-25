@@ -19,6 +19,7 @@ java {
 
 dependencies {
     api(project(":core"))
+    implementation("com.google.code.gson:gson:2.10.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
 }
 
@@ -26,7 +27,11 @@ sourceSets {
     named("main") {
         java {
             srcDir(weizhiRepo.resolve("java"))
+            srcDir(weizhiRepo.resolve("android/agent-tools/src/main/java"))
+            srcDir("src/shared/java")
             srcDir("src/main/java")
+            exclude("**/AgentToolsBundle.java")
+            exclude("**/AssetSkillRepository.java")
         }
     }
 }

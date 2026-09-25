@@ -2,6 +2,8 @@ package com.dynamicui.demo.productivity.logic.business
 
 import android.content.Context
 import com.agent1.javaagent.config.AgentRuntimeConfig
+import com.agent1.javaagent.script.MutableScriptToolBridge
+import com.dynamicui.demo.productivity.logic.business.platform.WeizhiAgentTools
 import com.dynamicui.demo.productivity.logic.business.platform.WeizhiAndroidScriptEngineFactory
 import com.agent1.javaagent.event.AgentEventListener
 import com.agent1.javaagent.model.AgentMessage
@@ -34,12 +36,18 @@ class ProductivityAgentGateway(
         Thread(r, "productivity-agent").apply { isDaemon = true }
     }
     private val runtimeConfig: AgentRuntimeConfig = config
+    private val scriptTools = MutableScriptToolBridge()
     private val host = ProductivityAgentHost(
         agentRoot,
         runtimeConfig,
-        WeizhiAndroidScriptEngineFactory(context.applicationContext),
+        WeizhiAndroidScriptEngineFactory(
+            context.applicationContext,
+            scriptToolBridge = scriptTools,
+        ),
         600_000L,
         "",
+        scriptTools,
+        WeizhiAgentTools(context.applicationContext),
     )
 
     fun configurationSummary(): RuntimeConfigSummary =

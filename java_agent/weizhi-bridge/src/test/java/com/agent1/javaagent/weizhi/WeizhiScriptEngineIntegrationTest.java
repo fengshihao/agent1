@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.script.ScriptEngine;
 import com.agent1.javaagent.script.ScriptEngineFactory;
+import com.agent1.javaagent.script.MutableScriptToolBridge;
+import com.agent1.javaagent.script.ScriptToolBridge;
 import com.agent1.javaagent.tool.script.ExecuteScriptTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,6 +18,8 @@ import com.weizhi.WeizhiEngine;
 import com.weizhi.WeizhiLimits;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -176,6 +180,33 @@ class WeizhiScriptEngineIntegrationTest {
                 new CancellationToken()
             );
             assertEquals("42", out);
+        }
+    }
+
+    @Test
+    void scriptCanCallHostTool(@TempDir Path workspace) throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean called = new java.util.concurrent.atomic.AtomicBoolean();
+        MutableScriptToolBridge bridge = new MutableScriptToolBridge();
+        bridge.set(new ScriptToolBridge() {
+            @Override
+            public Set<String> exposedNames() {
+                return Set.of("ping");
+            }
+
+            @Override
+            public String call(String toolName, Map<String, Object> arguments) {
+                called.set(true);
+                return "pong:" + arguments.get("x");
+            }
+        });
+        ScriptEngineFactory wired = new WeizhiScriptEngineFactory(
+            new WeizhiRuntimeOptions().installDesktopCaps(true).scriptToolBridge(bridge)
+        );
+        try (ScriptEngine engine = wired.open(workspace)) {
+            assertEquals("3", engine.eval("1+2", 10_000, new CancellationToken()));
+            String out = engine.eval("await $tools.ping({x:'a'})", 10_000, new CancellationToken());
+            assertTrue(called.get());
+            assertEquals("\"pong:a\"", out);
         }
     }
 }
