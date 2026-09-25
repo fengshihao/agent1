@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.agent1.javaagent.modelcatalog.QwenModelCatalog
 import com.agent1.javaagent.session.SessionMeta
 import com.dynamicui.demo.productivity.logic.business.ProductivityAgentGateway
+import com.dynamicui.demo.productivity.logic.business.ProductivityGatewayProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,8 +15,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class SessionListViewModel(
-    private val gateway: ProductivityAgentGateway,
+    private val appContext: Context,
 ) : ViewModel() {
+
+    private val gateway: ProductivityAgentGateway
+        get() = ProductivityGatewayProvider.get(appContext.applicationContext)
 
     private val _state = MutableStateFlow(SessionListUiState())
     val state: StateFlow<SessionListUiState> = _state.asStateFlow()

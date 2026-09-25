@@ -83,7 +83,7 @@ public final class AgentRuntimeConfig {
     /** 缺配置时的用户可读原因；已配置则返回 null。 */
     public String configurationError() {
         if (apiKey.isEmpty()) {
-            return "未配置 API Key（请设置 QWEN_API_KEY、DASHSCOPE_API_KEY 或 OPENAI_API_KEY）";
+            return "未配置 API Key（请在 App「模型配置」中填写，或编译时设置 QWEN_API_KEY / DASHSCOPE_API_KEY）";
         }
         return null;
     }

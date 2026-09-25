@@ -9,6 +9,7 @@ import com.agent1.javaagent.event.EventPayloads
 import com.agent1.javaagent.model.AgentMessage
 import com.agent1.javaagent.modelcatalog.QwenModelCatalog
 import com.dynamicui.demo.productivity.logic.business.ProductivityAgentGateway
+import com.dynamicui.demo.productivity.logic.business.ProductivityGatewayProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -19,17 +20,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class ChatViewModel(
-    private val gateway: ProductivityAgentGateway,
+    private val appContext: Context,
     private val sessionId: String,
     private val sessionTitle: String,
 ) : ViewModel() {
+
+    private val gateway: ProductivityAgentGateway
+        get() = ProductivityGatewayProvider.get(appContext.applicationContext)
 
     private val _state = MutableStateFlow(
         ChatUiState(
             sessionId = sessionId,
             title = sessionTitle,
-            configSummary = gateway.configurationSummary(),
-            configError = gateway.configurationError(),
         ),
     )
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
@@ -41,9 +43,17 @@ class ChatViewModel(
     private var flushJob: Job? = null
 
     init {
+        refreshConfigSummary()
         viewModelScope.launch {
             loadTranscriptIntoState(initialLoad = true)
         }
+    }
+
+    fun refreshConfigSummary() {
+        _state.value = _state.value.copy(
+            configSummary = gateway.configurationSummary(),
+            configError = gateway.configurationError(),
+        )
     }
 
     fun reloadTranscript() {
