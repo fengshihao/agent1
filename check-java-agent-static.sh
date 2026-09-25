@@ -8,4 +8,10 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "${REPO_ROOT}"
 
-./java_agent/gradlew --no-daemon -p java_agent :core:pmdMain :core:spotbugsMain :cli:pmdMain :cli:spotbugsMain
+GRADLE=(./java_agent/gradlew --no-daemon -p java_agent)
+if [ -d "${REPO_ROOT}/weizhi" ]; then
+  "${GRADLE[@]}" :core:pmdMain :core:spotbugsMain :cli:pmdMain :cli:spotbugsMain
+else
+  echo "skip cli static analysis: no ./weizhi (cli depends on weizhi-bridge)"
+  "${GRADLE[@]}" :core:pmdMain :core:spotbugsMain
+fi
