@@ -7,7 +7,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Removed
-- **Python CLI** (`python_agent/` 及根目录安装脚本) 已从 `main` 移除；完整代码保留在分支 `archive/python-agent`。
+- **Python CLI 永久下线**：删除 `python_agent/` 与 `install-python-agent.*` / `sync-python-agent.sh`；只读快照见分支 `archive/python-agent`。
 
 ### Changed
 - CI 改为在 **ubuntu-latest** 与 **macos-latest** 上运行 Java 测试。

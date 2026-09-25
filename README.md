@@ -10,7 +10,7 @@
 
 在 **JVM** 上建立生产力向智能体参考实现：持久会话、工作区沙箱、对话与工具循环、流式输出、JSONL 事件。桌面侧通过 **Java CLI** 在 **macOS 与 Ubuntu** 上运行；移动端通过 **Android** 集成同一核心库。
 
-> **Python CLI 已下线**：完整快照保留在分支 [`archive/python-agent`](https://github.com/fengshihao/agent1/tree/archive/python-agent)。语音宠物示例在 [`archive/android-voice-pet`](https://github.com/fengshihao/agent1/tree/archive/android-voice-pet)。
+> **不再维护 Python CLI**。历史代码仅只读保留在 [`archive/python-agent`](https://github.com/fengshihao/agent1/tree/archive/python-agent) 分支；新功能请在 Java / Android 路径开发。
 
 ## 核心模块
 

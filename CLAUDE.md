@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Agent1 is a JVM-centric agent system: **Java CLI** on **macOS and Ubuntu**, plus **Android** as the primary mobile host. Python CLI was removed from `main`; historical code lives on branch `archive/python-agent`.
+Agent1 is a JVM-centric agent system: **Java CLI** on **macOS and Ubuntu**, plus **Android** as the primary mobile host. **Do not add or restore `python_agent/`** — historical snapshot only on branch `archive/python-agent`.
 
 Components:
 
