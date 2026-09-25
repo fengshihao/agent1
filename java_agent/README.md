@@ -21,13 +21,7 @@ Java 版状态化 Agent 内核（MVP），对齐 `pi-mono/packages/agent` 的核
 gradle -p java_agent :core:test :cli:test
 ```
 
-Java 版本要求：17（已在 `java_agent/build.gradle.kts` 与 `java_agent/gradle.properties` 固定）。
-
-如果你的 `~/.gradle/gradle.properties` 里也配置了 `org.gradle.java.home`，可能会覆盖项目配置，可用下面命令强制本次构建走 17：
-
-```bash
-gradle -Dorg.gradle.java.home="/Users/fengshihao/.jdks/jdk-17.jdk/Contents/Home" -p java_agent test
-```
+Java 版本要求：17（`java_agent/build.gradle.kts` 中 Java toolchain 已固定为 17）。请使用系统 `JAVA_HOME` 指向 JDK 17，或在 `~/.gradle/gradle.properties` 中设置 `org.gradle.java.home`（勿提交到仓库，避免 CI/他人机器路径无效）。
 
 ## PC 最小示例
 
