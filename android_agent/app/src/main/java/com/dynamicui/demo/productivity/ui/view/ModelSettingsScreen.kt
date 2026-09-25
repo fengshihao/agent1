@@ -14,11 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -37,17 +32,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.dynamicui.demo.productivity.logic.business.resolveProvider
 import com.dynamicui.demo.productivity.ui.viewmodel.ModelSettingsViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModelSettingsScreen(
     viewModel: ModelSettingsViewModel,
     onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
-    var providerExpanded by remember { mutableStateOf(false) }
     var revealKey by remember { mutableStateOf(false) }
 
     Column(
@@ -79,33 +71,20 @@ fun ModelSettingsScreen(
                 )
             }
 
-            ExposedDropdownMenuBox(
-                expanded = providerExpanded,
-                onExpandedChange = { providerExpanded = !providerExpanded },
-            ) {
-                OutlinedTextField(
-                    value = resolveProvider(state.providerId).displayName,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("服务商") },
+            Text("服务商", style = MaterialTheme.typography.titleSmall)
+            state.providerOptions.forEach { preset ->
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .menuAnchor(),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = providerExpanded) },
-                )
-                ExposedDropdownMenu(
-                    expanded = providerExpanded,
-                    onDismissRequest = { providerExpanded = false },
+                        .clickable { viewModel.onProviderSelected(preset.id) }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    state.providerOptions.forEach { preset ->
-                        DropdownMenuItem(
-                            text = { Text(preset.displayName) },
-                            onClick = {
-                                viewModel.onProviderSelected(preset.id)
-                                providerExpanded = false
-                            },
-                        )
-                    }
+                    RadioButton(
+                        selected = state.providerId == preset.id,
+                        onClick = { viewModel.onProviderSelected(preset.id) },
+                    )
+                    Text(preset.displayName, style = MaterialTheme.typography.bodyMedium)
                 }
             }
 
