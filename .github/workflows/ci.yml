@@ -70,11 +70,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sync Weizhi (optional)
+      - name: Sync Weizhi source (optional)
         if: ${{ secrets.WEIZHI_GIT_URL != '' }}
         env:
           WEIZHI_GIT_URL: ${{ secrets.WEIZHI_GIT_URL }}
         run: chmod +x ./sync-weizhi.sh && ./sync-weizhi.sh
+
+      - name: Import Weizhi prebuilt Maven (optional)
+        if: ${{ secrets.WEIZHI_PREBUILT_URL != '' }}
+        env:
+          WEIZHI_PREBUILT_URL: ${{ secrets.WEIZHI_PREBUILT_URL }}
+        run: chmod +x ./import-weizhi-prebuilt.sh && ./import-weizhi-prebuilt.sh
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

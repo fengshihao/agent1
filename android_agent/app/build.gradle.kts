@@ -10,7 +10,12 @@ val weizhiAndroidRoot = sequenceOf(
     rootProject.file("../../weizhi/android"),
     rootProject.file("../weizhi/android"),
 ).firstOrNull { it.isDirectory }
-val weizhiIntegrated = weizhiAndroidRoot != null
+
+val weizhiPrebuiltBase = rootProject.file("weizhi-prebuilt").takeIf {
+    it.resolve("maven").isDirectory && it.resolve("coordinates.properties").isFile
+}
+
+val weizhiIntegrated = weizhiAndroidRoot != null || weizhiPrebuiltBase != null
 
 detekt {
     buildUponDefaultConfig = true
@@ -111,6 +116,21 @@ dependencies {
         implementation(project(":agent-tools"))
         implementation(project(":agent-tools-webview"))
         implementation(project(":agent-tools-mcp"))
+    } else if (weizhiPrebuiltBase != null) {
+        val coords = java.util.Properties().apply {
+            weizhiPrebuiltBase.resolve("coordinates.properties").inputStream().use { load(it) }
+        }
+        fun w(key: String): String {
+            val g = coords.getProperty("group")?.trim().orEmpty()
+            val v = coords.getProperty("version")?.trim().orEmpty()
+            val a = coords.getProperty(key)?.trim().orEmpty()
+            return "$g:$a:$v"
+        }
+        implementation(w("artifact.weizhi"))
+        implementation(w("artifact.caps"))
+        implementation(w("artifact.agent-tools"))
+        implementation(w("artifact.agent-tools-webview"))
+        implementation(w("artifact.agent-tools-mcp"))
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.27.0")

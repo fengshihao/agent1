@@ -22,7 +22,7 @@ object ProductivityToolCapabilities {
             add("grep · glob · zip · bash · load_skill")
             add("WebView 工具 · MCP 扩展")
         } else {
-            add("未检测到 weizhi/android（同级 ../weizhi 或 agent1/weizhi）— WEIZHI_INTEGRATED=false")
+            add("未检测到 weizhi 源码或 weizhi-prebuilt/maven — WEIZHI_INTEGRATED=false")
         }
     }
 }

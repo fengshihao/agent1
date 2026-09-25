@@ -7,10 +7,22 @@ pluginManagement {
     }
 }
 
+val weizhiAndroidSource = sequenceOf(
+    file("../../weizhi/android"),
+    file("../weizhi/android"),
+).firstOrNull { it.isDirectory }
+
+val weizhiPrebuiltBase = file("weizhi-prebuilt").takeIf {
+    it.resolve("maven").isDirectory && it.resolve("coordinates.properties").isFile
+}
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         maven(url = uri("../java_agent/build/local-maven"))
+        if (weizhiPrebuiltBase != null) {
+            maven(url = uri(weizhiPrebuiltBase.resolve("maven")))
+        }
         google()
         mavenCentral()
         maven("https://maven.aliyun.com/repository/public")
@@ -20,16 +32,12 @@ dependencyResolutionManagement {
 rootProject.name = "DynamicUiDemo"
 include(":app")
 
-/** 微智工程：优先 agent1 外同级 ../weizhi，其次 agent1/weizhi（CI / sync-weizhi.sh）。 */
-val weizhiAndroidRoot = sequenceOf(
-    file("../../weizhi/android"),
-    file("../weizhi/android"),
-).firstOrNull { it.isDirectory }
-if (weizhiAndroidRoot != null) {
+if (weizhiAndroidSource != null) {
+    val root = weizhiAndroidSource
     include(":weizhi", ":caps", ":agent-tools", ":agent-tools-webview", ":agent-tools-mcp")
-    project(":weizhi").projectDir = weizhiAndroidRoot.resolve("weizhi")
-    project(":caps").projectDir = weizhiAndroidRoot.resolve("caps")
-    project(":agent-tools").projectDir = weizhiAndroidRoot.resolve("agent-tools")
-    project(":agent-tools-webview").projectDir = weizhiAndroidRoot.resolve("agent-tools-webview")
-    project(":agent-tools-mcp").projectDir = weizhiAndroidRoot.resolve("agent-tools-mcp")
+    project(":weizhi").projectDir = root.resolve("weizhi")
+    project(":caps").projectDir = root.resolve("caps")
+    project(":agent-tools").projectDir = root.resolve("agent-tools")
+    project(":agent-tools-webview").projectDir = root.resolve("agent-tools-webview")
+    project(":agent-tools-mcp").projectDir = root.resolve("agent-tools-mcp")
 }
