@@ -6,6 +6,10 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Removed
+- **`python_agent`** 及根目录 Python 安装/同步脚本；CLI 以 **Java** 为唯一维护实现。
+- GitHub **CI** 中的 Python 多版本矩阵；改为 **JDK 17 + `java_agent` 单测**。
+
 ### Documentation
 - Aligned `java_agent/README.md` with the current CLI: removed obsolete `AGENT1_MEMORY_DB` / SQLite long-term memory tool description (feature no longer present).
 

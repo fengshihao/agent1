@@ -4,29 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Agent1 is a multi-language agent system providing production-ready CLI agents with tool calling, observability, and cost control. It consists of three components:
+Agent1 is a JVM-centric agent system providing a production-ready CLI with tool calling, observability, and cost control. Main components:
 
-- **Python CLI** (`python_agent/src/agent1/`) — Pydantic AI + Qwen/DashScope, Rich terminal UI
 - **Java core** (`agent_core/`) + **Java CLI** (`java_agent/cli/`) — OkHttp SSE + RxJava3, OpenAI-compatible client, no Spring
 - **Android Agent** (`android_agent/`) — Jetpack Compose dynamic UI generation
 
-Python and Java implementations maintain feature parity. Both share the same tool set, event model, and skill system.
-
 ## Build & Run Commands
-
-### Python
-
-```bash
-cd python_agent && uv sync                                       # Install dependencies
-cd python_agent && PYTHONPATH=src python -m unittest discover -s tests -v   # Run all tests
-cd python_agent && PYTHONPATH=src python -m pytest tests/test_bash_tool.py -v  # Single test file
-cd python_agent && uv run agent1 "prompt"                       # Single run (streaming)
-cd python_agent && uv run agent1 "prompt" --no-stream            # Single run (non-streaming)
-cd python_agent && uv run agent1                               # Interactive REPL mode
-# 在仓库根目录也可：uv run --project python_agent agent1 "prompt"
-```
-
-仓库根还有薄脚本（均中文注释在文件头）：`./sync-python-agent.sh`、`./install-python-agent.sh` / `install-python-agent.ps1`、`./run-java-agent`、`./run-java-agent-gradle`、`./publish-java-agent-core.sh`、`./build-android-agent.sh`、`./check-android-agent-layering.sh`。
 
 ### Java Agent
 
@@ -39,24 +22,26 @@ gradle -p java_agent runJavaAgentCli --args="prompt"             # Run CLI
 
 Java core sources are in `agent_core/src/main/java`; CLI sources are in `java_agent/cli/src/main/java`. The `java_agent` Gradle build includes `:core` from `../agent_core` and `:cli` for the executable. Java toolchain: JDK 17.
 
+仓库根薄脚本：`./run-java-agent`、`./run-java-agent-gradle`、`./publish-java-agent-core.sh`、`./build-android-agent.sh`、`./check-android-agent-layering.sh`。
+
 ### Android
 
 ```bash
-./publish-java-agent-core.sh                                       # 根目录薄脚本 → java_agent/bin（发布 core + 校验 Android 编译）
-./build-android-agent.sh                                           # 根目录薄脚本 → android_agent/run.sh（编译安装并启动 Demo，需 adb）
+./publish-java-agent-core.sh                                       # 发布 core + 校验 Android 编译
+./build-android-agent.sh                                           # 编译安装并启动 Demo（需 adb）
 ```
 
 ## Required Environment Variables
 
 ```bash
-export DASHSCOPE_API_KEY="your-key"     # or ALIBABA_API_KEY
+export DASHSCOPE_API_KEY="your-key"     # or ALIBABA_API_KEY / OPENAI_API_KEY
 ```
 
 Optional: `ALIBABA_BASE_URL`, `AGENT1_LOG_FILE`, `AGENT1_MAX_TOTAL_TOKENS`, `AGENT1_MAX_TURNS_PER_RUN`, `AGENT1_MAX_TOOL_CALLS_PER_RUN`, `OPENAI_MODEL`.
 
 ## Architecture
 
-### Core Flow (both Python & Java)
+### Core Flow
 
 ```
 User Input → CLI Layer → AgentRuntime (thin shell) → LLM (Qwen via DashScope)
@@ -68,11 +53,11 @@ User Input → CLI Layer → AgentRuntime (thin shell) → LLM (Qwen via DashSco
 
 ### Key Components
 
-- **`Agent1Runtime`** (Python: `python_agent/src/agent1/core/runtime.py`, Java: `agent_core/src/main/java/.../core/AgentRuntime.java`) — Thin event-emitting wrapper. Subscribes listeners, manages usage limits. Does NOT contain business logic.
+- **`AgentRuntime`** (`agent_core/src/main/java/.../core/AgentRuntime.java`) — Thin event-emitting wrapper. Subscribes listeners, manages usage limits. Does NOT contain business logic.
 
-- **`agent_factory.py`** (`python_agent/src/agent1/agent_factory.py`) — Wires everything: builds model, creates tools, system prompt, runtime. Entry point for CLI.
+- **`JavaAgentCli`** + tool implementations — Wires model, tools, system prompt, runtime. CLI entry point.
 
-- **System Prompt** — `SystemPromptBuilder` auto-injects OS/Python/Shell/CWD context + skill descriptions.
+- **System Prompt** — `SystemPromptBuilder` auto-injects OS/Shell/CWD context + skill descriptions.
 
 - **Skills System** — Claude Code-compatible skills from `.claude/skills/*/SKILL.md`. Variables: `$ARGUMENTS`, `$0/$1...`, `${CLAUDE_SKILL_DIR}`. Invoked via `/skill-name args` in interactive mode.
 
@@ -91,8 +76,8 @@ All operations emit structured JSONL events to `logs/agent1.jsonl`. Event types:
 - Tool changes must consider cross-platform behavior (macOS / Linux / Windows)
 - Model call chain changes must preserve JSONL log fields
 - Branch naming: `feature/xxx` or `fix/xxx`
-- Python tool timeout defaults: `run_bash` 60s, `run_python` 30s
-- Tool preview limits (Python & Java aligned): args 220 chars, result 280 chars
+- Tool timeout defaults: `run_bash` 60s, `run_python` 30s
+- Tool preview limits: args 220 chars, result 280 chars
 - Runtime limits: default 12 turns/run, 24 tool calls/run
 - Default model: `qwen3.5-flash` (overridable via `OPENAI_MODEL`)
 
