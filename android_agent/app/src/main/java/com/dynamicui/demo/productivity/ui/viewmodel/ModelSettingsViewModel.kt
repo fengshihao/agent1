@@ -6,6 +6,7 @@ import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.dynamicui.demo.productivity.logic.business.ModelSettingsCoordinator
 import com.dynamicui.demo.productivity.logic.business.ModelSettingsForm
 import com.dynamicui.demo.productivity.logic.business.PROVIDER_CUSTOM
+import com.dynamicui.demo.productivity.logic.business.PROVIDER_ZHIPU_CODING
 import com.dynamicui.demo.productivity.logic.business.ProviderOption
 import com.dynamicui.demo.productivity.logic.business.RemoteModelOption
 import com.dynamicui.demo.productivity.logic.business.providerOptions
@@ -50,6 +51,11 @@ class ModelSettingsViewModel(
 
     fun loadFromStore() {
         val form = coordinator.readForm()
+        val bundled = if (form.providerId == PROVIDER_ZHIPU_CODING) {
+            coordinator.zhipuBundledModels()
+        } else {
+            coordinator.bundledModels()
+        }
         _state.value = _state.value.copy(
             providerId = form.providerId,
             baseUrl = form.baseUrl,
@@ -63,7 +69,7 @@ class ModelSettingsViewModel(
             },
             maxTurnsPerRun = form.maxTurnsPerRun.toString(),
             maxToolCallsPerRun = form.maxToolCallsPerRun.toString(),
-            remoteModels = coordinator.bundledModels(),
+            remoteModels = bundled,
             configError = coordinator.configurationError(),
             effectiveSummary = coordinator.configurationSummary(),
             savedInApp = form.savedInApp,
@@ -73,6 +79,16 @@ class ModelSettingsViewModel(
 
     fun onProviderSelected(providerId: String) {
         val preset = resolveProvider(providerId)
+        val modelId = if (preset.defaultModelId.isNotBlank()) {
+            preset.defaultModelId
+        } else {
+            _state.value.modelId
+        }
+        val remoteModels = if (preset.id == PROVIDER_ZHIPU_CODING) {
+            coordinator.zhipuBundledModels()
+        } else {
+            coordinator.bundledModels()
+        }
         _state.value = _state.value.copy(
             providerId = preset.id,
             baseUrl = if (preset.id == PROVIDER_CUSTOM) {
@@ -80,6 +96,8 @@ class ModelSettingsViewModel(
             } else {
                 preset.defaultBaseUrl
             },
+            modelId = modelId,
+            remoteModels = remoteModels,
         )
     }
 

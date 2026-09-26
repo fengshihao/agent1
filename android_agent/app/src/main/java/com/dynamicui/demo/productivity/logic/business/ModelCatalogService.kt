@@ -19,6 +19,25 @@ class ModelCatalogService(
         return QwenModelCatalog.primaryModels().map { info -> fromCatalog(info) }
     }
 
+    /** 智谱 Coding Plan 常用模型（远程列表失败或未拉取时的本地候选）。 */
+    fun zhipuCodingFallback(): List<RemoteModelOption> = listOf(
+        RemoteModelOption(
+            modelId = "glm-5.3",
+            title = "GLM-5.3",
+            subtitle = "深度思考 · Coding Plan 推荐",
+        ),
+        RemoteModelOption(
+            modelId = "glm-5.3-flash",
+            title = "GLM-5.3 Flash",
+            subtitle = "低延迟 · 思考默认开启",
+        ),
+        RemoteModelOption(
+            modelId = "glm-5.2",
+            title = "GLM-5.2",
+            subtitle = "上一代 · 可关闭思考",
+        ),
+    )
+
     private fun toOption(modelId: String): RemoteModelOption {
         val catalog = QwenModelCatalog.findByModelId(modelId).orElse(null)
         return if (catalog != null) {

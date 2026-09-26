@@ -55,6 +55,8 @@ class ModelSettingsCoordinator(context: Context) {
 
     fun bundledModels(): List<RemoteModelOption> = catalogService.bundledFallback()
 
+    fun zhipuBundledModels(): List<RemoteModelOption> = catalogService.zhipuCodingFallback()
+
     fun saveAndReload(form: ModelSettingsForm): String? {
         val prefs = AgentRuntimePreferences(
             providerId = resolveProvider(form.providerId).id,

@@ -131,7 +131,7 @@ class OpenAiCompatibleClientTest {
             );
             List<String> reasoningDeltas = new ArrayList<>();
             AssistantResponse response = client.streamChat(
-                new ChatRequest("glm-5.2", List.of(AgentMessage.user("hi"))),
+                new ChatRequest("glm-5.3", List.of(AgentMessage.user("hi"))),
                 List.of(),
                 new com.agent1.javaagent.llm.LlmStreamListener() {
                     @Override
@@ -162,7 +162,7 @@ class OpenAiCompatibleClientTest {
             )
         );
         ObjectNode payload = client.buildPayload(
-            new ChatRequest("glm-5.2", List.of(AgentMessage.user("hi"))),
+            new ChatRequest("glm-5.3", List.of(AgentMessage.user("hi"))),
             List.of()
         );
         assertEquals("enabled", payload.path("thinking").path("type").asText());
