@@ -76,13 +76,18 @@ jobs:
           WEIZHI_SKIP_SYNC: ${{ vars.WEIZHI_SKIP_SYNC }}
         run: chmod +x ./sync-weizhi.sh && ./sync-weizhi.sh
 
-      # 默认源码联编（Gradle 优先 ../weizhi/android）。仅当无法 clone 源码时再配 WEIZHI_PREBUILT_URL。
+      # 默认源码联编。备选预编译：Repository Variable WEIZHI_USE_PREBUILT=true + Secret WEIZHI_PREBUILT_URL（勿在 if 里引用 secret）
       - name: Import Weizhi prebuilt Maven (fallback)
-        if: ${{ secrets.WEIZHI_PREBUILT_URL != '' && vars.WEIZHI_USE_PREBUILT == 'true' }}
+        if: ${{ vars.WEIZHI_USE_PREBUILT == 'true' }}
         env:
           WEIZHI_PREBUILT_URL: ${{ secrets.WEIZHI_PREBUILT_URL }}
           WEIZHI_GITHUB_TOKEN: ${{ secrets.WEIZHI_GITHUB_TOKEN }}
-        run: chmod +x ./import-weizhi-prebuilt.sh && ./import-weizhi-prebuilt.sh
+        run: |
+          if [ -z "${WEIZHI_PREBUILT_URL:-}" ]; then
+            echo "WEIZHI_USE_PREBUILT=true 但未配置 WEIZHI_PREBUILT_URL，跳过预编译导入"
+            exit 0
+          fi
+          chmod +x ./import-weizhi-prebuilt.sh && ./import-weizhi-prebuilt.sh
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
