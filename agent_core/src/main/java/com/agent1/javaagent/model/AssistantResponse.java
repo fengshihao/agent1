@@ -8,16 +8,28 @@ public final class AssistantResponse {
     public static final String FINISH_LENGTH = "length";
 
     private final String content;
+    private final String reasoningContent;
     private final List<ToolCall> toolCalls;
     private final String finishReason;
     private final ChatUsage usage;
 
     public AssistantResponse(String content, List<ToolCall> toolCalls) {
-        this(content, toolCalls, null, null);
+        this(content, "", toolCalls, null, null);
     }
 
     public AssistantResponse(String content, List<ToolCall> toolCalls, String finishReason, ChatUsage usage) {
+        this(content, "", toolCalls, finishReason, usage);
+    }
+
+    public AssistantResponse(
+        String content,
+        String reasoningContent,
+        List<ToolCall> toolCalls,
+        String finishReason,
+        ChatUsage usage
+    ) {
         this.content = content == null ? "" : content;
+        this.reasoningContent = reasoningContent == null ? "" : reasoningContent;
         this.toolCalls = Collections.unmodifiableList(new ArrayList<>(toolCalls == null ? List.of() : toolCalls));
         this.finishReason = finishReason;
         this.usage = usage;
@@ -25,6 +37,10 @@ public final class AssistantResponse {
 
     public String getContent() {
         return content;
+    }
+
+    public String getReasoningContent() {
+        return reasoningContent;
     }
 
     public List<ToolCall> getToolCalls() {

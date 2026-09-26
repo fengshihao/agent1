@@ -19,6 +19,33 @@ val weizhiPrebuiltBase = rootProject.file("weizhi-prebuilt").takeIf {
 
 val weizhiIntegrated = weizhiAndroidRoot != null || weizhiPrebuiltBase != null
 
+/**
+ * 单调递增的 versionCode，避免反复打 debug 包时因 versionCode 仍为 1 而无法覆盖安装。
+ * 可覆盖：环境变量 VERSION_CODE / VERSION_NAME；CI 需 checkout fetch-depth: 0 以保证 git 计数正确。
+ */
+fun agent1VersionCode(): Int {
+    System.getenv("VERSION_CODE")?.toIntOrNull()?.let { return it }
+    val repoRoot = rootProject.layout.projectDirectory.dir("..").asFile
+    return try {
+        val proc = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+            .directory(repoRoot)
+            .redirectErrorStream(true)
+            .start()
+        val text = proc.inputStream.bufferedReader().readText().trim()
+        proc.waitFor()
+        val commitCount = text.toIntOrNull()?.coerceAtLeast(1) ?: 1
+        10_000 + commitCount
+    } catch (_: Exception) {
+        10_001
+    }
+}
+
+fun agent1VersionName(): String {
+    System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }?.let { return it }
+    val patch = agent1VersionCode() - 10_000
+    return "0.1.$patch"
+}
+
 detekt {
     buildUponDefaultConfig = true
     config.setFrom(rootProject.file("../config/detekt.yml"))
@@ -27,15 +54,15 @@ detekt {
 }
 
 android {
-    namespace = "com.dynamicui.demo"
+    namespace = "com.agent1.android"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.dynamicui.demo"
+        applicationId = "com.agent1.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = agent1VersionCode()
+        versionName = agent1VersionName()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         fun envOrProp(name: String, default: String = ""): String =
@@ -93,6 +120,14 @@ android {
             java.srcDir("src/weizhi/java")
         }
     }
+
+    @Suppress("DEPRECATION")
+    applicationVariants.configureEach {
+        outputs.configureEach {
+            val impl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            impl.outputFileName = "agent1-android-${buildType.name}.apk"
+        }
+    }
 }
 
 dependencies {
@@ -136,6 +171,7 @@ dependencies {
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.27.0")
+    implementation("io.coil-kt:coil-compose:2.6.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

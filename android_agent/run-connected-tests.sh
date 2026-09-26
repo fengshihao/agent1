@@ -19,7 +19,7 @@ echo "==> 发布 java-agent-core（Android 依赖）"
 echo "==> 编译并安装 androidTest + 运行 MainActivitySmokeTest"
 (
   cd "$ROOT_DIR"
-  ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.dynamicui.demo.MainActivitySmokeTest
+  ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.agent1.android.MainActivitySmokeTest
 )
 
 echo "==> 连通测试完成"

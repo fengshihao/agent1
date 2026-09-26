@@ -13,6 +13,7 @@ public final class AgentMessage {
 
     private final String role;
     private final String content;
+    private final String reasoningContent;
     private final long timestampMs;
     private final String toolCallId;
     private final boolean error;
@@ -26,8 +27,21 @@ public final class AgentMessage {
         boolean error,
         List<ToolCall> toolCalls
     ) {
+        this(role, content, "", timestampMs, toolCallId, error, toolCalls);
+    }
+
+    public AgentMessage(
+        String role,
+        String content,
+        String reasoningContent,
+        long timestampMs,
+        String toolCallId,
+        boolean error,
+        List<ToolCall> toolCalls
+    ) {
         this.role = Objects.requireNonNull(role, "role");
         this.content = content == null ? "" : content;
+        this.reasoningContent = reasoningContent == null ? "" : reasoningContent;
         this.timestampMs = timestampMs;
         this.toolCallId = toolCallId;
         this.error = error;
@@ -39,7 +53,19 @@ public final class AgentMessage {
     }
 
     public static AgentMessage assistant(String content, List<ToolCall> toolCalls) {
-        return new AgentMessage(ROLE_ASSISTANT, content, System.currentTimeMillis(), null, false, toolCalls);
+        return assistant(content, "", toolCalls);
+    }
+
+    public static AgentMessage assistant(String content, String reasoningContent, List<ToolCall> toolCalls) {
+        return new AgentMessage(
+            ROLE_ASSISTANT,
+            content,
+            reasoningContent,
+            System.currentTimeMillis(),
+            null,
+            false,
+            toolCalls
+        );
     }
 
     public static AgentMessage toolResult(String toolCallId, String content, boolean isError) {
@@ -56,6 +82,11 @@ public final class AgentMessage {
 
     public String getContent() {
         return content;
+    }
+
+    /** GLM / 兼容 OpenAI 接口中的 {@code reasoning_content}，与可见 {@link #content} 分离。 */
+    public String getReasoningContent() {
+        return reasoningContent;
     }
 
     public long getTimestampMs() {
@@ -75,6 +106,10 @@ public final class AgentMessage {
     }
 
     public AgentMessage withContent(String newContent) {
-        return new AgentMessage(role, newContent, timestampMs, toolCallId, error, toolCalls);
+        return new AgentMessage(role, newContent, reasoningContent, timestampMs, toolCallId, error, toolCalls);
+    }
+
+    public AgentMessage withReasoningContent(String newReasoningContent) {
+        return new AgentMessage(role, content, newReasoningContent, timestampMs, toolCallId, error, toolCalls);
     }
 }

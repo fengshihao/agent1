@@ -113,7 +113,24 @@ public final class OpenAiCompatibleClient implements LlmClient {
         if (!tools.isEmpty()) {
             payload.set("tools", toOpenAiTools(tools));
         }
+        if (shouldSendThinkingOptions()) {
+            ObjectNode thinking = mapper.createObjectNode();
+            thinking.put("type", "enabled");
+            if (isCodingPlanEndpoint()) {
+                thinking.put("clear_thinking", false);
+            }
+            payload.set("thinking", thinking);
+        }
         return payload;
+    }
+
+    private boolean shouldSendThinkingOptions() {
+        String base = config.getBaseUrl().toLowerCase();
+        return base.contains("bigmodel.cn") || base.contains("z.ai");
+    }
+
+    private boolean isCodingPlanEndpoint() {
+        return config.getBaseUrl().contains("/api/coding/");
     }
 
     private AssistantResponse streamOnce(
@@ -270,6 +287,9 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 } else {
                     node.putNull("content");
                 }
+                if (!message.getReasoningContent().isBlank()) {
+                    node.put("reasoning_content", message.getReasoningContent());
+                }
                 if (!message.getToolCalls().isEmpty()) {
                     ArrayNode toolCalls = mapper.createArrayNode();
                     for (ToolCall call : message.getToolCalls()) {
@@ -279,7 +299,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
                         ObjectNode functionNode = mapper.createObjectNode();
                         functionNode.put("name", call.getName());
                         functionNode.put("arguments", call.getArgumentsJson());
-                        callNode.set("function", functionNode);
+                        functionNode.set("function", functionNode);
                         toolCalls.add(callNode);
                     }
                     node.set("tool_calls", toolCalls);
@@ -338,6 +358,18 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 String value = content.asText("");
                 acc.text.append(value);
                 streamListener.onTextDelta(value);
+            }
+
+            JsonNode reasoning = delta.get("reasoning_content");
+            if (reasoning == null) {
+                reasoning = delta.get("reasoning");
+            }
+            if (reasoning != null && reasoning.isTextual()) {
+                String value = reasoning.asText("");
+                if (!value.isEmpty()) {
+                    acc.reasoning.append(value);
+                    streamListener.onReasoningDelta(value);
+                }
             }
 
             JsonNode toolCalls = delta.get("tool_calls");
@@ -402,6 +434,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
 
     private static final class StreamAccumulator {
         private final StringBuilder text = new StringBuilder();
+        private final StringBuilder reasoning = new StringBuilder();
         private final Map<Integer, PartialToolCall> toolCallByIndex = new HashMap<>();
         private String finishReason;
         private ChatUsage usage;
@@ -434,7 +467,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
                 .map(entry -> entry.getValue().toToolCall())
                 .collect(Collectors.toList());
-            return new AssistantResponse(text.toString(), toolCalls, finishReason, usage);
+            return new AssistantResponse(text.toString(), reasoning.toString(), toolCalls, finishReason, usage);
         }
     }
 

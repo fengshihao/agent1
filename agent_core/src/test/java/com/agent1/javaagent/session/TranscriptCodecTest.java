@@ -13,6 +13,19 @@ class TranscriptCodecTest {
     private final TranscriptCodec codec = new TranscriptCodec(new ObjectMapper());
 
     @Test
+    void roundTripPreservesReasoning() {
+        AgentMessage original = AgentMessage.assistant(
+            "answer",
+            "step one\nstep two",
+            List.of()
+        );
+        String line = codec.toLine("run-2", original);
+        AgentMessage restored = codec.fromLine(line);
+        assertEquals("answer", restored.getContent());
+        assertEquals("step one\nstep two", restored.getReasoningContent());
+    }
+
+    @Test
     void roundTripPreservesToolCalls() {
         AgentMessage original = AgentMessage.assistant(
             "calling tool",

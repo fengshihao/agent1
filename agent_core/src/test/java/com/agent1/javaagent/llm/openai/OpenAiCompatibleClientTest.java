@@ -111,6 +111,65 @@ class OpenAiCompatibleClientTest {
     }
 
     @Test
+    void streamChat_parsesReasoningContent() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            String sseBody = ""
+                + "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"think\"}}]}\n\n"
+                + "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"ing\"}}]}\n\n"
+                + "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n"
+                + "data: [DONE]\n\n";
+            server.enqueue(
+                new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody(sseBody)
+            );
+            server.start();
+
+            OpenAiCompatibleClient client = new OpenAiCompatibleClient(
+                new OpenAiCompatibleConfig("k", server.url("/v1").toString(), Duration.ofSeconds(5), null)
+            );
+            List<String> reasoningDeltas = new ArrayList<>();
+            AssistantResponse response = client.streamChat(
+                new ChatRequest("glm-5.3", List.of(AgentMessage.user("hi"))),
+                List.of(),
+                new com.agent1.javaagent.llm.LlmStreamListener() {
+                    @Override
+                    public void onTextDelta(String delta) {
+                    }
+
+                    @Override
+                    public void onReasoningDelta(String delta) {
+                        reasoningDeltas.add(delta);
+                    }
+                },
+                new CancellationToken()
+            );
+            assertEquals("thinking", response.getReasoningContent());
+            assertEquals("Hi", response.getContent());
+            assertEquals(List.of("think", "ing"), reasoningDeltas);
+        }
+    }
+
+    @Test
+    void buildPayload_codingEndpointEnablesPreservedThinking() throws Exception {
+        OpenAiCompatibleClient client = new OpenAiCompatibleClient(
+            new OpenAiCompatibleConfig(
+                "k",
+                "https://open.bigmodel.cn/api/coding/paas/v4",
+                Duration.ofSeconds(5),
+                null
+            )
+        );
+        ObjectNode payload = client.buildPayload(
+            new ChatRequest("glm-5.3", List.of(AgentMessage.user("hi"))),
+            List.of()
+        );
+        assertEquals("enabled", payload.path("thinking").path("type").asText());
+        assertFalse(payload.path("thinking").path("clear_thinking").asBoolean(true));
+    }
+
+    @Test
     void streamChat_parsesUsageAndFinishReason() throws Exception {
         try (MockWebServer server = new MockWebServer()) {
             String sseBody = ""

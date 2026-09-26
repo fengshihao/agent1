@@ -7,8 +7,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
-APK_PATH="$ROOT_DIR/app/build/outputs/apk/debug/app-debug.apk"
-APP_ID="com.dynamicui.demo"
+APK_PATH="$ROOT_DIR/app/build/outputs/apk/debug/agent1-android-debug.apk"
+APP_ID="com.agent1.android"
 ACTIVITY=".MainActivity"
 
 if [[ "$(adb get-state 2>/dev/null || true)" != "device" ]]; then

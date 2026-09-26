@@ -180,6 +180,7 @@ public final class AgentRuntime implements Closeable {
                 emitUsage(assistantResponse);
                 AgentMessage assistantMessage = AgentMessage.assistant(
                     assistantResponse.getContent(),
+                    assistantResponse.getReasoningContent(),
                     assistantResponse.getToolCalls()
                 );
                 state.appendMessage(assistantMessage);
@@ -247,6 +248,7 @@ public final class AgentRuntime implements Closeable {
         emitUsage(summary);
         AgentMessage assistantMessage = AgentMessage.assistant(
             summary.getContent(),
+            summary.getReasoningContent(),
             summary.getToolCalls()
         );
         state.appendMessage(assistantMessage);
@@ -280,6 +282,21 @@ public final class AgentRuntime implements Closeable {
                     emit(
                         AgentEventType.MESSAGE_UPDATE,
                         new EventPayloads.MessageUpdate(delta, updated)
+                    );
+                }
+
+                @Override
+                public void onReasoningDelta(String delta) {
+                    AgentMessage current = state.getStreamMessage();
+                    if (current == null) {
+                        return;
+                    }
+                    AgentMessage updated =
+                        current.withReasoningContent(current.getReasoningContent() + delta);
+                    state.setStreamMessage(updated);
+                    emit(
+                        AgentEventType.REASONING_UPDATE,
+                        new EventPayloads.ReasoningUpdate(delta, updated)
                     );
                 }
             },

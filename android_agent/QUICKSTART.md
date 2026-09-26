@@ -13,9 +13,7 @@
 
 ## 目录说明
 
-- `app/src/main/java/com/dynamicui/demo/dynamicui/model`：UI DTO 与序列化
-- `app/src/main/java/com/dynamicui/demo/dynamicui/core`：解析与校验
-- `app/src/main/java/com/dynamicui/demo/dynamicui/ui`：Compose 渲染器
+- 应用 id / 包名：`com.agent1.android`（源码根目录 `app/src/main/java/com/agent1/android/`）
 - `app/src/main/assets/ui`：本地 JSON 示例
 - `app/src/test`：解析层单元测试
 - 静态质量门禁：仓库根 `./check-agent1-quality.sh`（Java PMD/SpotBugs + Android 分层 + 主线程 Gateway）；仅 Android 见 `./check-android-agent-static.sh`
@@ -32,7 +30,19 @@ chmod +x run.sh   # 首次可选
 ./run.sh
 ```
 
-等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/app-debug.apk`、启动 `com.dynamicui.demo` 的主界面。
+等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk`、启动 `com.agent1.android` 的主界面。
+
+### 覆盖安装与 versionCode
+
+Android **只认 `versionCode` 数字**（不是 APK 文件名）。若 Gradle 里长期写死 `versionCode = 1`，而手机里曾装过更高版本（例如 Android Studio 调过版本、或旧渠道包），新包会提示「当前版本低于已安装版本」，只能卸载重装。
+
+本工程现为 **`versionCode = 10000 + git 提交数`**（见 `app/build.gradle.kts`），每次有新提交或拉新代码后编译，版本号会自动变大，一般可直接：
+
+```bash
+adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk
+```
+
+仍无法覆盖时：设置里卸载旧包（旧 id 为 `com.dynamicui.demo` 的需单独卸），或临时指定更大版本：`VERSION_CODE=200000 ./gradlew :app:assembleDebug`。
 
 ### 真机连通测试（Compose 冒烟，不调用 LLM）
 
@@ -134,14 +144,14 @@ App 内 **模型配置** 与聊天页 **模型详情** 会显示当前包装配�
 `CrashReporter` 会写入应用私有目录：`files/last_crash_report.txt`，并在 `files/crash-reports/` 下留一份带时间戳的归档。Debug 包可用 `run-as` 读出（无需 root）：
 
 ```bash
-adb exec-out run-as com.dynamicui.demo cat files/last_crash_report.txt
+adb exec-out run-as com.agent1.android cat files/last_crash_report.txt
 # 或列出归档
-adb shell run-as com.dynamicui.demo ls files/crash-reports
+adb shell run-as com.agent1.android ls files/crash-reports
 ```
 
 若需紧急退出应用（需 adb 已连接设备）：
 
 ```bash
 ./stop-app.sh
-# 等价：adb shell am force-stop com.dynamicui.demo
+# 等价：adb shell am force-stop com.agent1.android
 ```
