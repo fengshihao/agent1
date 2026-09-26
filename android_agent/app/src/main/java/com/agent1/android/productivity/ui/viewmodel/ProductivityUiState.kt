@@ -19,6 +19,9 @@ data class ChatLine(
     val content: String,
     val reasoning: String = "",
     val isTool: Boolean = false,
+    /** 工作区内图片相对路径（工具结果或助手 Markdown 引用）。 */
+    val workspaceImagePath: String? = null,
+    val imageWarning: String? = null,
 )
 
 data class ChatUiState(

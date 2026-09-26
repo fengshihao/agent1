@@ -69,8 +69,6 @@ import com.agent1.android.productivity.ui.viewmodel.ChatLine
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.SessionListViewModel
-import com.mikepenz.markdown.m3.Markdown
-import com.mikepenz.markdown.m3.markdownColor
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -562,7 +560,7 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
         items(state.lines.size) { index ->
             val line = state.lines[index]
             val useMarkdown = !line.isTool && line.role != "user" && line.content.length <= 6_000
-            MessageBubble(line, markdown = useMarkdown)
+            MessageBubble(line, sessionId = state.sessionId, markdown = useMarkdown)
         }
         if (state.toolTrail.isNotEmpty()) {
             item {
@@ -584,12 +582,13 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
         if (state.streamingText.isNotEmpty() || state.streamingReasoning.isNotEmpty()) {
             item {
                 MessageBubble(
-                    ChatLine(
+                    line = ChatLine(
                         role = "assistant",
                         content = state.streamingText + if (state.streamingText.isNotEmpty()) "▌" else "",
                         reasoning = state.streamingReasoning +
                             if (state.streamingReasoning.isNotEmpty() && state.streamingText.isEmpty()) "▌" else "",
                     ),
+                    sessionId = state.sessionId,
                     markdown = false,
                 )
             }
@@ -644,7 +643,11 @@ private fun ToolTrailBubble(trail: List<String>) {
 }
 
 @Composable
-private fun MessageBubble(line: ChatLine, markdown: Boolean) {
+private fun MessageBubble(
+    line: ChatLine,
+    sessionId: String,
+    markdown: Boolean,
+) {
     val bubbles = chatBubbleColors()
     val isUser = line.role == "user" && !line.isTool
     val isTool = line.isTool
@@ -670,11 +673,20 @@ private fun MessageBubble(line: ChatLine, markdown: Boolean) {
                 background = bubbles.systemBackground,
                 borderColor = bubbles.systemBorder,
             ) {
-                Text(
-                    "🔧 ${line.content}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "🔧 ${line.content}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    line.workspaceImagePath?.let { path ->
+                        WorkspaceImagePreview(
+                            sessionId = sessionId,
+                            workspaceRelativePath = path,
+                            warning = line.imageWarning,
+                        )
+                    }
+                }
             }
         }
         else -> {
@@ -689,12 +701,9 @@ private fun MessageBubble(line: ChatLine, markdown: Boolean) {
                 }
                 if (line.content.isNotBlank()) {
                     if (markdown) {
-                        Markdown(
+                        WorkspaceMarkdown(
                             content = line.content,
-                            colors = markdownColor(
-                                text = MaterialTheme.colorScheme.onSurface,
-                                codeBackground = MaterialTheme.colorScheme.surfaceVariant,
-                            ),
+                            sessionId = sessionId,
                         )
                     } else {
                         Text(

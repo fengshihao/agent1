@@ -8,8 +8,10 @@ import com.agent1.javaagent.event.AgentEventType
 import com.agent1.javaagent.event.EventPayloads
 import com.agent1.javaagent.model.AgentMessage
 import com.agent1.javaagent.modelcatalog.QwenModelCatalog
+import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
+import com.agent1.android.productivity.logic.data.SessionWorkspace
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -281,11 +283,23 @@ class ChatViewModel(
 
     private fun AgentMessage.toChatLine(): ChatLine {
         val tool = AgentMessage.ROLE_TOOL_RESULT == role
+        if (tool) {
+            val ws = SessionWorkspace.workspaceRoot(appContext, sessionId)
+            val display = ChatTranscriptFormatting.formatToolResult(content, ws)
+            return ChatLine(
+                role = role,
+                content = display.summary,
+                reasoning = reasoningContent,
+                isTool = true,
+                workspaceImagePath = display.workspaceImagePath,
+                imageWarning = display.imageWarning,
+            )
+        }
         return ChatLine(
             role = role,
             content = content,
             reasoning = reasoningContent,
-            isTool = tool,
+            isTool = false,
         )
     }
 

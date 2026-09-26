@@ -171,6 +171,7 @@ dependencies {
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.27.0")
+    implementation("io.coil-kt:coil-compose:2.6.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
