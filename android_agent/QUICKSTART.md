@@ -13,9 +13,7 @@
 
 ## 目录说明
 
-- `app/src/main/java/com/dynamicui/demo/dynamicui/model`：UI DTO 与序列化
-- `app/src/main/java/com/dynamicui/demo/dynamicui/core`：解析与校验
-- `app/src/main/java/com/dynamicui/demo/dynamicui/ui`：Compose 渲染器
+- 应用 id / 包名：`com.agent1.android`（源码根目录 `app/src/main/java/com/agent1/android/`）
 - `app/src/main/assets/ui`：本地 JSON 示例
 - `app/src/test`：解析层单元测试
 - 静态质量门禁：仓库根 `./check-agent1-quality.sh`（Java PMD/SpotBugs + Android 分层 + 主线程 Gateway）；仅 Android 见 `./check-android-agent-static.sh`
@@ -32,7 +30,7 @@ chmod +x run.sh   # 首次可选
 ./run.sh
 ```
 
-等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk`、启动 `com.dynamicui.demo` 的主界面。
+等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk`、启动 `com.agent1.android` 的主界面。
 
 ### 真机连通测试（Compose 冒烟，不调用 LLM）
 
@@ -136,14 +134,14 @@ App 内 **模型配置** 与聊天页 **模型详情** 会显示当前包装配�
 `CrashReporter` 会写入应用私有目录：`files/last_crash_report.txt`，并在 `files/crash-reports/` 下留一份带时间戳的归档。Debug 包可用 `run-as` 读出（无需 root）：
 
 ```bash
-adb exec-out run-as com.dynamicui.demo cat files/last_crash_report.txt
+adb exec-out run-as com.agent1.android cat files/last_crash_report.txt
 # 或列出归档
-adb shell run-as com.dynamicui.demo ls files/crash-reports
+adb shell run-as com.agent1.android ls files/crash-reports
 ```
 
 若需紧急退出应用（需 adb 已连接设备）：
 
 ```bash
 ./stop-app.sh
-# 等价：adb shell am force-stop com.dynamicui.demo
+# 等价：adb shell am force-stop com.agent1.android
 ```

@@ -29,7 +29,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "DynamicUiDemo"
+rootProject.name = "agent1-android"
 include(":app")
 
 if (weizhiAndroidSource != null) {

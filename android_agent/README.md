@@ -94,7 +94,7 @@ flowchart TB
 ### 模块划分
 
 ```
-com.dynamicui/
+com.agent1.android/
 ├── core/                 # 核心模块
 │   ├── parser/          # JSON 解析
 │   ├── model/           # UI 数据模型

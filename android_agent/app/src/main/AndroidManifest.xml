@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:name=".DynamicUiApp"
+        android:name=".Agent1Application"
         android:allowBackup="true"
         android:label="生产力助手"
         android:supportsRtl="true"

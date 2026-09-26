@@ -25,11 +25,11 @@ detekt {
 }
 
 android {
-    namespace = "com.dynamicui.demo"
+    namespace = "com.agent1.android"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.dynamicui.demo"
+        applicationId = "com.agent1.android"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
