@@ -34,3 +34,7 @@ gradle -p java_agent :weizhi-bridge:test --tests CdpWebViewCanvasDrawTest
 | 引导页 | `loadDataWithBaseURL` | 临时 `file://` HTML |
 
 工具参数、回执 JSON、落盘语义与 Android 一致。
+
+## Mock LLM 端到端
+
+不访问大模型时，用 `ScriptedLlmClient` 对用户消息 `webview-canvas-draw` 返回预定 `webview_exec` tool call，见 [`mock-llm-automation.md`](mock-llm-automation.md) 与 `ProductivityWebViewDrawScriptedTest`。
