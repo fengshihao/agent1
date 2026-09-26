@@ -52,5 +52,12 @@ if [[ ! -d "${TARGET}/android" ]]; then
   exit 1
 fi
 
+PUBLISH_GRADLE="${TARGET}/android/weizhi-maven-publish.gradle"
+AGENT_PUBLISH="${REPO_ROOT}/android_agent/weizhi-maven-publish.gradle"
+if [[ -f "${PUBLISH_GRADLE}" ]]; then
+  cp "${PUBLISH_GRADLE}" "${AGENT_PUBLISH}"
+  echo "==> 已同步 ${AGENT_PUBLISH}（weizhi 子模块 Maven 脚本）"
+fi
+
 echo "==> 完成。Android 集成目录: ${TARGET}/android"
 echo "    本地编译: cd android_agent && ./gradlew :app:assembleDebug"

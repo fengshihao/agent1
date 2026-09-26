@@ -34,6 +34,11 @@ include(":app")
 
 if (weizhiAndroidSource != null) {
     val root = weizhiAndroidSource
+    // weizhi 子模块 apply from rootProject.file("weizhi-maven-publish.gradle")；联编时 root 为 android_agent
+    weizhiAndroidSource.resolve("weizhi-maven-publish.gradle").takeIf { it.isFile }?.copyTo(
+        settings.rootDir.resolve("weizhi-maven-publish.gradle"),
+        overwrite = true,
+    )
     include(":weizhi", ":caps", ":agent-tools", ":agent-tools-webview", ":agent-tools-mcp")
     project(":weizhi").projectDir = root.resolve("weizhi")
     project(":caps").projectDir = root.resolve("caps")

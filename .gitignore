@@ -30,6 +30,8 @@ java_agent/**/bin/
 android_agent/**/.gradle/
 android_agent/**/build/
 android_agent/**/local.properties
+# sync-weizhi / settings.gradle.kts 从 weizhi 拷贝，勿提交
+/android_agent/weizhi-maven-publish.gradle
 
 # 本地 clone 的微智 weizhi 工程（./sync-weizhi.sh），勿提交
 /weizhi/
