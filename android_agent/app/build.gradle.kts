@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -17,6 +19,33 @@ val weizhiPrebuiltBase = rootProject.file("weizhi-prebuilt").takeIf {
 
 val weizhiIntegrated = weizhiAndroidRoot != null || weizhiPrebuiltBase != null
 
+/**
+ * 单调递增的 versionCode，避免反复打 debug 包时因 versionCode 仍为 1 而无法覆盖安装。
+ * 可覆盖：环境变量 VERSION_CODE / VERSION_NAME；CI 需 checkout fetch-depth: 0 以保证 git 计数正确。
+ */
+fun agent1VersionCode(): Int {
+    System.getenv("VERSION_CODE")?.toIntOrNull()?.let { return it }
+    val repoRoot = rootProject.layout.projectDirectory.dir("..").asFile
+    return try {
+        val proc = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+            .directory(repoRoot)
+            .redirectErrorStream(true)
+            .start()
+        val text = proc.inputStream.bufferedReader().readText().trim()
+        proc.waitFor()
+        val commitCount = text.toIntOrNull()?.coerceAtLeast(1) ?: 1
+        10_000 + commitCount
+    } catch (_: Exception) {
+        10_001
+    }
+}
+
+fun agent1VersionName(): String {
+    System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }?.let { return it }
+    val patch = agent1VersionCode() - 10_000
+    return "0.1.$patch"
+}
+
 detekt {
     buildUponDefaultConfig = true
     config.setFrom(rootProject.file("../config/detekt.yml"))
@@ -32,8 +61,8 @@ android {
         applicationId = "com.agent1.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = agent1VersionCode()
+        versionName = agent1VersionName()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         fun envOrProp(name: String, default: String = ""): String =
@@ -91,13 +120,12 @@ android {
             java.srcDir("src/weizhi/java")
         }
     }
-}
 
-androidComponents {
-    onVariants { variant ->
-        val buildType = variant.buildType ?: "debug"
-        variant.outputs.forEach { output ->
-            output.outputFileName.set("agent1-android-$buildType.apk")
+    @Suppress("DEPRECATION")
+    applicationVariants.configureEach {
+        outputs.configureEach {
+            val impl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            impl.outputFileName = "agent1-android-${buildType.name}.apk"
         }
     }
 }
@@ -126,7 +154,7 @@ dependencies {
         implementation(project(":agent-tools-webview"))
         implementation(project(":agent-tools-mcp"))
     } else if (weizhiPrebuiltBase != null) {
-        val coords = java.util.Properties().apply {
+        val coords = Properties().apply {
             weizhiPrebuiltBase.resolve("coordinates.properties").inputStream().use { load(it) }
         }
         fun w(key: String): String {
