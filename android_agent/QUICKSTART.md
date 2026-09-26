@@ -99,7 +99,7 @@ cd android_agent && ./gradlew :app:assembleDebug
 GitHub Actions 若要在 CI APK 里带上 WebView / Weizhi 工具，二选一：
 
 1. **私有源码**：Secret **`WEIZHI_GIT_URL`**（clone URL + 读权限 PAT）
-2. **推荐 · 预编译**：在 weizhi 仓库 publish Maven 后打 tgz，Secret **`WEIZHI_PREBUILT_URL`**（下载 URL）；CI 执行 `./import-weizhi-prebuilt.sh`。详见 [`weizhi-prebuilt/README.md`](weizhi-prebuilt/README.md)
+2. **推荐 · 预编译**：weizhi publish Maven 后打 tgz 或上传 Actions artifact；agent1 Secrets：**`WEIZHI_PREBUILT_URL`** +（artifact/私有下载时）**`WEIZHI_GITHUB_TOKEN`**。详见 [`weizhi-prebuilt/README.md`](weizhi-prebuilt/README.md)
 
 App 内 **模型配置** 与聊天页 **模型详情** 会显示当前包装配的「Agent 工具」摘要。
 
