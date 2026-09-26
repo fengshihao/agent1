@@ -2,8 +2,11 @@
 # 拉取/更新「微智 weizhi」工程（作者自有仓库），供 Android / java-agent 集成编译。
 #
 # 用法：
-#   export WEIZHI_GIT_URL='https://github.com/<you>/weizhi.git'   # 或 SSH URL
 #   ./sync-weizhi.sh
+#   # 或指定 fork / 私有镜像：
+#   export WEIZHI_GIT_URL='https://github.com/<you>/weizhi.git'
+#
+# 未设置 WEIZHI_GIT_URL 时默认克隆公开仓库 fengshihao/weizhi。
 #
 # 默认克隆到本仓库内 agent1/weizhi（与 android_agent/../weizhi 路径一致）。
 # 若已存在同级目录 ../weizhi，则不会重复克隆，仅尝试 git pull。
@@ -13,12 +16,12 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 IN_REPO="${REPO_ROOT}/weizhi"
 SIBLING="$(cd "${REPO_ROOT}/.." && pwd)/weizhi"
-URL="${WEIZHI_GIT_URL:-${WEIZHI_REPO_URL:-}}"
+DEFAULT_WEIZHI_GIT_URL="https://github.com/fengshihao/weizhi.git"
+URL="${WEIZHI_GIT_URL:-${WEIZHI_REPO_URL:-${DEFAULT_WEIZHI_GIT_URL}}}"
 
-if [[ -z "${URL}" ]]; then
-  echo "请设置 WEIZHI_GIT_URL（你的 weizhi 仓库 clone 地址）" >&2
-  echo "示例: export WEIZHI_GIT_URL='git@github.com:you/weizhi.git'" >&2
-  exit 1
+if [[ "${WEIZHI_SKIP_SYNC:-}" == "1" ]] || [[ "${WEIZHI_SKIP_SYNC:-}" == "true" ]]; then
+  echo "跳过 weizhi sync（WEIZHI_SKIP_SYNC=${WEIZHI_SKIP_SYNC}）" >&2
+  exit 0
 fi
 
 pick_target() {

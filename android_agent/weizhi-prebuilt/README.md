@@ -1,6 +1,7 @@
 # Weizhi 预编译集成（私有仓库 → Agent1）
 
-当 CI / 协作者**不想或无法**在本地联编 weizhi 源码时，在 **weizhi 工程内先 publish 一版 Maven 产物**，再导入本目录，Agent1 即可编出带 Weizhi 能力的 APK（WebView / MCP / 脚本等），**无需 weizhi 源码树**。weizhi 仓库即使已 **公开**，仍推荐走 Maven 预编译或 `sync-weizhi.sh`，不必把 AAR 裸文件提交进 agent1。
+**备选路径**：当无法联编 weizhi 源码（离线、无 NDK、CI 跳过 clone）时，在 weizhi 内 **publish Maven** 再导入本目录。  
+**默认推荐**仍是仓库根 **`./sync-weizhi.sh`** 源码联合编译（公开仓库 `https://github.com/fengshihao/weizhi.git`，Gradle 优先 `../weizhi/android`，见 `settings.gradle.kts`）。
 
 ## 不要只提交裸 AAR
 
@@ -85,4 +86,6 @@ Agent1 workflow **Android Debug APK** 在配置了 **`WEIZHI_PREBUILT_URL`**（�
 
 ## 与源码集成的优先级
 
-Gradle **优先**使用同级 / 仓库内 **weizhi 源码**（`../weizhi/android` 或 `../../weizhi/android`）。仅当源码不存在且本目录 `maven/` + `coordinates.properties` 齐全时，才走预编译依赖。
+Gradle **优先**使用 **weizhi 源码**（`agent1/weizhi/android` 或 `../weizhi/android`）。仅当源码不存在且本目录 `maven/` + `coordinates.properties` 齐全时，才走预编译依赖。
+
+Agent1 CI **默认** `sync-weizhi.sh` 源码联编；预编译仅在仓库 Variable **`WEIZHI_USE_PREBUILT=true`** 且配置 **`WEIZHI_PREBUILT_URL`** 时作为 fallback。

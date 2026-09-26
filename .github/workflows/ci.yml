@@ -15,10 +15,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sync Weizhi (optional)
-        if: ${{ secrets.WEIZHI_GIT_URL != '' }}
+      - name: Sync Weizhi source
         env:
           WEIZHI_GIT_URL: ${{ secrets.WEIZHI_GIT_URL }}
+          WEIZHI_SKIP_SYNC: ${{ vars.WEIZHI_SKIP_SYNC }}
         run: chmod +x ./sync-weizhi.sh && ./sync-weizhi.sh
 
       - name: Set up JDK 17
@@ -38,7 +38,7 @@ jobs:
             (cd "${WEIZHI_DIR}" && WEIZHI_SKIP_ASAN=1 ./scripts/test.sh)
             AGENT1_WEIZHI_REPO="${WEIZHI_DIR}" ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test :weizhi-bridge:test
           else
-            echo "skip weizhi: 未 clone weizhi（可配置仓库 Secret WEIZHI_GIT_URL）— 仅 :core:test"
+            echo "skip weizhi: 未 clone weizhi（检查 sync-weizhi.sh 或设置 WEIZHI_SKIP_SYNC）— 仅 :core:test"
             ./java_agent/gradlew --no-daemon -p java_agent :core:test
           fi
 
@@ -70,17 +70,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sync Weizhi source (optional)
-        if: ${{ secrets.WEIZHI_GIT_URL != '' }}
+      - name: Sync Weizhi source
         env:
           WEIZHI_GIT_URL: ${{ secrets.WEIZHI_GIT_URL }}
+          WEIZHI_SKIP_SYNC: ${{ vars.WEIZHI_SKIP_SYNC }}
         run: chmod +x ./sync-weizhi.sh && ./sync-weizhi.sh
 
-      - name: Import Weizhi prebuilt Maven (optional)
-        if: ${{ secrets.WEIZHI_PREBUILT_URL != '' }}
+      # 默认源码联编（Gradle 优先 ../weizhi/android）。仅当无法 clone 源码时再配 WEIZHI_PREBUILT_URL。
+      - name: Import Weizhi prebuilt Maven (fallback)
+        if: ${{ secrets.WEIZHI_PREBUILT_URL != '' && vars.WEIZHI_USE_PREBUILT == 'true' }}
         env:
           WEIZHI_PREBUILT_URL: ${{ secrets.WEIZHI_PREBUILT_URL }}
-          # 跨仓库读 weizhi Actions artifact / 私有 Release 时必填（GITHUB_TOKEN 仅本仓库）
           WEIZHI_GITHUB_TOKEN: ${{ secrets.WEIZHI_GITHUB_TOKEN }}
         run: chmod +x ./import-weizhi-prebuilt.sh && ./import-weizhi-prebuilt.sh
 
