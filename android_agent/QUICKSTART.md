@@ -32,7 +32,7 @@ chmod +x run.sh   # 首次可选
 ./run.sh
 ```
 
-等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/app-debug.apk`、启动 `com.dynamicui.demo` 的主界面。
+等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk`、启动 `com.dynamicui.demo` 的主界面。
 
 ### 真机连通测试（Compose 冒烟，不调用 LLM）
 

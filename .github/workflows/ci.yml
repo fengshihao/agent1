@@ -118,7 +118,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dynamic-ui-demo-debug-apk
-          path: android_agent/app/build/outputs/apk/debug/app-debug.apk
+          name: agent1-android-debug-apk
+          path: android_agent/app/build/outputs/apk/debug/agent1-android-debug.apk
           if-no-files-found: error
           retention-days: 14

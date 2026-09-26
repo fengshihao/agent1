@@ -7,7 +7,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
-APK_PATH="$ROOT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+APK_PATH="$ROOT_DIR/app/build/outputs/apk/debug/agent1-android-debug.apk"
 APP_ID="com.dynamicui.demo"
 ACTIVITY=".MainActivity"
 

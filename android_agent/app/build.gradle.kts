@@ -93,6 +93,15 @@ android {
     }
 }
 
+androidComponents {
+    onVariants { variant ->
+        val buildType = variant.buildType ?: "debug"
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("agent1-android-$buildType.apk")
+        }
+    }
+}
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
 
