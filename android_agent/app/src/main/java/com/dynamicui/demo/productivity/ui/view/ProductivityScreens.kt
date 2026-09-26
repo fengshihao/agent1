@@ -230,7 +230,7 @@ fun ChatScreen(
                     if (state.isRunning) {
                         RunActivityStrip(
                             label = state.runActivityLabel ?: "等待助手…",
-                            showSpinner = state.streamingText.isEmpty(),
+                            showSpinner = state.streamingText.isEmpty() && state.streamingReasoning.isEmpty(),
                         )
                         AgentHairline()
                     }
@@ -528,10 +528,13 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
         state.lines.size,
         state.toolTrail.size,
         state.streamingText.length,
+        state.streamingReasoning.length,
         state.isRunning,
         state.runActivityLabel,
     ) {
-        if (!state.isRunning && state.streamingText.isEmpty()) return@LaunchedEffect
+        if (!state.isRunning && state.streamingText.isEmpty() && state.streamingReasoning.isEmpty()) {
+            return@LaunchedEffect
+        }
         val total = listState.layoutInfo.totalItemsCount
         if (total > 0) {
             listState.scrollToItem(total - 1)
@@ -566,17 +569,27 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
                 ToolTrailBubble(state.toolTrail)
             }
         }
-        if (state.isRunning && state.streamingText.isEmpty() && state.toolTrail.isEmpty()) {
+        if (
+            state.isRunning &&
+            state.streamingText.isEmpty() &&
+            state.streamingReasoning.isEmpty() &&
+            state.toolTrail.isEmpty()
+        ) {
             item {
                 AssistantPendingBubble(
                     label = state.runActivityLabel ?: "等待助手…",
                 )
             }
         }
-        if (state.streamingText.isNotEmpty()) {
+        if (state.streamingText.isNotEmpty() || state.streamingReasoning.isNotEmpty()) {
             item {
                 MessageBubble(
-                    ChatLine("assistant", state.streamingText + "▌"),
+                    ChatLine(
+                        role = "assistant",
+                        content = state.streamingText + if (state.streamingText.isNotEmpty()) "▌" else "",
+                        reasoning = state.streamingReasoning +
+                            if (state.streamingReasoning.isNotEmpty() && state.streamingText.isEmpty()) "▌" else "",
+                    ),
                     markdown = false,
                 )
             }
@@ -671,22 +684,57 @@ private fun MessageBubble(line: ChatLine, markdown: Boolean) {
                 background = bubbles.assistantBackground,
                 borderColor = bubbles.assistantBorder,
             ) {
-                if (markdown) {
-                    Markdown(
-                        content = line.content,
-                        colors = markdownColor(
-                            text = MaterialTheme.colorScheme.onSurface,
-                            codeBackground = MaterialTheme.colorScheme.surfaceVariant,
-                        ),
-                    )
-                } else {
-                    Text(
-                        line.content,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                if (line.reasoning.isNotBlank()) {
+                    CollapsibleReasoningBlock(line.reasoning)
+                }
+                if (line.content.isNotBlank()) {
+                    if (markdown) {
+                        Markdown(
+                            content = line.content,
+                            colors = markdownColor(
+                                text = MaterialTheme.colorScheme.onSurface,
+                                codeBackground = MaterialTheme.colorScheme.surfaceVariant,
+                            ),
+                        )
+                    } else {
+                        Text(
+                            line.content,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CollapsibleReasoningBlock(reasoning: String) {
+    var expanded by rememberSaveable(reasoning) { mutableStateOf(false) }
+    val trimmed = reasoning.trim()
+    if (trimmed.isEmpty()) return
+    val title = if (expanded) {
+        "收起思考过程"
+    } else {
+        "思考过程（${trimmed.length} 字）"
+    }
+    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+        Text(
+            text = title,
+            modifier = Modifier
+                .clickable { expanded = !expanded }
+                .padding(vertical = 2.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        AnimatedVisibility(visible = expanded) {
+            Text(
+                text = trimmed,
+                modifier = Modifier.padding(top = 4.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

@@ -23,6 +23,9 @@ final class TranscriptCodec {
             ObjectNode root = mapper.createObjectNode();
             root.put("role", message.getRole());
             root.put("content", message.getContent());
+            if (!message.getReasoningContent().isBlank()) {
+                root.put("reasoning", message.getReasoningContent());
+            }
             root.put("createdAt", message.getTimestampMs());
             root.put("runId", runId == null ? "" : runId);
             if (message.getToolCallId() != null) {
@@ -49,6 +52,7 @@ final class TranscriptCodec {
             JsonNode root = mapper.readTree(line);
             String role = root.path("role").asText("");
             String content = root.path("content").asText("");
+            String reasoning = root.path("reasoning").asText("");
             long createdAt = root.path("createdAt").asLong(System.currentTimeMillis());
             String toolCallId = root.hasNonNull("toolCallId") ? root.get("toolCallId").asText() : null;
             boolean error = root.path("error").asBoolean(false);
@@ -62,7 +66,7 @@ final class TranscriptCodec {
                     ));
                 }
             }
-            return new AgentMessage(role, content, createdAt, toolCallId, error, toolCalls);
+            return new AgentMessage(role, content, reasoning, createdAt, toolCallId, error, toolCalls);
         } catch (Exception e) {
             throw new IllegalStateException("transcript decode failed: " + line, e);
         }

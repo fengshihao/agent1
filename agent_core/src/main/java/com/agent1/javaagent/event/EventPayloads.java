@@ -52,6 +52,24 @@ public final class EventPayloads {
         }
     }
 
+    public static final class ReasoningUpdate {
+        private final String delta;
+        private final AgentMessage partialMessage;
+
+        public ReasoningUpdate(String delta, AgentMessage partialMessage) {
+            this.delta = delta;
+            this.partialMessage = partialMessage;
+        }
+
+        public String getDelta() {
+            return delta;
+        }
+
+        public AgentMessage getPartialMessage() {
+            return partialMessage;
+        }
+    }
+
     public static final class Usage {
         private final long inputTokens;
         private final long outputTokens;

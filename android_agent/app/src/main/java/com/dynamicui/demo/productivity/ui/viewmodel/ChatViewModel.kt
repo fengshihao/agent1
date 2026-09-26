@@ -37,7 +37,8 @@ class ChatViewModel(
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
 
     private val streamLock = Any()
-    private val streamBuffer = StringBuilder()
+    private val contentBuffer = StringBuilder()
+    private val reasoningBuffer = StringBuilder()
     private var streamGeneration = 0
     @Volatile
     private var flushJob: Job? = null
@@ -72,6 +73,7 @@ class ChatViewModel(
         _state.value = _state.value.copy(
             lines = messages.map { it.toChatLine() },
             streamingText = "",
+            streamingReasoning = "",
             toolTrail = emptyList(),
             isLoadingTranscript = false,
         )
@@ -90,10 +92,11 @@ class ChatViewModel(
             _state.value = _state.value.copy(configError = err)
             return
         }
-        resetStreamBuffer()
+        resetStreamBuffers()
         _state.value = _state.value.copy(
             isRunning = true,
             streamingText = "",
+            streamingReasoning = "",
             toolTrail = emptyList(),
             runActivityLabel = "正在连接模型…",
             lines = _state.value.lines + ChatLine(role = "user", content = trimmed),
@@ -105,7 +108,11 @@ class ChatViewModel(
                         when (event.type) {
                             AgentEventType.MESSAGE_UPDATE -> {
                                 val payload = event.payload as EventPayloads.MessageUpdate
-                                enqueueDelta(payload.delta)
+                                enqueueContentDelta(payload.delta)
+                            }
+                            AgentEventType.REASONING_UPDATE -> {
+                                val payload = event.payload as EventPayloads.ReasoningUpdate
+                                enqueueReasoningDelta(payload.delta)
                             }
                             else -> viewModelScope.launch(Dispatchers.Main) {
                                 publishStreamNow()
@@ -115,15 +122,15 @@ class ChatViewModel(
                     }
                 }
             } catch (e: Exception) {
-                // Run 失败须在 UI 展示一条助手消息，不可静默；具体类型因 Gateway/Host 多样而宽 catch。
                 _state.value = _state.value.copy(
                     lines = _state.value.lines + ChatLine("assistant", "错误: ${e.message}"),
                 )
             } finally {
-                resetStreamBuffer()
+                resetStreamBuffers()
                 _state.value = _state.value.copy(
                     isRunning = false,
                     streamingText = "",
+                    streamingReasoning = "",
                     runActivityLabel = null,
                 )
                 loadTranscriptIntoState(initialLoad = false)
@@ -137,12 +144,24 @@ class ChatViewModel(
         }
     }
 
-    private fun enqueueDelta(delta: String) {
+    private fun enqueueContentDelta(delta: String) {
         if (delta.isEmpty()) return
-        val generation = synchronized(streamLock) {
-            streamBuffer.append(delta)
-            streamGeneration
+        synchronized(streamLock) {
+            contentBuffer.append(delta)
         }
+        scheduleStreamFlush()
+    }
+
+    private fun enqueueReasoningDelta(delta: String) {
+        if (delta.isEmpty()) return
+        synchronized(streamLock) {
+            reasoningBuffer.append(delta)
+        }
+        scheduleStreamFlush()
+    }
+
+    private fun scheduleStreamFlush() {
+        val generation = synchronized(streamLock) { streamGeneration }
         if (flushJob?.isActive == true) return
         flushJob = viewModelScope.launch(Dispatchers.Main) {
             delay(STREAM_FLUSH_MS)
@@ -151,18 +170,22 @@ class ChatViewModel(
     }
 
     private fun publishStream(generation: Int) {
-        val text = synchronized(streamLock) {
+        val (content, reasoning) = synchronized(streamLock) {
             if (generation != streamGeneration) return
-            streamBuffer.toString()
+            contentBuffer.toString() to reasoningBuffer.toString()
         }
         if (_state.value.isRunning) {
             _state.value = _state.value.copy(
-                streamingText = text,
-                runActivityLabel = if (text.isNotEmpty()) null else _state.value.runActivityLabel,
+                streamingText = content,
+                streamingReasoning = reasoning,
+                runActivityLabel = streamActivityLabel(content, reasoning),
             )
         }
         val pending = synchronized(streamLock) {
-            generation == streamGeneration && streamBuffer.length > text.length
+            generation == streamGeneration && (
+                contentBuffer.length > content.length ||
+                    reasoningBuffer.length > reasoning.length
+                )
         }
         if (pending) {
             flushJob = viewModelScope.launch(Dispatchers.Main) {
@@ -173,28 +196,36 @@ class ChatViewModel(
     }
 
     private fun publishStreamNow() {
-        val text = synchronized(streamLock) {
-            if (streamBuffer.isEmpty()) return
-            streamBuffer.toString()
+        val (content, reasoning) = synchronized(streamLock) {
+            if (contentBuffer.isEmpty() && reasoningBuffer.isEmpty()) return
+            contentBuffer.toString() to reasoningBuffer.toString()
         }
         if (_state.value.isRunning) {
             _state.value = _state.value.copy(
-                streamingText = text,
-                runActivityLabel = if (text.isNotEmpty()) null else _state.value.runActivityLabel,
+                streamingText = content,
+                streamingReasoning = reasoning,
+                runActivityLabel = streamActivityLabel(content, reasoning),
             )
         }
     }
 
-    private fun resetStreamBuffer() {
+    private fun streamActivityLabel(content: String, reasoning: String): String? {
+        if (content.isNotEmpty()) return null
+        if (reasoning.isNotEmpty()) return "思考中…"
+        return _state.value.runActivityLabel
+    }
+
+    private fun resetStreamBuffers() {
         synchronized(streamLock) {
             streamGeneration += 1
-            streamBuffer.setLength(0)
+            contentBuffer.setLength(0)
+            reasoningBuffer.setLength(0)
         }
     }
 
     private fun onAgentEvent(event: AgentEvent) {
         when (event.type) {
-            AgentEventType.MESSAGE_UPDATE -> Unit
+            AgentEventType.MESSAGE_UPDATE, AgentEventType.REASONING_UPDATE -> Unit
             AgentEventType.AGENT_START -> {
                 _state.value = _state.value.copy(runActivityLabel = "助手运行中…")
             }
@@ -202,7 +233,7 @@ class ChatViewModel(
                 _state.value = _state.value.copy(runActivityLabel = "思考中…")
             }
             AgentEventType.MESSAGE_START -> {
-                if (_state.value.streamingText.isEmpty()) {
+                if (_state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()) {
                     _state.value = _state.value.copy(runActivityLabel = "正在生成回复…")
                 }
             }
@@ -225,12 +256,18 @@ class ChatViewModel(
                 val payload = event.payload as EventPayloads.ToolExecutionEnd
                 val preview = payload.result?.text?.take(120) ?: ""
                 _state.value = _state.value.copy(
-                    runActivityLabel = if (_state.value.streamingText.isEmpty()) "工具已完成" else null,
+                    runActivityLabel = if (
+                        _state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()
+                    ) {
+                        "工具已完成"
+                    } else {
+                        null
+                    },
                     toolTrail = _state.value.toolTrail + "✓ ${preview.replace('\n', ' ')}",
                 )
             }
             AgentEventType.TURN_END -> {
-                if (_state.value.streamingText.isEmpty()) {
+                if (_state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()) {
                     _state.value = _state.value.copy(runActivityLabel = "准备下一步…")
                 }
             }
@@ -244,7 +281,12 @@ class ChatViewModel(
 
     private fun AgentMessage.toChatLine(): ChatLine {
         val tool = AgentMessage.ROLE_TOOL_RESULT == role
-        return ChatLine(role = role, content = content ?: "", isTool = tool)
+        return ChatLine(
+            role = role,
+            content = content,
+            reasoning = reasoningContent,
+            isTool = tool,
+        )
     }
 
     fun exportDiagnostics(activity: Context) {
