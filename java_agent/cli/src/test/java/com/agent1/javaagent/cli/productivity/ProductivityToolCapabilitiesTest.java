@@ -14,7 +14,11 @@ class ProductivityToolCapabilitiesTest {
         }
         String summary = ProductivityToolCapabilities.summaryForCli(true);
         assertTrue(summary.contains("MCP"));
-        assertTrue(summary.contains("WebView") || summary.contains("无 WebView"));
+        assertTrue(
+            summary.contains("webview_exec")
+                || summary.contains("WebView")
+                || summary.contains("Chromium")
+        );
     }
 
     @Test

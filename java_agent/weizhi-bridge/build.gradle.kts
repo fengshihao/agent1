@@ -35,12 +35,22 @@ val syncMcpSources = tasks.register<Copy>("syncMcpSources") {
     into(layout.buildDirectory.dir("generated/mcp-sources"))
 }
 
+val syncWebViewJvmSources = tasks.register<Copy>("syncWebViewJvmSources") {
+    from(weizhiRepo.resolve("android/agent-tools-webview/src/main/java")) {
+        include("com/weizhi/agent/web/WebViewTask.java")
+        include("com/weizhi/agent/web/BridgeCodec.java")
+        include("com/weizhi/agent/web/WebViewQueue.java")
+    }
+    into(layout.buildDirectory.dir("generated/webview-jvm-sources"))
+}
+
 sourceSets {
     named("main") {
         java {
             srcDir(weizhiRepo.resolve("java"))
             srcDir(weizhiRepo.resolve("android/agent-tools/src/main/java"))
             srcDir(layout.buildDirectory.dir("generated/mcp-sources"))
+            srcDir(layout.buildDirectory.dir("generated/webview-jvm-sources"))
             srcDir("src/shared/java")
             srcDir("src/main/java")
             exclude("**/AgentToolsBundle.java")
@@ -50,7 +60,7 @@ sourceSets {
 }
 
 tasks.named("compileJava") {
-    dependsOn(syncMcpSources)
+    dependsOn(syncMcpSources, syncWebViewJvmSources)
 }
 
 tasks.test {

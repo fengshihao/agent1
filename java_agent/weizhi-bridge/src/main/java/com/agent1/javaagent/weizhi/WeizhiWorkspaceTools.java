@@ -2,6 +2,8 @@ package com.agent1.javaagent.weizhi;
 
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.WorkspaceToolProvider;
+import com.agent1.javaagent.weizhi.desktop.DesktopWebViewExecTool;
+import com.agent1.javaagent.weizhi.desktop.cdp.CdpWebViewRuntime;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.weizhi.agent.mcp.McpAgentExtension;
 import com.weizhi.agent.skill.CompositeSkillRepository;
@@ -16,9 +18,12 @@ import java.util.List;
 
 /**
  * 桌面生产力路径追加的 Weizhi 工具环。
- * 文件读写仍用 Agent1 的 read/write/edit/list；这里补搜索、压缩、bash、skill 与 MCP（对齐 Android Weizhi 子集，无 WebView）。
+ * 文件读写仍用 Agent1 的 read/write/edit/list；这里补搜索、压缩、bash、skill、MCP 与桌面 CDP {@code webview_exec}。
  */
 public final class WeizhiWorkspaceTools {
+
+    private static final java.nio.file.Path DEFAULT_WEIZHI_REPO =
+        WeizhiHostSupport.defaultWeizhiRepo();
 
     private WeizhiWorkspaceTools() {
     }
@@ -55,6 +60,11 @@ public final class WeizhiWorkspaceTools {
         toolkit.registerTool(buildLoadSkillTool(root, projectRootForSkills));
         if (agentRootForMcp != null) {
             new McpAgentExtension(agentRootForMcp).register(toolkit, weizhiSandbox);
+        }
+        if (CdpWebViewRuntime.isAvailable()) {
+            CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(DEFAULT_WEIZHI_REPO);
+            toolkit.registerTool(new DesktopWebViewExecTool(runtime, weizhiSandbox));
+            toolkit.addJsExposed("webview_exec");
         }
         return WeizhiToolkitAdapters.toAgentTools(toolkit);
     }
