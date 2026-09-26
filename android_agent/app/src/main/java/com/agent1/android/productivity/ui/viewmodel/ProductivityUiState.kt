@@ -26,6 +26,8 @@ data class ChatLine(
 
 data class ChatUiState(
     val sessionId: String = "",
+    /** 当前会话 workspace 绝对路径，供 UI 加载 Markdown 本地图。 */
+    val workspacePath: String = "",
     val title: String = "",
     val isLoadingTranscript: Boolean = true,
     val lines: List<ChatLine> = emptyList(),

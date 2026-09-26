@@ -7,20 +7,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.agent1.android.productivity.logic.data.SessionWorkspace
+import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
+import java.nio.file.Paths
 
 @Composable
 fun WorkspaceImagePreview(
-    sessionId: String,
+    workspaceAbsolutePath: String,
     workspaceRelativePath: String,
     warning: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    val file = SessionWorkspace.resolveFile(context, sessionId, workspaceRelativePath)
     if (warning != null) {
         Text(
             text = warning,
@@ -29,6 +27,16 @@ fun WorkspaceImagePreview(
             modifier = modifier,
         )
     }
+    if (workspaceAbsolutePath.isBlank()) {
+        Text(
+            text = "工作区路径不可用",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = modifier,
+        )
+        return
+    }
+    val file = SessionWorkspacePaths.resolveFile(Paths.get(workspaceAbsolutePath), workspaceRelativePath)
     if (file == null) {
         Text(
             text = "找不到图片：$workspaceRelativePath",

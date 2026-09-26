@@ -560,7 +560,7 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
         items(state.lines.size) { index ->
             val line = state.lines[index]
             val useMarkdown = !line.isTool && line.role != "user" && line.content.length <= 6_000
-            MessageBubble(line, sessionId = state.sessionId, markdown = useMarkdown)
+            MessageBubble(line, workspacePath = state.workspacePath, markdown = useMarkdown)
         }
         if (state.toolTrail.isNotEmpty()) {
             item {
@@ -588,7 +588,7 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
                         reasoning = state.streamingReasoning +
                             if (state.streamingReasoning.isNotEmpty() && state.streamingText.isEmpty()) "▌" else "",
                     ),
-                    sessionId = state.sessionId,
+                    workspacePath = state.workspacePath,
                     markdown = false,
                 )
             }
@@ -645,7 +645,7 @@ private fun ToolTrailBubble(trail: List<String>) {
 @Composable
 private fun MessageBubble(
     line: ChatLine,
-    sessionId: String,
+    workspacePath: String,
     markdown: Boolean,
 ) {
     val bubbles = chatBubbleColors()
@@ -681,7 +681,7 @@ private fun MessageBubble(
                     )
                     line.workspaceImagePath?.let { path ->
                         WorkspaceImagePreview(
-                            sessionId = sessionId,
+                            workspaceAbsolutePath = workspacePath,
                             workspaceRelativePath = path,
                             warning = line.imageWarning,
                         )
@@ -703,7 +703,7 @@ private fun MessageBubble(
                     if (markdown) {
                         WorkspaceMarkdown(
                             content = line.content,
-                            sessionId = sessionId,
+                            workspaceAbsolutePath = workspacePath,
                         )
                     } else {
                         Text(

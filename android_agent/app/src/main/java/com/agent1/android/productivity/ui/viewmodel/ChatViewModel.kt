@@ -11,7 +11,7 @@ import com.agent1.javaagent.modelcatalog.QwenModelCatalog
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
-import com.agent1.android.productivity.logic.data.SessionWorkspace
+import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -78,6 +78,7 @@ class ChatViewModel(
             streamingReasoning = "",
             toolTrail = emptyList(),
             isLoadingTranscript = false,
+            workspacePath = sessionWorkspacePath(),
         )
     }
 
@@ -284,7 +285,7 @@ class ChatViewModel(
     private fun AgentMessage.toChatLine(): ChatLine {
         val tool = AgentMessage.ROLE_TOOL_RESULT == role
         if (tool) {
-            val ws = SessionWorkspace.workspaceRoot(appContext, sessionId)
+            val ws = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
             val display = ChatTranscriptFormatting.formatToolResult(content, ws)
             return ChatLine(
                 role = role,
@@ -310,6 +311,10 @@ class ChatViewModel(
             onBusy = { busy -> _state.value = _state.value.copy(exportInProgress = busy) },
             onMessage = { message -> _state.value = _state.value.copy(exportMessage = message) },
         )
+    }
+
+    private fun sessionWorkspacePath(): String {
+        return SessionWorkspacePaths.workspaceRoot(appContext, sessionId)?.toAbsolutePath()?.toString().orEmpty()
     }
 
     companion object {
