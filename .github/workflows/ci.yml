@@ -80,6 +80,8 @@ jobs:
         if: ${{ secrets.WEIZHI_PREBUILT_URL != '' }}
         env:
           WEIZHI_PREBUILT_URL: ${{ secrets.WEIZHI_PREBUILT_URL }}
+          # 跨仓库读 weizhi Actions artifact / 私有 Release 时必填（GITHUB_TOKEN 仅本仓库）
+          WEIZHI_GITHUB_TOKEN: ${{ secrets.WEIZHI_GITHUB_TOKEN }}
         run: chmod +x ./import-weizhi-prebuilt.sh && ./import-weizhi-prebuilt.sh
 
       - name: Set up JDK 17
