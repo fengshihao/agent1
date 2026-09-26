@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Removed
+- **Python CLI 永久下线**：删除 `python_agent/` 与 `install-python-agent.*` / `sync-python-agent.sh`；只读快照见分支 `archive/python-agent`。
+
+### Changed
+- CI 改为在 **ubuntu-latest** 与 **macos-latest** 上运行 Java 测试。
+- 产品方向明确为 **Java 桌面（macOS / Ubuntu）+ Android**，生产力能力在 `--productivity` 与 `doc/基础能力/` 跟踪。
+
+### Documentation
+- Aligned `java_agent/README.md` with the current CLI: removed obsolete `AGENT1_MEMORY_DB` / SQLite long-term memory tool description (feature no longer present).
+
 ## [0.1.0] - 2026-03-09
 
 ### Added

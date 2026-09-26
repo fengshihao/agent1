@@ -13,19 +13,9 @@ java {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":weizhi-bridge"))
     implementation("org.jline:jline:3.26.3")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
-}
-
-sourceSets {
-    named("main") {
-        java.srcDir("../src/main/java")
-        java.include("com/agent1/javaagent/cli/**")
-    }
-    named("test") {
-        java.srcDir("../src/test/java")
-        java.include("com/agent1/javaagent/cli/**")
-    }
 }
 
 application {

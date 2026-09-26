@@ -4,33 +4,121 @@ on:
   push:
     branches: [master, main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
-  smoke-test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+  java-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v3
+      - name: Sync Weizhi (optional)
+        if: ${{ secrets.WEIZHI_GIT_URL != '' }}
+        env:
+          WEIZHI_GIT_URL: ${{ secrets.WEIZHI_GIT_URL }}
+        run: chmod +x ./sync-weizhi.sh && ./sync-weizhi.sh
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          distribution: temurin
+          java-version: "17"
 
-      - name: Install dependencies
-        run: uv sync
+      - name: Run tests (Weizhi optional)
+        run: |
+          set -euo pipefail
+          WEIZHI_DIR="${GITHUB_WORKSPACE}/weizhi"
+          if [ ! -d "${WEIZHI_DIR}/android" ] && [ -d "${GITHUB_WORKSPACE}/../weizhi/android" ]; then
+            WEIZHI_DIR="${GITHUB_WORKSPACE}/../weizhi"
+          fi
+          if [ -d "${WEIZHI_DIR}" ] && [ -f "${WEIZHI_DIR}/scripts/test.sh" ]; then
+            (cd "${WEIZHI_DIR}" && WEIZHI_SKIP_ASAN=1 ./scripts/test.sh)
+            AGENT1_WEIZHI_REPO="${WEIZHI_DIR}" ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test :weizhi-bridge:test
+          else
+            echo "skip weizhi: 未 clone weizhi（可配置仓库 Secret WEIZHI_GIT_URL）— 仅 :core:test"
+            ./java_agent/gradlew --no-daemon -p java_agent :core:test
+          fi
 
-      - name: Compile source
-        run: uv run python -m compileall src
+  quality-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
 
-      - name: Import smoke test
-        run: uv run python -c "from agent1.tools.bash import run_bash; from agent1.tools.python import run_python; print('smoke-ok')"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Java PMD + SpotBugs
+        run: ./check-java-agent-static.sh
+
+      - name: Android layering + main-thread gateway
+        run: ./check-android-agent-static.sh
+
+  android-assemble-debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync Weizhi source (optional)
+        if: ${{ secrets.WEIZHI_GIT_URL != '' }}
+        env:
+          WEIZHI_GIT_URL: ${{ secrets.WEIZHI_GIT_URL }}
+        run: chmod +x ./sync-weizhi.sh && ./sync-weizhi.sh
+
+      - name: Import Weizhi prebuilt Maven (optional)
+        if: ${{ secrets.WEIZHI_PREBUILT_URL != '' }}
+        env:
+          WEIZHI_PREBUILT_URL: ${{ secrets.WEIZHI_PREBUILT_URL }}
+        run: chmod +x ./import-weizhi-prebuilt.sh && ./import-weizhi-prebuilt.sh
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK components
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
+          if [ -x "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKM="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+            echo "${ANDROID_HOME}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          else
+            SDKM="${ANDROID_HOME}/cmdline-tools/16.0/bin/sdkmanager"
+            echo "${ANDROID_HOME}/cmdline-tools/16.0/bin" >> "$GITHUB_PATH"
+          fi
+          echo "${ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
+          yes | "$SDKM" --licenses >/dev/null
+          "$SDKM" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Publish java-agent-core to local Maven
+        run: ./java_agent/gradlew --no-daemon -p java_agent publishCoreToLocalRepo
+
+      - name: Assemble Debug APK (no API key baked in)
+        working-directory: android_agent
+        env:
+          DASHSCOPE_API_KEY: ""
+        run: ./gradlew --no-daemon :app:assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dynamic-ui-demo-debug-apk
+          path: android_agent/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

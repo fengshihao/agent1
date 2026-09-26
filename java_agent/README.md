@@ -21,13 +21,7 @@ Java 版状态化 Agent 内核（MVP），对齐 `pi-mono/packages/agent` 的核
 gradle -p java_agent :core:test :cli:test
 ```
 
-Java 版本要求：17（已在 `java_agent/build.gradle.kts` 与 `java_agent/gradle.properties` 固定）。
-
-如果你的 `~/.gradle/gradle.properties` 里也配置了 `org.gradle.java.home`，可能会覆盖项目配置，可用下面命令强制本次构建走 17：
-
-```bash
-gradle -Dorg.gradle.java.home="/Users/fengshihao/.jdks/jdk-17.jdk/Contents/Home" -p java_agent test
-```
+Java 版本要求：17（`java_agent/build.gradle.kts` 中 toolchain 已固定）。请使用 `JAVA_HOME` 指向 JDK 17；本机路径请写在 `~/.gradle/gradle.properties`，勿提交到仓库。
 
 ## PC 最小示例
 
@@ -39,7 +33,7 @@ gradle -Dorg.gradle.java.home="/Users/fengshihao/.jdks/jdk-17.jdk/Contents/Home"
 - `OPENAI_BASE_URL` 或 `DASHSCOPE_BASE_URL`
 - `OPENAI_MODEL`（可选）
 
-## Java CLI（仿 Python agent.py）
+## Java CLI（经典终端）
 
 入口：`com.agent1.javaagent.cli.JavaAgentCli`
 
@@ -47,7 +41,9 @@ gradle -Dorg.gradle.java.home="/Users/fengshihao/.jdks/jdk-17.jdk/Contents/Home"
 - 单次模式：`gradle -p java_agent runJavaAgentCli --args="帮我查看当前目录文件"`
 - 交互模式：`gradle -p java_agent runJavaAgentCli`
 - 非流式：`gradle -p java_agent runJavaAgentCli --args="--no-stream 你好"`
-- 快捷命令（仓库根目录）：`./java-agent` 或 `./java-agent --no-stream 你好`
+- 快捷命令（仓库根目录）：
+  - `./run-java-agent`：打 fat-jar 后用 `java -jar` 跑（与 `java_agent/bin/java-agent` 相同，脚本内有中文说明）
+  - `./run-java-agent-gradle`：不经 jar，直接用 Gradle `runJavaAgentCli` 跑（适合刚改源码要立刻试）
 - 标准入口（推荐）：`java_agent/bin/java-agent`
 
 fat jar（可单独运行）：
@@ -72,8 +68,7 @@ fat jar（可单独运行）：
 - `OPENAI_BASE_URL`
 - `OPENAI_MODEL`（默认 `qwen3.5-flash`）
 - `AGENT1_LOG_FILE`（覆盖 JSONL 日志路径，默认 `./logs/agent1.jsonl`）
-- `AGENT1_MAX_CONTEXT_MESSAGES`（发往 LLM 的 user/assistant/tool 消息最多保留最近 N 条；`0` 或未设置表示不截断。内存中的完整历史仍保留在 `AgentState`，仅请求上下文缩短；配合 SQLite 记忆可把 N 调小）
-- `AGENT1_MEMORY_DB`（可选，覆盖长期记忆 SQLite 文件路径；默认 `./.agent1/memory.sqlite`。模型通过 `memory` 工具读写，不再依赖 `run_bash` + `sqlite3`；每条用户消息后的**首次**模型请求会在 system 中附带当前库的表结构快照）
+- `AGENT1_MAX_CONTEXT_MESSAGES`（发往 LLM 的 user/assistant/tool 消息最多保留最近 N 条；`0` 或未设置表示不截断。内存中的完整历史仍保留在 `AgentState`，仅请求上下文缩短；上下文偏长时可适当调小 N 以控制 token）
 
 CLI 输出增强：
 - 彩色状态提示（可通过 `NO_COLOR=1` 关闭）
@@ -101,6 +96,7 @@ gradle -p java_agent publishCoreToLocalRepo
 一键发布并验证 Android 编译：
 
 ```bash
+./publish-java-agent-core.sh   # 仓库根薄脚本（推荐）
 java_agent/bin/publish-core-and-verify-android
 ```
 

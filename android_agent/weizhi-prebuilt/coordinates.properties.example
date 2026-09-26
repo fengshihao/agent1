@@ -1,0 +1,12 @@
+# 从 weizhi 私有仓库 publish 后，复制到 android_agent/weizhi-prebuilt/coordinates.properties
+# maven/ 目录应为标准 Maven 本地仓库布局（含 com/weizhi/...）
+
+group=com.weizhi
+version=0.1.0-SNAPSHOT
+
+# 与 settings.gradle.kts 源码集成时的 Gradle 子工程名一致
+artifact.weizhi=weizhi
+artifact.caps=caps
+artifact.agent-tools=agent-tools
+artifact.agent-tools-webview=agent-tools-webview
+artifact.agent-tools-mcp=agent-tools-mcp

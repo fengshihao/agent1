@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!-- agent1 PMD 规则集（见 doc/代码质量硬性要求与静态检测.md）。
+     聚焦：不吞异常、资源关闭、基本健壮性。豁免：// NOPMD + 理由 -->
+<ruleset name="agent1"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
+    <description>agent1 代码质量硬性要求规则集</description>
+
+    <rule ref="category/java/errorprone.xml/EmptyCatchBlock"/>
+    <rule ref="category/java/errorprone.xml/EmptyWhileStmt"/>
+    <rule ref="category/java/errorprone.xml/CloseResource"/>
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod"/>
+    <rule ref="category/java/bestpractices.xml/UnusedLocalVariable"/>
+    <rule ref="category/java/bestpractices.xml/UnusedFormalParameter"/>
+    <rule ref="category/java/bestpractices.xml/AvoidPrintStackTrace"/>
+</ruleset>

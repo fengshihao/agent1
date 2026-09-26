@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# =============================================================================
+# 作用（仓库根目录快捷脚本）
+#   用 Gradle 的 runJavaAgentCli 直接拉起 Java CLI（不经 fat-jar）。
+#   适合刚改完 core/cli 源码、想立刻用 Gradle classpath 跑一遍，避免等 fatJar。
+#   用法：
+#     - 未写「--args」时：所有参数视为传给 JavaAgentCli 的一段命令行（与 ./run-java-agent 传参习惯一致），
+#       例如：./run-java-agent-gradle --no-stream 你好
+#     - 需要自行控制 Gradle 传参时：显式写 --args=... 或 --args ...（将原样交给 gradlew）。
+#     - 无参数：进入交互模式。
+# =============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+JAVA_AGENT_DIR="${SCRIPT_DIR}/java_agent"
+
+if [[ ! -x "${JAVA_AGENT_DIR}/gradlew" ]]; then
+  echo "错误: 找不到 ${JAVA_AGENT_DIR}/gradlew" >&2
+  exit 1
+fi
+
+cd "${JAVA_AGENT_DIR}"
+
+has_explicit_args=false
+for a in "$@"; do
+  if [[ "$a" == "--args" || "$a" == --args=* ]]; then
+    has_explicit_args=true
+    break
+  fi
+done
+
+if [[ "${has_explicit_args}" == true ]]; then
+  exec ./gradlew --no-daemon runJavaAgentCli "$@"
+fi
+
+if [[ "$#" -eq 0 ]]; then
+  exec ./gradlew --no-daemon runJavaAgentCli
+fi
+
+exec ./gradlew --no-daemon runJavaAgentCli "--args=$*"

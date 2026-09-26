@@ -7,9 +7,9 @@ assignees: ''
 ---
 
 ## 环境信息
-- OS:
-- Python:
-- Shell:
+- OS:（macOS / Ubuntu / Android）
+- JDK:
+- 模块:（java_agent / agent_core / android_agent）
 - 版本/commit:
 
 ## 复现步骤

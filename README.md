@@ -1,240 +1,140 @@
 # Agent1
 
-> A production-friendly CLI agent starter powered by Pydantic AI and Qwen.
+> 面向生产的 JVM 智能体工程：**Java CLI**（macOS / Ubuntu）与 **Android** 宿主共用 `agent_core`，支持工具调用、结构化事件日志与基础运行约束。
 
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Java](https://img.shields.io/badge/Java-17-blue.svg)](https://adoptium.net/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Package Manager](https://img.shields.io/badge/package%20manager-uv-purple.svg)](https://docs.astral.sh/uv/)
-[![Model](https://img.shields.io/badge/model-Qwen3.5--plus-orange.svg)](https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope)
+[![Model](https://img.shields.io/badge/model-Qwen3.5--flash-orange.svg)](https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope)
 
-`agent1` 是一个轻量、可观测、跨平台的命令行智能体工程模板，默认接入阿里云 DashScope（Qwen3.5-plus），并提供工具调用、结构化日志、token 用量监控与预算保护能力。
+## 项目目标
 
-## Why Agent1
+在 **JVM** 上建立生产力向智能体参考实现：持久会话、工作区沙箱、对话与工具循环、流式输出、JSONL 事件。桌面侧通过 **Java CLI** 在 **macOS 与 Ubuntu** 上运行；移动端通过 **Android** 集成同一核心库。
 
-- 开箱即用的 **CLI Agent**（单次/交互、流式/非流式）
-- 内置 **工具调用**：Shell 命令与 Python 脚本执行
-- 完整 **可观测性**：JSONL 事件日志 + run_id 追踪
-- 强化 **成本控制**：每轮展示 token 用量，支持会话预算上限
-- **跨平台适配**：macOS / Ubuntu / Windows
-- **环境感知提示词**：自动将 OS / Python / Shell / CWD 注入系统提示词
+> **不再维护 Python CLI**。历史代码仅只读保留在 [`archive/python-agent`](https://github.com/fengshihao/agent1/tree/archive/python-agent) 分支；新功能请在 Java / Android 路径开发。
 
-## Table of Contents
+## 核心模块
 
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [Architecture](#architecture)
-- [Observability](#observability)
-- [Cross-platform Behavior](#cross-platform-behavior)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
+| 模块 | 是什么 | 典型用途 |
+|------|--------|----------|
+| **`agent_core`** | JVM **Agent 核心库**（Java 17）：运行时、OpenAI 兼容流式 LLM、工具循环、会话/工作区/事件落盘等。 | 被 `java_agent` 引用；可发布为 `com.agent1:java-agent-core` 供 Android 依赖。 |
+| **`java_agent`** | **Gradle 编排 + CLI**：经典 `JavaAgentCli`（bash/python/skill）与 **`--productivity`** 生产力路径（会话、workspace 工具、`events.jsonl`）。 | 本地 CLI、fat-jar、单测。详见 [java_agent/README.md](java_agent/README.md)。 |
+| **`android_agent`** | **Android 示例**：动态 UI Demo，依赖已发布的 core。 | `./build-android-agent.sh`（需 adb）。 |
 
-## Quick Start
+## 当前功能范围
 
-### 1) Install dependencies
+### 生产力路径（`--productivity`，推荐新功能在此演进）
 
-```bash
-cd agent1
-uv sync
-```
+- **会话**：`FileSessionStore`（`meta.json`、`transcript.jsonl`、`workspace/`）
+- **工作区工具**：`read_file` / `write_file` / `edit_file` / `list_dir`（沙箱内）
+- **上下文**：轮次裁剪、`chat_history` 关键词检索
+- **事件**：默认 `~/files/agent/logs/events.jsonl`（可通过 `AGENT1_AGENT_ROOT` 等调整）
+- **配置**：`AgentRuntimeConfig` + 环境变量加载
 
-### 1.5) One-click install (from scratch)
+### 经典 Java CLI
 
-Linux / Ubuntu / macOS / Windows Git Bash:
+- 单次 / 交互、流式 / 非流式；`ReadFileTool`、`RunBashTool`、`RunPythonTool`、`SkillTool`
+- 跨平台 shell 适配（含 Windows，但**官方支持平台为 macOS 与 Ubuntu**）
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/fengshihao/agent1/refs/heads/master/scripts/install.sh | sh
-```
+### `android_agent`
 
-Windows PowerShell:
+- 本地 JSON 动态界面 + Qwen 生成界面；接 core 的多轮对话方向与仓库一致。
 
-```powershell
-irm https://raw.githubusercontent.com/fengshihao/agent1/refs/heads/master/scripts/install.ps1 | iex
-```
+---
 
-Notes:
+## 怎么用
 
-- The installer auto-installs `uv` if missing.
-- If the current package index fails, the installer clears `UV_*` index env vars and retries with official PyPI (`https://pypi.org/simple`).
-- Override install source via `AGENT1_GIT_URL` when needed.
-- After install, reopen terminal if `agent1` is not found in `PATH`.
-- If your network path serves stale raw cache, add a timestamp query to bypass cache:
-  - `curl -fsSL "https://raw.githubusercontent.com/fengshihao/agent1/refs/heads/master/scripts/install.sh?v=$(date +%s)" | sh`
-
-### 2) Configure model credentials
+### 环境
 
 ```bash
-export DASHSCOPE_API_KEY="your-api-key"
-# or
-export ALIBABA_API_KEY="your-api-key"
+export DASHSCOPE_API_KEY="your-key"   # 或 ALIBABA_API_KEY / OPENAI_API_KEY
 ```
 
-Optional (international endpoint):
+### 测试（Java）
 
 ```bash
-export ALIBABA_BASE_URL="https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+gradle -p java_agent :core:test :cli:test
 ```
 
-### 3) Run
+### Java CLI
 
 ```bash
-# streaming single-run
-uv run agent1 "列出当前目录文件"
+# 生产力助手（推荐）
+./agent1                  # 交互
+./agent1 你好             # 单次提问
+./agent1 models           # 模型与运行时参数
+./agent1 logs failed      # 查事件日志
 
-# non-streaming single-run
-uv run agent1 "1+1等于几" --no-stream
-
-# interactive session
-uv run agent1
+# 经典 CLI（bash/python/skill）
+./run-java-agent "列出当前目录文件"
+# 或跳过 fat-jar、直接 Gradle：
+./run-java-agent-gradle "列出当前目录文件"
 ```
 
-If installed globally (`uv tool install -e .`), use `agent1` directly.
-
-## Configuration
-
-| Variable | Description | Default |
-|---|---|---|
-| `DASHSCOPE_API_KEY` / `ALIBABA_API_KEY` | Model API key (one required) | None |
-| `ALIBABA_BASE_URL` | DashScope endpoint | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
-| `AGENT1_LOG_FILE` | JSONL log file path | `logs/agent1.jsonl` |
-| `AGENT1_MAX_TOTAL_TOKENS` | Session token budget guard | Unlimited |
-
-## Usage
-
-### Common workflows
+发布 core 给 Android：
 
 ```bash
-# ask a coding question
-uv run agent1 "帮我写一个读取 JSON 文件并校验字段的 Python 脚本"
-
-# force non-stream mode
-uv run agent1 "解释一下这段日志" --no-stream
+./publish-java-agent-core.sh
 ```
 
-### Session controls
+能力跟踪与落地顺序见 **[doc/基础能力/README.md](doc/基础能力/README.md)**。
 
-- `Ctrl + C` or `Ctrl + D`: exit interactive mode
-- Budget exceeded (`AGENT1_MAX_TOTAL_TOKENS`): session stops automatically
+---
 
-## Architecture
+## 环境变量（摘要）
+
+| Variable | Description |
+|---|---|
+| `DASHSCOPE_API_KEY` / `ALIBABA_API_KEY` | 模型 API Key |
+| `ALIBABA_BASE_URL` / `OPENAI_BASE_URL` | OpenAI 兼容基地址 |
+| `AGENT1_AGENT_ROOT` | 会话与日志数据根（生产力路径） |
+| `AGENT1_MAX_CONTEXT_TURNS` 等 | 见 `AgentRuntimeDefaults` 与 [doc/基础能力/13-配置.md](doc/基础能力/13-配置.md) |
+
+经典 CLI 另有 `AGENT1_MAX_CONTEXT_MESSAGES`、`AGENT1_LOG_FILE` 等，见 [java_agent/README.md](java_agent/README.md)。
+
+## 架构示意
 
 ```mermaid
-flowchart TB
-    User[User Input] --> CLI[CLI Layer]
-    CLI --> Agent[Agent Runtime]
-    Agent --> Model[Qwen via DashScope]
-    Agent --> Tools[run_bash / run_python]
-    CLI --> Logs[JSONL Logging]
-    CLI --> Usage[Token Guard]
+flowchart LR
+  subgraph Desktop["Java CLI（macOS / Ubuntu）"]
+    CLI[JavaAgentCli / ProductivityCli]
+    CLI --> Core[agent_core]
+  end
+
+  subgraph Mobile["android_agent"]
+    App[Compose Demo]
+    App --> Core
+  end
+
+  Core --> LLM[Qwen / DashScope 等]
+  Core --> Tools[workspace / bash / skill …]
+  Core --> Events[events.jsonl]
 ```
 
-- CLI orchestrates user interaction, status updates, and output rendering
-- Agent layer handles prompt, model invocation, and tool orchestration
-- Observability layer writes structured events for debugging and auditing
-
-See [Architecture Details](docs/ARCHITECTURE.md) and [Tech Stack](docs/TECH_STACK.md).
-
-## Observability
-
-### Runtime feedback
-
-Terminal output includes:
-
-- request lifecycle status
-- tool call / tool result markers
-- token usage table (per-run + session cumulative)
-
-### Structured logs (JSONL)
-
-- Default path: `logs/agent1.jsonl`
-- Format: one JSON object per line
-
-```bash
-tail -f logs/agent1.jsonl
-```
-
-Windows PowerShell:
-
-```powershell
-Get-Content .\logs\agent1.jsonl -Wait
-```
-
-Key event types:
-
-- `run_started`
-- `model_request`
-- `model_text_delta`
-- `tool_call`
-- `tool_result`
-- `usage`
-- `model_response`
-- `run_completed` / `run_failed`
-
-## Cross-platform Behavior
-
-- `run_python` uses `sys.executable` to avoid `python` vs `python3` mismatch
-- `run_bash` adapts by OS:
-  - Windows: prefer `bash` (e.g., Git Bash), then fallback to `powershell` / `pwsh` / `cmd`
-  - Linux/macOS: `bash` preferred, fallback to `sh`
-- System prompt includes runtime context (OS, Python, Shell, CWD) to reduce invalid command generation
-
-## Testing
-
-Run unit tests:
-
-```bash
-PYTHONPATH=src python -m unittest discover -s tests -v
-```
-
-The Windows shell adaptation tests are in `tests/test_bash_tool.py`, covering:
-
-- Git Bash preferred on Windows when available
-- PowerShell fallback when bash is unavailable
-- cmd fallback when neither bash nor PowerShell is available
-
-## Project Structure
+## 仓库目录结构
 
 ```text
-agent1/
-├── scripts/
-│   ├── install.sh
-│   └── install.ps1
-├── src/agent1/
-│   ├── agent.py
-│   ├── cli/main.py
-│   ├── tools/
-│   ├── logging_utils.py
-│   └── __init__.py
-├── docs/
-│   ├── ARCHITECTURE.md
-│   └── TECH_STACK.md
-├── .github/
-│   ├── workflows/ci.yml
-│   └── ISSUE_TEMPLATE/
-├── pyproject.toml
-├── CHANGELOG.md
-├── CONTRIBUTING.md
-└── LICENSE
+<repo>/
+├── agent_core/           # JVM 核心库
+├── java_agent/           # CLI + Gradle
+├── android_agent/        # Android Demo
+├── doc/基础能力/         # 能力跟踪文档
+├── agent1                # 生产力助手 CLI 入口
+├── run-java-agent
+├── run-java-agent-gradle
+├── publish-java-agent-core.sh
+├── build-android-agent.sh
+└── …
 ```
 
-## Roadmap
+## 规划与路线图
 
-- [ ] Add tool safety policies (allowlist / denylist / confirmation layer)
-- [ ] Add unit + integration tests
-- [ ] Add model fallback and retry strategy
-- [ ] Add optional remote log sink integration
+- 按 [doc/基础能力/](doc/基础能力/) 补齐 02 运行恢复、05 日志查询、07 界面、03 子智能体、12 weizhi 脚本接口等
+- 沙盒、工具策略、MCP、长期记忆等为后续方向（见各能力文档「非目标 / 以后」）
 
 ## Contributing
 
-Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## License
 
 MIT License. See [LICENSE](LICENSE).
-
----
-
-If this project helps you, a star is appreciated.

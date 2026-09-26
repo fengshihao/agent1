@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 JAVA_AGENT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-ANDROID_DIR="$(cd "${JAVA_AGENT_DIR}/../agent_ui/android" && pwd)"
+ANDROID_DIR="$(cd "${JAVA_AGENT_DIR}/../android_agent" && pwd)"
 
 echo "[java-agent] 发布 core artifact 到本地仓库..."
 gradle --no-daemon -p "${JAVA_AGENT_DIR}" publishCoreToLocalRepo
