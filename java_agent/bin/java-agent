@@ -15,8 +15,23 @@ elif [[ ! -f "${JAR_PATH}" ]]; then
   exit 1
 fi
 
-if [[ -x "${JAVA17_BIN}" ]]; then
-  exec "${JAVA17_BIN}" -jar "${JAR_PATH}" "$@"
+WEIZHI_NATIVE=""
+for candidate in \
+  "${PROJECT_DIR}/../weizhi/build" \
+  "${PROJECT_DIR}/../../weizhi/build"; do
+  if [[ -f "${candidate}/libweizhijni.so" ]]; then
+    WEIZHI_NATIVE="${candidate}"
+    break
+  fi
+done
+
+JAVA_ARGS=()
+if [[ -n "${WEIZHI_NATIVE}" ]]; then
+  JAVA_ARGS+=("-Djava.library.path=${WEIZHI_NATIVE}")
 fi
 
-exec java -jar "${JAR_PATH}" "$@"
+if [[ -x "${JAVA17_BIN}" ]]; then
+  exec "${JAVA17_BIN}" "${JAVA_ARGS[@]}" -jar "${JAR_PATH}" "$@"
+fi
+
+exec java "${JAVA_ARGS[@]}" -jar "${JAR_PATH}" "$@"

@@ -30,4 +30,22 @@ class WeizhiWorkspaceToolsTest {
         assertTrue(tools.stream().anyMatch(tool -> "zip_extract".equals(tool.name())));
         assertTrue(tools.stream().anyMatch(tool -> "load_skill_through_path".equals(tool.name())));
     }
+
+    @Test
+    void registersMcpMetaToolsWhenAgentRootProvided(@TempDir Path workspace, @TempDir Path agentRoot)
+        throws Exception {
+        Files.writeString(
+            agentRoot.resolve("mcp_servers.json"),
+            """
+                {"version":2,"servers":[{"name":"demo","url":"https://example.com/mcp","enabled":true}]}
+                """
+        );
+        List<AgentTool> tools = WeizhiWorkspaceTools.create(
+            new WorkspaceSandbox(workspace),
+            agentRoot,
+            workspace
+        );
+        assertTrue(tools.stream().anyMatch(tool -> "mcp_list_servers".equals(tool.name())));
+        assertTrue(tools.stream().anyMatch(tool -> "mcp_call_tool".equals(tool.name())));
+    }
 }
