@@ -1,6 +1,6 @@
 # Weizhi 预编译集成（私有仓库 → Agent1）
 
-当 **weizhi 为私有 Git 仓库**、CI / 协作者无法 `git clone` 时，在 **weizhi 工程内先 publish 一版 Maven 产物**，再拷贝到本目录，Agent1 即可编出 `WEIZHI_INTEGRATED=true` 的 APK（WebView / MCP / 脚本等），**无需 weizhi 源码树**。
+当 CI / 协作者**不想或无法**在本地联编 weizhi 源码时，在 **weizhi 工程内先 publish 一版 Maven 产物**，再导入本目录，Agent1 即可编出带 Weizhi 能力的 APK（WebView / MCP / 脚本等），**无需 weizhi 源码树**。weizhi 仓库即使已 **公开**，仍推荐走 Maven 预编译或 `sync-weizhi.sh`，不必把 AAR 裸文件提交进 agent1。
 
 ## 不要只提交裸 AAR
 
@@ -77,7 +77,7 @@ weizhi 侧 Maven 已 publish 后，在 **agent1 仓库根**按顺序做即可：
 不必配置 `WEIZHI_GIT_URL`。改为在 weizhi 仓库发版时上传 **maven tgz** 到私有 Release / 内网，然后在 agent1 Secrets 中配置：
 
 - **`WEIZHI_PREBUILT_URL`**：tgz 直链，或 `https://github.com/OWNER/weizhi/actions/runs/RUN_ID/artifacts/ARTIFACT_ID`
-- **`WEIZHI_GITHUB_TOKEN`**：读 weizhi 私有 artifact / API 用（agent1 自带的 `GITHUB_TOKEN` **不能**跨仓库下载 weizhi artifact）
+- **`WEIZHI_GITHUB_TOKEN`**：通过 GitHub API 下载 **Actions artifact** 时用（仓库公开后 artifact **仍须鉴权**，401；agent1 自带的 `GITHUB_TOKEN` **不能**跨仓库代下 weizhi artifact）。任意有 `public_repo` 的 PAT 或本机 `gh auth login` 后的 `GH_TOKEN` 即可。
 
 Agent1 workflow **Android Debug APK** 在配置了 **`WEIZHI_PREBUILT_URL`**（及必要时 **`WEIZHI_GITHUB_TOKEN`**）时会执行 `./import-weizhi-prebuilt.sh`（无需 `WEIZHI_GIT_URL`）。
 

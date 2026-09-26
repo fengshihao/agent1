@@ -53,8 +53,13 @@ import_from_dir() {
     echo "错误：${src} 不像 Maven 仓库根（缺少 com/weizhi 或 com/）" >&2
     exit 1
   fi
-  echo "==> rsync Maven 产物 -> ${MAVEN_DIR}"
-  rsync -a --delete "${src}/" "${MAVEN_DIR}/"
+  echo "==> 同步 Maven 产物 -> ${MAVEN_DIR}"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete "${src}/" "${MAVEN_DIR}/"
+  else
+    find "${MAVEN_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+    cp -a "${src}/." "${MAVEN_DIR}/"
+  fi
 }
 
 extract_archive_to_temp() {
