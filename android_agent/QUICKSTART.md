@@ -77,9 +77,9 @@ DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
 聊天助手默认装配 **工作区五件套**：`read_file` / `write_file` / `edit_file` / `list_dir` / `chat_history`（见 `ProductivityAgentHost`）。
 
-**WebView、MCP、Weizhi 脚本与 grep/glob/zip/bash 等** 在代码里已写好（`app/src/weizhi/`、`WeizhiAgentTools`），但 **只有编译时存在 sibling 目录 `../weizhi/android` 才会打进 APK**（`BuildConfig.WEIZHI_INTEGRATED=true`）。GitHub Actions 上的 CI APK **通常不含 Weizhi**，所以模型侧只能看到上述基础工具。
+**WebView、MCP、Weizhi 脚本与 grep/glob/zip/bash 等** 在代码里已写好（`app/src/weizhi/`、`WeizhiAgentTools`），但 **只有编译时联编 weizhi 源码或导入 Maven 预编译** 才会打进 APK（`BuildConfig.WEIZHI_INTEGRATED=true`）。
 
-本地完整集成（**weizhi 为你自己的独立仓库**）：
+**推荐：源码联合编译**（与 CI 默认一致，`weizhi` 已公开）：
 
 ```text
 方式 A（推荐，与 CI 一致）          方式 B（传统同级目录）
@@ -91,15 +91,13 @@ agent1/                            parent/
 ```
 
 ```bash
-export WEIZHI_GIT_URL='git@github.com:<你>/weizhi.git'   # 换成你的地址
-./sync-weizhi.sh
+./sync-weizhi.sh    # 默认 https://github.com/fengshihao/weizhi.git；fork 可设 WEIZHI_GIT_URL
 cd android_agent && ./gradlew :app:assembleDebug
 ```
 
-GitHub Actions 若要在 CI APK 里带上 WebView / Weizhi 工具，二选一：
+CI 默认执行 **`sync-weizhi.sh`** 再 `assembleDebug`，APK 应含完整 Weizhi 工具。若 fork 不想拉 weizhi，在仓库 Variables 设 **`WEIZHI_SKIP_SYNC=true`**。
 
-1. **私有源码**：Secret **`WEIZHI_GIT_URL`**（clone URL + 读权限 PAT）
-2. **推荐 · 预编译**：在 weizhi 仓库 publish Maven 后打 tgz，Secret **`WEIZHI_PREBUILT_URL`**（下载 URL）；CI 执行 `./import-weizhi-prebuilt.sh`。详见 [`weizhi-prebuilt/README.md`](weizhi-prebuilt/README.md)
+**备选 · Maven 预编译**（无源码、或 native 环境受限）：见 [`weizhi-prebuilt/README.md`](weizhi-prebuilt/README.md)，并设 Variable **`WEIZHI_USE_PREBUILT=true`** + Secret **`WEIZHI_PREBUILT_URL`**。
 
 App 内 **模型配置** 与聊天页 **模型详情** 会显示当前包装配的「Agent 工具」摘要。
 

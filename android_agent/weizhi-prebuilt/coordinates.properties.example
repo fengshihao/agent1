@@ -1,4 +1,4 @@
-# 从 weizhi 私有仓库 publish 后，复制到 android_agent/weizhi-prebuilt/coordinates.properties
+# 从 weizhi publish Maven 后，复制到 android_agent/weizhi-prebuilt/coordinates.properties
 # maven/ 目录应为标准 Maven 本地仓库布局（含 com/weizhi/...）
 
 group=com.weizhi

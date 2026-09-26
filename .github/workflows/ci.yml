@@ -15,10 +15,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sync Weizhi (optional)
-        if: ${{ secrets.WEIZHI_GIT_URL != '' }}
+      - name: Sync Weizhi source
         env:
           WEIZHI_GIT_URL: ${{ secrets.WEIZHI_GIT_URL }}
+          WEIZHI_SKIP_SYNC: ${{ vars.WEIZHI_SKIP_SYNC }}
         run: chmod +x ./sync-weizhi.sh && ./sync-weizhi.sh
 
       - name: Set up JDK 17
@@ -38,7 +38,7 @@ jobs:
             (cd "${WEIZHI_DIR}" && WEIZHI_SKIP_ASAN=1 ./scripts/test.sh)
             AGENT1_WEIZHI_REPO="${WEIZHI_DIR}" ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test :weizhi-bridge:test
           else
-            echo "skip weizhi: 未 clone weizhi（可配置仓库 Secret WEIZHI_GIT_URL）— 仅 :core:test"
+            echo "skip weizhi: 未 clone weizhi（检查 sync-weizhi.sh 或设置 WEIZHI_SKIP_SYNC）— 仅 :core:test"
             ./java_agent/gradlew --no-daemon -p java_agent :core:test
           fi
 
@@ -70,17 +70,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sync Weizhi source (optional)
-        if: ${{ secrets.WEIZHI_GIT_URL != '' }}
+      - name: Sync Weizhi source
         env:
           WEIZHI_GIT_URL: ${{ secrets.WEIZHI_GIT_URL }}
+          WEIZHI_SKIP_SYNC: ${{ vars.WEIZHI_SKIP_SYNC }}
         run: chmod +x ./sync-weizhi.sh && ./sync-weizhi.sh
 
-      - name: Import Weizhi prebuilt Maven (optional)
-        if: ${{ secrets.WEIZHI_PREBUILT_URL != '' }}
+      # 默认源码联编。备选预编译：Repository Variable WEIZHI_USE_PREBUILT=true + Secret WEIZHI_PREBUILT_URL（勿在 if 里引用 secret）
+      - name: Import Weizhi prebuilt Maven (fallback)
+        if: ${{ vars.WEIZHI_USE_PREBUILT == 'true' }}
         env:
           WEIZHI_PREBUILT_URL: ${{ secrets.WEIZHI_PREBUILT_URL }}
-        run: chmod +x ./import-weizhi-prebuilt.sh && ./import-weizhi-prebuilt.sh
+          WEIZHI_GITHUB_TOKEN: ${{ secrets.WEIZHI_GITHUB_TOKEN }}
+        run: |
+          if [ -z "${WEIZHI_PREBUILT_URL:-}" ]; then
+            echo "WEIZHI_USE_PREBUILT=true 但未配置 WEIZHI_PREBUILT_URL，跳过预编译导入"
+            exit 0
+          fi
+          chmod +x ./import-weizhi-prebuilt.sh && ./import-weizhi-prebuilt.sh
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

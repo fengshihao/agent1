@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -117,7 +119,7 @@ dependencies {
         implementation(project(":agent-tools-webview"))
         implementation(project(":agent-tools-mcp"))
     } else if (weizhiPrebuiltBase != null) {
-        val coords = java.util.Properties().apply {
+        val coords = Properties().apply {
             weizhiPrebuiltBase.resolve("coordinates.properties").inputStream().use { load(it) }
         }
         fun w(key: String): String {

@@ -1,6 +1,7 @@
 # Weizhi 预编译集成（私有仓库 → Agent1）
 
-当 **weizhi 为私有 Git 仓库**、CI / 协作者无法 `git clone` 时，在 **weizhi 工程内先 publish 一版 Maven 产物**，再拷贝到本目录，Agent1 即可编出 `WEIZHI_INTEGRATED=true` 的 APK（WebView / MCP / 脚本等），**无需 weizhi 源码树**。
+**备选路径**：当无法联编 weizhi 源码（离线、无 NDK、CI 跳过 clone）时，在 weizhi 内 **publish Maven** 再导入本目录。  
+**默认推荐**仍是仓库根 **`./sync-weizhi.sh`** 源码联合编译（公开仓库 `https://github.com/fengshihao/weizhi.git`，Gradle 优先 `../weizhi/android`，见 `settings.gradle.kts`）。
 
 ## 不要只提交裸 AAR
 
@@ -49,8 +50,13 @@ weizhi 仓库已提供 Maven 发布脚本（见 [weizhi PR #1](https://github.co
 # 方式 2：weizhi package-android-maven-bundle.sh 生成的 tgz
 ./import-weizhi-prebuilt.sh /path/to/weizhi-android-maven-bundle.tgz
 
-# 方式 3：CI / 私有 Release 下载 URL
-WEIZHI_PREBUILT_URL='https://...' ./import-weizhi-prebuilt.sh
+# 方式 3：CI / 私有 Release 直链 tgz
+WEIZHI_PREBUILT_URL='https://.../weizhi-android-maven.tgz' ./import-weizhi-prebuilt.sh
+
+# 方式 4：GitHub Actions artifact 页面 URL（artifact 为 zip，脚本会解压并找 com/weizhi）
+export WEIZHI_GITHUB_TOKEN='ghp_...'   # 需 repo 读 + actions 读 weizhi 仓库
+WEIZHI_PREBUILT_URL='https://github.com/fengshihao/weizhi/actions/runs/36242824982/artifacts/10906622668' \
+  ./import-weizhi-prebuilt.sh
 
 cd android_agent && ./gradlew :app:assembleDebug
 ```
@@ -64,19 +70,22 @@ weizhi 侧 Maven 已 publish 后，在 **agent1 仓库根**按顺序做即可：
 1. **导入**：`./import-weizhi-prebuilt.sh` + Maven 目录或 tgz（见上一节三种方式）。
 2. **对齐版本**：打开 `android_agent/weizhi-prebuilt/coordinates.properties`，`group` / `version` 必须与 Maven 里 POM 一致（首次导入会从 `.example` 复制，默认 `0.1.0-SNAPSHOT`，若发版用了固定 tag 版本请改成实际值）。
 3. **本机验证**：`cd android_agent && ./gradlew :app:assembleDebug`；若同级仍有 weizhi 源码树，Gradle **会优先源码联编**——只想测预编译时请先移走或不要 checkout 源码路径。
-4. **CI 带 Weizhi 的 APK**：在 agent1 仓库 Secrets 配置 **`WEIZHI_PREBUILT_URL`**（私有 Release 的 tgz 下载 URL，需 CI 可读）。不必再配 `WEIZHI_GIT_URL`。
+4. **CI 带 Weizhi 的 APK**：在 agent1 仓库 Secrets 配置 **`WEIZHI_PREBUILT_URL`**（Release tgz 直链，或 weizhi workflow 上传的 **Actions artifact 页面 URL**），并配置 **`WEIZHI_GITHUB_TOKEN`**（PAT，能读 weizhi 的 artifact；仅用 Release 公开直链时可省略）。不必再配 `WEIZHI_GIT_URL`。
 5. **仅推到 GitHub Packages、没有 tgz**：可把 weizhi 本机 `android/build/maven` 目录导入 Agent1，或跑 `package-android-maven-bundle.sh` 再上传 Release 供 URL 导入（Agent1 尚未默认从 GPR 拉依赖）。
 
 ## GitHub Actions（agent1）
 
 不必配置 `WEIZHI_GIT_URL`。改为在 weizhi 仓库发版时上传 **maven tgz** 到私有 Release / 内网，然后在 agent1 Secrets 中配置：
 
-- **`WEIZHI_PREBUILT_URL`**：带鉴权的下载 URL（或 Actions 用 `gh release download` + PAT）
+- **`WEIZHI_PREBUILT_URL`**：tgz 直链，或 `https://github.com/OWNER/weizhi/actions/runs/RUN_ID/artifacts/ARTIFACT_ID`
+- **`WEIZHI_GITHUB_TOKEN`**：通过 GitHub API 下载 **Actions artifact** 时用（仓库公开后 artifact **仍须鉴权**，401；agent1 自带的 `GITHUB_TOKEN` **不能**跨仓库代下 weizhi artifact）。任意有 `public_repo` 的 PAT 或本机 `gh auth login` 后的 `GH_TOKEN` 即可。
 
-Agent1 workflow **Android Debug APK** 在配置了 Secret **`WEIZHI_PREBUILT_URL`** 时会执行 `./import-weizhi-prebuilt.sh`（无需 `WEIZHI_GIT_URL`）。
+Agent1 workflow **Android Debug APK** 在配置了 **`WEIZHI_PREBUILT_URL`**（及必要时 **`WEIZHI_GITHUB_TOKEN`**）时会执行 `./import-weizhi-prebuilt.sh`（无需 `WEIZHI_GIT_URL`）。
 
 推荐链路：**weizhi CI** 跑 `publish-android-maven.sh` + `package-android-maven-bundle.sh` → 上传 artifact → Agent1 CI 用 `WEIZHI_PREBUILT_URL` 导入后再 `assembleDebug`。
 
 ## 与源码集成的优先级
 
-Gradle **优先**使用同级 / 仓库内 **weizhi 源码**（`../weizhi/android` 或 `../../weizhi/android`）。仅当源码不存在且本目录 `maven/` + `coordinates.properties` 齐全时，才走预编译依赖。
+Gradle **优先**使用 **weizhi 源码**（`agent1/weizhi/android` 或 `../weizhi/android`）。仅当源码不存在且本目录 `maven/` + `coordinates.properties` 齐全时，才走预编译依赖。
+
+Agent1 CI **默认** `sync-weizhi.sh` 源码联编；预编译仅在仓库 Variable **`WEIZHI_USE_PREBUILT=true`** 且配置 **`WEIZHI_PREBUILT_URL`** 时作为 fallback。
