@@ -60,6 +60,8 @@ public final class WeizhiHostSupport {
             Class.forName("com.weizhi.WeizhiEngine");
         } catch (ClassNotFoundException e) {
             return Optional.empty();
+        } catch (UnsatisfiedLinkError e) {
+            return Optional.empty();
         }
         return Optional.of(new WeizhiScriptEngineFactory(options));
     }

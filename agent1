@@ -8,6 +8,7 @@ set -euo pipefail
 #   ./agent1                  # 交互 REPL
 #   ./agent1 你好             # 单次提问
 #   ./agent1 models           # 查看当前运行时与 Qwen 主模型规格
+#   ./agent1 tools            # 当前装配的工具能力（对齐 Android 设置页摘要）
 #   ./agent1 logs failed      # 查 events.jsonl
 #   ./agent1 logs summarize --session <id>
 #
@@ -26,6 +27,7 @@ agent1 — 生产力助手 CLI
   ./agent1                         交互模式
   ./agent1 <问题>                  单次提问后退出
   ./agent1 models                  当前模型与 Qwen 主规格
+  ./agent1 tools                   Agent 工具能力摘要
   ./agent1 logs failed             失败工具调用
   ./agent1 logs children --parent-run <id>
   ./agent1 logs summarize --session <id>
@@ -34,6 +36,7 @@ agent1 — 生产力助手 CLI
   QWEN_API_KEY / DASHSCOPE_API_KEY   模型密钥
   QWEN_MODEL / OPENAI_MODEL          模型名（默认 qwen3.7-flash）
   AGENT1_AGENT_ROOT                  数据目录（默认 ./.agent1）
+  AGENT1_PROJECT_ROOT                项目根（默认 .agent1 父目录，用于 .claude/skills）
   AGENT1_USE_GRADLE=1                用 Gradle 跑，不打 fat-jar
   JAVA_AGENT_SKIP_BUILD=1            跳过 fat-jar 增量构建
 

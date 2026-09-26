@@ -24,7 +24,15 @@ java {
 dependencies {
     api(project(":core"))
     implementation("com.google.code.gson:gson:2.10.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
+}
+
+val syncMcpSources = tasks.register<Copy>("syncMcpSources") {
+    from(weizhiRepo.resolve("android/agent-tools-mcp/src/main/java")) {
+        exclude("**/McpLog.java")
+    }
+    into(layout.buildDirectory.dir("generated/mcp-sources"))
 }
 
 sourceSets {
@@ -32,12 +40,17 @@ sourceSets {
         java {
             srcDir(weizhiRepo.resolve("java"))
             srcDir(weizhiRepo.resolve("android/agent-tools/src/main/java"))
+            srcDir(layout.buildDirectory.dir("generated/mcp-sources"))
             srcDir("src/shared/java")
             srcDir("src/main/java")
             exclude("**/AgentToolsBundle.java")
             exclude("**/AssetSkillRepository.java")
         }
     }
+}
+
+tasks.named("compileJava") {
+    dependsOn(syncMcpSources)
 }
 
 tasks.test {
