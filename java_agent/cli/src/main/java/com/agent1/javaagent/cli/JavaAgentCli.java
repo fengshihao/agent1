@@ -8,13 +8,13 @@ import com.agent1.javaagent.cli.tools.ReadFileTool;
 import com.agent1.javaagent.cli.tools.RunBashTool;
 import com.agent1.javaagent.cli.tools.RunPythonTool;
 import com.agent1.javaagent.cli.tools.SkillTool;
-import com.agent1.javaagent.core.AgentOptions;
+import com.agent1.javaagent.config.AgentRuntimeConfig;
+import com.agent1.javaagent.config.AgentRuntimeDefaults;
 import com.agent1.javaagent.core.AgentRuntime;
 import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.event.AgentEventType;
 import com.agent1.javaagent.event.EventPayloads;
 import com.agent1.javaagent.llm.openai.OpenAiCompatibleClient;
-import com.agent1.javaagent.llm.openai.OpenAiCompatibleConfig;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.tool.AgentTool;
 import java.io.IOException;
@@ -50,6 +50,13 @@ public final class JavaAgentCli {
     }
 
     public static void main(String[] args) throws IOException {
+        if (args.length > 0 && "--productivity".equals(args[0])) {
+            String[] rest = new String[args.length - 1];
+            System.arraycopy(args, 1, rest, 0, rest.length);
+            ProductivityCli.main(rest);
+            return;
+        }
+
         String prompt = null;
         boolean noStream = false;
         for (String arg : args) {
@@ -60,21 +67,13 @@ public final class JavaAgentCli {
             }
         }
 
-        String apiKey = firstNonBlank(System.getenv("DASHSCOPE_API_KEY"), System.getenv("OPENAI_API_KEY"));
-        if (isBlank(apiKey)) {
-            System.err.println("缺少 API key。请设置 DASHSCOPE_API_KEY 或 OPENAI_API_KEY");
+        AgentRuntimeConfig runtimeConfig = AgentRuntimeConfig.fromEnvironment();
+        String configError = runtimeConfig.configurationError();
+        if (configError != null) {
+            System.err.println(configError);
             System.exit(1);
             return;
         }
-        String baseUrl = firstNonBlank(
-            System.getenv("ALIBABA_BASE_URL"),
-            System.getenv("OPENAI_BASE_URL"),
-            "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        );
-        String model = firstNonBlank(System.getenv("OPENAI_MODEL"), "qwen3.5-flash");
-        int maxContextMessages = parsePositiveIntOrZero(System.getenv("AGENT1_MAX_CONTEXT_MESSAGES"), 0);
-        int maxTurnsPerRun = parsePositiveIntOrZero(System.getenv("AGENT1_MAX_TURNS_PER_RUN"), 0);
-        int maxToolCallsPerRun = parsePositiveIntOrZero(System.getenv("AGENT1_MAX_TOOL_CALLS_PER_RUN"), 0);
         final boolean streamDisabled = noStream;
         final boolean enableColor = shouldEnableColor();
         final JsonlLogger logger = new JsonlLogger();
@@ -95,15 +94,11 @@ public final class JavaAgentCli {
             .build();
 
         AgentRuntime runtime = new AgentRuntime(
-            AgentOptions.builder(model)
-                .systemPrompt(systemPrompt)
+            runtimeConfig.toAgentOptionsBuilder(systemPrompt)
                 .tools(tools)
-                .maxContextMessages(maxContextMessages)
-                .maxTurnsPerRun(maxTurnsPerRun)
-                .maxToolCallsPerRun(maxToolCallsPerRun)
                 .build(),
             new OpenAiCompatibleClient(
-                new OpenAiCompatibleConfig(apiKey, baseUrl, Duration.ofSeconds(120), 0.2)
+                runtimeConfig.toOpenAiCompatibleConfig(Duration.ofSeconds(120), 0.2)
             )
         );
 
@@ -111,17 +106,24 @@ public final class JavaAgentCli {
 
         Runtime.getRuntime().addShutdownHook(new Thread(runtime::close));
         System.out.println(colorize(ANSI_DIM, enableColor, "日志文件: " + logger.getLogPath()));
-        if (maxContextMessages > 0) {
+        if (runtimeConfig.getMaxContextTurns() > 0) {
             System.out.println(colorize(ANSI_DIM, enableColor,
-                "LLM 上下文消息上限: " + maxContextMessages + "（环境变量 AGENT1_MAX_CONTEXT_MESSAGES；0=不截断）"));
+                "LLM 上下文用户轮次上限: " + runtimeConfig.getMaxContextTurns()
+                    + "（AGENT1_MAX_CONTEXT_TURNS）"));
         }
-        if (maxTurnsPerRun > 0 || maxToolCallsPerRun > 0) {
-            int rt = maxTurnsPerRun > 0 ? maxTurnsPerRun : AgentOptions.DEFAULT_MAX_TURNS_PER_RUN;
-            int tc = maxToolCallsPerRun > 0 ? maxToolCallsPerRun : AgentOptions.DEFAULT_MAX_TOOL_CALLS_PER_RUN;
+        if (runtimeConfig.getMaxContextMessages() > 0) {
+            System.out.println(colorize(ANSI_DIM, enableColor,
+                "LLM 上下文消息上限: " + runtimeConfig.getMaxContextMessages()
+                    + "（AGENT1_MAX_CONTEXT_MESSAGES）"));
+        }
+        {
+            int rt = runtimeConfig.getMaxTurnsPerRun();
+            int tc = runtimeConfig.getMaxToolCallsPerRun();
             System.out.println(colorize(ANSI_DIM, enableColor,
                 "Agent 回合/工具上限: " + rt + " 回合, " + tc + " 次工具（AGENT1_MAX_TURNS_PER_RUN /"
                     + " AGENT1_MAX_TOOL_CALLS_PER_RUN；未设置则用默认 "
-                    + AgentOptions.DEFAULT_MAX_TURNS_PER_RUN + " / " + AgentOptions.DEFAULT_MAX_TOOL_CALLS_PER_RUN + "）"));
+                    + AgentRuntimeDefaults.DEFAULT_MAX_TURNS_PER_RUN + " / "
+                    + AgentRuntimeDefaults.DEFAULT_MAX_TOOL_CALLS_PER_RUN + "）"));
         }
 
         if (!isBlank(prompt)) {
@@ -319,30 +321,8 @@ public final class JavaAgentCli {
         }
     }
 
-    private static String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (!isBlank(value)) {
-                return value;
-            }
-        }
-        return "";
-    }
-
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
-    }
-
-    /** Positive integer from env; blank or invalid yields {@code defaultIfInvalid}. Non-positive yields default. */
-    private static int parsePositiveIntOrZero(String raw, int defaultIfInvalid) {
-        if (isBlank(raw)) {
-            return defaultIfInvalid;
-        }
-        try {
-            int v = Integer.parseInt(raw.trim());
-            return v > 0 ? v : defaultIfInvalid;
-        } catch (NumberFormatException e) {
-            return defaultIfInvalid;
-        }
     }
 
     private static AgentMessage findLatestAssistantMessage(AgentRuntime runtime) {

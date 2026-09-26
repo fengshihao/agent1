@@ -52,6 +52,30 @@ public final class EventPayloads {
         }
     }
 
+    public static final class Usage {
+        private final long inputTokens;
+        private final long outputTokens;
+        private final Long cachedTokens;
+
+        public Usage(long inputTokens, long outputTokens, Long cachedTokens) {
+            this.inputTokens = inputTokens;
+            this.outputTokens = outputTokens;
+            this.cachedTokens = cachedTokens;
+        }
+
+        public long getInputTokens() {
+            return inputTokens;
+        }
+
+        public long getOutputTokens() {
+            return outputTokens;
+        }
+
+        public Long getCachedTokens() {
+            return cachedTokens;
+        }
+    }
+
     public static final class ToolExecutionStart {
         private final ToolCall toolCall;
 

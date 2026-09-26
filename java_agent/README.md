@@ -21,7 +21,7 @@ Java 版状态化 Agent 内核（MVP），对齐 `pi-mono/packages/agent` 的核
 gradle -p java_agent :core:test :cli:test
 ```
 
-Java 版本要求：17（`java_agent/build.gradle.kts` 中 Java toolchain 已固定为 17）。请使用系统 `JAVA_HOME` 指向 JDK 17，或在 `~/.gradle/gradle.properties` 中设置 `org.gradle.java.home`（勿提交到仓库，避免 CI/他人机器路径无效）。
+Java 版本要求：17（`java_agent/build.gradle.kts` 中 toolchain 已固定）。请使用 `JAVA_HOME` 指向 JDK 17；本机路径请写在 `~/.gradle/gradle.properties`，勿提交到仓库。
 
 ## PC 最小示例
 
@@ -33,7 +33,7 @@ Java 版本要求：17（`java_agent/build.gradle.kts` 中 Java toolchain 已固
 - `OPENAI_BASE_URL` 或 `DASHSCOPE_BASE_URL`
 - `OPENAI_MODEL`（可选）
 
-## Java CLI（仿 Python agent.py）
+## Java CLI（经典终端）
 
 入口：`com.agent1.javaagent.cli.JavaAgentCli`
 

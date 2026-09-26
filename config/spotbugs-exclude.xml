@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<!-- agent1 SpotBugs 排除清单。每条须写明理由（doc/代码质量硬性要求与静态检测.md）。 -->
+<FindBugsFilter>
+    <Match>
+        <Source name="~.*[Tt]est.*"/>
+    </Match>
+
+    <!-- 理由：内部 DTO/快照类单线程使用；防御性拷贝改动面大，非本次硬性要求范畴。 -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- 以下为 2026-09-25 agent_core 首跑 SpotBugs 存量（11 条），登记以维持「新增违规零容忍」；
+         修复时逐条删除对应 Match。详见 doc/代码质量硬性要求与静态检测.md -->
+    <Match>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+        <Class name="com.agent1.javaagent.asr.aliyun.AliyunDashScopeAsrClient$Session"/>
+    </Match>
+    <Match>
+        <Bug pattern="DM_INVALID_MIN_MAX"/>
+        <Class name="com.agent1.javaagent.core.AgentRuntime"/>
+    </Match>
+    <Match>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+        <Class name="com.agent1.javaagent.llm.openai.OpenAiCompatibleClient"/>
+    </Match>
+    <Match>
+        <Bug pattern="NP_NULL_PARAM_DEREF"/>
+        <Class name="com.agent1.javaagent.llm.openai.OpenAiCompatibleClient$StreamAccumulator"/>
+    </Match>
+    <Match>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+        <Class name="com.agent1.javaagent.log.EventJsonlWriter"/>
+    </Match>
+    <Match>
+        <Bug pattern="BX_UNBOXING_IMMEDIATELY_REBOXED,NP_NULL_ON_SOME_PATH"/>
+        <Class name="com.agent1.javaagent.model.ChatUsage"/>
+    </Match>
+    <Match>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+        <Class name="com.agent1.javaagent.run.FileRunStore"/>
+    </Match>
+    <Match>
+        <Bug pattern="BC_VACUOUS_INSTANCEOF"/>
+        <Class name="com.agent1.javaagent.session.ProductivityAgentHost"/>
+    </Match>
+    <Match>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+        <Class name="com.agent1.javaagent.session.ProductivityAgentHost"/>
+    </Match>
+
+    <!-- cli 首跑存量 2026-09-25 -->
+    <Match>
+        <Bug pattern="RV_RETURN_VALUE_IGNORED"/>
+        <Class name="com.agent1.javaagent.cli.JavaAgentCli"/>
+    </Match>
+    <Match>
+        <Bug pattern="DM_DEFAULT_ENCODING,RV_RETURN_VALUE_IGNORED"/>
+        <Class name="com.agent1.javaagent.cli.ProductivityCli"/>
+    </Match>
+    <Match>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+        <Class name="com.agent1.javaagent.cli.logging.JsonlLogger"/>
+    </Match>
+    <Match>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+        <Class name="com.agent1.javaagent.cli.skills.ClaudeSkillLoader"/>
+    </Match>
+    <Match>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+        <Class name="com.agent1.javaagent.cli.tools.SkillTool"/>
+    </Match>
+</FindBugsFilter>

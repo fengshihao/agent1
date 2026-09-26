@@ -9,6 +9,9 @@ subprojects {
     repositories {
         mavenCentral()
     }
+    plugins.withId("java") {
+        apply(from = rootProject.file("static-analysis.gradle.kts"))
+    }
 }
 
 tasks.register("fatJar") {

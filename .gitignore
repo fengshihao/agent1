@@ -31,6 +31,13 @@ android_agent/**/.gradle/
 android_agent/**/build/
 android_agent/**/local.properties
 
+# 本地 clone 的微智 weizhi 工程（./sync-weizhi.sh），勿提交
+/weizhi/
+
+# weizhi publish 后导入的 Maven 产物（./import-weizhi-prebuilt.sh）；示例配置可提交
+/android_agent/weizhi-prebuilt/maven/
+/android_agent/weizhi-prebuilt/coordinates.properties
+
 # Local memory notes
 user_memory.md
 

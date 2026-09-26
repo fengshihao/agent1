@@ -7,8 +7,11 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Removed
-- **`python_agent`** 及根目录 Python 安装/同步脚本；CLI 以 **Java** 为唯一维护实现。
-- GitHub **CI** 中的 Python 多版本矩阵；改为 **JDK 17 + `java_agent` 单测**。
+- **Python CLI 永久下线**：删除 `python_agent/` 与 `install-python-agent.*` / `sync-python-agent.sh`；只读快照见分支 `archive/python-agent`。
+
+### Changed
+- CI 改为在 **ubuntu-latest** 与 **macos-latest** 上运行 Java 测试。
+- 产品方向明确为 **Java 桌面（macOS / Ubuntu）+ Android**，生产力能力在 `--productivity` 与 `doc/基础能力/` 跟踪。
 
 ### Documentation
 - Aligned `java_agent/README.md` with the current CLI: removed obsolete `AGENT1_MEMORY_DB` / SQLite long-term memory tool description (feature no longer present).

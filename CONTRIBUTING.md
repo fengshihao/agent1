@@ -4,19 +4,20 @@
 
 ## 开发环境
 
-- **JDK 17**（使用 `JAVA_HOME` 或 `~/.gradle/gradle.properties` 中的 `org.gradle.java.home`，勿在仓库内提交本机路径）
-- 可选：**Android SDK**（仅改 `android_agent` 时需要）
+- **JDK 17**（Temurin 或等价发行版）
+- **Gradle**：使用仓库内 wrapper（`gradle -p java_agent …`）
+- Android 贡献需 Android SDK 与 adb（见 `android_agent/QUICKSTART.md`）
 
 ```bash
-./java_agent/gradlew -p java_agent :core:test :cli:test
+gradle -p java_agent :core:test :cli:test
 ```
 
 ## 代码规范
 
 - 保持改动最小且聚焦
-- 新增行为要同步更新 README / docs
-- 工具相关改动需考虑跨平台（macOS / Ubuntu / Windows）
-- 涉及模型调用链路的改动，需确认 JSONL 日志字段不回退
+- 新增行为要同步更新 README / `doc/基础能力/` 对应篇
+- 工具相关改动需考虑 **macOS 与 Ubuntu**（桌面官方支持平台）
+- 涉及模型调用链路的改动，需确认 JSONL 事件字段不回退
 
 ## 提交流程
 
@@ -31,12 +32,12 @@
 ## 建议自测清单
 
 - `gradle -p java_agent :core:test :cli:test`
-- `./run-java-agent-gradle --no-stream "1+1等于几"`（需配置 `DASHSCOPE_API_KEY` 或 `OPENAI_API_KEY`）
-- 检查 `logs/agent1.jsonl` 是否有 `run_started` / `model_response` / `usage` / `run_completed`
+- 配置 `DASHSCOPE_API_KEY` 后：`./run-java-agent-gradle --no-stream "1+1等于几"`
+- 生产力路径：`gradle -p java_agent runJavaAgentCli --args="--productivity 你好"`（检查 `.agent1/` 与 `events.jsonl`）
 
 ## Issue 建议信息
 
-- 环境信息（OS、JDK 版本、Shell）
+- 环境信息（OS、JDK 版本、是否在 Android）
 - 复现步骤
 - 预期行为与实际行为
 - 关键日志片段（可脱敏）

@@ -1,21 +1,43 @@
 pluginManagement {
     repositories {
-        maven("https://maven.aliyun.com/repository/public")
         google()
         mavenCentral()
         gradlePluginPortal()
+        maven("https://maven.aliyun.com/repository/public")
     }
+}
+
+val weizhiAndroidSource = sequenceOf(
+    file("../../weizhi/android"),
+    file("../weizhi/android"),
+).firstOrNull { it.isDirectory }
+
+val weizhiPrebuiltBase = file("weizhi-prebuilt").takeIf {
+    it.resolve("maven").isDirectory && it.resolve("coordinates.properties").isFile
 }
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         maven(url = uri("../java_agent/build/local-maven"))
-        maven("https://maven.aliyun.com/repository/public")
+        if (weizhiPrebuiltBase != null) {
+            maven(url = uri(weizhiPrebuiltBase.resolve("maven")))
+        }
         google()
         mavenCentral()
+        maven("https://maven.aliyun.com/repository/public")
     }
 }
 
 rootProject.name = "DynamicUiDemo"
 include(":app")
+
+if (weizhiAndroidSource != null) {
+    val root = weizhiAndroidSource
+    include(":weizhi", ":caps", ":agent-tools", ":agent-tools-webview", ":agent-tools-mcp")
+    project(":weizhi").projectDir = root.resolve("weizhi")
+    project(":caps").projectDir = root.resolve("caps")
+    project(":agent-tools").projectDir = root.resolve("agent-tools")
+    project(":agent-tools-webview").projectDir = root.resolve("agent-tools-webview")
+    project(":agent-tools-mcp").projectDir = root.resolve("agent-tools-mcp")
+}

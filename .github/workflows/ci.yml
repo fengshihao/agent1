@@ -9,7 +9,42 @@ on:
 jobs:
   java-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync Weizhi (optional)
+        if: ${{ secrets.WEIZHI_GIT_URL != '' }}
+        env:
+          WEIZHI_GIT_URL: ${{ secrets.WEIZHI_GIT_URL }}
+        run: chmod +x ./sync-weizhi.sh && ./sync-weizhi.sh
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Run tests (Weizhi optional)
+        run: |
+          set -euo pipefail
+          WEIZHI_DIR="${GITHUB_WORKSPACE}/weizhi"
+          if [ ! -d "${WEIZHI_DIR}/android" ] && [ -d "${GITHUB_WORKSPACE}/../weizhi/android" ]; then
+            WEIZHI_DIR="${GITHUB_WORKSPACE}/../weizhi"
+          fi
+          if [ -d "${WEIZHI_DIR}" ] && [ -f "${WEIZHI_DIR}/scripts/test.sh" ]; then
+            (cd "${WEIZHI_DIR}" && WEIZHI_SKIP_ASAN=1 ./scripts/test.sh)
+            AGENT1_WEIZHI_REPO="${WEIZHI_DIR}" ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test :weizhi-bridge:test
+          else
+            echo "skip weizhi: 未 clone weizhi（可配置仓库 Secret WEIZHI_GIT_URL）— 仅 :core:test"
+            ./java_agent/gradlew --no-daemon -p java_agent :core:test
+          fi
+
+  quality-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -21,8 +56,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Run Java unit tests
-        run: ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test
+      - name: Java PMD + SpotBugs
+        run: ./check-java-agent-static.sh
+
+      - name: Android layering + main-thread gateway
+        run: ./check-android-agent-static.sh
 
   android-assemble-debug:
     runs-on: ubuntu-latest
@@ -31,6 +69,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Sync Weizhi source (optional)
+        if: ${{ secrets.WEIZHI_GIT_URL != '' }}
+        env:
+          WEIZHI_GIT_URL: ${{ secrets.WEIZHI_GIT_URL }}
+        run: chmod +x ./sync-weizhi.sh && ./sync-weizhi.sh
+
+      - name: Import Weizhi prebuilt Maven (optional)
+        if: ${{ secrets.WEIZHI_PREBUILT_URL != '' }}
+        env:
+          WEIZHI_PREBUILT_URL: ${{ secrets.WEIZHI_PREBUILT_URL }}
+        run: chmod +x ./import-weizhi-prebuilt.sh && ./import-weizhi-prebuilt.sh
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -59,7 +109,7 @@ jobs:
       - name: Publish java-agent-core to local Maven
         run: ./java_agent/gradlew --no-daemon -p java_agent publishCoreToLocalRepo
 
-      - name: Assemble Debug APK (no API key in package)
+      - name: Assemble Debug APK (no API key baked in)
         working-directory: android_agent
         env:
           DASHSCOPE_API_KEY: ""

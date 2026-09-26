@@ -1,0 +1,69 @@
+# agent1 Android/Kotlin Detekt（见 doc/代码质量硬性要求与静态检测.md）
+# 聚焦异常与空块；样式类规则默认关闭，避免与格式化工具重复。
+
+build:
+  maxIssues: 0
+
+config:
+  validation: true
+
+processors:
+  active: true
+
+console-reports:
+  active: true
+
+comments:
+  active: false
+
+complexity:
+  active: false
+
+coroutines:
+  active: true
+  GlobalCoroutineUsage:
+    active: true
+  InjectDispatcher:
+    active: false
+  RedundantSuspendModifier:
+    active: true
+  SleepInsteadOfDelay:
+    active: true
+
+empty-blocks:
+  active: true
+  EmptyCatchBlock:
+    active: true
+    allowedExceptionNameRegex: '_|(ignore|expected).*'
+
+exceptions:
+  active: true
+  NotImplementedDeclaration:
+    active: true
+  PrintStackTrace:
+    active: true
+  RethrowCaughtException:
+    active: false
+  SwallowedException:
+    active: true
+  TooGenericExceptionCaught:
+    active: true
+    allowedExceptionNameRegex: '_|(ignore|expected).*'
+
+naming:
+  active: false
+
+performance:
+  active: true
+  SpreadOperator:
+    active: false
+
+potential-bugs:
+  active: true
+  CastToNullableType:
+    active: true
+  IgnoredReturnValue:
+    active: true
+
+style:
+  active: false

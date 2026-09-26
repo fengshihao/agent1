@@ -17,6 +17,7 @@ public final class AgentOptions {
     private final List<AgentMessage> messages;
     private final ContextTransformer transformContext;
     private final Duration defaultToolTimeout;
+    private final int maxContextTurns;
     private final int maxContextMessages;
     private final int maxTurnsPerRun;
     private final int maxToolCallsPerRun;
@@ -28,6 +29,7 @@ public final class AgentOptions {
         this.messages = List.copyOf(builder.messages);
         this.transformContext = builder.transformContext;
         this.defaultToolTimeout = builder.defaultToolTimeout;
+        this.maxContextTurns = builder.maxContextTurns;
         this.maxContextMessages = builder.maxContextMessages;
         this.maxTurnsPerRun = builder.maxTurnsPerRun > 0 ? builder.maxTurnsPerRun : DEFAULT_MAX_TURNS_PER_RUN;
         this.maxToolCallsPerRun =
@@ -59,8 +61,16 @@ public final class AgentOptions {
     }
 
     /**
-     * Max number of user/assistant/tool messages passed to the LLM per request; 0 = unlimited.
+     * Max user turns kept for the LLM; {@code <= 0} = no turn-based trim.
      * Does not trim persisted {@link AgentState} history.
+     */
+    public int getMaxContextTurns() {
+        return maxContextTurns;
+    }
+
+    /**
+     * Max number of user/assistant/tool messages passed to the LLM per request; 0 = unlimited.
+     * Applied after {@link #getMaxContextTurns()} when both are set.
      */
     public int getMaxContextMessages() {
         return maxContextMessages;
@@ -91,6 +101,7 @@ public final class AgentOptions {
         private final List<AgentMessage> messages = new ArrayList<>();
         private ContextTransformer transformContext = in -> in;
         private Duration defaultToolTimeout = Duration.ofSeconds(30);
+        private int maxContextTurns;
         private int maxContextMessages;
         /** {@code <= 0} uses {@link AgentOptions#DEFAULT_MAX_TURNS_PER_RUN}. */
         private int maxTurnsPerRun;
@@ -132,6 +143,11 @@ public final class AgentOptions {
                 return this;
             }
             this.defaultToolTimeout = defaultToolTimeout;
+            return this;
+        }
+
+        public Builder maxContextTurns(int maxContextTurns) {
+            this.maxContextTurns = maxContextTurns;
             return this;
         }
 

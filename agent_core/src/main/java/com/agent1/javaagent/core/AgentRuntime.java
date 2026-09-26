@@ -1,18 +1,24 @@
 package com.agent1.javaagent.core;
 
+import com.agent1.javaagent.config.AgentRuntimeDefaults;
 import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.event.AgentEventListener;
 import com.agent1.javaagent.event.AgentEventType;
 import com.agent1.javaagent.event.EventPayloads;
+import com.agent1.javaagent.llm.LlmCancelledException;
 import com.agent1.javaagent.llm.LlmClient;
 import com.agent1.javaagent.llm.LlmStreamListener;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
+import com.agent1.javaagent.model.ChatUsage;
 import com.agent1.javaagent.model.ToolCall;
 import com.agent1.javaagent.tool.AgentTool;
+import com.agent1.javaagent.tool.ToolArgumentValidator;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolExecutionUpdate;
+import com.agent1.javaagent.workspace.ToolResultSpill;
+import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.Closeable;
@@ -40,12 +46,14 @@ public final class AgentRuntime implements Closeable {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final ExecutorService toolExecutor = Executors.newCachedThreadPool();
     private final Duration defaultToolTimeout;
+    private final int maxContextTurns;
     private final int maxContextMessages;
     private final int maxTurnsPerRun;
     private final int maxToolCallsPerRun;
 
     private CompletableFuture<Void> runningTask;
     private CancellationToken cancellationToken;
+    private volatile WorkspaceSandbox workspaceSandbox;
 
     public AgentRuntime(AgentOptions options, LlmClient llmClient) {
         this(options, llmClient, new ObjectMapper());
@@ -62,6 +70,7 @@ public final class AgentRuntime implements Closeable {
         this.transformContext = options.getTransformContext();
         this.mapper = mapper;
         this.defaultToolTimeout = options.getDefaultToolTimeout();
+        this.maxContextTurns = options.getMaxContextTurns();
         this.maxContextMessages = options.getMaxContextMessages();
         this.maxTurnsPerRun = options.getMaxTurnsPerRun();
         this.maxToolCallsPerRun = options.getMaxToolCallsPerRun();
@@ -85,6 +94,15 @@ public final class AgentRuntime implements Closeable {
 
     public void replaceMessages(List<AgentMessage> messages) {
         state.replaceMessages(messages);
+    }
+
+    /** 生产力工作区：大工具结果 spill 与路径校验。 */
+    public void setWorkspaceSandbox(WorkspaceSandbox sandbox) {
+        this.workspaceSandbox = sandbox;
+    }
+
+    public synchronized boolean isRunning() {
+        return runningTask != null && !runningTask.isDone();
     }
 
     public void appendMessage(AgentMessage message) {
@@ -159,6 +177,7 @@ public final class AgentRuntime implements Closeable {
                 emit(AgentEventType.TURN_START, new EventPayloads.TurnStart(turnIndex));
 
                 AssistantResponse assistantResponse = runSingleTurn(token);
+                emitUsage(assistantResponse);
                 AgentMessage assistantMessage = AgentMessage.assistant(
                     assistantResponse.getContent(),
                     assistantResponse.getToolCalls()
@@ -167,7 +186,11 @@ public final class AgentRuntime implements Closeable {
                 emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(assistantMessage));
 
                 List<AgentMessage> toolResults = new ArrayList<>();
-                if (!assistantResponse.getToolCalls().isEmpty()) {
+                if (assistantResponse.isTruncatedToolCall()) {
+                    for (ToolCall toolCall : assistantResponse.getToolCalls()) {
+                        toolResults.add(recordTruncatedToolCall(toolCall));
+                    }
+                } else if (!assistantResponse.getToolCalls().isEmpty()) {
                     for (ToolCall toolCall : assistantResponse.getToolCalls()) {
                         if (token.isCancelled()) {
                             break;
@@ -188,14 +211,28 @@ public final class AgentRuntime implements Closeable {
                 }
                 turnIndex += 1;
             }
-            if (turnIndex >= maxTurnsPerRun) {
-                throw new IllegalStateException(
-                    "对话回合超过上限（" + maxTurnsPerRun + "），已停止本轮以避免循环重试"
-                );
+
+            if (token.isCancelled()) {
+                state.setError(RunOutcome.CANCELLED_MESSAGE);
+                return;
             }
+
+            if (turnIndex >= maxTurnsPerRun) {
+                appendProgressSummaryTurn(token);
+                state.setError(RunOutcome.pausedMessage(maxTurnsPerRun));
+                return;
+            }
+        } catch (LlmCancelledException cancelled) {
+            state.setError(RunOutcome.CANCELLED_MESSAGE);
+            return;
         } catch (Exception e) {
-            state.setError(e.getMessage());
-            emit(AgentEventType.AGENT_ERROR, new EventPayloads.AgentError(e.getMessage()));
+            if (token.isCancelled()) {
+                state.setError(RunOutcome.CANCELLED_MESSAGE);
+                return;
+            }
+            String message = e.getMessage() == null ? e.toString() : e.getMessage();
+            state.setError(message);
+            emit(AgentEventType.AGENT_ERROR, new EventPayloads.AgentError(message));
         } finally {
             state.setStreaming(false);
             state.setStreamMessage(null);
@@ -204,16 +241,33 @@ public final class AgentRuntime implements Closeable {
         }
     }
 
+    private void appendProgressSummaryTurn(CancellationToken token) throws Exception {
+        state.appendMessage(AgentMessage.user(RunOutcome.progressSummaryUserPrompt()));
+        AssistantResponse summary = runSingleTurn(token, List.of());
+        emitUsage(summary);
+        AgentMessage assistantMessage = AgentMessage.assistant(
+            summary.getContent(),
+            summary.getToolCalls()
+        );
+        state.appendMessage(assistantMessage);
+        emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(assistantMessage));
+    }
+
     private AssistantResponse runSingleTurn(CancellationToken token) throws Exception {
+        return runSingleTurn(token, null);
+    }
+
+    private AssistantResponse runSingleTurn(CancellationToken token, List<AgentTool> toolsOverride) throws Exception {
         AgentMessage streamMessage = AgentMessage.assistant("", List.of());
         state.setStreaming(true);
         state.setStreamMessage(streamMessage);
         emit(AgentEventType.MESSAGE_START, new EventPayloads.MessageEvent(streamMessage));
 
+        List<AgentTool> toolsForTurn = toolsOverride != null ? toolsOverride : state.getTools();
         ChatRequest request = new ChatRequest(state.getModel(), buildContextMessages());
         AssistantResponse response = llmClient.streamChat(
             request,
-            state.getTools(),
+            toolsForTurn,
             new LlmStreamListener() {
                 @Override
                 public void onTextDelta(String delta) {
@@ -237,6 +291,35 @@ public final class AgentRuntime implements Closeable {
         return response;
     }
 
+    private void emitUsage(AssistantResponse response) {
+        ChatUsage usage = response.getUsage();
+        if (usage == null) {
+            return;
+        }
+        emit(
+            AgentEventType.USAGE,
+            new EventPayloads.Usage(usage.getInputTokens(), usage.getOutputTokens(), usage.getCachedTokens())
+        );
+    }
+
+    private AgentMessage recordTruncatedToolCall(ToolCall toolCall) {
+        String errorMessage =
+            "模型输出被 max_tokens 截断，工具参数不完整，本次调用未执行。请拆成更小的写入或减少体积后重试。";
+        AgentMessage toolResult = AgentMessage.toolResult(toolCall.getId(), errorMessage, true);
+        state.appendMessage(toolResult);
+        emit(AgentEventType.TOOL_EXECUTION_START, new EventPayloads.ToolExecutionStart(toolCall));
+        emit(
+            AgentEventType.TOOL_EXECUTION_END,
+            new EventPayloads.ToolExecutionEnd(
+                toolCall.getId(),
+                ToolExecutionResult.text(errorMessage),
+                true,
+                errorMessage
+            )
+        );
+        return toolResult;
+    }
+
     private AgentMessage executeToolCall(ToolCall toolCall, CancellationToken token) {
         state.addPendingToolCall(toolCall.getId());
         emit(AgentEventType.TOOL_EXECUTION_START, new EventPayloads.ToolExecutionStart(toolCall));
@@ -252,8 +335,16 @@ public final class AgentRuntime implements Closeable {
             }
 
             JsonNode parameters = mapper.readTree(toolCall.getArgumentsJson());
-            long timeoutMs = estimateToolTimeoutMs(toolCall.getName(), parameters);
-            CompletableFuture<ToolExecutionResult> toolTask = CompletableFuture.supplyAsync(
+            java.util.Optional<String> validationError =
+                ToolArgumentValidator.validateRequired(tool.parametersSchema(), parameters);
+            if (validationError.isPresent()) {
+                isError = true;
+                errorMessage = validationError.get();
+                result = ToolExecutionResult.text(errorMessage);
+            } else {
+
+                long timeoutMs = estimateToolTimeoutMs(toolCall.getName(), parameters);
+                CompletableFuture<ToolExecutionResult> toolTask = CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         return tool.execute(
@@ -283,12 +374,17 @@ public final class AgentRuntime implements Closeable {
                 Throwable cause = exec.getCause() == null ? exec : exec.getCause();
                 throw new RuntimeException(cause);
             }
+            }
         } catch (Exception e) {
             isError = true;
             errorMessage = e.getMessage() == null ? "Tool execution failed" : e.getMessage();
             result = ToolExecutionResult.text(errorMessage);
         } finally {
             state.removePendingToolCall(toolCall.getId());
+        }
+
+        if (!isError && workspaceSandbox != null) {
+            result = ToolResultSpill.maybeSpill(workspaceSandbox, toolCall.getName(), result);
         }
 
         AgentMessage toolResultMessage = AgentMessage.toolResult(toolCall.getId(), result.getText(), isError);
@@ -338,7 +434,12 @@ public final class AgentRuntime implements Closeable {
     private List<AgentMessage> buildContextMessages() {
         String systemPrompt = state.getSystemPrompt();
         List<AgentMessage> transformed = transformContext.transform(state.getMessages());
-        List<AgentMessage> forModel = MessageHistoryLimiter.limitTail(transformed, maxContextMessages);
+        List<AgentMessage> forModel = ContextTurnLimiter.limitByUserTurns(transformed, maxContextTurns);
+        forModel = ToolResultTruncator.truncateOldTurns(
+            forModel,
+            AgentRuntimeDefaults.DEFAULT_TOOL_RESULT_TRUNCATE_CHARS
+        );
+        forModel = MessageHistoryLimiter.limitTail(forModel, maxContextMessages);
         if (systemPrompt.isBlank()) {
             return forModel;
         }

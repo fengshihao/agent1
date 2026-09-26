@@ -95,6 +95,8 @@ object CrashReporter {
         return File(context.applicationContext.filesDir, CRASH_FILE_NAME)
     }
 
+    fun reportDirectory(context: Context): File = crashReportDir(context)
+
     private fun crashReportDir(context: Context): File {
         return File(context.applicationContext.filesDir, CRASH_DIR_NAME)
     }
