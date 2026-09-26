@@ -57,6 +57,16 @@ cd android_agent && ./gradlew :app:assembleDebug
 
 导入后 App「模型配置 / 聊天详情」里的 **Agent 工具** 应显示 Weizhi / WebView / MCP。
 
+## 发版完成后（Agent1 Checklist）
+
+weizhi 侧 Maven 已 publish 后，在 **agent1 仓库根**按顺序做即可：
+
+1. **导入**：`./import-weizhi-prebuilt.sh` + Maven 目录或 tgz（见上一节三种方式）。
+2. **对齐版本**：打开 `android_agent/weizhi-prebuilt/coordinates.properties`，`group` / `version` 必须与 Maven 里 POM 一致（首次导入会从 `.example` 复制，默认 `0.1.0-SNAPSHOT`，若发版用了固定 tag 版本请改成实际值）。
+3. **本机验证**：`cd android_agent && ./gradlew :app:assembleDebug`；若同级仍有 weizhi 源码树，Gradle **会优先源码联编**——只想测预编译时请先移走或不要 checkout 源码路径。
+4. **CI 带 Weizhi 的 APK**：在 agent1 仓库 Secrets 配置 **`WEIZHI_PREBUILT_URL`**（私有 Release 的 tgz 下载 URL，需 CI 可读）。不必再配 `WEIZHI_GIT_URL`。
+5. **仅推到 GitHub Packages、没有 tgz**：可把 weizhi 本机 `android/build/maven` 目录导入 Agent1，或跑 `package-android-maven-bundle.sh` 再上传 Release 供 URL 导入（Agent1 尚未默认从 GPR 拉依赖）。
+
 ## GitHub Actions（agent1）
 
 不必配置 `WEIZHI_GIT_URL`。改为在 weizhi 仓库发版时上传 **maven tgz** 到私有 Release / 内网，然后在 agent1 Secrets 中配置：
