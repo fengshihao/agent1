@@ -39,6 +39,7 @@ echo "==> :core 自进化 UC 子集"
   --tests 'com.agent1.javaagent.session.ProductivityScriptedReadWriteTest' \
   --tests 'com.agent1.javaagent.skill.AgentSkillLoaderTest' \
   --tests 'com.agent1.javaagent.catalog.sync.CatalogSyncServiceTest' \
+  --tests 'com.agent1.javaagent.catalog.sync.CatalogSampleManifestIntegrationTest' \
   --tests 'com.agent1.javaagent.catalog.sync.CatalogSyncServiceNativeTest' \
   --tests 'com.agent1.javaagent.log.AgentAuditEventsTest' \
   --tests 'com.agent1.javaagent.tool.agent.CatalogSyncToolsTest' \
