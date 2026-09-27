@@ -76,6 +76,40 @@ class ScriptedLlmClientTest {
     }
 
     @Test
+    void toolResultBranchTakesPriorityOverUserTaskQueue() throws Exception {
+        ScriptedLlmClient client = ScriptedLlmClient.builder()
+            .whenUserMessageContains(
+                "task-a",
+                ScriptedResponses.toolCall("t1", "{}"),
+                ScriptedResponses.text("错误：不应在用户队列取成功文案")
+            )
+            .whenToolResultFailed(ScriptedResponses.text("已识别工具失败"))
+            .build();
+
+        client.streamChat(
+            new com.agent1.javaagent.model.ChatRequest("m", List.of(AgentMessage.user("task-a"))),
+            List.of(),
+            d -> {
+            },
+            new com.agent1.javaagent.core.CancellationToken()
+        );
+        String reply = client.streamChat(
+            new com.agent1.javaagent.model.ChatRequest(
+                "m",
+                List.of(
+                    AgentMessage.user("task-a"),
+                    AgentMessage.toolResult("call_t1_1", "{\"ok\":false,\"error\":\"x\"}", false)
+                )
+            ),
+            List.of(),
+            d -> {
+            },
+            new com.agent1.javaagent.core.CancellationToken()
+        ).getContent();
+        assertEquals("已识别工具失败", reply);
+    }
+
+    @Test
     void throwsWhenScriptExhausted() {
         ScriptedLlmClient client = ScriptedLlmClient.sequence(ScriptedResponses.text("once"));
         client.streamChat(

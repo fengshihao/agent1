@@ -16,17 +16,23 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 /**
- * 测试 / 离线自动化用 Mock LLM：按「用户任务」或固定轮次队列返回预定 {@link AssistantResponse}，
- * 不访问真实大模型 API。
+ * 测试 / 离线自动化用 Mock LLM：按「用户任务」、**上一轮 tool 回执**或固定轮次队列返回预定
+ * {@link AssistantResponse}，不访问真实大模型 API。
  */
 public final class ScriptedLlmClient implements LlmClient {
 
     private final Deque<AssistantResponse> globalTurns;
     private final List<TaskScript> taskScripts;
+    private final List<ToolResultScript> toolResultScripts;
 
-    private ScriptedLlmClient(Deque<AssistantResponse> globalTurns, List<TaskScript> taskScripts) {
+    private ScriptedLlmClient(
+        Deque<AssistantResponse> globalTurns,
+        List<TaskScript> taskScripts,
+        List<ToolResultScript> toolResultScripts
+    ) {
         this.globalTurns = globalTurns;
         this.taskScripts = List.copyOf(taskScripts);
+        this.toolResultScripts = List.copyOf(toolResultScripts);
     }
 
     /** 按调用顺序依次 dequeue（适合工具循环：tool call → 最终文本）。 */
@@ -35,7 +41,7 @@ public final class ScriptedLlmClient implements LlmClient {
         for (AssistantResponse turn : turns) {
             q.add(Objects.requireNonNull(turn, "turn"));
         }
-        return new ScriptedLlmClient(q, List.of());
+        return new ScriptedLlmClient(q, List.of(), List.of());
     }
 
     public static Builder builder() {
@@ -49,14 +55,25 @@ public final class ScriptedLlmClient implements LlmClient {
         LlmStreamListener streamListener,
         CancellationToken cancellationToken
     ) {
-        AssistantResponse response = resolveNext(lastUserText(request));
+        AssistantResponse response = resolveNext(request);
         if (!response.getContent().isBlank()) {
             streamListener.onTextDelta(response.getContent());
         }
         return response;
     }
 
-    private AssistantResponse resolveNext(String userText) {
+    private AssistantResponse resolveNext(ChatRequest request) {
+        AgentMessage last = lastMessage(request);
+        if (last != null && AgentMessage.ROLE_TOOL_RESULT.equals(last.getRole())) {
+            ToolResultView view = new ToolResultView(last.getContent(), last.isError());
+            for (ToolResultScript script : toolResultScripts) {
+                if (script.matches(view) && !script.turns.isEmpty()) {
+                    return script.turns.removeFirst();
+                }
+            }
+        }
+
+        String userText = lastUserText(request);
         if (userText != null) {
             for (TaskScript script : taskScripts) {
                 if (script.matches(userText) && !script.turns.isEmpty()) {
@@ -64,15 +81,26 @@ public final class ScriptedLlmClient implements LlmClient {
                 }
             }
         }
+
         AssistantResponse next = globalTurns.pollFirst();
         if (next == null) {
             throw new IllegalStateException(
-                "ScriptedLlmClient 无更多预定回复（user="
+                "ScriptedLlmClient 无更多预定回复（lastRole="
+                    + (last == null ? "?" : last.getRole())
+                    + " user="
                     + (userText == null ? "?" : userText)
                     + "）"
             );
         }
         return next;
+    }
+
+    private static AgentMessage lastMessage(ChatRequest request) {
+        List<AgentMessage> messages = request.getMessages();
+        if (messages.isEmpty()) {
+            return null;
+        }
+        return messages.get(messages.size() - 1);
     }
 
     private static String lastUserText(ChatRequest request) {
@@ -89,6 +117,7 @@ public final class ScriptedLlmClient implements LlmClient {
     public static final class Builder {
         private final Deque<AssistantResponse> globalTurns = new ArrayDeque<>();
         private final List<TaskScript> taskScripts = new ArrayList<>();
+        private final List<ToolResultScript> toolResultScripts = new ArrayList<>();
 
         public Builder then(AssistantResponse... turns) {
             for (AssistantResponse turn : turns) {
@@ -113,8 +142,32 @@ public final class ScriptedLlmClient implements LlmClient {
             return this;
         }
 
+        /** 上一轮为 toolResult 且内容包含片段时（优先于用户任务队列的后续轮次）。 */
+        public Builder whenToolResultContains(String needle, AssistantResponse... turns) {
+            return whenToolResult(view -> view.contentContains(needle), turns);
+        }
+
+        /** 上一轮 tool 标记 error 或 JSON {@code ok:false}。 */
+        public Builder whenToolResultFailed(AssistantResponse... turns) {
+            return whenToolResult(ToolResultView::looksLikeFailure, turns);
+        }
+
+        /** 上一轮 tool 回执不像失败（窄定义，见 {@link ToolResultView#looksLikeFailure()}）。 */
+        public Builder whenToolResultSucceeded(AssistantResponse... turns) {
+            return whenToolResult(view -> !view.looksLikeFailure(), turns);
+        }
+
+        public Builder whenToolResult(Predicate<ToolResultView> matcher, AssistantResponse... turns) {
+            Deque<AssistantResponse> q = new ArrayDeque<>();
+            for (AssistantResponse turn : turns) {
+                q.add(Objects.requireNonNull(turn, "turn"));
+            }
+            toolResultScripts.add(new ToolResultScript(matcher, q));
+            return this;
+        }
+
         public ScriptedLlmClient build() {
-            return new ScriptedLlmClient(globalTurns, taskScripts);
+            return new ScriptedLlmClient(globalTurns, taskScripts, toolResultScripts);
         }
     }
 
@@ -129,6 +182,20 @@ public final class ScriptedLlmClient implements LlmClient {
 
         boolean matches(String userText) {
             return matcher.test(userText);
+        }
+    }
+
+    private static final class ToolResultScript {
+        private final Predicate<ToolResultView> matcher;
+        private final Deque<AssistantResponse> turns;
+
+        private ToolResultScript(Predicate<ToolResultView> matcher, Deque<AssistantResponse> turns) {
+            this.matcher = matcher;
+            this.turns = turns;
+        }
+
+        boolean matches(ToolResultView view) {
+            return matcher.test(view);
         }
     }
 }

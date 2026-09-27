@@ -49,8 +49,13 @@ class ProductivityWebViewDrawScriptedTest {
         ScriptedLlmClient llm = ScriptedLlmClient.builder()
             .whenUserMessageContains(
                 "webview-canvas-draw",
-                ScriptedResponses.toolCall("webview_exec", args.toString()),
+                ScriptedResponses.toolCall("webview_exec", args.toString())
+            )
+            .whenToolResultSucceeded(
                 ScriptedResponses.text("已通过 WebView 绘制并保存 mock_llm_draw.png")
+            )
+            .whenToolResultFailed(
+                ScriptedResponses.text("WebView 工具未成功，请检查 CDP/Chromium 日志")
             )
             .build();
 
