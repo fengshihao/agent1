@@ -13,5 +13,5 @@
 
 ## 进化与安装
 
-- **promote_request** → shared/local（阶段 6）
+- **promote_request** → shared/local（staging/skills、staging/scripts）
 - **catalog_install** / **catalog_sync_status** → 云端资源（阶段 5）

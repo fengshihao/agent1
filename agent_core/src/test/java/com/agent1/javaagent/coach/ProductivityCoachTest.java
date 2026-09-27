@@ -68,6 +68,25 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void catalogPendingCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ToolExecutionResult in = ToolExecutionResult.text("manifest: x\npending: 2\n- a");
+        ToolExecutionResult out = coach.maybeAugment("catalog_sync_status", MAPPER.createObjectNode(), in, false);
+        assertTrue(out.getText().contains("[coach] catalog.pending"));
+    }
+
+    @Test
+    void stagingReadyCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("path", "staging/skills/foo/SKILL.md");
+        params.put("content", "---\nname: foo\n---\n");
+        ToolExecutionResult in = ToolExecutionResult.text("ok");
+        ToolExecutionResult out = coach.maybeAugment("write_file", params, in, false);
+        assertTrue(out.getText().contains("[coach] staging.ready"));
+    }
+
+    @Test
     void fileModeScriptSkipsInlineCoach() {
         ProductivityCoach coach = new ProductivityCoach();
         ObjectNode params = MAPPER.createObjectNode();

@@ -43,6 +43,20 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
+    void includesCatalogPendingWhenSyncFileExists() throws Exception {
+        Path workspace = temp.resolve("ws");
+        Path agentRoot = temp.resolve("agentRoot");
+        java.nio.file.Files.createDirectories(agentRoot.resolve("sync"));
+        java.nio.file.Files.writeString(
+            agentRoot.resolve("sync/pending.json"),
+            "{\"items\":[{\"id\":\"script.a\"}]}"
+        );
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(workspace, agentRoot, false, false);
+        assertTrue(prompt.contains("catalog pending"));
+    }
+
+    @Test
     void includesAgentBoundariesAndAgentRoot() throws Exception {
         Path workspace = temp.resolve("ws");
         Path agentRoot = temp.resolve("agentRoot");

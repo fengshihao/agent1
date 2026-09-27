@@ -382,7 +382,7 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new ListCatalogTool(agentRoot));
         tools.add(new CatalogSyncStatusTool(agentRoot));
         tools.add(new CatalogInstallTool(agentRoot));
-        tools.add(new PromoteRequestTool());
+        tools.add(new PromoteRequestTool(agentRoot, workspace));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);

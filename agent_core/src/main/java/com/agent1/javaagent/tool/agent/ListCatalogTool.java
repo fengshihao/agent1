@@ -83,7 +83,11 @@ public final class ListCatalogTool implements AgentTool {
             out.append("- ").append(entry.getKey()).append(": ").append(entry.getValue()).append(" files\n");
             total += entry.getValue();
         }
-        out.append("TOTAL: ").append(total).append(" files (max depth 4 per kind)");
+        out.append("TOTAL catalog: ").append(total).append(" files (max depth 4 per kind)\n");
+        Path localRoot = agentRoot.resolve("shared/local");
+        int localSkills = countRegularFiles(localRoot.resolve("skills"), 4);
+        int localScripts = countRegularFiles(localRoot.resolve("scripts"), 2);
+        out.append("LOCAL promoted: skills=").append(localSkills).append(" scripts=").append(localScripts);
         return ToolExecutionResult.text(out.toString().trim());
     }
 

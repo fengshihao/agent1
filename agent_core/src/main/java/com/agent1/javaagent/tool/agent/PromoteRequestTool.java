@@ -1,17 +1,27 @@
 package com.agent1.javaagent.tool.agent;
 
 import com.agent1.javaagent.core.CancellationToken;
+import com.agent1.javaagent.promote.PromotionService;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolUpdateListener;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.nio.file.Path;
 
-/** 阶段 6 实现前占位：让模型可发现工具名（步骤 3.5）。 */
+/** staging → shared/local（阶段 6.2）。 */
 public final class PromoteRequestTool implements AgentTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private final Path agentRoot;
+    private final Path workspaceRoot;
+
+    public PromoteRequestTool(Path agentRoot, Path workspaceRoot) {
+        this.agentRoot = agentRoot.toAbsolutePath().normalize();
+        this.workspaceRoot = workspaceRoot.toAbsolutePath().normalize();
+    }
 
     @Override
     public String name() {
@@ -20,7 +30,7 @@ public final class PromoteRequestTool implements AgentTool {
 
     @Override
     public String description() {
-        return "Promote staged workspace assets to shared/local (not implemented yet; use read_agent_doc promotion.md).";
+        return "Promote staged workspace assets (staging/skills, staging/scripts) to agentRoot shared/local.";
     }
 
     @Override
@@ -32,7 +42,7 @@ public final class PromoteRequestTool implements AgentTool {
             "note",
             MAPPER.createObjectNode()
                 .put("type", "string")
-                .put("description", "Optional note for audit when promotion is implemented.")
+                .put("description", "Optional audit note.")
         );
         schema.set("properties", properties);
         return schema;
@@ -45,10 +55,32 @@ public final class PromoteRequestTool implements AgentTool {
         CancellationToken cancellationToken,
         ToolUpdateListener onUpdate
     ) {
-        return ToolExecutionResult.text(
-            "未实现：promote_request 将在阶段 6 提供。"
-                + "请先把成果放到 workspace/staging/，并阅读 docs/system/promotion.md。"
-                + "禁止用 write_file 写入 shared/local 或 catalog。"
-        );
+        if (cancellationToken.isCancelled()) {
+            return ToolExecutionResult.text("错误：执行已取消");
+        }
+        String note = parameters == null ? "" : parameters.path("note").asText("");
+        try {
+            PromotionService.PromotionResult result = new PromotionService(agentRoot, workspaceRoot).promote(note);
+            if (result.ok()) {
+                StringBuilder out = new StringBuilder();
+                out.append("promotion_completed\n");
+                out.append(result.message()).append('\n');
+                for (String item : result.promoted()) {
+                    out.append("  - ").append(item).append('\n');
+                }
+                out.append("capabilities 已更新 docs/capabilities/local.*.md");
+                return ToolExecutionResult.text(out.toString().trim());
+            }
+            if (!result.rejections().isEmpty()) {
+                StringBuilder out = new StringBuilder("promotion_rejected\n");
+                for (String r : result.rejections()) {
+                    out.append("  - ").append(r).append('\n');
+                }
+                return ToolExecutionResult.text(out.toString().trim());
+            }
+            return ToolExecutionResult.text(result.message());
+        } catch (Exception e) {
+            return ToolExecutionResult.text("promote_request 失败: " + e.getMessage());
+        }
     }
 }

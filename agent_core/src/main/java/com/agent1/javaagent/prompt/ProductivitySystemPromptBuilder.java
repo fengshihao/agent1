@@ -1,5 +1,10 @@
 package com.agent1.javaagent.prompt;
 
+import com.agent1.javaagent.util.PathIo;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -109,11 +114,32 @@ public final class ProductivitySystemPromptBuilder {
         String rootLine = agentRoot == null
             ? ""
             : "- agentRoot：" + agentRoot.toAbsolutePath().normalize() + "\n";
+        String catalogLine = agentRoot == null ? "" : catalogPendingSummary(agentRoot);
         return """
             环境：
             %s- 工作区（唯一可写）：%s
             - 日期：%s
             - 平台：%s
-            """.formatted(rootLine, normalized, date, osName).trim();
+            %s
+            """.formatted(rootLine, normalized, date, osName, catalogLine).trim();
+    }
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    static String catalogPendingSummary(Path agentRoot) {
+        Path pendingFile = agentRoot.resolve("sync/pending.json");
+        if (!Files.isRegularFile(pendingFile)) {
+            return "";
+        }
+        try {
+            JsonNode root = MAPPER.readTree(PathIo.readString(pendingFile));
+            int count = root.path("items").isArray() ? root.path("items").size() : 0;
+            if (count <= 0) {
+                return "";
+            }
+            return "- catalog pending（上次 sync check）：" + count + " 条（catalog_sync_status / sync apply）\n";
+        } catch (IOException ignored) {
+            return "";
+        }
     }
 }

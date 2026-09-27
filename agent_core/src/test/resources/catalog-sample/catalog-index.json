@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "catalogId": "agent1-sample",
+  "releasedAt": "2026-09-27T00:00:00Z",
+  "baseUrl": "https://example.invalid/agent1/catalog-sample/",
+  "items": [
+    {
+      "id": "script.sample-hello",
+      "kind": "script",
+      "version": "1",
+      "digest": "sha256:2876e6693b1fa124d43f46b2a80921b40e620acfc97732e953bcfcd9459e3be4",
+      "path": "scripts/sample-hello.js"
+    }
+  ]
+}
