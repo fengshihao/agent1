@@ -33,7 +33,8 @@ env AGENT1_WEIZHI_REPO=/path/to/weizhi ./java_agent/gradlew -p java_agent :core:
 - `./scripts/e2e-deepseek-uc-smoke.sh
 # Tier-2 / Tier-3：
 ./scripts/e2e-deepseek-tier2.sh
-./scripts/e2e-deepseek-tier3.sh`（DeepSeek Flash，默认 UC-01/11；闲时检查见脚本）
+./scripts/e2e-deepseek-tier3.sh
+./scripts/e2e-deepseek-tier4.sh`（DeepSeek Flash，默认 UC-01/11；闲时检查见脚本）
 - `events.jsonl` 摘录  
 - transcript 关键轮次  
 - 结论：通过 / 失败 / AI 行为待优化  

@@ -13,6 +13,7 @@
 #   E2E_DEEPSEEK_REPORT=path   脱敏报告输出路径
 #   Tier-2（+UC-06 catalog）：./scripts/e2e-deepseek-tier2.sh
 #   Tier-3（+UC-08 promote）：./scripts/e2e-deepseek-tier3.sh
+#   Tier-4（+UC-09 skill read）：./scripts/e2e-deepseek-tier4.sh
 
 set -euo pipefail
 
@@ -146,6 +147,36 @@ verify_uc08() {
   return 0
 }
 
+UC08_SKILL_BODY_MARKER="DeepSeek E2E tier3 晋升测试"
+
+verify_uc09() {
+  local events="${AGENT1_AGENT_ROOT}/logs/events.jsonl"
+  local skill="${AGENT1_AGENT_ROOT}/shared/local/skills/${UC08_SKILL_DIR}/SKILL.md"
+  if [[ ! -f "${skill}" ]]; then
+    echo "UC-09 验证失败: 需先完成 UC-08（${skill} 不存在）" >&2
+    return 1
+  fi
+  if [[ ! -f "${events}" ]]; then
+    echo "UC-09 验证失败: 无 events.jsonl" >&2
+    return 1
+  fi
+  if ! grep -q '"tool_name":"skill"' "${events}"; then
+    echo "UC-09 验证失败: events 无 skill 工具调用" >&2
+    return 1
+  fi
+  if ! grep -q "${UC08_SKILL_BODY_MARKER}" "${events}" \
+    && ! grep -q "${UC08_SKILL_BODY_MARKER}" "${skill}"; then
+    echo "UC-09 验证失败: 未见到 skill 正文标记" >&2
+    return 1
+  fi
+  if ! grep -q 'source: local' "${events}" && ! grep -q 'source":"local' "${events}"; then
+    echo "UC-09 验证失败: tool 回执未标明 local source" >&2
+    return 1
+  fi
+  echo "UC-09 验证: skill ${UC08_SKILL_DIR} 已从 local 读取"
+  return 0
+}
+
 fail=0
 
 IFS=',' read -ra UCS <<< "${UC_LIST}"
@@ -170,6 +201,12 @@ for uc in "${UCS[@]}"; do
         "请把可复用 skill 沉淀到 shared/local：先用 write_file 在 workspace 创建 staging/skills/${UC08_SKILL_DIR}/SKILL.md，YAML frontmatter 含 name: ${UC08_SKILL_DIR}，正文写一句「DeepSeek E2E tier3 晋升测试」（不要包含 api key 字样）；再调用 promote_request。禁止 write_file 写入 shared/ 或 docs/system。" \
         "6" || fail=1
       verify_uc08 || fail=1
+      ;;
+    09)
+      run_uc "09" \
+        "local 里应该已有 skill「${UC08_SKILL_DIR}」（若还没有请先 promote）。请用 skill 工具 action=list，再 action=read skill_name=${UC08_SKILL_DIR}，确认 source 为 local 且正文含「${UC08_SKILL_BODY_MARKER}」。" \
+        "5" || fail=1
+      verify_uc09 || fail=1
       ;;
     *)
       echo "跳过未知 UC: ${uc}" >&2
