@@ -32,7 +32,7 @@ public final class AgentDataPaths {
         return eventsJsonl(agentRoot());
     }
 
-    /** 与 {@link com.agent1.javaagent.cli.ProductivityCli#resolveProjectRoot} 一致。 */
+    /** 项目根：优先 {@code AGENT1_PROJECT_ROOT}，否则 {@code .agent1} 的父目录或当前目录。 */
     public static Path projectRoot(Path agentRoot) {
         String fromEnv = System.getenv(ENV_PROJECT_ROOT);
         if (fromEnv != null && !fromEnv.isBlank()) {
