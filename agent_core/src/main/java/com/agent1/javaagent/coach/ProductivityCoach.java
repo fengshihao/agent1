@@ -84,18 +84,24 @@ public final class ProductivityCoach {
             String file = parameters.path("file").asText("").trim();
             String code = parameters.path("code").asText("");
             if (ScriptFailureFormatter.looksLikeFailureJson(text) || isScriptFailureLegacy(text)) {
-                ScriptEvalFrame.SourceKind kind = file.isEmpty()
-                    ? ScriptEvalFrame.SourceKind.INLINE
-                    : ScriptEvalFrame.SourceKind.FILE;
-                ScriptEvalFrame frame = new ScriptEvalFrame(kind, file, 0, 0, ScriptEvalFrame.countLines(code));
-                String key = frame.scriptKey(code);
-                int failures = runState.recordScriptFailure(key);
-                if (failures >= scriptFailRepeat) {
-                    hookId = "script.fail_repeat";
-                    advice =
-                        "同一脚本已失败 " + failures + " 次。请根据返回 JSON 的 userLine 修改；"
-                            + "优先 write_file 到 workspace/*.js 再用 file 执行；"
-                            + "可读 docs/system/tools-and-quickjs.md。";
+                if (CatalogMissingNativeHints.looksLikeMissingNative(text)) {
+                    String plugin = CatalogMissingNativeHints.resolvePluginName(code, text);
+                    hookId = "catalog.missing_native";
+                    advice = CatalogMissingNativeHints.adviceFor(plugin);
+                } else {
+                    ScriptEvalFrame.SourceKind kind = file.isEmpty()
+                        ? ScriptEvalFrame.SourceKind.INLINE
+                        : ScriptEvalFrame.SourceKind.FILE;
+                    ScriptEvalFrame frame = new ScriptEvalFrame(kind, file, 0, 0, ScriptEvalFrame.countLines(code));
+                    String key = frame.scriptKey(code);
+                    int failures = runState.recordScriptFailure(key);
+                    if (failures >= scriptFailRepeat) {
+                        hookId = "script.fail_repeat";
+                        advice =
+                            "同一脚本已失败 " + failures + " 次。请根据返回 JSON 的 userLine 修改；"
+                                + "优先 write_file 到 workspace/*.js 再用 file 执行；"
+                                + "可读 docs/system/tools-and-quickjs.md。";
+                    }
                 }
             } else if (file.isEmpty() && !code.isBlank()) {
                 int lines = countLines(code);

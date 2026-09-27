@@ -14,7 +14,7 @@ Gradle 默认跑，类名 ↔ UC 映射：
 | UC-09 | `ProductivityScriptedSkillTest#uc09ReadLocalSkillAfterSeed` |
 | UC-12 | `ProductivityScriptedCoachTest#uc12OutsideWriteAppendsPathOutsideCoach` |
 | UC-04 | `ProductivityScriptedScriptLineTest#uc04SyntaxErrorReportsUserLineFive`（需 Weizhi native） |
-| UC-07 | `CatalogSyncServiceNativeTest#uc07SyncNativeEchoMathFiles` + `WeizhiNativeCatalogIntegrationTest#uc07EnsureNativeFromCatalogNativeDir`（Mock HTTP + 本地 echo_math，**无需 COS**） |
+| UC-07 | `CatalogSyncServiceNativeTest#uc07SyncNativeEchoMathFiles` + `WeizhiNativeCatalogIntegrationTest#uc07EnsureNativeFromCatalogNativeDir` + `ProductivityScriptedNativeCatalogTest#uc07ScriptedInstallNativeThenEnsureNative`（Mock HTTP + 本地 echo_math，**无需 COS**） |
 | 读写环 | `ProductivityScriptedReadWriteTest` / `ProductivityScriptedToolFailureTest` |
 
 ```bash

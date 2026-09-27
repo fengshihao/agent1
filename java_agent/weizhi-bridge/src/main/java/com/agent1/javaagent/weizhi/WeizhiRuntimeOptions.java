@@ -6,6 +6,28 @@ import com.weizhi.WeizhiLimits;
 /** 宿主侧 Weizhi 引擎开关（桌面生产力 CLI 默认值）。 */
 public final class WeizhiRuntimeOptions {
 
+    public WeizhiRuntimeOptions() {
+    }
+
+    /** 浅拷贝，便于 open 前覆盖 nativePluginDir 等字段。 */
+    public WeizhiRuntimeOptions(WeizhiRuntimeOptions from) {
+        if (from == null) {
+            return;
+        }
+        this.limits = from.limits;
+        this.scriptFolder = from.scriptFolder;
+        this.enableFetch = from.enableFetch;
+        this.fetchHostAllowlist = from.fetchHostAllowlist;
+        this.installDesktopCaps = from.installDesktopCaps;
+        this.enableNativeMock = from.enableNativeMock;
+        this.nativePluginDir = from.nativePluginDir;
+        this.scriptToolBridge = from.scriptToolBridge;
+    }
+
+    public WeizhiRuntimeOptions copy() {
+        return new WeizhiRuntimeOptions(this);
+    }
+
     private WeizhiLimits limits;
     private String scriptFolder;
     private boolean enableFetch;

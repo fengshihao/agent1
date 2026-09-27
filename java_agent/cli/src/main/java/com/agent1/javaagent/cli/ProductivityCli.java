@@ -15,7 +15,6 @@ import com.agent1.javaagent.cli.productivity.ProductivityToolsCommand;
 import com.agent1.javaagent.script.MutableScriptToolBridge;
 import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
-import com.agent1.javaagent.catalog.AgentCatalogPaths;
 import com.agent1.javaagent.weizhi.WeizhiHostSupport;
 import java.nio.file.Files;
 import com.agent1.javaagent.weizhi.WeizhiRuntimeOptions;
@@ -110,12 +109,8 @@ public final class ProductivityCli {
         WeizhiRuntimeOptions weizhiOptions = new WeizhiRuntimeOptions()
             .installDesktopCaps(true)
             .scriptToolBridge(scriptTools);
-        java.nio.file.Path nativePlugins = AgentCatalogPaths.resolveExistingNativePluginsDir(agentRoot);
-        if (nativePlugins != null) {
-            weizhiOptions.nativePluginDir(nativePlugins.toString());
-        }
         java.util.Optional<ScriptEngineFactory> scriptEngine =
-            WeizhiHostSupport.tryCreateFactory(weizhiRepo, weizhiOptions);
+            WeizhiHostSupport.tryCreateFactory(weizhiRepo, weizhiOptions, agentRoot);
         String sandboxAppend = scriptEngine.isPresent()
             ? WeizhiHostSupport.loadSandboxPromptAppend(weizhiRepo)
             : "";

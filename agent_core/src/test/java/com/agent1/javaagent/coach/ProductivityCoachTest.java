@@ -87,6 +87,20 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void missingNativeCoachOnEnsureNativeFailure() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "await host.ensureNative('echo_math');");
+        ToolExecutionResult fail = ToolExecutionResult.text(
+            "{\"ok\":false,\"message\":\"unsupported: native \\\"echo_math\\\" (not in catalog)\"}"
+        );
+        ToolExecutionResult out = coach.maybeAugment("execute_script", params, fail, false);
+        assertTrue(out.getText().contains("[coach] catalog.missing_native"));
+        assertTrue(out.getText().contains("echo_math"));
+        assertTrue(out.getText().contains("catalog_install"));
+    }
+
+    @Test
     void fileModeScriptSkipsInlineCoach() {
         ProductivityCoach coach = new ProductivityCoach();
         ObjectNode params = MAPPER.createObjectNode();

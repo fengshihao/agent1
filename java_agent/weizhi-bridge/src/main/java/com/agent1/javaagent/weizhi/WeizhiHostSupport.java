@@ -50,6 +50,14 @@ public final class WeizhiHostSupport {
     }
 
     public static Optional<ScriptEngineFactory> tryCreateFactory(Path weizhiRepo, WeizhiRuntimeOptions options) {
+        return tryCreateFactory(weizhiRepo, options, null);
+    }
+
+    public static Optional<ScriptEngineFactory> tryCreateFactory(
+        Path weizhiRepo,
+        WeizhiRuntimeOptions options,
+        Path agentRoot
+    ) {
         if (!scriptEngineEnabledByEnv()) {
             return Optional.empty();
         }
@@ -63,7 +71,7 @@ public final class WeizhiHostSupport {
         } catch (UnsatisfiedLinkError e) {
             return Optional.empty();
         }
-        return Optional.of(new WeizhiScriptEngineFactory(options));
+        return Optional.of(new WeizhiScriptEngineFactory(options, agentRoot));
     }
 
     public static String loadSandboxPromptAppend(Path weizhiRepo) {

@@ -26,6 +26,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }
 
 val syncMcpSources = tasks.register<Copy>("syncMcpSources") {
