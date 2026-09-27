@@ -113,22 +113,27 @@ public final class ExecuteScriptTool implements AgentTool {
         }
 
         String prelude = buildArgsPrelude(parameters.get("args"));
-        String js = prelude.isEmpty() ? source : prelude + "\n" + source;
         ScriptEvalFrame.SourceKind kind = hasFile ? ScriptEvalFrame.SourceKind.FILE : ScriptEvalFrame.SourceKind.INLINE;
-        ScriptEvalFrame frame = new ScriptEvalFrame(
-            kind,
-            hasFile ? file : "",
-            ScriptEvalFrame.countPreludeLines(prelude),
-            0,
-            ScriptEvalFrame.countLines(source)
-        );
 
         Path workspaceRoot = sandbox.getRoot();
         try (ScriptEngine engine = engineFactory.open(workspaceRoot)) {
+            ScriptEvalFrame frame = new ScriptEvalFrame(
+                kind,
+                hasFile ? file : "",
+                ScriptEvalFrame.countPreludeLines(prelude),
+                engine.agentHostPreludeLines(),
+                ScriptEvalFrame.countLines(source)
+            );
             AtomicBoolean cancelSent = new AtomicBoolean(false);
             Thread watcher = startCancelWatcher(engine, cancellationToken, cancelSent);
             try {
-                String json = engine.eval(js, defaultTimeoutMs, cancellationToken);
+                String json = engine.evalForAgent(
+                    source,
+                    prelude,
+                    defaultTimeoutMs,
+                    cancellationToken,
+                    hasFile ? file : null
+                );
                 return ToolExecutionResult.text(json == null ? "null" : json);
             } catch (RuntimeException e) {
                 return ToolExecutionResult.text(ScriptFailureFormatter.formatJson(frame, e));

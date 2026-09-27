@@ -46,12 +46,45 @@ final class WeizhiScriptEngine implements ScriptEngine {
 
     @Override
     public String eval(String jsSource, long timeoutMs, CancellationToken cancellationToken) {
+        return runOnce(jsSource, timeoutMs, cancellationToken, null);
+    }
+
+    @Override
+    public String evalForAgent(
+        String userSource,
+        String agentArgsPrelude,
+        long timeoutMs,
+        CancellationToken cancellationToken,
+        String workspaceRelativeFile
+    ) {
+        if (cancellationToken != null && cancellationToken.isCancelled()) {
+            throw new RuntimeException("cancelled");
+        }
+        String safeUser = userSource == null ? "" : userSource;
+        if (agentArgsPrelude != null && !agentArgsPrelude.isBlank()) {
+            runOnce(agentArgsPrelude, timeoutMs, cancellationToken, "<agent-args>");
+        }
+        String toolsPrelude = WeizhiScriptToolInstaller.preludeSource(options.scriptToolBridge());
+        if (!toolsPrelude.isBlank()) {
+            runOnce(toolsPrelude, timeoutMs, cancellationToken, "<tools-prelude>");
+        }
+        String filename = workspaceRelativeFile == null || workspaceRelativeFile.isBlank()
+            ? "<eval>"
+            : workspaceRelativeFile.trim();
+        return runOnce(safeUser, timeoutMs, cancellationToken, filename);
+    }
+
+    @Override
+    public int agentHostPreludeLines() {
+        return WeizhiScriptToolInstaller.preludeLineCount(options.scriptToolBridge());
+    }
+
+    private String runOnce(String source, long timeoutMs, CancellationToken cancellationToken, String filename) {
         if (cancellationToken != null && cancellationToken.isCancelled()) {
             throw new RuntimeException("cancelled");
         }
         int timeout = timeoutMs > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) timeoutMs;
-        String source = WeizhiScriptToolInstaller.wrap(jsSource, options.scriptToolBridge());
-        return engine.runJs(source, timeout);
+        return engine.runJs(source, timeout, filename);
     }
 
     @Override

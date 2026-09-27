@@ -10,7 +10,33 @@ import java.util.Set;
 /** 在 caps 安装之后链式挂上 {@code $tools}，并把用户脚本包进 Weizhi 官方 prelude。 */
 public final class WeizhiScriptToolInstaller {
 
+    /** 与 {@link #prelude()} 同步；Agent1 行号扣减用。 */
+    public static final int TOOLS_PRELUDE_LINE_COUNT = lineCount(preludeStatic());
+
     private WeizhiScriptToolInstaller() {
+    }
+
+    public static int preludeLineCount(ScriptToolBridge bridge) {
+        if (bridge == null) {
+            return 0;
+        }
+        Set<String> names = bridge.exposedNames();
+        if (names == null || names.isEmpty()) {
+            return 0;
+        }
+        return TOOLS_PRELUDE_LINE_COUNT;
+    }
+
+    /** 仅 $tools 注入 prelude；应在用户脚本前单独 eval。 */
+    public static String preludeSource(ScriptToolBridge bridge) {
+        if (bridge == null) {
+            return "";
+        }
+        Set<String> names = bridge.exposedNames();
+        if (names == null || names.isEmpty()) {
+            return "";
+        }
+        return preludeStatic();
     }
 
     public static void install(WeizhiEngine engine, ScriptToolBridge bridge) {
@@ -36,11 +62,11 @@ public final class WeizhiScriptToolInstaller {
         // 因此这里传对象，而不是再 stringify 一次（那会变成 JSON 字符串，宿主解析失败）。
         // 引擎脚本本身已是 async，顶层 await 可用。不要套 ScriptToolsBridge.wrapSource 的 async IIFE，
         // 否则 runJs 会把未拆开的 Promise 收成 {}。
-        return prelude() + "\n" + source;
+        return preludeSource(bridge) + (preludeSource(bridge).isEmpty() ? "" : "\n") + source;
     }
 
     /** 与 {@code ScriptToolsBridge} prelude 一致，供顶层 {@code return await $tools...} 使用。 */
-    private static String prelude() {
+    private static String preludeStatic() {
         return "(function(){\n"
             + "globalThis.$tools = new Proxy({}, {\n"
             + "  get: function(_, name) {\n"
@@ -54,6 +80,19 @@ public final class WeizhiScriptToolInstaller {
             + "  }\n"
             + "});\n"
             + "})();";
+    }
+
+    private static int lineCount(String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        int lines = 1;
+        for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) == '\n') {
+                lines++;
+            }
+        }
+        return lines;
     }
 
     @SuppressWarnings("unchecked")

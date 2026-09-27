@@ -156,6 +156,21 @@ class WeizhiScriptEngineIntegrationTest {
     }
 
     @Test
+    void syntaxErrorReportsUserLineInFileMode(@TempDir Path workspace) throws Exception {
+        String script = "line1\nline2\nline3\nline4\n}\n";
+        Files.writeString(workspace.resolve("t.js"), script);
+        ExecuteScriptTool tool = new ExecuteScriptTool(
+            new WorkspaceSandbox(workspace),
+            factory,
+            10_000
+        );
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("file", "t.js");
+        var result = tool.execute("syn", params, new CancellationToken(), u -> {});
+        assertTrue(result.getText().contains("\"userLine\":5"), result.getText());
+    }
+
+    @Test
     void executeScriptToolRoundTrip(@TempDir Path workspace) throws Exception {
         ExecuteScriptTool tool = new ExecuteScriptTool(
             new WorkspaceSandbox(workspace),

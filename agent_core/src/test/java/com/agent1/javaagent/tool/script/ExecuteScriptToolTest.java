@@ -142,19 +142,33 @@ class ExecuteScriptToolTest {
 
         withArgs.execute("c1", params, new CancellationToken(), u -> {});
 
-        assertTrue(recording.lastSource.contains("__agentArgs"));
-        assertTrue(recording.lastSource.contains("[\"a\",1]") || recording.lastSource.contains("[\"a\", 1]"));
+        assertTrue(recording.lastUserSource.contains("globalThis.__agentArgs"));
+        assertTrue(recording.lastAgentPrelude.contains("[\"a\",1]") || recording.lastAgentPrelude.contains("[\"a\", 1]"));
     }
 
     private static final class RecordingFactory implements com.agent1.javaagent.script.ScriptEngineFactory {
-        String lastSource = "";
+        String lastUserSource = "";
+        String lastAgentPrelude = "";
 
         @Override
         public com.agent1.javaagent.script.ScriptEngine open(Path workspace) {
             return new com.agent1.javaagent.script.ScriptEngine() {
                 @Override
                 public String eval(String jsSource, long timeoutMs, CancellationToken token) {
-                    lastSource = jsSource;
+                    lastUserSource = jsSource;
+                    return "[]";
+                }
+
+                @Override
+                public String evalForAgent(
+                    String userSource,
+                    String agentArgsPrelude,
+                    long timeoutMs,
+                    CancellationToken cancellationToken,
+                    String workspaceRelativeFile
+                ) {
+                    lastUserSource = userSource;
+                    lastAgentPrelude = agentArgsPrelude == null ? "" : agentArgsPrelude;
                     return "[]";
                 }
 

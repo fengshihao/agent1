@@ -14,8 +14,8 @@ class ScriptFailureFormatterTest {
     @Test
     void mapsEngineLineToUserLine() throws Exception {
         ScriptEvalFrame frame = new ScriptEvalFrame(
-            ScriptEvalFrame.SourceKind.FILE,
-            "scripts/t.js",
+            ScriptEvalFrame.SourceKind.INLINE,
+            "",
             1,
             0,
             10
@@ -28,7 +28,7 @@ class ScriptFailureFormatterTest {
         assertEquals(false, node.path("ok").asBoolean());
         assertEquals(7, node.path("location").path("userLine").asInt());
         assertEquals(8, node.path("location").path("engineLine").asInt());
-        assertEquals("file", node.path("source").path("kind").asText());
+        assertEquals("inline", node.path("source").path("kind").asText());
     }
 
     @Test
