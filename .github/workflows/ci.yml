@@ -36,7 +36,7 @@ jobs:
           fi
           if [ -d "${WEIZHI_DIR}" ] && [ -f "${WEIZHI_DIR}/scripts/test.sh" ]; then
             (cd "${WEIZHI_DIR}" && WEIZHI_SKIP_ASAN=1 ./scripts/test.sh)
-            AGENT1_WEIZHI_REPO="${WEIZHI_DIR}" ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test :weizhi-bridge:test
+            AGENT1_WEIZHI_REPO="${WEIZHI_DIR}" ./scripts/e2e-self-evolve-smoke.sh
           else
             echo "skip weizhi: 未 clone weizhi（检查 sync-weizhi.sh 或设置 WEIZHI_SKIP_SYNC）— 仅 :core:test"
             ./java_agent/gradlew --no-daemon -p java_agent :core:test
