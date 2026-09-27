@@ -13,6 +13,7 @@ class EnvAgentRuntimeConfigLoaderTest {
         Properties p = new Properties();
         p.setProperty("maxContextTurns", "3");
         p.setProperty("maxTurnsPerRun", "8");
+        p.setProperty("model", AgentRuntimeDefaults.DEFAULT_MODEL);
         AgentRuntimeConfig c = AgentRuntimeConfig.fromProperties(p);
         assertEquals(3, c.getMaxContextTurns());
         assertEquals(8, c.getMaxTurnsPerRun());

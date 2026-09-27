@@ -97,6 +97,10 @@ public final class AgentHomeBootstrap {
             systemDir.resolve("tools-and-quickjs.md"),
             "/agent-home/docs/system/tools-and-quickjs.md"
         );
+        copyResourceIfMissing(
+            systemDir.resolve("events-audit.md"),
+            "/agent-home/docs/system/events-audit.md"
+        );
     }
 
     private static void copyResourceIfMissing(Path target, String resourcePath) {
