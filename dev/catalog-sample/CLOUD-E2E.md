@@ -53,6 +53,17 @@ Cloud Agent **不能**自动登录你的腾讯云/阿里云控制台，也**读�
 
 规则相同：manifest + 对象的 **HTTPS 可 GET** 即可；Agent 不区分云厂商。
 
+## UC-07（native 插件）没有 COS 能测吗？
+
+能。仓库内用 **MockWebServer 假 manifest** + 本机已 `build` 的 Weizhi **`echo_math` 插件** 测：
+
+- `CatalogSyncServiceNativeTest` — 模拟 sync 落盘 `shared/catalog/native/<platform>/echo_math/`
+- `WeizhiNativeCatalogIntegrationTest` — `nativePluginDir` + 真实 `host.ensureNative('echo_math')`
+
+不依赖腾讯云/阿里云；CI/Cloud Agent 需 `AGENT1_WEIZHI_REPO` 且 `./scripts/build.sh` 已产出 `build/plugins/echo_math/`。
+
+---
+
 ## 若希望 Agent「代你上传」
 
 当前 Agent1 **没有**内置 COS/OSS 上传工具。可选：
