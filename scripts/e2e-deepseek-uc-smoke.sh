@@ -8,14 +8,17 @@
 #   ./scripts/e2e-deepseek-uc-smoke.sh
 #
 # 可选：
-#   E2E_DEEPSEEK_UCS=01,11     默认 01,11（省钱）
+#   E2E_DEEPSEEK_UCS=01,11     默认 01,11（省钱）；含 06 时用 tier2 或 01,11,06
 #   E2E_DEEPSEEK_FORCE=1       忽略北京时间高峰警告
 #   E2E_DEEPSEEK_REPORT=path   脱敏报告输出路径
+#   Tier-2（+UC-06 catalog）：./scripts/e2e-deepseek-tier2.sh
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "${REPO_ROOT}"
+# shellcheck disable=SC1091
+source "${REPO_ROOT}/scripts/lib/catalog-sample-local-server.sh"
 
 if [[ -z "${OPENAI_API_KEY:-}" ]]; then
   echo "错误: 请设置 OPENAI_API_KEY（勿 commit 到 git）" >&2
@@ -57,9 +60,19 @@ fi
 
 mkdir -p "${AGENT1_AGENT_ROOT}"
 
+cleanup() {
+  catalog_sample_server_stop
+}
+trap cleanup EXIT
+
 run_uc() {
   local id="$1"
   local prompt="$2"
+  local max_turns="${3:-}"
+  local saved_turns="${AGENT1_MAX_TURNS_PER_RUN}"
+  if [[ -n "${max_turns}" ]]; then
+    export AGENT1_MAX_TURNS_PER_RUN="${max_turns}"
+  fi
   echo ""
   echo "======== UC-${id} ========"
   echo "prompt: ${prompt}"
@@ -68,6 +81,7 @@ run_uc() {
   out="$(./agent1 "${prompt}" 2>&1)"
   local code=$?
   set -e
+  export AGENT1_MAX_TURNS_PER_RUN="${saved_turns}"
   echo "${out}"
   echo "exit_code=${code}"
   if [[ -n "${REPORT}" ]]; then
@@ -86,6 +100,26 @@ run_uc() {
   return "${code}"
 }
 
+verify_uc06() {
+  local events="${AGENT1_AGENT_ROOT}/logs/events.jsonl"
+  local script="${AGENT1_AGENT_ROOT}/shared/catalog/scripts/sample-hello.js"
+  if [[ ! -f "${script}" ]]; then
+    echo "UC-06 验证失败: 未落盘 ${script}" >&2
+    return 1
+  fi
+  if [[ ! -f "${events}" ]]; then
+    echo "UC-06 验证失败: 无 events.jsonl" >&2
+    return 1
+  fi
+  if ! grep -q '"tool_name":"catalog_install"' "${events}" \
+    && ! grep -q '"tool_name":"catalog_sync_status"' "${events}"; then
+    echo "UC-06 验证失败: events 中无 catalog_install/sync_status" >&2
+    return 1
+  fi
+  echo "UC-06 验证: sample-hello.js 已安装"
+  return 0
+}
+
 fail=0
 
 IFS=',' read -ra UCS <<< "${UC_LIST}"
@@ -97,6 +131,13 @@ for uc in "${UCS[@]}"; do
       ;;
     11)
       run_uc "11" "请读环境手册里 catalog 安装说明，告诉我安装流程要点，不要写 docs/system。" || fail=1
+      ;;
+    06)
+      catalog_sample_server_start "${REPO_ROOT}" || fail=1
+      run_uc "06" \
+        "请先 catalog_sync_status 查看 pending；若有 script.sample-hello 待安装，用 catalog_install 只装这一条。禁止 write_file 写入 shared/catalog。" \
+        "5" || fail=1
+      verify_uc06 || fail=1
       ;;
     *)
       echo "跳过未知 UC: ${uc}" >&2

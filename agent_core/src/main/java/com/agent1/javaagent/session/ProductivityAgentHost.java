@@ -33,6 +33,7 @@ import com.agent1.javaagent.coach.ProductivityCoach;
 import com.agent1.javaagent.tool.agent.CatalogInstallTool;
 import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
 import com.agent1.javaagent.tool.agent.ListCatalogTool;
+import com.agent1.javaagent.tool.agent.ListSessionsTool;
 import com.agent1.javaagent.tool.agent.ProductivitySkillTool;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
 import com.agent1.javaagent.tool.agent.ReadAgentDocTool;
@@ -402,6 +403,7 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new CatalogInstallTool(agentRoot));
         tools.add(new PromoteRequestTool(agentRoot, workspace));
         tools.add(new ProductivitySkillTool(agentRoot, projectRoot));
+        tools.add(new ListSessionsTool(sessionStore, this::getActiveSessionId));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);
