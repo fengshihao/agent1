@@ -76,6 +76,7 @@ Agent1 通过 `OPENAI_MODEL=deepseek-flash` 传入即可（`./agent1 models` 应
 | `./scripts/e2e-deepseek-uc-smoke.sh` | 01, 11 | 默认；**闲时**跑（脚本内高峰拦截） |
 | `./scripts/e2e-deepseek-tier2.sh` | 01, 11, **06** | 自动起本地 `dev/catalog-sample` HTTP；验证 `sample-hello.js` 落盘 |
 | `./scripts/e2e-deepseek-tier3.sh` | 01, 11, 06, **08** | Tier-2 + **promote_request** → `shared/local/skills/e2e-tier3-skill/` |
+| `./scripts/e2e-deepseek-tier4.sh` | 01, 11, 06, 08, **09** | Tier-3 + **skill** list/read local |
 | `./scripts/e2e-self-evolve-smoke.sh` | Mock 全集 | 不耗 Key |
 
 Tier-2 需本机 `python3`、`curl`；Key 仅 `OPENAI_API_KEY` 环境变量 / Cursor Secrets。
