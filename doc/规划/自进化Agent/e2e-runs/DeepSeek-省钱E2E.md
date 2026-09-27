@@ -38,6 +38,28 @@ Agent1 通过 `OPENAI_MODEL=deepseek-flash` 传入即可（`./agent1 models` 应
 
 建议：**大批量 UC / 回归 E2E** 尽量排在空闲时段；开发中仍可用小 `maxTurns` 在高峰做冒烟。Cloud Agent 跑 E2E 时可对照北京时间决定是否开跑长测。
 
+## 限速与并发（官方摘要）
+
+文档：[限速与隔离](https://api-docs.deepseek.com/zh-cn/quick_start/rate_limit)
+
+| 模型 | 账号并发上限（未完成请求计 1） |
+|------|--------------------------------|
+| **deepseek-flash** | **2500** |
+| deepseek-v4-pro | 500 |
+
+- 超限返回 **HTTP 429**；与 API Key 个数无关，按**账号**计。
+- 可选请求体 **`user_id`**（OpenAI 兼容需放 `extra_body`）：内容安全 / KVCache / 调度隔离；**勿含隐私**；格式 `[a-zA-Z0-9\-_]+`，最长 512。
+- **保活**：等待推理期间非流式会收到空行、流式会收到 SSE `: keep-alive`；**10 分钟未开始推理**会断连。
+
+### 对 Agent1 E2E 的含义
+
+| 做法 | 原因 |
+|------|------|
+| UC **串行**跑，避免并行多个 `./agent1` | 单账号开发一般远低于 2500，但并行 Cloud/本地混跑可能叠加 |
+| 遇 **429** 退避重试，记录到 `e2e-runs` | 区分「产品 bug」与「配额/并发」 |
+| 单 Run 控制 `maxTurns` / 工具次数 | 缩短「未完成请求」占用并发的时间 |
+| **（待实现）** 生产力路径传 `user_id=sessionId` | 便于 DeepSeek 侧隔离；当前 `OpenAiCompatibleClient` **尚未**传 `extra_body.user_id`，见 backlog |
+
 ## 验证配置（不耗模型）
 
 ```bash
