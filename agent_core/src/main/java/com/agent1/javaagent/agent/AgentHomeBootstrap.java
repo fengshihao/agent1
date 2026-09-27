@@ -71,6 +71,10 @@ public final class AgentHomeBootstrap {
         triggers.put("scriptFailRepeat", 3);
         coach.set("triggers", triggers);
         node.set("coach", coach);
+        ObjectNode catalog = MAPPER.createObjectNode();
+        catalog.put("manifestUrl", "");
+        catalog.put("note", "或使用环境变量 AGENT1_CATALOG_MANIFEST_URL");
+        node.set("catalog", catalog);
         try {
             PathIo.writeString(
                 manifest,

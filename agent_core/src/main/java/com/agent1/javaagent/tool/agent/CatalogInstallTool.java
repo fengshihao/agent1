@@ -1,5 +1,6 @@
 package com.agent1.javaagent.tool.agent;
 
+import com.agent1.javaagent.catalog.sync.CatalogSyncService;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
@@ -7,11 +8,20 @@ import com.agent1.javaagent.tool.ToolUpdateListener;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.ArrayList;
+import java.util.List;
+import java.nio.file.Path;
 
-/** 阶段 5 实现前占位（步骤 3.5）。 */
+/** 封装 sync apply（阶段 5.5）。 */
 public final class CatalogInstallTool implements AgentTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private final Path agentRoot;
+
+    public CatalogInstallTool(Path agentRoot) {
+        this.agentRoot = agentRoot.toAbsolutePath().normalize();
+    }
 
     @Override
     public String name() {
@@ -20,7 +30,7 @@ public final class CatalogInstallTool implements AgentTool {
 
     @Override
     public String description() {
-        return "Install catalog items by id from remote manifest (stub; wraps future sync apply).";
+        return "Install catalog items by id from remote manifest (sync apply).";
     }
 
     @Override
@@ -32,10 +42,9 @@ public final class CatalogInstallTool implements AgentTool {
             "ids",
             MAPPER.createObjectNode()
                 .put("type", "array")
-                .put("description", "Catalog item ids to install when sync is available.")
+                .put("description", "Catalog item ids to install; omit to apply all pending.")
         );
         schema.set("properties", properties);
-        schema.set("required", MAPPER.createArrayNode().add("ids"));
         return schema;
     }
 
@@ -46,10 +55,42 @@ public final class CatalogInstallTool implements AgentTool {
         CancellationToken cancellationToken,
         ToolUpdateListener onUpdate
     ) {
-        return ToolExecutionResult.text(
-            "未实现：catalog_install / sync apply 将在阶段 5 提供。"
-                + "请勿用 write_file 向 shared/catalog 拷贝文件。"
-                + "请先 read_agent_doc docs/system/catalog-install.md。"
-        );
+        if (cancellationToken.isCancelled()) {
+            return ToolExecutionResult.text("错误：执行已取消");
+        }
+        List<String> ids = readIds(parameters);
+        try {
+            CatalogSyncService.SyncApplyResult result = new CatalogSyncService(agentRoot).apply(ids);
+            StringBuilder out = new StringBuilder();
+            out.append("applied: ").append(result.appliedIds().size()).append('\n');
+            for (String id : result.appliedIds()) {
+                out.append("  ok ").append(id).append('\n');
+            }
+            for (String error : result.errors()) {
+                out.append("  fail ").append(error).append('\n');
+            }
+            if (result.appliedIds().isEmpty() && result.errors().isEmpty()) {
+                out.append("(无 pending 条目；可先 catalog_sync_status)");
+            }
+            return ToolExecutionResult.text(out.toString().trim());
+        } catch (IllegalStateException e) {
+            return ToolExecutionResult.text("catalog 未配置: " + e.getMessage());
+        } catch (Exception e) {
+            return ToolExecutionResult.text("catalog_install 失败: " + e.getMessage());
+        }
+    }
+
+    private static List<String> readIds(JsonNode parameters) {
+        JsonNode idsNode = parameters == null ? null : parameters.get("ids");
+        if (idsNode == null || !idsNode.isArray()) {
+            return List.of();
+        }
+        List<String> ids = new ArrayList<>();
+        for (JsonNode node : idsNode) {
+            if (node.isTextual() && !node.asText().isBlank()) {
+                ids.add(node.asText().trim());
+            }
+        }
+        return ids;
     }
 }

@@ -46,7 +46,7 @@ final class WeizhiScriptEngine implements ScriptEngine {
 
     @Override
     public String eval(String jsSource, long timeoutMs, CancellationToken cancellationToken) {
-        return runOnce(jsSource, timeoutMs, cancellationToken, null);
+        return evalForAgent(jsSource, null, timeoutMs, cancellationToken, null);
     }
 
     @Override

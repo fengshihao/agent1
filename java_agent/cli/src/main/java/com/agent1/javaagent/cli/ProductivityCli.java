@@ -8,6 +8,7 @@ import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.session.ProductivityAgentHost;
 import com.agent1.javaagent.session.SessionMeta;
 import com.agent1.javaagent.cli.productivity.ProductivityLogsCommand;
+import com.agent1.javaagent.cli.productivity.ProductivitySyncCommand;
 import com.agent1.javaagent.cli.productivity.ProductivityModelsCommand;
 import com.agent1.javaagent.cli.productivity.ProductivityToolCapabilities;
 import com.agent1.javaagent.cli.productivity.ProductivityToolsCommand;
@@ -42,6 +43,19 @@ public final class ProductivityCli {
 
     public static void main(String[] args) throws IOException {
         Path agentRoot = resolveAgentRoot();
+
+        if (args.length > 0 && "sync".equalsIgnoreCase(args[0])) {
+            String[] rest = new String[args.length - 1];
+            System.arraycopy(args, 1, rest, 0, rest.length);
+            int code = ProductivitySyncCommand.run(
+                agentRoot,
+                rest,
+                new PrintWriter(System.out, true),
+                new PrintWriter(System.err, true)
+            );
+            System.exit(code);
+            return;
+        }
 
         if (args.length > 0 && "models".equalsIgnoreCase(args[0])) {
             int code = ProductivityModelsCommand.run(
@@ -296,7 +310,7 @@ public final class ProductivityCli {
         System.out.println(colorize(ANSI_DIM, enableColor,
             "命令: /new  /list  /use <sessionId>  /delete <sessionId>  /tools  /logs …  /stop  /quit"));
         System.out.println(colorize(ANSI_DIM, enableColor,
-            "非交互: ./agent1 tools  ./agent1 models  ./agent1 logs failed  ./agent1 你好"));
+            "非交互: ./agent1 tools  ./agent1 models  ./agent1 sync check  ./agent1 logs failed  ./agent1 你好"));
     }
 
     /** 项目根：优先 {@code AGENT1_PROJECT_ROOT}，否则 {@code .agent1} 的父目录或当前目录。 */
