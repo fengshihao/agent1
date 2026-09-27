@@ -21,6 +21,8 @@ Gradle 默认跑，类名 ↔ UC 映射：
 | 读写环 | `ProductivityScriptedReadWriteTest` / `ProductivityScriptedToolFailureTest` |
 
 ```bash
+./scripts/e2e-self-evolve-smoke.sh
+# 或手动：
 env AGENT1_WEIZHI_REPO=/path/to/weizhi ./java_agent/gradlew -p java_agent :core:test :weizhi-bridge:test
 ```
 
