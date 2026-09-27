@@ -206,7 +206,7 @@ public final class CatalogSyncService {
 
     private void writePendingJson(List<CatalogSyncDiff.PendingItem> pending) throws IOException {
         Path file = agentRoot.resolve("sync/pending.json");
-        Files.createDirectories(file.getParent());
+        Files.createDirectories(agentRoot.resolve("sync"));
         ObjectNode root = MAPPER.createObjectNode();
         root.put("updatedAt", Instant.now().toString());
         ArrayNode items = MAPPER.createArrayNode();
