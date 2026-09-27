@@ -29,7 +29,29 @@
 
 ## 钩子注册表（设想场景）
 
-阈值可在 `agent.manifest.json` 的 `coach.triggers` 配置；下表为默认值讨论稿。
+阈值在 **`agentRoot/agent.manifest.json`** 的 `coach` 段配置（bootstrap 会写入默认值）；环境变量可覆盖，便于测试：
+
+```json
+"coach": {
+  "enabled": true,
+  "triggers": {
+    "fileLargeWriteBytes": 65536,
+    "scriptInlineLongLines": 80,
+    "scriptInlineLongBytes": 8192
+  }
+}
+```
+
+| 环境变量 | 作用 |
+|----------|------|
+| `AGENT1_COACH` | `0` / `false` 关闭；`1` / `true` 强制开启 |
+| `AGENT1_COACH_LARGE_WRITE_BYTES` | 覆盖 `fileLargeWriteBytes` |
+| `AGENT1_COACH_INLINE_LONG_LINES` | 覆盖 `scriptInlineLongLines` |
+| `AGENT1_COACH_INLINE_LONG_BYTES` | 覆盖 `scriptInlineLongBytes` |
+
+UC-02 / UC-12 等高成本场景优先用 **`ScriptedLlmClient` 集成测**（见 `ProductivityScriptedCoachTest`），不必依赖真实 LLM。
+
+下表为默认值讨论稿。
 
 ### 工作区与文件
 

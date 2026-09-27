@@ -28,7 +28,7 @@ import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
 import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import com.agent1.javaagent.tool.script.ExecuteScriptTool;
-import com.agent1.javaagent.coach.CoachSettings;
+import com.agent1.javaagent.coach.AgentCoachConfig;
 import com.agent1.javaagent.coach.ProductivityCoach;
 import com.agent1.javaagent.tool.agent.ListCatalogTool;
 import com.agent1.javaagent.tool.agent.ReadAgentDocTool;
@@ -359,7 +359,8 @@ public final class ProductivityAgentHost implements Closeable {
             .buildMainPrompt(workspace, agentRoot, scriptTool, scriptToolBridge != null));
         runtime.setTools(buildTools(sessionId, workspace));
         runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace));
-        runtime.setProductivityCoach(CoachSettings.enabledFromEnv() ? new ProductivityCoach() : null);
+        AgentCoachConfig coachConfig = AgentCoachConfig.load(agentRoot);
+        runtime.setProductivityCoach(coachConfig.enabled() ? coachConfig.toCoach() : null);
     }
 
     private List<AgentTool> buildTools(String sessionId, Path workspace) {

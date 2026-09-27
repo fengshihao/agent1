@@ -62,6 +62,14 @@ public final class AgentHomeBootstrap {
         node.put("createdAt", Instant.now().toString());
         node.put("agentRoot", root.toString());
         node.put("note", "Agent1 运行时家目录；规划见 doc/规划/自进化Agent/");
+        ObjectNode coach = MAPPER.createObjectNode();
+        coach.put("enabled", true);
+        ObjectNode triggers = MAPPER.createObjectNode();
+        triggers.put("fileLargeWriteBytes", 65_536);
+        triggers.put("scriptInlineLongLines", 80);
+        triggers.put("scriptInlineLongBytes", 8_192);
+        coach.set("triggers", triggers);
+        node.set("coach", coach);
         try {
             PathIo.writeString(
                 manifest,

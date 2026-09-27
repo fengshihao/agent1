@@ -13,11 +13,11 @@ public final class ProductivityCoach {
     private final int inlineLongBytes;
 
     public ProductivityCoach() {
-        this(
-            CoachSettings.DEFAULT_LARGE_WRITE_BYTES,
-            CoachSettings.DEFAULT_INLINE_LONG_LINES,
-            CoachSettings.DEFAULT_INLINE_LONG_BYTES
-        );
+        this(AgentCoachConfig.defaults());
+    }
+
+    public ProductivityCoach(AgentCoachConfig config) {
+        this(config.largeWriteBytes(), config.inlineLongLines(), config.inlineLongBytes());
     }
 
     ProductivityCoach(int largeWriteBytes, int inlineLongLines, int inlineLongBytes) {

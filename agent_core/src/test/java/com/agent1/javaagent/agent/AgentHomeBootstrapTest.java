@@ -28,6 +28,8 @@ class AgentHomeBootstrapTest {
 
         JsonNode manifest = new ObjectMapper().readTree(root.resolve("agent.manifest.json").toFile());
         assertEquals(AgentHomeBootstrap.MANIFEST_SCHEMA_VERSION, manifest.path("schemaVersion").asInt());
+        assertTrue(manifest.path("coach").path("enabled").asBoolean());
+        assertEquals(65_536, manifest.path("coach").path("triggers").path("fileLargeWriteBytes").asInt());
     }
 
     @Test
