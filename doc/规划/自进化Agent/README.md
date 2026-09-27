@@ -17,6 +17,7 @@
 | [09-行动计划.md](./09-行动计划.md) | **里程碑、优先级、第一版切片（讨论用）** |
 | [10-运行时钩子与Coach提示.md](./10-运行时钩子与Coach提示.md) | 条件触发、告诉 AI 可做什么 |
 | [11-QuickJS调试与行号映射.md](./11-QuickJS调试与行号映射.md) | 错误行号、去掉 prelude 偏移 |
+| [12-catalog安装与AI按需拉取.md](./12-catalog安装与AI按需拉取.md) | SO 与 script 等同套 sync；AI 按文档安装 |
 
 ## 讨论记录
 
@@ -29,3 +30,4 @@
 - **2026-09-27（七）**：Coach 钩子场景；QuickJS 结构化错误与 userLine 映射。
 - **2026-09-27（八）**：Coach 定方案 A（进历史）；行号必须准，M3 排在 D4 之后。
 - **2026-09-27（九）**：云端 catalog 扩展为多类型资源（脚本、图片、SO、three.js 等），统一 manifest kind。
+- **2026-09-27（十）**：SO 下载与其它资源同流程；AI 按 catalog-install / capabilities 按需 sync apply。

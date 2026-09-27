@@ -54,7 +54,8 @@
 | hookId | 触发条件 | 告诉 AI 什么 |
 |--------|----------|--------------|
 | `staging.ready` | 检测到 `workspace/staging/skills/` 或 `scripts/` 有完整条目且 Run 将结束 | 可 **promote_request** 到 `shared/local/`；区外勿 write_file |
-| `catalog.pending` | `sync/state.json` 中 **pending ≥ 1** 且本 Run 涉及相关 skill 名 | 提醒用户或调用 **sync apply**；catalog **只读** |
+| `catalog.pending` | pending ≥ 1 且任务涉及相关 id（含 **native**） | 读 **catalog-install** 文档，**sync apply --ids**；catalog **只读** |
+| `catalog.missing_native` | 脚本/任务需要某 native 插件，本地未安装 | 同上；装完再 `ensureNative`（见 [12](./12-catalog安装与AI按需拉取.md)） |
 | `promote.rejected` | Promotion API 拒绝（P2+ 若审查可拒） | 看 audit 原因；回 staging 修改 |
 
 ### 对话与上下文
