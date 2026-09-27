@@ -1,5 +1,7 @@
 package com.agent1.javaagent.tool.script;
 
+import com.agent1.javaagent.coach.CatalogMissingNativeHints;
+import com.agent1.javaagent.catalog.sync.CatalogSyncService;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.script.ScriptEngine;
 import com.agent1.javaagent.script.ScriptEngineFactory;
@@ -25,15 +27,26 @@ public final class ExecuteScriptTool implements AgentTool {
     private final WorkspaceSandbox sandbox;
     private final ScriptEngineFactory engineFactory;
     private final long defaultTimeoutMs;
+    private final Path agentRoot;
 
     public ExecuteScriptTool(
         WorkspaceSandbox sandbox,
         ScriptEngineFactory engineFactory,
         long defaultTimeoutMs
     ) {
+        this(sandbox, engineFactory, defaultTimeoutMs, null);
+    }
+
+    public ExecuteScriptTool(
+        WorkspaceSandbox sandbox,
+        ScriptEngineFactory engineFactory,
+        long defaultTimeoutMs,
+        Path agentRoot
+    ) {
         this.sandbox = sandbox;
         this.engineFactory = engineFactory;
         this.defaultTimeoutMs = defaultTimeoutMs > 0 ? defaultTimeoutMs : 600_000L;
+        this.agentRoot = agentRoot == null ? null : agentRoot.toAbsolutePath().normalize();
     }
 
     @Override
@@ -116,36 +129,71 @@ public final class ExecuteScriptTool implements AgentTool {
         ScriptEvalFrame.SourceKind kind = hasFile ? ScriptEvalFrame.SourceKind.FILE : ScriptEvalFrame.SourceKind.INLINE;
 
         Path workspaceRoot = sandbox.getRoot();
-        try (ScriptEngine engine = engineFactory.open(workspaceRoot)) {
-            ScriptEvalFrame frame = new ScriptEvalFrame(
-                kind,
-                hasFile ? file : "",
-                ScriptEvalFrame.countPreludeLines(prelude),
-                engine.agentHostPreludeLines(),
-                ScriptEvalFrame.countLines(source)
-            );
-            AtomicBoolean cancelSent = new AtomicBoolean(false);
-            Thread watcher = startCancelWatcher(engine, cancellationToken, cancelSent);
-            try {
-                String json = engine.evalForAgent(
-                    source,
-                    prelude,
-                    defaultTimeoutMs,
-                    cancellationToken,
-                    hasFile ? file : null
+        ScriptEvalFrame frame = new ScriptEvalFrame(
+            kind,
+            hasFile ? file : "",
+            0,
+            0,
+            ScriptEvalFrame.countLines(source)
+        );
+        String autoInstallPrefix = "";
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try (ScriptEngine engine = engineFactory.open(workspaceRoot)) {
+                frame = new ScriptEvalFrame(
+                    kind,
+                    hasFile ? file : "",
+                    ScriptEvalFrame.countPreludeLines(prelude),
+                    engine.agentHostPreludeLines(),
+                    ScriptEvalFrame.countLines(source)
                 );
-                return ToolExecutionResult.text(json == null ? "null" : json);
-            } catch (RuntimeException e) {
-                return ToolExecutionResult.text(ScriptFailureFormatter.formatJson(frame, e));
-            } finally {
-                cancelSent.set(true);
-                watcher.interrupt();
+                AtomicBoolean cancelSent = new AtomicBoolean(false);
+                Thread watcher = startCancelWatcher(engine, cancellationToken, cancelSent);
                 try {
-                    watcher.join(2_000);
-                } catch (InterruptedException ignored) {
-                    Thread.currentThread().interrupt();
+                    String json = engine.evalForAgent(
+                        source,
+                        prelude,
+                        defaultTimeoutMs,
+                        cancellationToken,
+                        hasFile ? file : null
+                    );
+                    String text = json == null ? "null" : json;
+                    if (!autoInstallPrefix.isEmpty()) {
+                        text = autoInstallPrefix + text;
+                    }
+                    return ToolExecutionResult.text(text);
+                } catch (RuntimeException e) {
+                    String failText = ScriptFailureFormatter.formatJson(frame, e);
+                    if (attempt == 0 && tryAutoInstallNative(source, failText)) {
+                        autoInstallPrefix = "[catalog] auto-installed native plugin for ensureNative\n\n";
+                        continue;
+                    }
+                    return ToolExecutionResult.text(failText);
+                } finally {
+                    cancelSent.set(true);
+                    watcher.interrupt();
+                    try {
+                        watcher.join(2_000);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                    }
                 }
             }
+        }
+        return ToolExecutionResult.text("错误：脚本执行失败（auto-install 重试后仍失败）");
+    }
+
+    private boolean tryAutoInstallNative(String source, String failText) {
+        if (agentRoot == null || !CatalogMissingNativeHints.looksLikeMissingNative(failText)) {
+            return false;
+        }
+        String plugin = CatalogMissingNativeHints.resolvePluginName(source, failText);
+        if (plugin.isBlank()) {
+            return false;
+        }
+        try {
+            return new CatalogSyncService(agentRoot).ensureNativePluginOnDisk(plugin);
+        } catch (Exception ignored) {
+            return false;
         }
     }
 

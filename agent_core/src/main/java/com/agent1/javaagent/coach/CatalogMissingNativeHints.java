@@ -4,7 +4,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** 从 execute_script 失败与源码中识别 ensureNative 缺插件场景（5.8 catalog.missing_native）。 */
-final class CatalogMissingNativeHints {
+public final class CatalogMissingNativeHints {
 
     private static final Pattern ENSURE_NATIVE_CODE =
         Pattern.compile("ensureNative\\(\\s*['\"]([^'\"]+)['\"]");
@@ -14,7 +14,7 @@ final class CatalogMissingNativeHints {
     private CatalogMissingNativeHints() {
     }
 
-    static boolean looksLikeMissingNative(String toolResultText) {
+    public static boolean looksLikeMissingNative(String toolResultText) {
         if (toolResultText == null || toolResultText.isBlank()) {
             return false;
         }
@@ -24,7 +24,7 @@ final class CatalogMissingNativeHints {
             || lower.contains("ensurenative needs host native");
     }
 
-    static String resolvePluginName(String inlineCode, String toolResultText) {
+    public static String resolvePluginName(String inlineCode, String toolResultText) {
         if (toolResultText != null) {
             Matcher fromMsg = NOT_IN_CATALOG.matcher(toolResultText);
             if (fromMsg.find()) {
@@ -40,12 +40,13 @@ final class CatalogMissingNativeHints {
         return "";
     }
 
-    static String adviceFor(String pluginName) {
+    public static String adviceFor(String pluginName) {
         String idHint = pluginName.isBlank() ? "对应 catalog id" : "catalog 中 native." + pluginName + ".* 或 capabilities 里的 id";
         return "脚本需要 native 插件"
             + (pluginName.isBlank() ? "" : " \"" + pluginName + "\"")
-            + "，本地尚未安装或未扫描到。请 read_agent_doc catalog-install、查 docs/capabilities/，"
-            + "用 catalog_install 安装 " + idHint + " 后再 execute_script（装完无需重启 Session）。"
+            + "，本地尚未安装或自动安装失败。生产力路径会在 ensureNative 失败时尝试 catalog sync；"
+            + "若仍失败请 read_agent_doc catalog-install、查 docs/capabilities/，"
+            + "用 catalog_install 安装 " + idHint + "。"
             + "脚本内使用 await host.ensureNative(\""
             + (pluginName.isBlank() ? "插件名" : pluginName)
             + "\")。";

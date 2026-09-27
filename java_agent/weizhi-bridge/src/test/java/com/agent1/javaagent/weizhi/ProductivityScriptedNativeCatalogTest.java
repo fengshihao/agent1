@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * UC-07 Scripted：catalog_install native → execute_script ensureNative（同 Session 刷新 native 目录）。
+ * UC-07 Scripted：单次 execute_script 内 auto-install + ensureNative（同 Session 刷新 native 目录）。
  */
 class ProductivityScriptedNativeCatalogTest {
 
@@ -101,23 +101,15 @@ class ProductivityScriptedNativeCatalogTest {
             );
 
             server.enqueue(new MockResponse().setBody(manifest));
+            server.enqueue(new MockResponse().setBody(manifest));
             server.enqueue(new MockResponse().setBody(new Buffer().write(manifestBytes)));
             server.enqueue(new MockResponse().setBody(new Buffer().write(soBytes)));
 
-            String installIds =
-                "{\"ids\":[\"native.echo_math.manifest\",\"native.echo_math.so\"]}";
             String scriptJson = "{\"code\":\"" + escapeJson(scriptCode()) + "\"}";
 
             ScriptedLlmClient llm = ScriptedLlmClient.builder()
                 .whenUserMessageContains(
                     "scripted-uc07-native",
-                    ScriptedResponses.toolCall("execute_script", scriptJson)
-                )
-                .whenToolResultFailed(
-                    ScriptedResponses.toolCall("catalog_install", installIds)
-                )
-                .whenToolResultContains(
-                    "ok native.echo_math.so",
                     ScriptedResponses.toolCall("execute_script", scriptJson)
                 )
                 .whenToolResultSucceeded(ScriptedResponses.text("native 已跑通"))
@@ -154,10 +146,13 @@ class ProductivityScriptedNativeCatalogTest {
 
                 assertTrue(messages.stream()
                     .filter(m -> AgentMessage.ROLE_TOOL_RESULT.equals(m.getRole()))
-                    .anyMatch(m -> m.getContent().contains("[coach] catalog.missing_native")));
+                    .anyMatch(m -> m.getContent().contains("[catalog] auto-installed")));
                 assertTrue(messages.stream()
                     .filter(m -> AgentMessage.ROLE_TOOL_RESULT.equals(m.getRole()))
                     .anyMatch(m -> m.getContent().contains("42")));
+                assertTrue(messages.stream()
+                    .filter(m -> AgentMessage.ROLE_TOOL_RESULT.equals(m.getRole()))
+                    .noneMatch(m -> m.getContent().contains("[coach] catalog.missing_native")));
             }
         }
     }

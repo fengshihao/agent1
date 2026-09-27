@@ -1,6 +1,7 @@
 package com.agent1.javaagent.catalog.sync;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
+import com.agent1.javaagent.catalog.AgentCatalogPaths;
 import com.agent1.javaagent.catalog.CatalogDigest;
 import com.agent1.javaagent.catalog.CatalogIndex;
 import com.agent1.javaagent.catalog.CatalogItem;
@@ -53,6 +54,41 @@ public final class CatalogSyncService {
         SyncState updated = state.withCheckTime(manifestUrl, Instant.now());
         updated.save(agentRoot);
         return new SyncCheckResult(manifestUrl, index.catalogId(), pending, CatalogSyncDiff.pendingCountByKind(pending));
+    }
+
+    /**
+     * 按插件目录名安装 native 条目（供 {@code host.ensureNative} 宿主侧自动拉取，避免多一轮 LLM）。
+     */
+    public SyncApplyResult applyNativePlugin(String pluginName) throws IOException {
+        AgentHomeBootstrap.ensure(agentRoot);
+        String manifestUrl = requireManifestUrl();
+        CatalogIndex index = fetchManifest(manifestUrl);
+        List<String> ids = CatalogNativeInstallIds.forPlugin(index, pluginName);
+        if (ids.isEmpty()) {
+            SyncState state = SyncState.load(agentRoot);
+            return new SyncApplyResult(manifestUrl, List.of(), List.of(), state.items());
+        }
+        return apply(ids);
+    }
+
+    /**
+     * @return manifest 有匹配条目且落盘后 {@code native/<platform>/<name>/manifest.json} 存在（含已是最新、0 applied）
+     */
+    public boolean ensureNativePluginOnDisk(String pluginName) throws IOException {
+        if (pluginName == null || pluginName.isBlank()) {
+            return false;
+        }
+        String name = pluginName.trim();
+        AgentHomeBootstrap.ensure(agentRoot);
+        String manifestUrl = requireManifestUrl();
+        CatalogIndex index = fetchManifest(manifestUrl);
+        List<String> ids = CatalogNativeInstallIds.forPlugin(index, name);
+        if (ids.isEmpty()) {
+            return false;
+        }
+        apply(ids);
+        Path manifest = AgentCatalogPaths.nativePluginsDir(agentRoot).resolve(name).resolve("manifest.json");
+        return Files.isRegularFile(manifest);
     }
 
     public SyncApplyResult apply(List<String> ids) throws IOException {

@@ -396,7 +396,7 @@ public final class ProductivityAgentHost implements Closeable {
             }
         }
         if (scriptEngineFactory != null) {
-            tools.add(new ExecuteScriptTool(sandbox, scriptEngineFactory, executeScriptTimeoutMs));
+            tools.add(new ExecuteScriptTool(sandbox, scriptEngineFactory, executeScriptTimeoutMs, agentRoot));
         }
         if (scriptToolBridge instanceof MutableScriptToolBridge mutable) {
             mutable.set(new AgentToolsScriptBridge(tools));
