@@ -103,7 +103,6 @@ class CatalogSyncServiceTest {
             CatalogSyncService service = new CatalogSyncService(agentRoot, http);
 
             server.enqueue(new MockResponse().setBody(manifestV1));
-            server.enqueue(new MockResponse().setBody(manifestV1));
             server.enqueue(new MockResponse().setBody(new String(v1)));
             service.apply(java.util.List.of("script.demo"));
             assertEquals("console.log(\"v1\");\n", Files.readString(agentRoot.resolve("shared/catalog/scripts/demo.js")));
