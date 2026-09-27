@@ -3,7 +3,7 @@
 #
 #   ./scripts/e2e-deepseek-v6.sh
 #   E2E_DEEPSEEK_V6_SKIP_MOCK=1 ./scripts/e2e-deepseek-v6.sh   # 仅 LLM
-#   E2E_DEEPSEEK_V6_SKIP_LLM=1 ./scripts/e2e-deepseek-v6.sh    # 仅 Mock
+#   E2E_DEEPSEEK_V6_AGENT_ROOT=/tmp/…  可选；未设则每次 LLM 段用新目录（忽略环境里旧的 AGENT1_AGENT_ROOT）
 #
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -27,7 +27,18 @@ fi
 
 echo ""
 echo "==> V6 DeepSeek LLM（分层 UC，建议闲时）"
-export E2E_DEEPSEEK_UCS="${E2E_DEEPSEEK_UCS:-01,11,02,12,03,04,05,06,08,09}"
+# 避免环境里残留的 E2E_DEEPSEEK_UCS=08,09 等只跑子集；V6 专用变量优先
+if [[ -n "${E2E_DEEPSEEK_V6_UCS:-}" ]]; then
+  export E2E_DEEPSEEK_UCS="${E2E_DEEPSEEK_V6_UCS}"
+else
+  export E2E_DEEPSEEK_UCS="01,11,02,03,04,05,06,08,09"
+fi
+# UC-12 真实 LLM 不稳定，默认不含；需测：E2E_DEEPSEEK_V6_UCS=02,12 或 tier-v2-sandbox
+if [[ -n "${E2E_DEEPSEEK_V6_AGENT_ROOT:-}" ]]; then
+  export AGENT1_AGENT_ROOT="${E2E_DEEPSEEK_V6_AGENT_ROOT}"
+elif [[ -z "${E2E_DEEPSEEK_V6_REUSE_AGENT_ROOT:-}" ]]; then
+  export AGENT1_AGENT_ROOT="/tmp/agent1-deepseek-v6-$$"
+fi
 export AGENT1_AGENT_ROOT="${AGENT1_AGENT_ROOT:-/tmp/agent1-deepseek-v6-$$}"
 export AGENT1_MAX_TURNS_PER_RUN="${AGENT1_MAX_TURNS_PER_RUN:-6}"
 export AGENT1_MAX_TOOL_CALLS_PER_RUN="${AGENT1_MAX_TOOL_CALLS_PER_RUN:-12}"
