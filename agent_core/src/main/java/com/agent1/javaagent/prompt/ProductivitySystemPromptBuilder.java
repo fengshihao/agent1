@@ -41,6 +41,7 @@ public final class ProductivitySystemPromptBuilder {
         权限与 catalog：
         - 文件工具（read/write/edit/list）仅对当前会话 workspace 路径可写；shared/、docs/ 只读，禁止 write_file 写入。
         - 沉淀到 shared/local 用 promote_request；从云端安装资源用 catalog_install（或 sync apply），勿手拷贝 SO/脚本到 catalog。
+        - 已安装/晋升的 Skill 用 skill(action=list|read) 读取（合并 project、catalog、local）。
         - 环境细则见 agentRoot 下 docs/system/（如 directories.md、catalog-install.md）。
         """.trim();
 

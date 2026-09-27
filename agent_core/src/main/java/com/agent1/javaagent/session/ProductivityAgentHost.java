@@ -33,8 +33,10 @@ import com.agent1.javaagent.coach.ProductivityCoach;
 import com.agent1.javaagent.tool.agent.CatalogInstallTool;
 import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
 import com.agent1.javaagent.tool.agent.ListCatalogTool;
+import com.agent1.javaagent.tool.agent.ProductivitySkillTool;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
 import com.agent1.javaagent.tool.agent.ReadAgentDocTool;
+import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import java.io.Closeable;
@@ -52,6 +54,7 @@ import com.agent1.javaagent.llm.openai.OpenAiCompatibleClient;
 public final class ProductivityAgentHost implements Closeable {
 
     private final Path agentRoot;
+    private final Path projectRoot;
     private final FileSessionStore sessionStore;
     private final FileRunStore runStore;
     private final AgentRuntime runtime;
@@ -98,6 +101,7 @@ public final class ProductivityAgentHost implements Closeable {
         WorkspaceToolProvider extraTools
     ) {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
+        this.projectRoot = AgentDataPaths.projectRoot(this.agentRoot);
         AgentHomeBootstrap.ensure(this.agentRoot);
         this.sessionStore = new FileSessionStore(this.agentRoot);
         this.runStore = new FileRunStore(sessionStore);
@@ -383,6 +387,7 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new CatalogSyncStatusTool(agentRoot));
         tools.add(new CatalogInstallTool(agentRoot));
         tools.add(new PromoteRequestTool(agentRoot, workspace));
+        tools.add(new ProductivitySkillTool(agentRoot, projectRoot));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);

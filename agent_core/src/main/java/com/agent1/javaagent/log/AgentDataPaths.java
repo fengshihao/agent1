@@ -6,6 +6,7 @@ import java.nio.file.Path;
 public final class AgentDataPaths {
 
     private static final String ENV_AGENT_ROOT = "AGENT1_AGENT_ROOT";
+    private static final String ENV_PROJECT_ROOT = "AGENT1_PROJECT_ROOT";
     private static final String ENV_EVENTS_LOG = "AGENT1_EVENTS_LOG_FILE";
 
     private AgentDataPaths() {
@@ -29,6 +30,19 @@ public final class AgentDataPaths {
 
     public static Path eventsJsonl() {
         return eventsJsonl(agentRoot());
+    }
+
+    /** 与 {@link com.agent1.javaagent.cli.ProductivityCli#resolveProjectRoot} 一致。 */
+    public static Path projectRoot(Path agentRoot) {
+        String fromEnv = System.getenv(ENV_PROJECT_ROOT);
+        if (fromEnv != null && !fromEnv.isBlank()) {
+            return Path.of(fromEnv.trim()).toAbsolutePath().normalize();
+        }
+        Path normalized = agentRoot.toAbsolutePath().normalize();
+        if (".agent1".equals(normalized.getFileName().toString()) && normalized.getParent() != null) {
+            return normalized.getParent();
+        }
+        return Path.of(".").toAbsolutePath().normalize();
     }
 
     public static Path eventsJsonl(Path agentRoot) {

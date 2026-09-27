@@ -15,7 +15,9 @@ import com.agent1.javaagent.cli.productivity.ProductivityToolsCommand;
 import com.agent1.javaagent.script.MutableScriptToolBridge;
 import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
+import com.agent1.javaagent.catalog.AgentCatalogPaths;
 import com.agent1.javaagent.weizhi.WeizhiHostSupport;
+import java.nio.file.Files;
 import com.agent1.javaagent.weizhi.WeizhiRuntimeOptions;
 import com.agent1.javaagent.weizhi.WeizhiWorkspaceTools;
 import java.io.IOException;
@@ -108,6 +110,10 @@ public final class ProductivityCli {
         WeizhiRuntimeOptions weizhiOptions = new WeizhiRuntimeOptions()
             .installDesktopCaps(true)
             .scriptToolBridge(scriptTools);
+        java.nio.file.Path nativePlugins = AgentCatalogPaths.resolveExistingNativePluginsDir(agentRoot);
+        if (nativePlugins != null) {
+            weizhiOptions.nativePluginDir(nativePlugins.toString());
+        }
         java.util.Optional<ScriptEngineFactory> scriptEngine =
             WeizhiHostSupport.tryCreateFactory(weizhiRepo, weizhiOptions);
         String sandboxAppend = scriptEngine.isPresent()
@@ -315,15 +321,7 @@ public final class ProductivityCli {
 
     /** 项目根：优先 {@code AGENT1_PROJECT_ROOT}，否则 {@code .agent1} 的父目录或当前目录。 */
     public static Path resolveProjectRoot(Path agentRoot) {
-        String fromEnv = System.getenv("AGENT1_PROJECT_ROOT");
-        if (fromEnv != null && !fromEnv.isBlank()) {
-            return Path.of(fromEnv.trim()).toAbsolutePath().normalize();
-        }
-        Path normalized = agentRoot.toAbsolutePath().normalize();
-        if (".agent1".equals(normalized.getFileName().toString()) && normalized.getParent() != null) {
-            return normalized.getParent();
-        }
-        return Path.of(".").toAbsolutePath().normalize();
+        return com.agent1.javaagent.log.AgentDataPaths.projectRoot(agentRoot);
     }
 
     /** 与 {@link com.agent1.javaagent.log.AgentDataPaths#agentRoot()} 一致。 */

@@ -104,6 +104,7 @@ class ProductivityAgentHostTest {
             assertTrue(toolNames.get().contains("promote_request"));
             assertTrue(toolNames.get().contains("catalog_install"));
             assertTrue(toolNames.get().contains("catalog_sync_status"));
+            assertTrue(toolNames.get().contains("skill"));
         }
     }
 
