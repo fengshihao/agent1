@@ -1,6 +1,7 @@
 package com.agent1.javaagent.cli.productivity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.cli.ProductivityCli;
 import java.nio.file.Path;
@@ -19,6 +20,8 @@ class ProductivityCliAgentRootTest {
         try {
             // JUnit 无法改 env，本测试只验证默认 cwd/.agent1 行为
             Path root = ProductivityCli.resolveAgentRoot();
+            Path project = ProductivityCli.resolveProjectRoot(root);
+            assertTrue(project.isAbsolute());
             assertEquals(Path.of(".").toAbsolutePath().normalize().resolve(".agent1"), root);
         } finally {
             // no-op: env not modified in test JVM

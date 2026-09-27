@@ -9,6 +9,8 @@ import com.agent1.javaagent.session.ProductivityAgentHost;
 import com.agent1.javaagent.session.SessionMeta;
 import com.agent1.javaagent.cli.productivity.ProductivityLogsCommand;
 import com.agent1.javaagent.cli.productivity.ProductivityModelsCommand;
+import com.agent1.javaagent.cli.productivity.ProductivityToolCapabilities;
+import com.agent1.javaagent.cli.productivity.ProductivityToolsCommand;
 import com.agent1.javaagent.script.MutableScriptToolBridge;
 import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
@@ -50,6 +52,20 @@ public final class ProductivityCli {
             return;
         }
 
+        if (args.length > 0 && "tools".equalsIgnoreCase(args[0])) {
+            Path weizhiRepoForTools = WeizhiHostSupport.defaultWeizhiRepo();
+            boolean scriptEnabled = WeizhiHostSupport.tryCreateFactory(
+                weizhiRepoForTools,
+                new WeizhiRuntimeOptions().installDesktopCaps(true)
+            ).isPresent();
+            int code = ProductivityToolsCommand.run(
+                new PrintWriter(System.out, true),
+                scriptEnabled
+            );
+            System.exit(code);
+            return;
+        }
+
         if (args.length > 0 && "logs".equalsIgnoreCase(args[0])) {
             String[] rest = new String[args.length - 1];
             System.arraycopy(args, 1, rest, 0, rest.length);
@@ -85,6 +101,7 @@ public final class ProductivityCli {
             : "";
         ScriptToolBridge bridge = scriptEngine.isPresent() ? scriptTools : null;
 
+        Path projectRoot = resolveProjectRoot(agentRoot);
         ProductivityAgentHost host = new ProductivityAgentHost(
             agentRoot,
             runtimeConfig,
@@ -92,7 +109,7 @@ public final class ProductivityCli {
             WeizhiHostSupport.scriptTimeoutMs(),
             sandboxAppend,
             bridge,
-            WeizhiWorkspaceTools::create
+            WeizhiWorkspaceTools.provider(agentRoot, projectRoot)
         );
         try (host) {
             ensureActiveSession(host);
@@ -108,15 +125,16 @@ public final class ProductivityCli {
                     "Weizhi 脚本: 未启用（构建 ../weizhi 或设置 AGENT1_WEIZHI_REPO）"));
             }
             System.out.println(colorize(ANSI_DIM, enableColor,
-                "Weizhi 工具环: grep / glob / zip / bash / load_skill_through_path"));
+                "工具: " + ProductivityToolCapabilities.summaryForCli(scriptEngine.isPresent())));
             printHelp(enableColor);
 
+            boolean scriptEnabled = scriptEngine.isPresent();
             if (args.length > 0) {
                 runOnce(host, String.join(" ", args), enableColor);
                 return;
             }
 
-            runRepl(host, enableColor);
+            runRepl(host, enableColor, scriptEnabled);
         }
     }
 
@@ -144,7 +162,8 @@ public final class ProductivityCli {
         }
     }
 
-    private static void runRepl(ProductivityAgentHost host, boolean enableColor) throws IOException {
+    private static void runRepl(ProductivityAgentHost host, boolean enableColor, boolean scriptEnabled)
+        throws IOException {
         System.out.println(colorize(ANSI_BOLD, enableColor, "生产力助手（/quit 退出）"));
         String promptText = "\n" + colorize(ANSI_CYAN, enableColor, "你> ");
         try (Terminal terminal = TerminalBuilder.builder().system(true).build()) {
@@ -167,7 +186,7 @@ public final class ProductivityCli {
                 if (trimmed.isEmpty()) {
                     continue;
                 }
-                if (handleCommand(host, trimmed, enableColor)) {
+                if (handleCommand(host, trimmed, enableColor, scriptEnabled)) {
                     break;
                 }
             }
@@ -175,7 +194,12 @@ public final class ProductivityCli {
     }
 
     /** @return true 表示退出 REPL */
-    private static boolean handleCommand(ProductivityAgentHost host, String trimmed, boolean enableColor) {
+    private static boolean handleCommand(
+        ProductivityAgentHost host,
+        String trimmed,
+        boolean enableColor,
+        boolean scriptEnabled
+    ) {
         if ("/quit".equalsIgnoreCase(trimmed) || "/exit".equalsIgnoreCase(trimmed)) {
             return true;
         }
@@ -210,6 +234,23 @@ public final class ProductivityCli {
             System.out.println("已切换至 " + id);
             return false;
         }
+        if (trimmed.toLowerCase().startsWith("/delete ")) {
+            String id = trimmed.substring(8).trim();
+            if (id.isEmpty()) {
+                System.out.println("用法: /delete <sessionId>");
+                return false;
+            }
+            host.deleteSession(id);
+            System.out.println("已删除会话 " + id);
+            if (host.getActiveSessionId() == null) {
+                ensureActiveSession(host);
+            }
+            return false;
+        }
+        if ("/tools".equalsIgnoreCase(trimmed)) {
+            ProductivityToolsCommand.run(new PrintWriter(System.out, true), scriptEnabled);
+            return false;
+        }
         if (trimmed.toLowerCase().startsWith("/logs")) {
             String[] parts = trimmed.split("\\s+");
             String[] rest = new String[parts.length - 1];
@@ -223,7 +264,7 @@ public final class ProductivityCli {
             return false;
         }
         if (trimmed.startsWith("/")) {
-            System.out.println("未知命令。可用: /new /list /use /logs /stop /quit");
+            System.out.println("未知命令。可用: /new /list /use /delete /tools /logs /stop /quit");
             return false;
         }
         runOnce(host, trimmed, enableColor);
@@ -253,9 +294,22 @@ public final class ProductivityCli {
 
     private static void printHelp(boolean enableColor) {
         System.out.println(colorize(ANSI_DIM, enableColor,
-            "命令: /new  /list  /use <sessionId>  /logs …  /stop  /quit"));
+            "命令: /new  /list  /use <sessionId>  /delete <sessionId>  /tools  /logs …  /stop  /quit"));
         System.out.println(colorize(ANSI_DIM, enableColor,
-            "非交互: ./agent1 logs failed   ./agent1 models   ./agent1 你好"));
+            "非交互: ./agent1 tools  ./agent1 models  ./agent1 logs failed  ./agent1 你好"));
+    }
+
+    /** 项目根：优先 {@code AGENT1_PROJECT_ROOT}，否则 {@code .agent1} 的父目录或当前目录。 */
+    public static Path resolveProjectRoot(Path agentRoot) {
+        String fromEnv = System.getenv("AGENT1_PROJECT_ROOT");
+        if (fromEnv != null && !fromEnv.isBlank()) {
+            return Path.of(fromEnv.trim()).toAbsolutePath().normalize();
+        }
+        Path normalized = agentRoot.toAbsolutePath().normalize();
+        if (".agent1".equals(normalized.getFileName().toString()) && normalized.getParent() != null) {
+            return normalized.getParent();
+        }
+        return Path.of(".").toAbsolutePath().normalize();
     }
 
     public static Path resolveAgentRoot() {
