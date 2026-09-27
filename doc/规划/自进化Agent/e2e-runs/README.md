@@ -9,6 +9,7 @@ Gradle 默认跑，类名 ↔ UC 映射：
 | UC-02 | `ProductivityScriptedCoachTest#uc02LargeWriteAppendsLargeWriteCoachWhenThresholdLow` |
 | UC-05 | `ProductivityScriptedCoachTest#uc05ScriptFailRepeatCoachAfterTwoInlineFailures` |
 | UC-06 | `ProductivityScriptedCatalogTest#uc06InstallPendingCatalogItem` |
+| UC-10 | `CatalogSyncServiceTest#uc10DigestChangeMarksUpdatedAndApplyRefetches` |
 | UC-08 | `ProductivityScriptedPromoteTest#uc08PromoteStagingSkillToLocal` |
 | UC-09 | `ProductivityScriptedSkillTest#uc09ReadLocalSkillAfterSeed` |
 | UC-12 | `ProductivityScriptedCoachTest#uc12OutsideWriteAppendsPathOutsideCoach` |
