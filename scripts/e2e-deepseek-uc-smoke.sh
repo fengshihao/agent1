@@ -8,12 +8,15 @@
 #   ./scripts/e2e-deepseek-uc-smoke.sh
 #
 # 可选：
-#   E2E_DEEPSEEK_UCS=01,11     默认 01,11（省钱）；含 06 时用 tier2 或 01,11,06
+#   E2E_DEEPSEEK_UCS=01,11     默认 01,11（省钱）
+#   含 02/12/03/04/05 见 tier-v2-sandbox / tier-v3-weizhi 或 v6 总控
 #   E2E_DEEPSEEK_FORCE=1       忽略北京时间高峰警告
 #   E2E_DEEPSEEK_REPORT=path   脱敏报告输出路径
 #   Tier-2（+UC-06 catalog）：./scripts/e2e-deepseek-tier2.sh
 #   Tier-3（+UC-08 promote）：./scripts/e2e-deepseek-tier3.sh
 #   Tier-4（+UC-09 skill read）：./scripts/e2e-deepseek-tier4.sh
+#   Tier-V3 Weizhi（03,04,05）：./scripts/e2e-deepseek-tier-v3-weizhi.sh
+#   V6 总控：./scripts/e2e-deepseek-v6.sh
 
 set -euo pipefail
 
@@ -21,6 +24,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "${REPO_ROOT}"
 # shellcheck disable=SC1091
 source "${REPO_ROOT}/scripts/lib/catalog-sample-local-server.sh"
+# shellcheck disable=SC1091
+source "${REPO_ROOT}/scripts/lib/ensure-weizhi.sh"
 
 if [[ -z "${OPENAI_API_KEY:-}" ]]; then
   echo "错误: 请设置 OPENAI_API_KEY（勿 commit 到 git）" >&2
@@ -177,6 +182,75 @@ verify_uc09() {
   return 0
 }
 
+verify_uc02() {
+  local events="${AGENT1_AGENT_ROOT}/logs/events.jsonl"
+  if [[ ! -f "${events}" ]]; then
+    echo "UC-02 验证失败: 无 events" >&2
+    return 1
+  fi
+  if grep -q 'file.large_write' "${events}"; then
+    echo "UC-02 验证: Coach file.large_write 已触发"
+    return 0
+  fi
+  echo "UC-02 验证失败: 未见 file.large_write coach" >&2
+  return 1
+}
+
+verify_uc03() {
+  local events="${AGENT1_AGENT_ROOT}/logs/events.jsonl"
+  [[ -f "${events}" ]] || { echo "UC-03: 无 events" >&2; return 1; }
+  grep -q '"tool_name":"execute_script"' "${events}" || { echo "UC-03: 无 execute_script" >&2; return 1; }
+  echo "UC-03 验证: execute_script 已调用（结果=3 请人工看 transcript）"
+  return 0
+}
+
+verify_uc04() {
+  local events="${AGENT1_AGENT_ROOT}/logs/events.jsonl"
+  [[ -f "${events}" ]] || { echo "UC-04: 无 events" >&2; return 1; }
+  grep -q 'userLine' "${events}" && grep -q '"userLine":5' "${events}" || grep -q '"userLine": 5' "${events}" || {
+    echo "UC-04 验证失败: events 未见 userLine=5" >&2
+    return 1
+  }
+  echo "UC-04 验证: 结构化错误含 userLine=5"
+  return 0
+}
+
+verify_uc05() {
+  local events="${AGENT1_AGENT_ROOT}/logs/events.jsonl"
+  [[ -f "${events}" ]] || { echo "UC-05: 无 events" >&2; return 1; }
+  if grep -q 'script.inline_long' "${events}" || grep -q 'script.fail_repeat' "${events}"; then
+    echo "UC-05 验证: Coach 脚本类 hook 已触发"
+    return 0
+  fi
+  echo "UC-05 验证失败: 未见 script.inline_long / fail_repeat" >&2
+  return 1
+}
+
+verify_uc12() {
+  local events="${AGENT1_AGENT_ROOT}/logs/events.jsonl"
+  [[ -f "${events}" ]] || { echo "UC-12: 无 events" >&2; return 1; }
+  if grep -q 'path.outside_attempt' "${events}"; then
+    echo "UC-12 验证: path.outside_attempt coach"
+    return 0
+  fi
+  if grep -q '路径超出工作区' "${events}"; then
+    echo "UC-12 验证: 沙箱拒绝越权路径"
+    return 0
+  fi
+  echo "UC-12 验证失败: 模型可能未发起越权 write（LLM 不稳定，请用 Mock UC-12）" >&2
+  return 1
+}
+
+require_weizhi() {
+  ensure_weizhi_for_agent1 "${REPO_ROOT}" || return 1
+  if [[ ! -f "${AGENT1_WEIZHI_REPO}/build/libweizhijni.so" ]] \
+    && [[ ! -f "${AGENT1_WEIZHI_REPO}/build/libweizhijni.dylib" ]]; then
+    echo "Weizhi native 未构建" >&2
+    return 1
+  fi
+  return 0
+}
+
 fail=0
 
 IFS=',' read -ra UCS <<< "${UC_LIST}"
@@ -188,6 +262,44 @@ for uc in "${UCS[@]}"; do
       ;;
     11)
       run_uc "11" "请读环境手册里 catalog 安装说明，告诉我安装流程要点，不要写 docs/system。" || fail=1
+      ;;
+    02)
+      export AGENT1_COACH_LARGE_WRITE_BYTES=5
+      run_uc "02" \
+        "请用 write_file 在 workspace 写入 big.txt，内容至少 30 个字符（例如重复数字）。不要写 shared/ 或 docs/system。" \
+        "3" || fail=1
+      verify_uc02 || fail=1
+      ;;
+    12)
+      run_uc "12" \
+        "请尝试 write_file，路径 ../shared/catalog/e2e-outside.txt，内容 test。若被拒绝请根据工具回执说明原因，不要多次改用其他越权路径。" \
+        "3" || fail=1
+      if ! verify_uc12; then
+        echo "UC-12: LLM 未触发越权 write 时以 Mock ProductivityScriptedCoachTest 为准" >&2
+        fail=1
+      fi
+      ;;
+    03)
+      require_weizhi || fail=1
+      run_uc "03" \
+        "请用 execute_script 的 code 参数计算 1+2，把数值结果告诉我。" \
+        "3" || fail=1
+      verify_uc03 || fail=1
+      ;;
+    04)
+      require_weizhi || fail=1
+      run_uc "04" \
+        "在 workspace 创建 bug.js：第1–4行 console.log(1)..(4)，第5行故意单独写 } 造成语法错，第6行 console.log(6)。先 write_file，再 execute_script file=bug.js，确认错误 userLine 是否为 5。" \
+        "6" || fail=1
+      verify_uc04 || fail=1
+      ;;
+    05)
+      require_weizhi || fail=1
+      export AGENT1_COACH_SCRIPT_FAIL_REPEAT=2
+      run_uc "05" \
+        "请连续两次用 execute_script 的 code 参数执行 bad();（不要用 file）。看第二次失败后是否出现 script.fail_repeat Coach。" \
+        "5" || fail=1
+      verify_uc05 || fail=1
       ;;
     06)
       catalog_sample_server_start "${REPO_ROOT}" || fail=1
