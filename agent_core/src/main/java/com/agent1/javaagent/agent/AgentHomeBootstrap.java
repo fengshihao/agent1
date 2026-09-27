@@ -68,6 +68,7 @@ public final class AgentHomeBootstrap {
         triggers.put("fileLargeWriteBytes", 65_536);
         triggers.put("scriptInlineLongLines", 80);
         triggers.put("scriptInlineLongBytes", 8_192);
+        triggers.put("scriptFailRepeat", 3);
         coach.set("triggers", triggers);
         node.set("coach", coach);
         try {
@@ -86,6 +87,12 @@ public final class AgentHomeBootstrap {
         copyResourceIfMissing(systemDir.resolve("README.md"), "/agent-home/docs/system/README.md");
         copyResourceIfMissing(systemDir.resolve("directories.md"), "/agent-home/docs/system/directories.md");
         copyResourceIfMissing(systemDir.resolve("catalog-install.md"), "/agent-home/docs/system/catalog-install.md");
+        copyResourceIfMissing(systemDir.resolve("promotion.md"), "/agent-home/docs/system/promotion.md");
+        copyResourceIfMissing(systemDir.resolve("trusted-sources.md"), "/agent-home/docs/system/trusted-sources.md");
+        copyResourceIfMissing(
+            systemDir.resolve("tools-and-quickjs.md"),
+            "/agent-home/docs/system/tools-and-quickjs.md"
+        );
     }
 
     private static void copyResourceIfMissing(Path target, String resourcePath) {

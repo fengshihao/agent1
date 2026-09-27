@@ -3,6 +3,8 @@ package com.agent1.javaagent.tool.script;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.script.ScriptEngine;
 import com.agent1.javaagent.script.ScriptEngineFactory;
+import com.agent1.javaagent.script.ScriptEvalFrame;
+import com.agent1.javaagent.script.ScriptFailureFormatter;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolUpdateListener;
@@ -112,6 +114,14 @@ public final class ExecuteScriptTool implements AgentTool {
 
         String prelude = buildArgsPrelude(parameters.get("args"));
         String js = prelude.isEmpty() ? source : prelude + "\n" + source;
+        ScriptEvalFrame.SourceKind kind = hasFile ? ScriptEvalFrame.SourceKind.FILE : ScriptEvalFrame.SourceKind.INLINE;
+        ScriptEvalFrame frame = new ScriptEvalFrame(
+            kind,
+            hasFile ? file : "",
+            ScriptEvalFrame.countPreludeLines(prelude),
+            0,
+            ScriptEvalFrame.countLines(source)
+        );
 
         Path workspaceRoot = sandbox.getRoot();
         try (ScriptEngine engine = engineFactory.open(workspaceRoot)) {
@@ -121,8 +131,7 @@ public final class ExecuteScriptTool implements AgentTool {
                 String json = engine.eval(js, defaultTimeoutMs, cancellationToken);
                 return ToolExecutionResult.text(json == null ? "null" : json);
             } catch (RuntimeException e) {
-                String msg = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-                return ToolExecutionResult.text(msg);
+                return ToolExecutionResult.text(ScriptFailureFormatter.formatJson(frame, e));
             } finally {
                 cancelSent.set(true);
                 watcher.interrupt();

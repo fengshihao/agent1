@@ -37,7 +37,8 @@
   "triggers": {
     "fileLargeWriteBytes": 65536,
     "scriptInlineLongLines": 80,
-    "scriptInlineLongBytes": 8192
+    "scriptInlineLongBytes": 8192,
+    "scriptFailRepeat": 3
   }
 }
 ```

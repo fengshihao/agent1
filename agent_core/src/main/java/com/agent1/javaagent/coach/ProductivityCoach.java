@@ -1,9 +1,11 @@
 package com.agent1.javaagent.coach;
 
+import com.agent1.javaagent.script.ScriptEvalFrame;
+import com.agent1.javaagent.script.ScriptFailureFormatter;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.fasterxml.jackson.databind.JsonNode;
 
-/** 方案 A：在 tool result 末尾追加 {@code [coach]} 提示（H1 钩子）。 */
+/** 方案 A：在 tool result 末尾追加 {@code [coach]} 提示（H1 + script.fail_repeat）。 */
 public final class ProductivityCoach {
 
     private static final String OUTSIDE_MARKER = "路径超出工作区范围";
@@ -11,19 +13,29 @@ public final class ProductivityCoach {
     private final int largeWriteBytes;
     private final int inlineLongLines;
     private final int inlineLongBytes;
+    private final int scriptFailRepeat;
+    private final CoachRunState runState = new CoachRunState();
 
     public ProductivityCoach() {
         this(AgentCoachConfig.defaults());
     }
 
     public ProductivityCoach(AgentCoachConfig config) {
-        this(config.largeWriteBytes(), config.inlineLongLines(), config.inlineLongBytes());
+        this.largeWriteBytes = config.largeWriteBytes();
+        this.inlineLongLines = config.inlineLongLines();
+        this.inlineLongBytes = config.inlineLongBytes();
+        this.scriptFailRepeat = config.scriptFailRepeat();
     }
 
     ProductivityCoach(int largeWriteBytes, int inlineLongLines, int inlineLongBytes) {
         this.largeWriteBytes = largeWriteBytes;
         this.inlineLongLines = inlineLongLines;
         this.inlineLongBytes = inlineLongBytes;
+        this.scriptFailRepeat = AgentCoachConfig.DEFAULT_SCRIPT_FAIL_REPEAT;
+    }
+
+    public void resetRun() {
+        runState.clear();
     }
 
     public ToolExecutionResult maybeAugment(
@@ -55,7 +67,21 @@ public final class ProductivityCoach {
         } else if ("execute_script".equals(toolName) && parameters != null) {
             String file = parameters.path("file").asText("").trim();
             String code = parameters.path("code").asText("");
-            if (file.isEmpty() && !code.isBlank()) {
+            if (ScriptFailureFormatter.looksLikeFailureJson(text) || isScriptFailureLegacy(text)) {
+                ScriptEvalFrame.SourceKind kind = file.isEmpty()
+                    ? ScriptEvalFrame.SourceKind.INLINE
+                    : ScriptEvalFrame.SourceKind.FILE;
+                ScriptEvalFrame frame = new ScriptEvalFrame(kind, file, 0, 0, ScriptEvalFrame.countLines(code));
+                String key = frame.scriptKey(code);
+                int failures = runState.recordScriptFailure(key);
+                if (failures >= scriptFailRepeat) {
+                    hookId = "script.fail_repeat";
+                    advice =
+                        "同一脚本已失败 " + failures + " 次。请根据返回 JSON 的 userLine 修改；"
+                            + "优先 write_file 到 workspace/*.js 再用 file 执行；"
+                            + "可读 docs/system/tools-and-quickjs.md。";
+                }
+            } else if (file.isEmpty() && !code.isBlank()) {
                 int lines = countLines(code);
                 int bytes = code.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
                 if (lines > inlineLongLines || bytes > inlineLongBytes) {
@@ -77,6 +103,17 @@ public final class ProductivityCoach {
     static String appendCoach(String toolText, String hookId, String advice) {
         String base = toolText == null ? "" : toolText;
         return base + "\n\n---\n[coach] " + hookId + ": " + advice;
+    }
+
+    private static boolean isScriptFailureLegacy(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        String lower = text.toLowerCase();
+        return lower.contains("syntaxerror")
+            || lower.contains("referenceerror")
+            || lower.contains("typeerror")
+            || text.contains("timeout:");
     }
 
     private static int countLines(String code) {

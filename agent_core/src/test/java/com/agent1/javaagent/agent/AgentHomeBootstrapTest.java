@@ -30,6 +30,8 @@ class AgentHomeBootstrapTest {
         assertEquals(AgentHomeBootstrap.MANIFEST_SCHEMA_VERSION, manifest.path("schemaVersion").asInt());
         assertTrue(manifest.path("coach").path("enabled").asBoolean());
         assertEquals(65_536, manifest.path("coach").path("triggers").path("fileLargeWriteBytes").asInt());
+        assertTrue(Files.isRegularFile(root.resolve("docs/system/tools-and-quickjs.md")));
+        assertTrue(Files.isRegularFile(root.resolve("docs/system/promotion.md")));
     }
 
     @Test

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.agent1.javaagent.coach.AgentCoachConfig;
 import org.junit.jupiter.api.Test;
 
 class ProductivityCoachTest {
@@ -52,6 +53,18 @@ class ProductivityCoachTest {
         ToolExecutionResult in = ToolExecutionResult.text("ok");
         ToolExecutionResult out = coach.maybeAugment("execute_script", params, in, false);
         assertTrue(out.getText().contains("[coach] script.inline_long"));
+    }
+
+    @Test
+    void scriptFailRepeatCoachAfterThreshold() {
+        AgentCoachConfig config = new AgentCoachConfig(true, 65_536, 80, 8192, 2);
+        ProductivityCoach coach = new ProductivityCoach(config);
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "bad()");
+        ToolExecutionResult fail = ToolExecutionResult.text("{\"ok\":false,\"message\":\"SyntaxError at line 2\"}");
+        coach.maybeAugment("execute_script", params, fail, false);
+        ToolExecutionResult second = coach.maybeAugment("execute_script", params, fail, false);
+        assertTrue(second.getText().contains("[coach] script.fail_repeat"));
     }
 
     @Test

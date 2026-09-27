@@ -30,7 +30,10 @@ import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import com.agent1.javaagent.tool.script.ExecuteScriptTool;
 import com.agent1.javaagent.coach.AgentCoachConfig;
 import com.agent1.javaagent.coach.ProductivityCoach;
+import com.agent1.javaagent.tool.agent.CatalogInstallTool;
+import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
 import com.agent1.javaagent.tool.agent.ListCatalogTool;
+import com.agent1.javaagent.tool.agent.PromoteRequestTool;
 import com.agent1.javaagent.tool.agent.ReadAgentDocTool;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
@@ -57,6 +60,7 @@ public final class ProductivityAgentHost implements Closeable {
     private final String scriptPromptAppend;
     private final ScriptToolBridge scriptToolBridge;
     private final WorkspaceToolProvider extraTools;
+    private ProductivityCoach productivityCoach;
     private String activeSessionId;
 
     public ProductivityAgentHost(Path agentRoot, AgentRuntimeConfig config, LlmClient llmClient) {
@@ -214,6 +218,9 @@ public final class ProductivityAgentHost implements Closeable {
         }
         String sessionId = requireActiveSession();
         assertNoRunningMainRun(sessionId);
+        if (productivityCoach != null) {
+            productivityCoach.resetRun();
+        }
 
         String runId = newRunId();
         String now = Instant.now().toString();
@@ -360,7 +367,8 @@ public final class ProductivityAgentHost implements Closeable {
         runtime.setTools(buildTools(sessionId, workspace));
         runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace));
         AgentCoachConfig coachConfig = AgentCoachConfig.load(agentRoot);
-        runtime.setProductivityCoach(coachConfig.enabled() ? coachConfig.toCoach() : null);
+        productivityCoach = coachConfig.enabled() ? coachConfig.toCoach() : null;
+        runtime.setProductivityCoach(productivityCoach);
     }
 
     private List<AgentTool> buildTools(String sessionId, Path workspace) {
@@ -372,6 +380,9 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new ListDirTool(sandbox));
         tools.add(new ReadAgentDocTool(agentRoot));
         tools.add(new ListCatalogTool(agentRoot));
+        tools.add(new CatalogSyncStatusTool());
+        tools.add(new CatalogInstallTool());
+        tools.add(new PromoteRequestTool());
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);

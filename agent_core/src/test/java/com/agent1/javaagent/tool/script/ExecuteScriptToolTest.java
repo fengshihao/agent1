@@ -113,6 +113,7 @@ class ExecuteScriptToolTest {
 
         ToolExecutionResult result = failingTool.execute("c1", params, new CancellationToken(), u -> {});
 
+        assertTrue(result.getText().contains("\"ok\":false"));
         assertTrue(result.getText().contains("timeout"));
     }
 

@@ -22,6 +22,7 @@ public final class AgentCoachConfig {
     public static final int DEFAULT_LARGE_WRITE_BYTES = 65_536;
     public static final int DEFAULT_INLINE_LONG_LINES = 80;
     public static final int DEFAULT_INLINE_LONG_BYTES = 8_192;
+    public static final int DEFAULT_SCRIPT_FAIL_REPEAT = 3;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -29,16 +30,34 @@ public final class AgentCoachConfig {
     private final int largeWriteBytes;
     private final int inlineLongLines;
     private final int inlineLongBytes;
+    private final int scriptFailRepeat;
 
-    public AgentCoachConfig(boolean enabled, int largeWriteBytes, int inlineLongLines, int inlineLongBytes) {
+    public AgentCoachConfig(
+        boolean enabled,
+        int largeWriteBytes,
+        int inlineLongLines,
+        int inlineLongBytes,
+        int scriptFailRepeat
+    ) {
         this.enabled = enabled;
         this.largeWriteBytes = positiveOrDefault(largeWriteBytes, DEFAULT_LARGE_WRITE_BYTES);
         this.inlineLongLines = positiveOrDefault(inlineLongLines, DEFAULT_INLINE_LONG_LINES);
         this.inlineLongBytes = positiveOrDefault(inlineLongBytes, DEFAULT_INLINE_LONG_BYTES);
+        this.scriptFailRepeat = positiveOrDefault(scriptFailRepeat, DEFAULT_SCRIPT_FAIL_REPEAT);
+    }
+
+    public AgentCoachConfig(boolean enabled, int largeWriteBytes, int inlineLongLines, int inlineLongBytes) {
+        this(enabled, largeWriteBytes, inlineLongLines, inlineLongBytes, DEFAULT_SCRIPT_FAIL_REPEAT);
     }
 
     public static AgentCoachConfig defaults() {
-        return new AgentCoachConfig(true, DEFAULT_LARGE_WRITE_BYTES, DEFAULT_INLINE_LONG_LINES, DEFAULT_INLINE_LONG_BYTES);
+        return new AgentCoachConfig(
+            true,
+            DEFAULT_LARGE_WRITE_BYTES,
+            DEFAULT_INLINE_LONG_LINES,
+            DEFAULT_INLINE_LONG_BYTES,
+            DEFAULT_SCRIPT_FAIL_REPEAT
+        );
     }
 
     public static AgentCoachConfig load(Path agentRoot) {
@@ -52,7 +71,8 @@ public final class AgentCoachConfig {
         int largeWrite = triggers.path("fileLargeWriteBytes").asInt(DEFAULT_LARGE_WRITE_BYTES);
         int inlineLines = triggers.path("scriptInlineLongLines").asInt(DEFAULT_INLINE_LONG_LINES);
         int inlineBytes = triggers.path("scriptInlineLongBytes").asInt(DEFAULT_INLINE_LONG_BYTES);
-        return new AgentCoachConfig(enabled, largeWrite, inlineLines, inlineBytes);
+        int failRepeat = triggers.path("scriptFailRepeat").asInt(DEFAULT_SCRIPT_FAIL_REPEAT);
+        return new AgentCoachConfig(enabled, largeWrite, inlineLines, inlineBytes, failRepeat);
     }
 
     AgentCoachConfig withEnvOverrides() {
@@ -61,13 +81,15 @@ public final class AgentCoachConfig {
         int largeWrite = intEnv("AGENT1_COACH_LARGE_WRITE_BYTES", largeWriteBytes);
         int inlineLines = intEnv("AGENT1_COACH_INLINE_LONG_LINES", inlineLongLines);
         int inlineBytes = intEnv("AGENT1_COACH_INLINE_LONG_BYTES", inlineLongBytes);
+        int failRepeat = intEnv("AGENT1_COACH_SCRIPT_FAIL_REPEAT", scriptFailRepeat);
         if (enabled == this.enabled
             && largeWrite == largeWriteBytes
             && inlineLines == inlineLongLines
-            && inlineBytes == inlineLongBytes) {
+            && inlineBytes == inlineLongBytes
+            && failRepeat == scriptFailRepeat) {
             return this;
         }
-        return new AgentCoachConfig(enabled, largeWrite, inlineLines, inlineBytes);
+        return new AgentCoachConfig(enabled, largeWrite, inlineLines, inlineBytes, failRepeat);
     }
 
     public boolean enabled() {
@@ -86,8 +108,12 @@ public final class AgentCoachConfig {
         return inlineLongBytes;
     }
 
+    public int scriptFailRepeat() {
+        return scriptFailRepeat;
+    }
+
     public ProductivityCoach toCoach() {
-        return new ProductivityCoach(largeWriteBytes, inlineLongLines, inlineLongBytes);
+        return new ProductivityCoach(this);
     }
 
     private static JsonNode readManifest(Path agentRoot) {
