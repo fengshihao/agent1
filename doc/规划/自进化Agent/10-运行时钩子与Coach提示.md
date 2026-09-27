@@ -12,13 +12,20 @@
 | **不伪造用户消息** | 以 **Coach 通道** 注入（见下），避免假装用户说话 |
 | **与权限一致** | 只建议已有能力（promote、sync、write_file 到 workspace 等） |
 
-## 注入方式（实现候选）
+## 注入方式（已定：方案 A）
 
-1. **Tool result 后缀**（P1 最简单）：在触发工具返回末尾加 `\n\n---\n[coach] …`  
-2. **Ephemeral system 追加**（P2）：本 Run 内临时追加一段 system，**不写入** transcript 永久链（若 runtime 支持）。  
-3. **Dedicated `coach_hint` 事件**（P2）：JSONL + 下一轮开头由 host 拼进 context。
+**在触发工具的返回文本末尾**追加 Coach，例如：
 
-建议先做 **1**，对现有 `ProductivityAgentHost` 改动小。
+```text
+（工具正常输出…）
+
+---
+[coach] script.fail_repeat: 同一脚本已失败 3 次。请把代码写到 workspace/scripts/foo.js，用 file 参数执行，并根据返回里的 userLine 修改。
+```
+
+- **进入对话历史**：与 `read_file` / `execute_script` 结果同一条记录，用户可见。  
+- **不**采用「仅 AI 可见、不写 transcript」的隐藏通道（方案 B 暂不做了）。  
+- 可选：同内容写一条 `events.jsonl` 的 `coach_fired` 便于统计。
 
 ## 钩子注册表（设想场景）
 

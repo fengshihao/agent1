@@ -114,16 +114,24 @@ Agent1 与 weizhi 版本耦合：**manifest 记录 weizhi 版本 + prelude 行�
 - `docs/system/tools-and-quickjs.md` 说明：prelude 作用、禁止依赖 prelude 行号、推荐 `file` 执行。  
 - [10](./10-运行时钩子与Coach提示.md)：`script.fail_repeat` 指向结构化错误字段。
 
-## 实现里程碑（建议插入 [09](./09-行动计划.md)）
+## 实现里程碑（[09](./09-行动计划.md)）
 
 | 代号 | 内容 | 验收 |
 |------|------|------|
-| **D1** | `ScriptEvalFrame` + prelude 行数常量 + 失败时 userLine 估算 | 单测：prelude+故意语法错 inline → userLine=1 |
-| **D2** | 结构化错误 JSON + snippet 提取 | 集成测试（weizhi 可用时） |
-| **D3** | file + sourceURL / weizhi filename API | 栈显示 `scripts/foo.js:12` |
-| **D4** | weizhi 协作 remap 或 bootstrap 行数 API | 消除「不确定 bootstrap」 |
+| **D1** | `ScriptEvalFrame` + 已知 prelude 行数 | 单元测试覆盖扣减逻辑 |
+| **D2** | 结构化错误 + snippet | 失败必带 `userLine`/`userColumn` 字段 |
+| **D3** | **默认推荐 file 执行** + sourceURL / 文件名 | 报错必须是 `foo.js:12` 且 **12 就是用户文件第 12 行** |
+| **D4** | **weizhi 协作**：bootstrap 行数或引擎 remap | 集成测试：inline 与 file 多种错误类型 **行号零偏差** |
 
-**优先级建议**：**D1+D2 与 M3 前**（脚本将是进化主路径）；D3 随 H1 coach 一起推 `file` 习惯。
+### 产品要求（已定）
+
+**行号必须准确。** 若只扣 Agent1 prelude、不处理 Weizhi 内建注入，视为**未达标**，不能开启依赖脚本的 **M3 晋升** 验证——否则 AI 会持续改错行。
+
+**Gate 验收例**（weizhi 集成环境必跑）：
+
+1. `workspace/scripts/t.js` 第 5 行故意语法错 → 返回 **userLine=5**。  
+2. 第 5 行运行时 `throw` → 栈首帧 **t.js:5**。  
+3. inline 仅当 D4 证明仍准确时才宣传给 AI；否则 Coach 强制 **写文件再跑**。
 
 ## 单测思路（不依赖完整 native 时）
 
