@@ -9,6 +9,7 @@ import com.agent1.javaagent.event.AgentEventType;
 import com.agent1.javaagent.event.EventPayloads;
 import com.agent1.javaagent.llm.LlmClient;
 import com.agent1.javaagent.log.AgentEventJsonlBridge;
+import com.agent1.javaagent.agent.AgentHomeBootstrap;
 import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.log.RunLogContext;
 import com.agent1.javaagent.model.AgentMessage;
@@ -89,6 +90,7 @@ public final class ProductivityAgentHost implements Closeable {
         WorkspaceToolProvider extraTools
     ) {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
+        AgentHomeBootstrap.ensure(this.agentRoot);
         this.sessionStore = new FileSessionStore(this.agentRoot);
         this.runStore = new FileRunStore(sessionStore);
         this.scriptEngineFactory = scriptEngineFactory;
@@ -350,7 +352,7 @@ public final class ProductivityAgentHost implements Closeable {
         boolean scriptTool = scriptEngineFactory != null;
         runtime.setSystemPrompt(new ProductivitySystemPromptBuilder()
             .hostAppend(scriptPromptAppend)
-            .buildMainPrompt(workspace, scriptTool, scriptToolBridge != null));
+            .buildMainPrompt(workspace, agentRoot, scriptTool, scriptToolBridge != null));
         runtime.setTools(buildTools(sessionId, workspace));
         runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace));
     }

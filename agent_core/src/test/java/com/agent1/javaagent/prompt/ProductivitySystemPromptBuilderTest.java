@@ -43,6 +43,19 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
+    void includesAgentBoundariesAndAgentRoot() throws Exception {
+        Path workspace = temp.resolve("ws");
+        Path agentRoot = temp.resolve("agentRoot");
+        java.nio.file.Files.createDirectories(workspace);
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(workspace, agentRoot, false, false);
+        assertTrue(prompt.contains("shared/"));
+        assertTrue(prompt.contains("promote_request"));
+        assertTrue(prompt.contains("catalog_install"));
+        assertTrue(prompt.contains(agentRoot.toString()));
+    }
+
+    @Test
     void hostAppendIsIncludedWhenSet() {
         String prompt = new ProductivitySystemPromptBuilder()
             .hostAppend("语音入口：请简短口语化回复。")

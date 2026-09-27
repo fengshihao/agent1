@@ -312,12 +312,9 @@ public final class ProductivityCli {
         return Path.of(".").toAbsolutePath().normalize();
     }
 
+    /** 与 {@link com.agent1.javaagent.log.AgentDataPaths#agentRoot()} 一致。 */
     public static Path resolveAgentRoot() {
-        String fromEnv = System.getenv("AGENT1_AGENT_ROOT");
-        if (fromEnv != null && !fromEnv.isBlank()) {
-            return Path.of(fromEnv).toAbsolutePath().normalize();
-        }
-        return Path.of(".").toAbsolutePath().normalize().resolve(".agent1");
+        return com.agent1.javaagent.log.AgentDataPaths.agentRoot();
     }
 
     private static boolean shouldEnableColor() {

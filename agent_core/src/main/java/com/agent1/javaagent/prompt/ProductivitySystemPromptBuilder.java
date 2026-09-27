@@ -31,6 +31,13 @@ public final class ProductivitySystemPromptBuilder {
         缺少关键信息时向用户提问，不要编造事实。
         """.trim();
 
+    static final String AGENT_BOUNDARIES = """
+        权限与 catalog：
+        - 文件工具（read/write/edit/list）仅对当前会话 workspace 路径可写；shared/、docs/ 只读，禁止 write_file 写入。
+        - 沉淀到 shared/local 用 promote_request；从云端安装资源用 catalog_install（或 sync apply），勿手拷贝 SO/脚本到 catalog。
+        - 环境细则见 agentRoot 下 docs/system/（如 directories.md、catalog-install.md）。
+        """.trim();
+
     static final String EXPLORE_SUBAGENT = """
         你是 explore 子智能体，只执行只读任务：阅读工作区文件、列目录、检索与汇总信息。
         不要创建、修改或删除文件。
@@ -50,11 +57,20 @@ public final class ProductivitySystemPromptBuilder {
     }
 
     public String buildMainPrompt(Path workspaceRoot, boolean scriptToolRegistered) {
-        return buildMainPrompt(workspaceRoot, scriptToolRegistered, false);
+        return buildMainPrompt(workspaceRoot, null, scriptToolRegistered, false);
     }
 
     public String buildMainPrompt(
         Path workspaceRoot,
+        boolean scriptToolRegistered,
+        boolean scriptHostTools
+    ) {
+        return buildMainPrompt(workspaceRoot, null, scriptToolRegistered, scriptHostTools);
+    }
+
+    public String buildMainPrompt(
+        Path workspaceRoot,
+        Path agentRoot,
         boolean scriptToolRegistered,
         boolean scriptHostTools
     ) {
@@ -68,7 +84,8 @@ public final class ProductivitySystemPromptBuilder {
             }
         }
         sb.append("\n\n");
-        sb.append(buildEnvironmentSection(workspaceRoot)).append("\n\n");
+        sb.append(buildEnvironmentSection(workspaceRoot, agentRoot)).append("\n\n");
+        sb.append(AGENT_BOUNDARIES).append("\n\n");
         sb.append(TOOL_STRATEGY);
         if (!hostAppend.isEmpty()) {
             sb.append("\n\n").append(hostAppend);
@@ -84,15 +101,18 @@ public final class ProductivitySystemPromptBuilder {
         return GENERAL_SUBAGENT;
     }
 
-    static String buildEnvironmentSection(Path workspaceRoot) {
+    static String buildEnvironmentSection(Path workspaceRoot, Path agentRoot) {
         Path normalized = workspaceRoot.toAbsolutePath().normalize();
         String date = LocalDate.now(ZoneId.systemDefault()).toString();
         String osName = System.getProperty("os.name", "unknown");
+        String rootLine = agentRoot == null
+            ? ""
+            : "- agentRoot：" + agentRoot.toAbsolutePath().normalize() + "\n";
         return """
             环境：
-            - 工作区：%s
+            %s- 工作区（唯一可写）：%s
             - 日期：%s
             - 平台：%s
-            """.formatted(normalized, date, osName).trim();
+            """.formatted(rootLine, normalized, date, osName).trim();
     }
 }

@@ -299,7 +299,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
                         ObjectNode functionNode = mapper.createObjectNode();
                         functionNode.put("name", call.getName());
                         functionNode.put("arguments", call.getArgumentsJson());
-                        functionNode.set("function", functionNode);
+                        callNode.set("function", functionNode);
                         toolCalls.add(callNode);
                     }
                     node.set("tool_calls", toolCalls);

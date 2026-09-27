@@ -12,6 +12,7 @@ import com.agent1.javaagent.llm.LlmHttpException;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
+import com.agent1.javaagent.model.ToolCall;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolUpdateListener;
@@ -372,5 +373,24 @@ class OpenAiCompatibleClientTest {
             );
             assertTrue(ex.getMessage().contains("SSE failed"), ex.getMessage());
         }
+    }
+
+    @Test
+    void toOpenAiMessages_toolCallIncludesFunctionObject() throws Exception {
+        Method m = OpenAiCompatibleClient.class.getDeclaredMethod("toOpenAiMessages", List.class);
+        m.setAccessible(true);
+        List<AgentMessage> messages = List.of(
+            AgentMessage.user("hi"),
+            AgentMessage.assistant("", List.of(new ToolCall("call_1", "list_dir", "{}"))),
+            AgentMessage.toolResult("call_1", "ok", false)
+        );
+        @SuppressWarnings("unchecked")
+        com.fasterxml.jackson.databind.node.ArrayNode array =
+            (com.fasterxml.jackson.databind.node.ArrayNode) m.invoke(new OpenAiCompatibleClient(
+                new OpenAiCompatibleConfig("k", "http://localhost/v1", Duration.ofSeconds(5), 0.2)
+            ), messages);
+        JsonNode assistant = array.get(1);
+        assertTrue(assistant.get("tool_calls").get(0).has("function"));
+        assertEquals("list_dir", assistant.get("tool_calls").get(0).get("function").get("name").asText());
     }
 }
