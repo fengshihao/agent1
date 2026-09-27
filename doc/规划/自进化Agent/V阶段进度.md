@@ -11,7 +11,7 @@
 | **V3** | UC-03～05；**UC-04 门禁** | ✅ Weizhi 集成 + Scripted | ✅ `e2e-deepseek-tier-v3-weizhi.sh` |
 | **V4** | UC-06、07、10 | ✅ Catalog/Native 测 | ✅ UC-06 Tier-2；UC-07/10 以 Mock/CLI 为主 |
 | **V5** | UC-08、09（依赖 V3 Mock 门禁） | ✅ Promote/Skill 测 | ✅ Tier-3/4（08,09） |
-| **V6** | UC-01～12 回归 + 演示 | ✅ `e2e-self-evolve-smoke.sh` | ✅ **`e2e-deepseek-v6.sh`** 编排 Mock + LLM 子集 |
+| **V6** | UC-01～12 回归 + 演示 | ✅ CI：`E2E_DEEPSEEK_V6_SKIP_LLM=1 ./scripts/e2e-deepseek-v6.sh` | ✅ **`e2e-deepseek-v6.sh`**（默认 LLM 不含 UC-12） |
 
 ## V3 是否「做完」？
 
@@ -28,4 +28,5 @@
 # 有 Key：Mock + DeepSeek 分层 UC（闲时）
 export OPENAI_API_KEY='…'
 ./scripts/e2e-deepseek-v6.sh
+# 可选：E2E_DEEPSEEK_V6_UCS=…  E2E_DEEPSEEK_V6_AGENT_ROOT=/tmp/…
 ```

@@ -207,12 +207,12 @@ verify_uc03() {
 verify_uc04() {
   local events="${AGENT1_AGENT_ROOT}/logs/events.jsonl"
   [[ -f "${events}" ]] || { echo "UC-04: 无 events" >&2; return 1; }
-  grep -q 'userLine' "${events}" && grep -q '"userLine":5' "${events}" || grep -q '"userLine": 5' "${events}" || {
-    echo "UC-04 验证失败: events 未见 userLine=5" >&2
-    return 1
-  }
-  echo "UC-04 验证: 结构化错误含 userLine=5"
-  return 0
+  if grep -qE 'userLine(\\"|"):[[:space:]]*5' "${events}"; then
+    echo "UC-04 验证: 结构化错误含 userLine=5"
+    return 0
+  fi
+  echo "UC-04 验证失败: events 未见 userLine=5（可能在 location 嵌套 JSON 内）" >&2
+  return 1
 }
 
 verify_uc05() {
