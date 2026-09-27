@@ -1,6 +1,7 @@
 package com.agent1.javaagent.log;
 
 import com.agent1.javaagent.catalog.sync.CatalogSyncService;
+import com.agent1.javaagent.promote.PromotionScanner;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -103,6 +104,27 @@ public final class AgentAuditEvents {
         fields.put("note", note == null ? "" : note);
         fields.put("workspace", workspace == null ? "" : workspace);
         write(agentRoot, context, type, fields);
+    }
+
+    public static void sessionSummaryWritten(
+        Path agentRoot,
+        RunLogContext context,
+        String sessionId,
+        Path summaryPath,
+        PromotionScanner.ScanResult staging
+    ) {
+        if (agentRoot == null || sessionId == null || sessionId.isBlank()) {
+            return;
+        }
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("session_id", sessionId.trim());
+        fields.put("summary_path", summaryPath == null ? "" : summaryPath.toString());
+        if (staging != null) {
+            fields.put("staging_skill_count", staging.skills().size());
+            fields.put("staging_script_count", staging.scripts().size());
+            fields.put("staging_rejection_count", staging.rejections().size());
+        }
+        write(agentRoot, context, "session_summary_written", fields);
     }
 
     public static void coachFired(

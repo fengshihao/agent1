@@ -11,6 +11,7 @@
 | `promotion_completed` | staging → shared/local 成功 | — |
 | `promotion_rejected` | 晋升校验失败 | — |
 | `coach_fired` | 工具结果追加 `[coach] hookId` | 含 `hook_id`、`tool_name`、`advice`（截断） |
+| `session_summary_written` | `/summarize` 或 `/quit` 写 `session.summary.md` | 含 `session_id`、`summary_path`、staging 计数 |
 
 Run 内触发时带当前 `sessionId` / `runId`；CLI 单独执行 sync 时 `sessionId=cli`。
 

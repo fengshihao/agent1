@@ -39,8 +39,10 @@ public final class AgentDataPaths {
             return Path.of(fromEnv.trim()).toAbsolutePath().normalize();
         }
         Path normalized = agentRoot.toAbsolutePath().normalize();
-        if (".agent1".equals(normalized.getFileName().toString()) && normalized.getParent() != null) {
-            return normalized.getParent();
+        Path fileName = normalized.getFileName();
+        Path parent = normalized.getParent();
+        if (fileName != null && ".agent1".equals(fileName.toString()) && parent != null) {
+            return parent;
         }
         return Path.of(".").toAbsolutePath().normalize();
     }

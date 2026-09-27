@@ -433,10 +433,11 @@ public final class AgentRuntime implements Closeable {
         }
 
         ProductivityCoach coach = productivityCoach;
-        if (coach != null && result != null) {
-            result = coach.maybeAugment(toolCall.getName(), parameters, result, isError);
-            if (runAuditAgentRoot != null && result.getText() != null) {
-                String hookId = AgentAuditEvents.parseCoachHookId(result.getText());
+        ToolExecutionResult toolResult = result;
+        if (coach != null && toolResult != null) {
+            toolResult = coach.maybeAugment(toolCall.getName(), parameters, toolResult, isError);
+            if (toolResult != null && runAuditAgentRoot != null && toolResult.getText() != null) {
+                String hookId = AgentAuditEvents.parseCoachHookId(toolResult.getText());
                 if (!hookId.isBlank()) {
                     AgentAuditEvents.coachFired(
                         runAuditAgentRoot,
@@ -444,17 +445,20 @@ public final class AgentRuntime implements Closeable {
                         hookId,
                         toolCall.getName(),
                         toolCall.getId(),
-                        AgentAuditEvents.parseCoachAdvice(result.getText())
+                        AgentAuditEvents.parseCoachAdvice(toolResult.getText())
                     );
                 }
             }
         }
+        if (toolResult == null) {
+            toolResult = ToolExecutionResult.text(errorMessage == null ? "" : errorMessage);
+        }
 
-        AgentMessage toolResultMessage = AgentMessage.toolResult(toolCall.getId(), result.getText(), isError);
+        AgentMessage toolResultMessage = AgentMessage.toolResult(toolCall.getId(), toolResult.getText(), isError);
         state.appendMessage(toolResultMessage);
         emit(
             AgentEventType.TOOL_EXECUTION_END,
-            new EventPayloads.ToolExecutionEnd(toolCall.getId(), result, isError, errorMessage)
+            new EventPayloads.ToolExecutionEnd(toolCall.getId(), toolResult, isError, errorMessage)
         );
         return toolResultMessage;
     }

@@ -107,11 +107,15 @@ public final class AgentHomeBootstrap {
         if (Files.isRegularFile(target)) {
             return;
         }
-        try (InputStream in = AgentHomeBootstrap.class.getResourceAsStream(resourcePath)) {
-            if (in == null) {
-                return;
+        java.net.URL url = AgentHomeBootstrap.class.getResource(resourcePath);
+        if (url == null) {
+            return;
+        }
+        try (InputStream in = url.openStream()) {
+            Path parent = target.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
             }
-            Files.createDirectories(target.getParent());
             Files.writeString(target, new String(in.readAllBytes(), StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new IllegalStateException("copy bundled doc failed: " + target, e);

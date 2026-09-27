@@ -27,7 +27,7 @@ public final class ProductivitySyncCommand {
         CatalogSyncService service = new CatalogSyncService(agentRoot);
         try {
             if ("check".equals(sub)) {
-                return runCheck(agentRoot, service, out, err);
+                return runCheck(agentRoot, service, out);
             }
             if ("apply".equals(sub)) {
                 return runApply(agentRoot, service, rest, out, err);
@@ -43,7 +43,7 @@ public final class ProductivitySyncCommand {
         }
     }
 
-    private static int runCheck(Path agentRoot, CatalogSyncService service, PrintWriter out, PrintWriter err)
+    private static int runCheck(Path agentRoot, CatalogSyncService service, PrintWriter out)
         throws IOException {
         CatalogSyncService.SyncCheckResult result = service.check();
         AgentAuditEvents.catalogSyncChecked(agentRoot, null, result, "cli_sync_check");

@@ -40,6 +40,7 @@ import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -197,6 +198,17 @@ public final class ProductivityAgentHost implements Closeable {
 
     public String getActiveSessionId() {
         return activeSessionId;
+    }
+
+    /** 7.5：规则化写入 {@code sessions/<id>/session.summary.md}。 */
+    public Path writeSessionSummary() throws IOException {
+        RunLogContext ctx = new RunLogContext(
+            "cli",
+            "summarize-" + Instant.now().toEpochMilli(),
+            "",
+            "cli"
+        );
+        return new SessionSummaryService(agentRoot).writeSummary(requireActiveSession(), ctx);
     }
 
     public AgentRuntime runtime() {

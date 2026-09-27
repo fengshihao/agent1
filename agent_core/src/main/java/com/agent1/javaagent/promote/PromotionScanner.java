@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /** staging 扫描与轻量规则（阶段 6.2，审查恒通过）。 */
-final class PromotionScanner {
+public final class PromotionScanner {
 
     private static final long MAX_FILE_BYTES = 512L * 1024L;
     private static final Pattern SECRET_PATTERN = Pattern.compile(
@@ -21,16 +21,16 @@ final class PromotionScanner {
     private PromotionScanner() {
     }
 
-    record StagedSkill(String dirName, Path skillMd) {
+    public record StagedSkill(String dirName, Path skillMd) {
     }
 
-    record StagedScript(String fileName, Path scriptFile, Path metaFile) {
+    public record StagedScript(String fileName, Path scriptFile, Path metaFile) {
     }
 
-    record ScanResult(List<StagedSkill> skills, List<StagedScript> scripts, List<String> rejections) {
+    public record ScanResult(List<StagedSkill> skills, List<StagedScript> scripts, List<String> rejections) {
     }
 
-    static ScanResult scan(Path workspaceRoot) throws IOException {
+    public static ScanResult scan(Path workspaceRoot) throws IOException {
         Path root = workspaceRoot.toAbsolutePath().normalize();
         List<StagedSkill> skills = new ArrayList<>();
         List<StagedScript> scripts = new ArrayList<>();

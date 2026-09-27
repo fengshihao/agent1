@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 
 /**
  * Coach 开关与阈值：默认来自 {@code agentRoot/agent.manifest.json} 的 {@code coach} 段，
@@ -76,8 +77,8 @@ public final class AgentCoachConfig {
     }
 
     AgentCoachConfig withEnvOverrides() {
-        Boolean envEnabled = parseEnabledEnv(System.getenv("AGENT1_COACH"));
-        boolean enabled = envEnabled != null ? envEnabled : this.enabled;
+        Optional<Boolean> envEnabled = parseEnabledEnv(System.getenv("AGENT1_COACH"));
+        boolean enabled = envEnabled.orElse(this.enabled);
         int largeWrite = intEnv("AGENT1_COACH_LARGE_WRITE_BYTES", largeWriteBytes);
         int inlineLines = intEnv("AGENT1_COACH_INLINE_LONG_LINES", inlineLongLines);
         int inlineBytes = intEnv("AGENT1_COACH_INLINE_LONG_BYTES", inlineLongBytes);
@@ -131,18 +132,18 @@ public final class AgentCoachConfig {
         }
     }
 
-    private static Boolean parseEnabledEnv(String value) {
+    private static Optional<Boolean> parseEnabledEnv(String value) {
         if (value == null || value.isBlank()) {
-            return null;
+            return Optional.empty();
         }
         String trimmed = value.trim();
         if ("0".equals(trimmed) || "false".equalsIgnoreCase(trimmed)) {
-            return false;
+            return Optional.of(false);
         }
         if ("1".equals(trimmed) || "true".equalsIgnoreCase(trimmed)) {
-            return true;
+            return Optional.of(true);
         }
-        return null;
+        return Optional.empty();
     }
 
     private static int intEnv(String name, int fallback) {

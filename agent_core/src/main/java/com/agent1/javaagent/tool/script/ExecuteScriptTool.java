@@ -132,13 +132,7 @@ public final class ExecuteScriptTool implements AgentTool {
         ScriptEvalFrame.SourceKind kind = hasFile ? ScriptEvalFrame.SourceKind.FILE : ScriptEvalFrame.SourceKind.INLINE;
 
         Path workspaceRoot = sandbox.getRoot();
-        ScriptEvalFrame frame = new ScriptEvalFrame(
-            kind,
-            hasFile ? file : "",
-            0,
-            0,
-            ScriptEvalFrame.countLines(source)
-        );
+        ScriptEvalFrame frame;
         String autoInstallPrefix = "";
         for (int attempt = 0; attempt < 2; attempt++) {
             try (ScriptEngine engine = engineFactory.open(workspaceRoot)) {

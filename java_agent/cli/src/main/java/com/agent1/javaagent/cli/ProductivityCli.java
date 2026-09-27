@@ -168,6 +168,19 @@ public final class ProductivityCli {
         }
     }
 
+    private static void writeSessionSummary(ProductivityAgentHost host, boolean enableColor) {
+        if (host.getActiveSessionId() == null) {
+            System.out.println("当前无活动会话，跳过总结。");
+            return;
+        }
+        try {
+            Path path = host.writeSessionSummary();
+            System.out.println(colorize(ANSI_DIM, enableColor, "已写入 " + path));
+        } catch (Exception e) {
+            System.err.println(colorize(ANSI_RED, enableColor, "[summarize] " + e.getMessage()));
+        }
+    }
+
     private static void runOnce(ProductivityAgentHost host, String text, boolean enableColor) {
         try {
             String runId = host.runUserMessage(text);
@@ -215,7 +228,12 @@ public final class ProductivityCli {
         boolean enableColor,
         boolean scriptEnabled
     ) {
+        if ("/summarize".equalsIgnoreCase(trimmed) || "/summary".equalsIgnoreCase(trimmed)) {
+            writeSessionSummary(host, enableColor);
+            return false;
+        }
         if ("/quit".equalsIgnoreCase(trimmed) || "/exit".equalsIgnoreCase(trimmed)) {
+            writeSessionSummary(host, enableColor);
             return true;
         }
         if ("/stop".equalsIgnoreCase(trimmed)) {
@@ -279,7 +297,7 @@ public final class ProductivityCli {
             return false;
         }
         if (trimmed.startsWith("/")) {
-            System.out.println("未知命令。可用: /new /list /use /delete /tools /logs /stop /quit");
+            System.out.println("未知命令。可用: /new /list /use /delete /tools /logs /summarize /stop /quit");
             return false;
         }
         runOnce(host, trimmed, enableColor);
@@ -309,7 +327,7 @@ public final class ProductivityCli {
 
     private static void printHelp(boolean enableColor) {
         System.out.println(colorize(ANSI_DIM, enableColor,
-            "命令: /new  /list  /use <sessionId>  /delete <sessionId>  /tools  /logs …  /stop  /quit"));
+            "命令: /new  /list  /use <sessionId>  /delete <sessionId>  /tools  /logs …  /summarize  /stop  /quit"));
         System.out.println(colorize(ANSI_DIM, enableColor,
             "非交互: ./agent1 tools  ./agent1 models  ./agent1 sync check  ./agent1 logs failed  ./agent1 你好"));
     }
