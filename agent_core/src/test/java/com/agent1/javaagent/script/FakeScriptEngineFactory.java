@@ -9,11 +9,22 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class FakeScriptEngineFactory implements ScriptEngineFactory {
 
     private final String jsonResult;
+    private final RuntimeException failure;
     private final List<Path> openedWorkspaces = new ArrayList<>();
     private final AtomicReference<Path> lastEvalWorkspace = new AtomicReference<>();
 
     public FakeScriptEngineFactory(String jsonResult) {
+        this(jsonResult, null);
+    }
+
+    /** 每次 eval 抛错（用于 UC-05 script.fail_repeat 等）。 */
+    public FakeScriptEngineFactory(RuntimeException failure) {
+        this(null, failure);
+    }
+
+    private FakeScriptEngineFactory(String jsonResult, RuntimeException failure) {
         this.jsonResult = jsonResult == null ? "null" : jsonResult;
+        this.failure = failure;
     }
 
     public List<Path> openedWorkspaces() {
@@ -33,6 +44,9 @@ public final class FakeScriptEngineFactory implements ScriptEngineFactory {
                 lastEvalWorkspace.set(workspace);
                 if (token != null && token.isCancelled()) {
                     throw new RuntimeException("cancelled");
+                }
+                if (failure != null) {
+                    throw failure;
                 }
                 return jsonResult;
             }
