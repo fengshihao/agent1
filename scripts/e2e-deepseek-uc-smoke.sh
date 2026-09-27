@@ -12,6 +12,7 @@
 #   E2E_DEEPSEEK_FORCE=1       忽略北京时间高峰警告
 #   E2E_DEEPSEEK_REPORT=path   脱敏报告输出路径
 #   Tier-2（+UC-06 catalog）：./scripts/e2e-deepseek-tier2.sh
+#   Tier-3（+UC-08 promote）：./scripts/e2e-deepseek-tier3.sh
 
 set -euo pipefail
 
@@ -120,6 +121,31 @@ verify_uc06() {
   return 0
 }
 
+UC08_SKILL_DIR="e2e-tier3-skill"
+
+verify_uc08() {
+  local events="${AGENT1_AGENT_ROOT}/logs/events.jsonl"
+  local skill="${AGENT1_AGENT_ROOT}/shared/local/skills/${UC08_SKILL_DIR}/SKILL.md"
+  if [[ ! -f "${skill}" ]]; then
+    echo "UC-08 验证失败: 未落盘 ${skill}" >&2
+    return 1
+  fi
+  if [[ ! -f "${events}" ]]; then
+    echo "UC-08 验证失败: 无 events.jsonl" >&2
+    return 1
+  fi
+  if ! grep -q '"type":"promotion_completed"' "${events}"; then
+    echo "UC-08 验证失败: events 无 promotion_completed" >&2
+    return 1
+  fi
+  if ! grep -q '"tool_name":"promote_request"' "${events}"; then
+    echo "UC-08 验证失败: events 无 promote_request" >&2
+    return 1
+  fi
+  echo "UC-08 验证: shared/local/skills/${UC08_SKILL_DIR}/SKILL.md 已晋升"
+  return 0
+}
+
 fail=0
 
 IFS=',' read -ra UCS <<< "${UC_LIST}"
@@ -138,6 +164,12 @@ for uc in "${UCS[@]}"; do
         "请先 catalog_sync_status 查看 pending；若有 script.sample-hello 待安装，用 catalog_install 只装这一条。禁止 write_file 写入 shared/catalog。" \
         "5" || fail=1
       verify_uc06 || fail=1
+      ;;
+    08)
+      run_uc "08" \
+        "请把可复用 skill 沉淀到 shared/local：先用 write_file 在 workspace 创建 staging/skills/${UC08_SKILL_DIR}/SKILL.md，YAML frontmatter 含 name: ${UC08_SKILL_DIR}，正文写一句「DeepSeek E2E tier3 晋升测试」（不要包含 api key 字样）；再调用 promote_request。禁止 write_file 写入 shared/ 或 docs/system。" \
+        "6" || fail=1
+      verify_uc08 || fail=1
       ;;
     *)
       echo "跳过未知 UC: ${uc}" >&2
