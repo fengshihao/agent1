@@ -1,5 +1,7 @@
 # E2E 运行记录（样例）
 
+**V0–V6 进度**：[`../V阶段进度.md`](../V阶段进度.md)
+
 ## Mock / Scripted 集成测（优先，无 API Key）
 
 Gradle 默认跑，类名 ↔ UC 映射：
