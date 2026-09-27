@@ -107,11 +107,15 @@ public final class CatalogSyncService {
             throw new IOException("digest mismatch for " + item.id());
         }
         Path target = CatalogInstallPaths.catalogFile(agentRoot, item);
-        Files.createDirectories(target.getParent());
+        Path parent = target.getParent();
+        if (parent == null) {
+            throw new IOException("invalid catalog path for " + item.id());
+        }
+        Files.createDirectories(parent);
         Path installedPath;
         if (isZipItem(item)) {
-            installedPath = target.getParent().resolve(stripZipSegment(item));
-            unzipToCatalog(item, bytes, target.getParent());
+            installedPath = parent.resolve(stripZipSegment(item));
+            unzipToCatalog(item, bytes, parent);
         } else {
             Files.write(target, bytes);
             installedPath = target;
@@ -127,7 +131,8 @@ public final class CatalogSyncService {
     }
 
     private static String stripZipSegment(CatalogItem item) {
-        String name = Path.of(item.path()).getFileName().toString();
+        var fileName = Path.of(item.path()).getFileName();
+        String name = fileName == null ? item.id() : fileName.toString();
         if (name.toLowerCase().endsWith(".zip")) {
             name = name.substring(0, name.length() - 4);
         }
@@ -149,7 +154,10 @@ public final class CatalogSyncService {
                 if (!out.startsWith(extractRoot)) {
                     throw new IOException("zip path escape: " + entry.getName());
                 }
-                Files.createDirectories(out.getParent());
+                Path outParent = out.getParent();
+                if (outParent != null) {
+                    Files.createDirectories(outParent);
+                }
                 Files.write(out, zip.readAllBytes());
             }
         }
@@ -167,20 +175,22 @@ public final class CatalogSyncService {
         URI uri = URI.create(base + itemPath);
         Request request = new Request.Builder().url(uri.toString()).get().build();
         try (Response response = http.newCall(request).execute()) {
-            if (!response.isSuccessful() || response.body() == null) {
+            okhttp3.ResponseBody body = response.body();
+            if (!response.isSuccessful() || body == null) {
                 throw new IOException("HTTP " + response.code() + " for " + uri);
             }
-            return response.body().bytes();
+            return body.bytes();
         }
     }
 
     private CatalogIndex fetchManifest(String manifestUrl) throws IOException {
         Request request = new Request.Builder().url(manifestUrl).get().build();
         try (Response response = http.newCall(request).execute()) {
-            if (!response.isSuccessful() || response.body() == null) {
+            okhttp3.ResponseBody body = response.body();
+            if (!response.isSuccessful() || body == null) {
                 throw new IOException("manifest HTTP " + response.code());
             }
-            return CatalogIndex.parse(response.body().string());
+            return CatalogIndex.parse(body.string());
         }
     }
 

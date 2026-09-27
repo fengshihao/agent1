@@ -85,7 +85,7 @@ public final class SyncState {
 
     public void save(Path agentRoot) throws IOException {
         Path file = agentRoot.resolve("sync/state.json");
-        Files.createDirectories(file.getParent());
+        Files.createDirectories(agentRoot.resolve("sync"));
         ObjectNode root = MAPPER.createObjectNode();
         root.put("schemaVersion", schemaVersion);
         root.put("manifestUrl", manifestUrl);
