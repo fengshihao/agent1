@@ -28,9 +28,14 @@ public final class WeizhiScriptEngineFactory implements ScriptEngineFactory {
     public ScriptEngine open(Path workspace) {
         WeizhiRuntimeOptions effective = options;
         if (agentRoot != null) {
+            effective = options.copy();
             Path nativeDir = AgentCatalogPaths.resolveExistingNativePluginsDir(agentRoot);
             if (nativeDir != null) {
-                effective = options.copy().nativePluginDir(nativeDir.toString());
+                effective.nativePluginDir(nativeDir.toString());
+            }
+            Path scriptFolder = AgentCatalogPaths.resolveCatalogScriptFolder(agentRoot);
+            if (scriptFolder != null) {
+                effective.scriptFolder(scriptFolder.toString());
             }
         }
         return new WeizhiScriptEngine(workspace, effective);

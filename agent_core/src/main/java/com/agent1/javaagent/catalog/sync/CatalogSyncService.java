@@ -15,6 +15,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -156,8 +157,23 @@ public final class CatalogSyncService {
             Files.write(target, bytes);
             installedPath = target;
         }
+        mirrorJsLibIntoScriptFolder(installedPath, item);
         String relative = CatalogInstallPaths.relativeFromAgentRoot(agentRoot, installedPath);
         return new SyncState.InstalledItem(item.version(), item.digest(), Instant.now().toString(), relative);
+    }
+
+    /** Weizhi 仅一个 scriptFolder：js_lib 装完后在 scripts/ 镜像叶子名，便于 loadScript。 */
+    private void mirrorJsLibIntoScriptFolder(Path installedFile, CatalogItem item) throws IOException {
+        if (!"js_lib".equalsIgnoreCase(item.kind())) {
+            return;
+        }
+        var leaf = installedFile.getFileName();
+        if (leaf == null) {
+            return;
+        }
+        Path scriptsDir = AgentCatalogPaths.catalogScriptsDir(agentRoot);
+        Files.createDirectories(scriptsDir);
+        Files.copy(installedFile, scriptsDir.resolve(leaf.toString()), StandardCopyOption.REPLACE_EXISTING);
     }
 
     private static boolean isZipItem(CatalogItem item) {

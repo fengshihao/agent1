@@ -22,4 +22,19 @@ public final class AgentCatalogPaths {
         Path generic = agentRoot.resolve("shared/catalog/native");
         return Files.isDirectory(generic) ? generic : null;
     }
+
+    /** QuickJS {@code loadScript} / {@code import './leaf.js'} 根（7.2，kind: script）。 */
+    public static Path catalogScriptsDir(Path agentRoot) {
+        return agentRoot.toAbsolutePath().normalize().resolve("shared/catalog/scripts");
+    }
+
+    /** kind: js_lib 落盘目录（08）；运行时通过 sync 镜像到 {@link #catalogScriptsDir} 供 loadScript。 */
+    public static Path catalogJsLibsDir(Path agentRoot) {
+        return agentRoot.toAbsolutePath().normalize().resolve("shared/catalog/libs/js");
+    }
+
+    public static Path resolveCatalogScriptFolder(Path agentRoot) {
+        Path scripts = catalogScriptsDir(agentRoot);
+        return Files.isDirectory(scripts) ? scripts : null;
+    }
 }

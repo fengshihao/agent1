@@ -27,7 +27,9 @@ class CatalogSyncServiceTest {
             server.start();
             String base = server.url("v1/").toString();
             String manifestUrl = server.url("/catalog-index.json").toString();
+            byte[] jsLib = "function inc(x) { return x + 1; }\n".getBytes();
             String digest = CatalogDigest.sha256Prefix(SCRIPT);
+            String digestLib = CatalogDigest.sha256Prefix(jsLib);
             String manifest = """
                 {
                   "schemaVersion": 1,
@@ -50,7 +52,7 @@ class CatalogSyncServiceTest {
                     }
                   ]
                 }
-                """.formatted(base, digest, digest);
+                """.formatted(base, digest, digestLib);
             server.enqueue(new MockResponse().setBody(manifest));
 
             Path manifestFile = agentRoot.resolve("agent.manifest.json");
@@ -69,13 +71,18 @@ class CatalogSyncServiceTest {
 
             server.enqueue(new MockResponse().setBody(manifest));
             server.enqueue(new MockResponse().setBody(new String(SCRIPT)));
+            server.enqueue(new MockResponse().setBody(new String(jsLib)));
 
-            CatalogSyncService.SyncApplyResult apply = service.apply(java.util.List.of("script.demo"));
-            assertEquals(1, apply.appliedIds().size());
+            CatalogSyncService.SyncApplyResult apply = service.apply(
+                java.util.List.of("script.demo", "lib.demo")
+            );
+            assertEquals(2, apply.appliedIds().size());
             assertTrue(apply.errors().isEmpty());
 
             Path installed = agentRoot.resolve("shared/catalog/scripts/demo.js");
             assertTrue(Files.isRegularFile(installed));
+            assertTrue(Files.isRegularFile(agentRoot.resolve("shared/catalog/libs/js/demo-lib.js")));
+            assertTrue(Files.isRegularFile(agentRoot.resolve("shared/catalog/scripts/demo-lib.js")));
             assertTrue(Files.isRegularFile(agentRoot.resolve("docs/capabilities/script.demo.md")));
             SyncState state = SyncState.load(agentRoot);
             assertTrue(state.installed("script.demo").isPresent());
