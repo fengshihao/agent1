@@ -232,6 +232,7 @@ public final class ProductivityAgentHost implements Closeable {
         runStore.write(running);
 
         RunLogContext logContext = new RunLogContext(sessionId, runId, "", "main");
+        runtime.setRunAuditBinding(agentRoot, logContext);
         AgentEventJsonlBridge bridge = new AgentEventJsonlBridge(logContext, AgentDataPaths.eventsJsonl(agentRoot));
         bridge.setDeferRunTerminal(true);
         AutoCloseable bridgeSubscription = runtime.subscribe(bridge); // NOPMD CloseResource — finally 中 closeQuietly
@@ -279,6 +280,7 @@ public final class ProductivityAgentHost implements Closeable {
             );
             closeQuietly(checkpointSubscription);
             closeQuietly(bridgeSubscription);
+            runtime.clearRunAuditBinding();
         }
         if (toThrow != null) {
             throw toThrow;

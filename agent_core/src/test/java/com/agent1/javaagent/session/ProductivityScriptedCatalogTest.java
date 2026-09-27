@@ -9,6 +9,7 @@ import com.agent1.javaagent.config.AgentRuntimeConfig;
 import com.agent1.javaagent.llm.scripted.ScriptedLlmClient;
 import com.agent1.javaagent.llm.scripted.ScriptedResponses;
 import com.agent1.javaagent.model.AgentMessage;
+import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.run.FileRunStore;
 import com.agent1.javaagent.run.RunState;
 import com.agent1.javaagent.util.PathIo;
@@ -93,6 +94,10 @@ class ProductivityScriptedCatalogTest {
                 assertTrue(host.runtime().getStateSnapshot().getMessages().stream()
                     .filter(m -> AgentMessage.ROLE_TOOL_RESULT.equals(m.getRole()))
                     .anyMatch(m -> m.getContent().contains("ok script.demo")));
+
+                String events = Files.readString(AgentDataPaths.eventsJsonl(agentRoot));
+                assertTrue(events.contains("\"type\":\"catalog_sync_checked\""));
+                assertTrue(events.contains("\"type\":\"catalog_sync_completed\""));
             }
         }
     }

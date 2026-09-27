@@ -47,7 +47,8 @@ class ProductivityScriptedPromoteTest {
             assertTrue(Files.readString(localSkill).contains("Promoted"));
 
             String events = Files.readString(AgentDataPaths.eventsJsonl(agentRoot));
-            assertTrue(events.contains("promotion_completed"));
+            assertTrue(events.contains("\"type\":\"promotion_completed\""));
+            assertTrue(events.contains("\"runId\":\"" + runId + "\""));
 
             assertTrue(host.runtime().getStateSnapshot().getMessages().stream()
                 .filter(m -> AgentMessage.ROLE_TOOL_RESULT.equals(m.getRole()))

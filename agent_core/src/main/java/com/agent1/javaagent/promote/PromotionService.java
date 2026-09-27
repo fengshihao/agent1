@@ -1,9 +1,7 @@
 package com.agent1.javaagent.promote;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
-import com.agent1.javaagent.log.AgentDataPaths;
-import com.agent1.javaagent.log.EventJsonlWriter;
-import com.agent1.javaagent.log.RunLogContext;
+import com.agent1.javaagent.log.AgentAuditEvents;
 import com.agent1.javaagent.util.PathIo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -16,9 +14,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /** workspace/staging → shared/local（阶段 6.2，审查自动通过）。 */
 public final class PromotionService {
@@ -27,19 +23,17 @@ public final class PromotionService {
 
     private final Path agentRoot;
     private final Path workspaceRoot;
-    private final EventJsonlWriter events;
 
     public PromotionService(Path agentRoot, Path workspaceRoot) {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
         this.workspaceRoot = workspaceRoot.toAbsolutePath().normalize();
-        this.events = new EventJsonlWriter(AgentDataPaths.eventsJsonl(agentRoot));
     }
 
     public PromotionResult promote(String auditNote) throws IOException {
         AgentHomeBootstrap.ensure(agentRoot);
         PromotionScanner.ScanResult scan = PromotionScanner.scan(workspaceRoot);
         if (!scan.rejections().isEmpty()) {
-            writeEvent("promotion_rejected", scan.rejections(), auditNote);
+            AgentAuditEvents.promotionRejected(agentRoot, null, scan.rejections(), auditNote, workspaceRoot.toString());
             return PromotionResult.rejected(scan.rejections());
         }
         if (scan.skills().isEmpty() && scan.scripts().isEmpty()) {
@@ -72,7 +66,7 @@ public final class PromotionService {
             promoted.add("script:" + script.fileName());
         }
 
-        writeEvent("promotion_completed", promoted, auditNote);
+        AgentAuditEvents.promotionCompleted(agentRoot, null, promoted, auditNote, workspaceRoot.toString());
         return PromotionResult.success(promoted, "review: auto-approved");
     }
 
@@ -94,20 +88,6 @@ public final class PromotionService {
                 + "- updatedAt: `" + Instant.now() + "`\n",
             java.nio.charset.StandardCharsets.UTF_8
         );
-    }
-
-    private void writeEvent(String type, List<String> details, String note) {
-        Map<String, Object> fields = new LinkedHashMap<>();
-        fields.put("items", details);
-        fields.put("note", note == null ? "" : note);
-        fields.put("workspace", workspaceRoot.toString());
-        RunLogContext ctx = new RunLogContext(
-            "promotion",
-            "promotion-" + Instant.now().toEpochMilli(),
-            "",
-            "promote_request"
-        );
-        events.write(ctx, type, fields);
     }
 
     private static String stripJs(String name) {

@@ -2,6 +2,7 @@ package com.agent1.javaagent.tool.agent;
 
 import com.agent1.javaagent.catalog.sync.CatalogSyncDiff;
 import com.agent1.javaagent.catalog.sync.CatalogSyncService;
+import com.agent1.javaagent.log.AgentAuditEvents;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
@@ -67,6 +68,7 @@ public final class CatalogSyncStatusTool implements AgentTool {
                     .append(")\n");
             }
             out.append("CLI: agent1 sync apply [--ids id1,id2]");
+            AgentAuditEvents.catalogSyncChecked(agentRoot, null, result, "catalog_sync_status");
             return ToolExecutionResult.text(out.toString().trim());
         } catch (IllegalStateException e) {
             return ToolExecutionResult.text("catalog 未配置: " + e.getMessage());

@@ -1,7 +1,9 @@
 package com.agent1.javaagent.tool.script;
 
+import com.agent1.javaagent.catalog.AgentCatalogPaths;
 import com.agent1.javaagent.coach.CatalogMissingNativeHints;
 import com.agent1.javaagent.catalog.sync.CatalogSyncService;
+import com.agent1.javaagent.log.AgentAuditEvents;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.script.ScriptEngine;
 import com.agent1.javaagent.script.ScriptEngineFactory;
@@ -18,6 +20,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class ExecuteScriptTool implements AgentTool {
@@ -191,7 +194,21 @@ public final class ExecuteScriptTool implements AgentTool {
             return false;
         }
         try {
-            return new CatalogSyncService(agentRoot).ensureNativePluginOnDisk(plugin);
+            CatalogSyncService service = new CatalogSyncService(agentRoot);
+            CatalogSyncService.SyncApplyResult apply = service.applyNativePlugin(plugin);
+            Path manifest = AgentCatalogPaths.nativePluginsDir(agentRoot)
+                .resolve(plugin.trim())
+                .resolve("manifest.json");
+            if (!Files.isRegularFile(manifest)) {
+                return false;
+            }
+            AgentAuditEvents.catalogNativeAutoInstalled(
+                agentRoot,
+                null,
+                plugin,
+                apply.appliedIds() == null ? List.of() : apply.appliedIds()
+            );
+            return true;
         } catch (Exception ignored) {
             return false;
         }

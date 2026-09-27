@@ -2,6 +2,7 @@ package com.agent1.javaagent.cli.productivity;
 
 import com.agent1.javaagent.catalog.sync.CatalogSyncDiff;
 import com.agent1.javaagent.catalog.sync.CatalogSyncService;
+import com.agent1.javaagent.log.AgentAuditEvents;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
@@ -26,10 +27,10 @@ public final class ProductivitySyncCommand {
         CatalogSyncService service = new CatalogSyncService(agentRoot);
         try {
             if ("check".equals(sub)) {
-                return runCheck(service, out, err);
+                return runCheck(agentRoot, service, out, err);
             }
             if ("apply".equals(sub)) {
-                return runApply(service, rest, out, err);
+                return runApply(agentRoot, service, rest, out, err);
             }
             err.println("未知子命令: " + sub + "（可用 check、apply）");
             return 2;
@@ -42,8 +43,10 @@ public final class ProductivitySyncCommand {
         }
     }
 
-    private static int runCheck(CatalogSyncService service, PrintWriter out, PrintWriter err) throws IOException {
+    private static int runCheck(Path agentRoot, CatalogSyncService service, PrintWriter out, PrintWriter err)
+        throws IOException {
         CatalogSyncService.SyncCheckResult result = service.check();
+        AgentAuditEvents.catalogSyncChecked(agentRoot, null, result, "cli_sync_check");
         out.println("manifest: " + result.manifestUrl());
         out.println("catalogId: " + result.catalogId());
         out.println("pending: " + result.pending().size());
@@ -57,6 +60,7 @@ public final class ProductivitySyncCommand {
     }
 
     private static int runApply(
+        Path agentRoot,
         CatalogSyncService service,
         String[] rest,
         PrintWriter out,
@@ -64,6 +68,9 @@ public final class ProductivitySyncCommand {
     ) throws IOException {
         List<String> ids = parseIds(rest);
         CatalogSyncService.SyncApplyResult result = service.apply(ids);
+        if (!result.appliedIds().isEmpty() || !result.errors().isEmpty()) {
+            AgentAuditEvents.catalogSyncCompleted(agentRoot, null, result, "cli_sync_apply");
+        }
         out.println("manifest: " + result.manifestUrl());
         out.println("applied: " + result.appliedIds().size());
         for (String id : result.appliedIds()) {

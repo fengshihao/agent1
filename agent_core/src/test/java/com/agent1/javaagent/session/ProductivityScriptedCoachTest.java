@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
 import com.agent1.javaagent.config.AgentRuntimeConfig;
+import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.llm.scripted.ScriptedLlmClient;
 import com.agent1.javaagent.llm.scripted.ScriptedResponses;
 import com.agent1.javaagent.model.AgentMessage;
@@ -156,6 +157,10 @@ class ProductivityScriptedCoachTest {
                 assertTrue(host.runtime().getStateSnapshot().getMessages().stream()
                     .filter(m -> AgentMessage.ROLE_TOOL_RESULT.equals(m.getRole()))
                     .anyMatch(m -> m.getContent().contains("[coach] catalog.pending")));
+
+                String events = Files.readString(AgentDataPaths.eventsJsonl(agentRoot));
+                assertTrue(events.contains("\"type\":\"coach_fired\""));
+                assertTrue(events.contains("catalog.pending"));
             }
         }
     }

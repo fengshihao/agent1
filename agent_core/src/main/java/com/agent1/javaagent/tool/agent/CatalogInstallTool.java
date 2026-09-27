@@ -1,6 +1,7 @@
 package com.agent1.javaagent.tool.agent;
 
 import com.agent1.javaagent.catalog.sync.CatalogSyncService;
+import com.agent1.javaagent.log.AgentAuditEvents;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
@@ -71,6 +72,9 @@ public final class CatalogInstallTool implements AgentTool {
             }
             if (result.appliedIds().isEmpty() && result.errors().isEmpty()) {
                 out.append("(无 pending 条目；可先 catalog_sync_status)");
+            }
+            if (!result.appliedIds().isEmpty() || !result.errors().isEmpty()) {
+                AgentAuditEvents.catalogSyncCompleted(agentRoot, null, result, "catalog_install");
             }
             return ToolExecutionResult.text(out.toString().trim());
         } catch (IllegalStateException e) {

@@ -18,7 +18,11 @@ import com.agent1.javaagent.tool.ToolArgumentValidator;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolExecutionUpdate;
 import com.agent1.javaagent.coach.ProductivityCoach;
+import com.agent1.javaagent.log.AgentAuditEvents;
+import com.agent1.javaagent.log.RunAuditScope;
+import com.agent1.javaagent.log.RunLogContext;
 import com.agent1.javaagent.workspace.ToolResultSpill;
+import java.nio.file.Path;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,6 +60,8 @@ public final class AgentRuntime implements Closeable {
     private CancellationToken cancellationToken;
     private volatile WorkspaceSandbox workspaceSandbox;
     private volatile ProductivityCoach productivityCoach;
+    private volatile Path runAuditAgentRoot;
+    private volatile RunLogContext runAuditLogContext;
 
     public AgentRuntime(AgentOptions options, LlmClient llmClient) {
         this(options, llmClient, new ObjectMapper());
@@ -106,6 +112,17 @@ public final class AgentRuntime implements Closeable {
     /** 生产力工作区：大工具结果 spill 与路径校验。 */
     public void setWorkspaceSandbox(WorkspaceSandbox sandbox) {
         this.workspaceSandbox = sandbox;
+    }
+
+    /** 绑定当前 Run 的 session/runId，供工具与 Coach 写 P.4 审计事件。 */
+    public void setRunAuditBinding(Path agentRoot, RunLogContext logContext) {
+        this.runAuditAgentRoot = agentRoot == null ? null : agentRoot.toAbsolutePath().normalize();
+        this.runAuditLogContext = logContext;
+    }
+
+    public void clearRunAuditBinding() {
+        this.runAuditAgentRoot = null;
+        this.runAuditLogContext = null;
     }
 
     public synchronized boolean isRunning() {
@@ -371,6 +388,7 @@ public final class AgentRuntime implements Closeable {
                 long timeoutMs = estimateToolTimeoutMs(toolCall.getName(), parameters);
                 CompletableFuture<ToolExecutionResult> toolTask = CompletableFuture.supplyAsync(
                 () -> {
+                    RunAuditScope.bind(runAuditAgentRoot, runAuditLogContext);
                     try {
                         return tool.execute(
                             toolCall.getId(),
@@ -383,6 +401,8 @@ public final class AgentRuntime implements Closeable {
                         );
                     } catch (Exception e) {
                         throw new RuntimeException(e);
+                    } finally {
+                        RunAuditScope.clear();
                     }
                 },
                 toolExecutor
@@ -415,6 +435,19 @@ public final class AgentRuntime implements Closeable {
         ProductivityCoach coach = productivityCoach;
         if (coach != null && result != null) {
             result = coach.maybeAugment(toolCall.getName(), parameters, result, isError);
+            if (runAuditAgentRoot != null && result.getText() != null) {
+                String hookId = AgentAuditEvents.parseCoachHookId(result.getText());
+                if (!hookId.isBlank()) {
+                    AgentAuditEvents.coachFired(
+                        runAuditAgentRoot,
+                        runAuditLogContext,
+                        hookId,
+                        toolCall.getName(),
+                        toolCall.getId(),
+                        AgentAuditEvents.parseCoachAdvice(result.getText())
+                    );
+                }
+            }
         }
 
         AgentMessage toolResultMessage = AgentMessage.toolResult(toolCall.getId(), result.getText(), isError);
