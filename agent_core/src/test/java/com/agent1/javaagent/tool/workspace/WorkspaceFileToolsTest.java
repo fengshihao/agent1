@@ -64,6 +64,16 @@ class WorkspaceFileToolsTest {
         w.put("path", "../outside.txt");
         w.put("content", "x");
         ToolExecutionResult result = write.execute("w2", w, new CancellationToken(), u -> {});
-        assertTrue(result.getText().contains("错误") || result.getText().toLowerCase().contains("error"));
+        assertTrue(result.getText().contains("路径超出工作区范围"));
+    }
+
+    @Test
+    void writeRejectsSharedStylePath() throws Exception {
+        WriteFileTool write = new WriteFileTool(sandbox);
+        ObjectNode w = MAPPER.createObjectNode();
+        w.put("path", "../../shared/catalog/foo.txt");
+        w.put("content", "x");
+        ToolExecutionResult result = write.execute("w3", w, new CancellationToken(), u -> {});
+        assertTrue(result.getText().contains("路径超出工作区范围"));
     }
 }

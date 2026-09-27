@@ -28,6 +28,10 @@ import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
 import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import com.agent1.javaagent.tool.script.ExecuteScriptTool;
+import com.agent1.javaagent.coach.CoachSettings;
+import com.agent1.javaagent.coach.ProductivityCoach;
+import com.agent1.javaagent.tool.agent.ListCatalogTool;
+import com.agent1.javaagent.tool.agent.ReadAgentDocTool;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import java.io.Closeable;
@@ -355,6 +359,7 @@ public final class ProductivityAgentHost implements Closeable {
             .buildMainPrompt(workspace, agentRoot, scriptTool, scriptToolBridge != null));
         runtime.setTools(buildTools(sessionId, workspace));
         runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace));
+        runtime.setProductivityCoach(CoachSettings.enabledFromEnv() ? new ProductivityCoach() : null);
     }
 
     private List<AgentTool> buildTools(String sessionId, Path workspace) {
@@ -364,6 +369,8 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new WriteFileTool(sandbox));
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));
+        tools.add(new ReadAgentDocTool(agentRoot));
+        tools.add(new ListCatalogTool(agentRoot));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);

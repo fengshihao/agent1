@@ -16,6 +16,7 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String WORK_MODE_FILES = """
         工作方式：读和改文件时使用工作区文件工具（read_file、write_file、edit_file、list_dir）。
+        读 agentRoot 下系统文档用 read_agent_doc；查看 shared/catalog 摘要用 list_catalog（只读，不可 write_file 写入）。
         """.trim();
 
     static final String WORK_MODE_SCRIPT = """

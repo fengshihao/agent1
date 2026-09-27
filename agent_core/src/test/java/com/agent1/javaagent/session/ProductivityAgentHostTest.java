@@ -88,6 +88,23 @@ class ProductivityAgentHostTest {
     }
 
     @Test
+    void registersAgentDocAndCatalogTools() {
+        java.util.concurrent.atomic.AtomicReference<List<String>> toolNames =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            toolNames.set(tools.stream().map(AgentTool::name).collect(Collectors.toList()));
+            return new AssistantResponse("x", List.of());
+        };
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            host.createSession();
+            host.runUserMessage("ping");
+            assertTrue(toolNames.get().contains("read_agent_doc"));
+            assertTrue(toolNames.get().contains("list_catalog"));
+        }
+    }
+
+    @Test
     void registersExecuteScriptWhenEngineFactoryPresent() {
         java.util.concurrent.atomic.AtomicReference<List<String>> toolNames =
             new java.util.concurrent.atomic.AtomicReference<>();

@@ -17,6 +17,7 @@ import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolArgumentValidator;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolExecutionUpdate;
+import com.agent1.javaagent.coach.ProductivityCoach;
 import com.agent1.javaagent.workspace.ToolResultSpill;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -54,6 +55,7 @@ public final class AgentRuntime implements Closeable {
     private CompletableFuture<Void> runningTask;
     private CancellationToken cancellationToken;
     private volatile WorkspaceSandbox workspaceSandbox;
+    private volatile ProductivityCoach productivityCoach;
 
     public AgentRuntime(AgentOptions options, LlmClient llmClient) {
         this(options, llmClient, new ObjectMapper());
@@ -94,6 +96,11 @@ public final class AgentRuntime implements Closeable {
 
     public void replaceMessages(List<AgentMessage> messages) {
         state.replaceMessages(messages);
+    }
+
+    /** 生产力 Coach（方案 A）；{@code null} 表示不追加。 */
+    public void setProductivityCoach(ProductivityCoach coach) {
+        this.productivityCoach = coach;
     }
 
     /** 生产力工作区：大工具结果 spill 与路径校验。 */
@@ -345,13 +352,14 @@ public final class AgentRuntime implements Closeable {
         ToolExecutionResult result;
         boolean isError = false;
         String errorMessage = null;
+        JsonNode parameters = null;
 
         try {
             if (tool == null) {
                 throw new IllegalStateException("Tool not found: " + toolCall.getName());
             }
 
-            JsonNode parameters = mapper.readTree(toolCall.getArgumentsJson());
+            parameters = mapper.readTree(toolCall.getArgumentsJson());
             java.util.Optional<String> validationError =
                 ToolArgumentValidator.validateRequired(tool.parametersSchema(), parameters);
             if (validationError.isPresent()) {
@@ -359,14 +367,14 @@ public final class AgentRuntime implements Closeable {
                 errorMessage = validationError.get();
                 result = ToolExecutionResult.text(errorMessage);
             } else {
-
+                final JsonNode paramsForExecute = parameters;
                 long timeoutMs = estimateToolTimeoutMs(toolCall.getName(), parameters);
                 CompletableFuture<ToolExecutionResult> toolTask = CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         return tool.execute(
                             toolCall.getId(),
-                            parameters,
+                            paramsForExecute,
                             token,
                             update -> emit(
                                 AgentEventType.TOOL_EXECUTION_UPDATE,
@@ -402,6 +410,11 @@ public final class AgentRuntime implements Closeable {
 
         if (!isError && workspaceSandbox != null) {
             result = ToolResultSpill.maybeSpill(workspaceSandbox, toolCall.getName(), result);
+        }
+
+        ProductivityCoach coach = productivityCoach;
+        if (coach != null && result != null) {
+            result = coach.maybeAugment(toolCall.getName(), parameters, result, isError);
         }
 
         AgentMessage toolResultMessage = AgentMessage.toolResult(toolCall.getId(), result.getText(), isError);
