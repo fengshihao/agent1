@@ -63,7 +63,8 @@ detekt {
 
 android {
     namespace = "com.agent1.android"
-    compileSdk = 34
+    // Compose BOM 2025.04+（Foundation 1.8）要求 compileSdk ≥ 35
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.agent1.android"
