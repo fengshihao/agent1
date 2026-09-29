@@ -25,6 +25,10 @@
             android:exported="false"
             android:windowSoftInputMode="adjustNothing" />
         <activity
+            android:name=".WeizhiPackageProbeActivity"
+            android:exported="false"
+            android:label="Weizhi 包检查" />
+        <activity
             android:name=".CrashLogActivity"
             android:exported="false"
             android:label="崩溃日志" />

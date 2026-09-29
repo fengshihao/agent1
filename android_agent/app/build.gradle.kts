@@ -1,3 +1,4 @@
+import java.security.MessageDigest
 import java.util.Properties
 
 plugins {
@@ -40,6 +41,62 @@ fun agent1VersionCode(): Int {
     }
 }
 
+fun sha256File(file: java.io.File): String {
+    val md = MessageDigest.getInstance("SHA-256")
+    file.inputStream().use { input ->
+        val buf = ByteArray(8192)
+        while (true) {
+            val n = input.read(buf)
+            if (n < 0) break
+            md.update(buf, 0, n)
+        }
+    }
+    return md.digest().joinToString("") { "%02x".format(it) }
+}
+
+fun gitHead(dir: java.io.File): String {
+    return try {
+        val proc = ProcessBuilder("git", "rev-parse", "HEAD")
+            .directory(dir)
+            .redirectErrorStream(true)
+            .start()
+        val text = proc.inputStream.bufferedReader().readText().trim()
+        proc.waitFor()
+        text.ifBlank { "unknown" }
+    } catch (_: Exception) {
+        "unknown"
+    }
+}
+
+/** 打包时记下 weizhi Java 与 libweizhijni.so 是否来自同一次构建。 */
+fun weizhiPackageStampText(androidRoot: java.io.File?): String {
+    if (androidRoot == null) {
+        return "weizhi.source=absent\nnote=此 APK 未联编 weizhi 源码（诊断包或未 sync）。\n"
+    }
+    val repo = androidRoot.parentFile
+    val javaFile = repo.resolve("java/com/weizhi/WeizhiEngine.java")
+    val jniSo = androidRoot.resolve("weizhi/src/main/jniLibs/arm64-v8a/libweizhijni.so")
+    val builtSo = repo.resolve("build-android/arm64-v8a/stripped/libweizhijni.so").takeIf { it.isFile }
+        ?: repo.resolve("build-android/arm64-v8a/libweizhijni.so")
+    val jniHash = if (jniSo.isFile) sha256File(jniSo) else "missing"
+    val builtHash = if (builtSo.isFile) sha256File(builtSo) else "missing"
+    val match = when {
+        jniHash == "missing" || builtHash == "missing" -> "unknown"
+        jniHash == builtHash -> "yes"
+        else -> "NO"
+    }
+    return buildString {
+        appendLine("weizhi.git=${gitHead(repo)}")
+        appendLine("WeizhiEngine.java.sha256=${if (javaFile.isFile) sha256File(javaFile) else "missing"}")
+        appendLine("jniLibs.so.sha256=$jniHash")
+        appendLine("jniLibs.so.bytes=${if (jniSo.isFile) jniSo.length() else 0}")
+        appendLine("build-android.so.sha256=$builtHash")
+        appendLine("java_and_so_same_build=$match")
+        appendLine("d4_jni_commit=361478c runJs filename；其父提交 bcbb1f4 为旧 JNI")
+        appendLine("note=java_and_so_same_build=NO 表示 jniLibs 里的 SO 不是本次 build-android 的产物，AAR 与 SO 可能不配套。")
+    }
+}
+
 fun agent1VersionName(): String {
     System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }?.let { return it }
     val patch = agent1VersionCode() - 10_000
@@ -62,6 +119,13 @@ android {
         create("app") {
             dimension = "distribution"
             isDefault = true
+            val probe = providers.gradleProperty("weizhiProbeLabel").orElse("").get()
+                .filter { it.isLetterOrDigit() }
+                .take(16)
+            if (probe.isNotEmpty()) {
+                applicationIdSuffix = ".wz$probe"
+                versionNameSuffix = "-wz-$probe"
+            }
         }
         create("diagnostic") {
             dimension = "distribution"
@@ -134,6 +198,9 @@ android {
             java.srcDir("src/weizhi/java")
         }
     }
+    sourceSets.named("main") {
+        assets.srcDir("build/generated/weizhiPackageStamp")
+    }
 
     @Suppress("DEPRECATION")
     applicationVariants.configureEach {
@@ -199,4 +266,17 @@ dependencies {
     androidTestImplementation(composeBom)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.activity:activity-compose:1.9.2")
+}
+
+val weizhiStampDir = layout.buildDirectory.dir("generated/weizhiPackageStamp")
+tasks.register("writeWeizhiPackageStamp") {
+    outputs.dir(weizhiStampDir)
+    doLast {
+        val dir = weizhiStampDir.get().asFile
+        dir.mkdirs()
+        dir.resolve("weizhi-package-stamp.txt").writeText(weizhiPackageStampText(weizhiAndroidRoot))
+    }
+}
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
+    dependsOn("writeWeizhiPackageStamp")
 }

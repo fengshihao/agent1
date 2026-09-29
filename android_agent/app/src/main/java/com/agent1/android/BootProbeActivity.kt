@@ -26,6 +26,14 @@ class BootProbeActivity : Activity() {
         )
         root.addView(
             Button(this).apply {
+                text = "检查 Weizhi AAR/SO"
+                setOnClickListener {
+                    startActivity(Intent(this@BootProbeActivity, WeizhiPackageProbeActivity::class.java))
+                }
+            },
+        )
+        root.addView(
+            Button(this).apply {
                 text = "进入主界面"
                 setOnClickListener {
                     startActivity(Intent(this@BootProbeActivity, MainActivity::class.java))
