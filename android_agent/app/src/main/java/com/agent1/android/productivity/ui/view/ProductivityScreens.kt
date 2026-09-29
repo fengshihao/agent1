@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import com.agent1.javaagent.modelcatalog.QwenModelInfo
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
+import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
@@ -215,6 +216,9 @@ fun ChatScreen(
                     }
                     if (!state.showModelPanel && state.configError != null) {
                         ConfigErrorBanner(state.configError.orEmpty())
+                    }
+                    if (!state.transcriptLoadError.isNullOrBlank()) {
+                        ConfigErrorBanner("对话加载失败：${state.transcriptLoadError}")
                     }
                 }
             },
@@ -557,9 +561,17 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
         contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
     ) {
-        items(state.lines.size) { index ->
+        items(
+            count = state.lines.size,
+            key = { index ->
+                val line = state.lines[index]
+                "$index-${line.role}-${line.isTool}-${line.content.hashCode()}"
+            },
+        ) { index ->
             val line = state.lines[index]
-            val useMarkdown = !line.isTool && line.role != "user" && line.content.length <= 6_000
+            val useMarkdown = !line.isTool &&
+                line.role != "user" &&
+                ChatTranscriptFormatting.shouldRenderAsMarkdown(line.content)
             MessageBubble(line, workspacePath = state.workspacePath, markdown = useMarkdown)
         }
         if (state.toolTrail.isNotEmpty()) {
