@@ -7,7 +7,6 @@ import com.agent1.javaagent.modelcatalog.QwenModelCatalog
 import com.agent1.javaagent.session.SessionMeta
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
-import com.agent1.android.productivity.logic.business.StartupDiagnostics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,26 +32,16 @@ class SessionListViewModel(
         viewModelScope.launch {
             val current = _state.value
             _state.value = current.copy(isLoading = true)
-            runCatching {
-                StartupDiagnostics.mark(appContext, "SessionListViewModel.refresh.begin")
-                val sessions = withContext(Dispatchers.IO) { gateway.listSessions() }
-                _state.value = SessionListUiState(
-                    sessions = sessions,
-                    configSummary = gateway.configurationSummary(),
-                    catalogModels = QwenModelCatalog.primaryModels(),
-                    configError = gateway.configurationError(),
-                    isLoading = false,
-                    exportInProgress = current.exportInProgress,
-                    exportMessage = current.exportMessage,
-                )
-                StartupDiagnostics.mark(appContext, "SessionListViewModel.refresh.ok")
-            }.onFailure { error ->
-                StartupDiagnostics.recordFailure(appContext, "SessionListViewModel.refresh", error)
-                _state.value = current.copy(
-                    isLoading = false,
-                    configError = "会话列表加载失败：${error.message ?: error.javaClass.simpleName}",
-                )
-            }
+            val sessions = withContext(Dispatchers.IO) { gateway.listSessions() }
+            _state.value = SessionListUiState(
+                sessions = sessions,
+                configSummary = gateway.configurationSummary(),
+                catalogModels = QwenModelCatalog.primaryModels(),
+                configError = gateway.configurationError(),
+                isLoading = false,
+                exportInProgress = current.exportInProgress,
+                exportMessage = current.exportMessage,
+            )
         }
     }
 

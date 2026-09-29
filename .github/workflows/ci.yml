@@ -113,7 +113,7 @@ jobs:
           fi
           echo "${ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
           yes | "$SDKM" --licenses >/dev/null
-          "$SDKM" "platforms;android-34" "platforms;android-35" "build-tools;35.0.0" "ndk;26.1.10909125"
+          "$SDKM" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
           echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/26.1.10909125" >> "$GITHUB_ENV"
 
       - name: Build libweizhijni.so
@@ -136,21 +136,15 @@ jobs:
         env:
           DASHSCOPE_API_KEY: ""
         run: |
-          ./gradlew --no-daemon :app:assembleAppDebug :app:assembleDiagnosticDebug
+          ./gradlew --no-daemon :app:assembleDebug
           if [ -d ../weizhi/android ]; then
-            unzip -l app/build/outputs/apk/app/debug/agent1-android-app-debug.apk | grep 'lib/arm64-v8a/libweizhijni.so'
+            unzip -l app/build/outputs/apk/debug/agent1-android-debug.apk | grep 'lib/arm64-v8a/libweizhijni.so'
           fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: agent1-android-debug-apk
-          path: android_agent/app/build/outputs/apk/app/debug/agent1-android-app-debug.apk
-
-      - name: Upload diagnostic APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent1-android-diagnostic-apk
-          path: android_agent/app/build/outputs/apk/diagnostic/debug/agent1-android-diagnostic-debug.apk
+          path: android_agent/app/build/outputs/apk/debug/agent1-android-debug.apk
           if-no-files-found: error
           retention-days: 14

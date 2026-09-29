@@ -30,7 +30,7 @@ chmod +x run.sh   # 首次可选
 ./run.sh
 ```
 
-等价于依次执行 `./gradlew :app:assembleAppDebug`、`adb install -r app/build/outputs/apk/app/debug/agent1-android-app-debug.apk`、启动 `com.agent1.android` 的主界面。
+等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk`、启动 `com.agent1.android` 的主界面。
 
 ### 覆盖安装与 versionCode
 
@@ -39,7 +39,7 @@ Android **只认 `versionCode` 数字**（不是 APK 文件名）。若 Gradle �
 本工程现为 **`versionCode = 10000 + git 提交数`**（见 `app/build.gradle.kts`），每次有新提交或拉新代码后编译，版本号会自动变大，一般可直接：
 
 ```bash
-adb install -r app/build/outputs/apk/app/debug/agent1-android-app-debug.apk
+adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk
 ```
 
 仍无法覆盖时：设置里卸载旧包（旧 id 为 `com.dynamicui.demo` 的需单独卸），或临时指定更大版本：`VERSION_CODE=200000 ./gradlew :app:assembleDebug`。
@@ -144,65 +144,13 @@ App 内 **模型配置** 与聊天页 **模型详情** 会显示当前包装配�
 - 把 `onNavigate` 对接到正式 `NavController`
 - 增加敏感信息保护（正式环境建议走服务端代理，避免 API Key 下发到客户端）
 
-### 启动即崩溃：只用手机（无电脑）
+### 未捕获崩溃日志（adb）
 
-主界面若一打开就闪退，会话里的「导出诊断包」用不了。
-
-**方式 A — 同一主 App（推荐，无需再装诊断包）**
-
-较新版本在检测到「上次崩溃」时，会**先**打开「上次崩溃日志」页（不加载聊天/Weizhi），再点 **复制全部** 即可粘贴发给 Agent。
-
-1. 安装/打开会崩溃的 APK，**闪退一次**（让系统写完日志）。
-2. **再次**从桌面点图标打开（不要长按强制停止后再试也可）。
-3. 若出现「上次崩溃日志」→ **复制全部**。
-
-若仍是一闪而过、看不到日志页，说明崩溃发生在写日志之前，或当前 APK 过旧；请用方式 B 或 C。
-
-**方式 B — 文件管理器（无需 adb）**
-
-崩溃写入成功后，会镜像到：
-
-`下载/Agent1/com.agent1.android/last_crash_report.txt`
-
-用系统「文件管理器」→ **下载** → **Agent1** → **com.agent1.android** → 打开 `last_crash_report.txt`，全选复制。
-
-**方式 C — 诊断包（与主 App 可并存，需能安装 APK）**
-
-没有电脑时，可用**手机浏览器**从 GitHub PR / Actions 产物下载 `agent1-android-diagnostic-debug.apk`，允许「未知来源安装」后安装。桌面 **「Agent1 诊断」** 仅用于查看/复制日志，不替代主 App。
-
-**荣耀 / MagicOS（含 Android 16）**
-
-- 开发者选项里的「报告错误」可能无弹窗：可试 **设置 → 系统和更新 → 开发人员选项 → 提交错误报告**，或 **我的荣耀 → 反馈助手** 描述「打开 Agent1 闪退」。
-- 安装前建议 **卸载** 旧的 `生产力助手` 与 `Agent1 诊断` 再装 CI 最新包。
-- **诊断包** 已去掉 Weizhi 原生库，若诊断包能停留界面而主包仍闪退，多半是主包 Weizhi/会话初始化问题，请把诊断页 **复制全部** 发给排查方。
-
-**方式 D — 系统错误报告（兜底）**
-
-开启开发者选项 → **错误报告** / **提交错误报告**（各厂商名称略有不同），生成 zip 后从「文件管理器」里找到 bugreport，发给排查方（体积较大）。
-
-### 启动即崩溃：有电脑时
-
-1. **诊断包脚本**（与主 App 可并存）：
-   ```bash
-   chmod +x install-diagnostic.sh pull-crash-report.sh   # 首次可选
-   ./install-diagnostic.sh
-   ```
-2. 触发主 App 闪退后，打开 **Agent1 诊断** 或执行 `./pull-crash-report.sh`。
-
-### 未捕获崩溃日志（adb / 电脑）
-
-私有目录：`files/last_crash_report.txt`；归档：`files/crash-reports/`。一键拉到本机当前目录：
-
-```bash
-./pull-crash-report.sh
-# 或指定输出路径
-./pull-crash-report.sh /tmp/crash.txt
-```
-
-手动命令（debug 包，无需 root）：
+`CrashReporter` 会写入应用私有目录：`files/last_crash_report.txt`，并在 `files/crash-reports/` 下留一份带时间戳的归档。Debug 包可用 `run-as` 读出（无需 root）：
 
 ```bash
 adb exec-out run-as com.agent1.android cat files/last_crash_report.txt
+# 或列出归档
 adb shell run-as com.agent1.android ls files/crash-reports
 ```
 
