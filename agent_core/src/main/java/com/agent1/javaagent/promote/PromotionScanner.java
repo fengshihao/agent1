@@ -1,7 +1,7 @@
 package com.agent1.javaagent.promote;
 
+import com.agent1.javaagent.util.PathIo;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -93,7 +93,7 @@ public final class PromotionScanner {
             rejections.add(file.getFileName() + ": 超过 " + MAX_FILE_BYTES + " 字节");
             return;
         }
-        String text = Files.readString(file, StandardCharsets.UTF_8);
+        String text = PathIo.readString(file);
         if (SECRET_PATTERN.matcher(text).find()) {
             rejections.add(file.getFileName() + ": 疑似密钥/敏感内容，请去敏后再 promote");
         }

@@ -1,5 +1,6 @@
 package com.agent1.javaagent.coach;
 
+import com.agent1.javaagent.util.PathIo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -126,7 +127,7 @@ public final class AgentCoachConfig {
             return MAPPER.createObjectNode();
         }
         try {
-            return MAPPER.readTree(Files.readString(file));
+            return MAPPER.readTree(PathIo.readString(file));
         } catch (IOException e) {
             return MAPPER.createObjectNode();
         }

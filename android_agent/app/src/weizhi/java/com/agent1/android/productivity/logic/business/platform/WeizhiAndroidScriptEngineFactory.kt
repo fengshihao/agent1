@@ -52,12 +52,33 @@ class WeizhiAndroidScriptEngineFactory(
         }
 
         override fun eval(jsSource: String, timeoutMs: Long, cancellationToken: CancellationToken): String {
+            return evalForAgent(jsSource, null, timeoutMs, cancellationToken, null)
+        }
+
+        override fun evalForAgent(
+            userSource: String?,
+            agentArgsPrelude: String?,
+            timeoutMs: Long,
+            cancellationToken: CancellationToken,
+            workspaceRelativeFile: String?,
+        ): String {
             if (cancellationToken.isCancelled) {
                 throw java.util.concurrent.CancellationException("cancelled")
             }
             val timeout = timeoutMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-            val source = WeizhiScriptToolInstaller.wrap(jsSource, scriptToolBridge)
-            return engine.runJs(source, timeout)
+            var last = ""
+            for (step in WeizhiScriptToolInstaller.evalSteps(
+                userSource,
+                agentArgsPrelude,
+                scriptToolBridge,
+                workspaceRelativeFile,
+            )) {
+                if (cancellationToken.isCancelled) {
+                    throw java.util.concurrent.CancellationException("cancelled")
+                }
+                last = engine.runJs(step.source, timeout, step.filename)
+            }
+            return last
         }
 
         override fun cancel() {

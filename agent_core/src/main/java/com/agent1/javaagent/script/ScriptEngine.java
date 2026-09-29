@@ -28,7 +28,10 @@ public interface ScriptEngine extends AutoCloseable {
         return eval(combined, timeoutMs, cancellationToken);
     }
 
-    /** 宿主在 userSource 前另 eval 的 prelude 行数（如 Weizhi $tools）；默认 0。 */
+    /**
+     * 与用户脚本拼进同一次 eval 的宿主 prelude 行数。
+     * prelude 单独 eval 时返回 0，引擎行号已经对应用户脚本。
+     */
     default int agentHostPreludeLines() {
         return 0;
     }

@@ -4,10 +4,12 @@ import com.agent1.javaagent.script.ScriptToolBridge;
 import com.weizhi.WeizhiEngine;
 import com.weizhi.agent.script.ScriptToolsBridge;
 import com.weizhi.platform.MiniJson;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** 在 caps 安装之后链式挂上 {@code $tools}，并把用户脚本包进 Weizhi 官方 prelude。 */
+/** 在 caps 安装之后链式挂上 {@code $tools}。用户脚本必须单独 eval，不能和 prelude 拼成一次。 */
 public final class WeizhiScriptToolInstaller {
 
     /** 与 {@link #prelude()} 同步；Agent1 行号扣减用。 */
@@ -47,6 +49,35 @@ public final class WeizhiScriptToolInstaller {
         engine.setHostCall(argsJson -> dispatch(argsJson, bridge, inner));
     }
 
+    /**
+     * 一次 runJs 里要依次执行的源。prelude 与用户脚本分开，因为 QuickJS {@code JS_DetectModule}
+     * 只看第一个 token：前面若是 {@code $tools} 的 IIFE，后面的 {@code import} 会被当成普通脚本，
+     * 在花括号处报 {@code expecting '('}。
+     */
+    public static List<EvalStep> evalSteps(
+        String userSource,
+        String agentArgsPrelude,
+        ScriptToolBridge bridge,
+        String workspaceRelativeFile
+    ) {
+        List<EvalStep> steps = new ArrayList<>();
+        if (agentArgsPrelude != null && !agentArgsPrelude.isBlank()) {
+            steps.add(new EvalStep("<agent-args>", agentArgsPrelude));
+        }
+        String toolsPrelude = preludeSource(bridge);
+        if (!toolsPrelude.isBlank()) {
+            steps.add(new EvalStep("<tools-prelude>", toolsPrelude));
+        }
+        String filename = workspaceRelativeFile == null || workspaceRelativeFile.isBlank()
+            ? "<eval>"
+            : workspaceRelativeFile.trim();
+        steps.add(new EvalStep(filename, userSource == null ? "" : userSource));
+        return List.copyOf(steps);
+    }
+
+    /**
+     * 把 prelude 和用户脚本拼成一段。含 {@code import}/{@code export} 的脚本不能走这里，用 {@link #evalSteps}。
+     */
     public static String wrap(String source, ScriptToolBridge bridge) {
         if (source == null) {
             return "";
@@ -63,6 +94,10 @@ public final class WeizhiScriptToolInstaller {
         // 引擎脚本本身已是 async，顶层 await 可用。不要套 ScriptToolsBridge.wrapSource 的 async IIFE，
         // 否则 runJs 会把未拆开的 Promise 收成 {}。
         return preludeSource(bridge) + (preludeSource(bridge).isEmpty() ? "" : "\n") + source;
+    }
+
+    /** 一次 {@code runJs} 的文件名和源码。 */
+    public record EvalStep(String filename, String source) {
     }
 
     /** 与 {@code ScriptToolsBridge} prelude 一致，供顶层 {@code return await $tools...} 使用。 */

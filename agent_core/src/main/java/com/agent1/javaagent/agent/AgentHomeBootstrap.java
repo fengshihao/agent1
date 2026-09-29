@@ -119,7 +119,7 @@ public final class AgentHomeBootstrap {
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            Files.writeString(target, new String(in.readAllBytes(), StandardCharsets.UTF_8));
+            PathIo.writeString(target, new String(in.readAllBytes(), StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new IllegalStateException("copy bundled doc failed: " + target, e);
         }
