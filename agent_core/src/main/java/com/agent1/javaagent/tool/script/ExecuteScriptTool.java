@@ -16,8 +16,8 @@ import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.agent1.javaagent.util.PathIo;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -120,7 +120,7 @@ public final class ExecuteScriptTool implements AgentTool {
                 return ToolExecutionResult.text("错误：路径超出工作区范围: " + file);
             }
             try {
-                source = Files.readString(resolved, StandardCharsets.UTF_8);
+                source = PathIo.readString(resolved);
             } catch (IOException e) {
                 return ToolExecutionResult.text("错误：无法读取脚本文件 " + file + ": " + e.getMessage());
             }
