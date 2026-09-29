@@ -11,6 +11,7 @@
 - 失败时工具返回 JSON，字段 **location.userLine** 相对用户脚本（prelude 已扣减；Weizhi 内建注入需 D4 完全对齐）。
 - inline 过长会触发 Coach **script.inline_long**。
 - **Catalog 脚本库（7.2）**：`shared/catalog/scripts` 会挂到 Weizhi `scriptFolder`；workspace 脚本可用 `loadScript("leaf.js")` / `import './leaf.js'` 加载已 sync 的 catalog 脚本或 **js_lib**（js_lib 装完后会镜像叶子名到 `scripts/`）。
+- **Word（docx.js）**：bootstrap 会将 `docx.js` / `docx-raw.js` 放入 `shared/catalog/scripts/`；工具 `docx_markdown_to_word` 或 `execute_script` 内 `import { markdownToDocx } from './docx.js'`。详见 `doc/集成/WEIZHI_DOCX.md`。
 - **Native**：`await host.ensureNative("插件名")`；缺插件时同一轮 `execute_script` 会尝试 catalog sync 并重试（见 catalog-install.md）。
 
 ## 进化与安装
