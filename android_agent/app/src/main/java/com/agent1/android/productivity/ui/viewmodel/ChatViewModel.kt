@@ -65,6 +65,7 @@ class ChatViewModel(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun loadTranscriptIntoState(initialLoad: Boolean = false) {
         if (initialLoad || _state.value.lines.isEmpty()) {
             _state.value = _state.value.copy(isLoadingTranscript = true, transcriptLoadError = null)
