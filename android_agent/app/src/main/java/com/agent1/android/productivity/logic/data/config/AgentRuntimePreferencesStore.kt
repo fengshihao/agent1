@@ -74,7 +74,5 @@ class AgentRuntimePreferencesStore(context: Context) {
                 context.getSharedPreferences(FILE + "_plain", Context.MODE_PRIVATE)
             }
         }
-
-        private const val TAG = "AgentRuntimePrefs"
     }
 }
