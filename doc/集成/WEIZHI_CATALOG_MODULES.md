@@ -28,4 +28,4 @@
 2. **Workspace 入口回退**：当当前文件在 workspace 下且 `./x` 不存在时，尝试 `scriptFolder/x`（仅一层 `./`，防越权）。
 3. （可选）**Import map** JSON 由 Agent1 bootstrap 写入 catalog，Weizhi 启动时加载。
 
-跟踪：与 [WEIZHI_DOCX.md](./WEIZHI_DOCX.md)、weizhi#8 同线。
+跟踪：与 [WEIZHI_DOCX.md](./WEIZHI_DOCX.md)、[weizhi#8](https://github.com/fengshihao/weizhi/issues/8) 同线；模块解析需求 [weizhi#9](https://github.com/fengshihao/weizhi/issues/9)。
