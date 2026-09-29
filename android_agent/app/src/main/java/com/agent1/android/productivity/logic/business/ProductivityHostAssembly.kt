@@ -14,7 +14,7 @@ object ProductivityHostAssembly {
         agentRoot: Path,
         config: AgentRuntimeConfig,
     ): ProductivityAgentHost {
-        if (!BuildConfig.WEIZHI_INTEGRATED) {
+        if (!BuildConfig.WEIZHI_INTEGRATED || DevicePageSize.prefersNoWeizhiNative()) {
             return ProductivityAgentHost(agentRoot, config)
         }
         @Suppress("UNCHECKED_CAST")

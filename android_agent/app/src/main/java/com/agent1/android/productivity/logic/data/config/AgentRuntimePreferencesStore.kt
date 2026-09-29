@@ -1,6 +1,8 @@
 package com.agent1.android.productivity.logic.data.config
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
@@ -55,13 +57,24 @@ class AgentRuntimePreferencesStore(context: Context) {
         private const val KEY_MAX_TURNS_PER_RUN = "max_turns_per_run"
         private const val KEY_MAX_TOOL_CALLS_PER_RUN = "max_tool_calls_per_run"
         private const val KEY_SAVED_IN_APP = "saved_in_app"
+        private const val TAG = "AgentRuntimePrefs"
 
-        private fun createPrefs(context: Context) = EncryptedSharedPreferences.create(
-            context,
-            FILE,
-            MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
+        @Suppress("TooGenericExceptionCaught")
+        private fun createPrefs(context: Context): SharedPreferences {
+            return try {
+                EncryptedSharedPreferences.create(
+                    context,
+                    FILE,
+                    MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+                )
+            } catch (error: Exception) {
+                Log.e(TAG, "EncryptedSharedPreferences unavailable, using plain prefs", error)
+                context.getSharedPreferences(FILE + "_plain", Context.MODE_PRIVATE)
+            }
+        }
+
+        private const val TAG = "AgentRuntimePrefs"
     }
 }
