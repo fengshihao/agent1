@@ -1,7 +1,7 @@
 package com.agent1.javaagent.skill;
 
+import com.agent1.javaagent.util.PathIo;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -86,7 +86,7 @@ public final class AgentSkillLoader {
             return;
         }
         try {
-            String raw = Files.readString(skillFile, StandardCharsets.UTF_8);
+            String raw = PathIo.readString(skillFile);
             var fileName = skillDir.getFileName();
             String fallback = fileName == null ? "skill" : fileName.toString();
             ParsedSkill parsed = parseSkill(raw, fallback);
