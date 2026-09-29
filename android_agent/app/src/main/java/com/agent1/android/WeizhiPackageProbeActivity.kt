@@ -87,7 +87,7 @@ class WeizhiPackageProbeActivity : Activity() {
         } catch (error: ExceptionInInitializerError) {
             "ExceptionInInitializerError: ${error.cause?.message ?: error.message}"
         } catch (error: ClassNotFoundException) {
-            "ClassNotFoundException: 这个包没有打进 weizhi Java（诊断包或未联编）。"
+            "ClassNotFoundException: ${error.message}（这个包没有打进 weizhi Java，诊断包或未联编）"
         } catch (error: UnsatisfiedLinkError) {
             "UnsatisfiedLinkError: ${error.message}"
         } catch (error: Exception) {

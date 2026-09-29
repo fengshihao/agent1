@@ -12,7 +12,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 7.2：catalog scripts 目录作为 Weizhi scriptFolder，workspace 脚本可 loadScript。 */
+/** 7.2：catalog scripts 目录作为 Weizhi scriptFolder，workspace 脚本用 import "./leaf.js"。 */
 class WeizhiCatalogScriptFolderIntegrationTest {
 
     private static Path weizhiRepo;
@@ -33,7 +33,7 @@ class WeizhiCatalogScriptFolderIntegrationTest {
         Files.createDirectories(scripts);
         Files.writeString(
             scripts.resolve("math-lib.js"),
-            "function inc(x) { return x + 1; }\n"
+            "export function inc(x) { return x + 1; }\n"
         );
 
         Path workspace = agentRoot.resolve("workspace");
@@ -45,7 +45,7 @@ class WeizhiCatalogScriptFolderIntegrationTest {
         );
         try (ScriptEngine engine = factory.open(workspace)) {
             String out = engine.eval(
-                "loadScript(\"math-lib.js\"); inc(41)",
+                "import { inc } from \"./math-lib.js\";\nexport default inc(41);\n",
                 5_000,
                 null
             );
