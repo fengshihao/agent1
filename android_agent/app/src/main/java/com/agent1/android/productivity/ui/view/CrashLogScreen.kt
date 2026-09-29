@@ -22,20 +22,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import com.agent1.android.llm.CrashReporter
-import com.agent1.android.productivity.logic.data.PublicCrashExport
 
 @Composable
 fun CrashLogScreen(
     report: String?,
+    filePathHint: String,
     modifier: Modifier = Modifier,
     showContinueToApp: Boolean = false,
     onContinueToApp: (() -> Unit)? = null,
-    onCleared: (() -> Unit)? = null,
+    onClearReports: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val copied = remember { mutableStateOf(false) }
-    val hint = PublicCrashExport.userVisiblePathHint()
 
     Column(
         modifier = modifier
@@ -46,7 +44,7 @@ fun CrashLogScreen(
         Text("上次崩溃日志", style = MaterialTheme.typography.headlineSmall)
         Text(
             "请点「复制全部」，粘贴发给排查问题的 Agent。\n" +
-                "也可在文件管理器中打开：\n$hint",
+                "也可在文件管理器中打开：\n$filePathHint",
             style = MaterialTheme.typography.bodyMedium,
         )
         if (report.isNullOrBlank()) {
@@ -84,21 +82,13 @@ fun CrashLogScreen(
                     Text("仍要进入 App（可能再次闪退）")
                 }
             }
-            OutlinedButton(
-                onClick = {
-                    CrashReporter.clearAllReports(context)
-                    onCleared?.invoke()
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("清除记录")
+            if (onClearReports != null) {
+                OutlinedButton(onClick = onClearReports, modifier = Modifier.fillMaxWidth()) {
+                    Text("清除记录")
+                }
             }
         }
     }
-}
-
-fun loadCombinedCrashReport(context: Context): String? {
-    return CrashReporter.getLastCrash(context) ?: PublicCrashExport.readMainAppMirror(context)
 }
 
 private fun copyCrashToClipboard(context: Context, text: String) {

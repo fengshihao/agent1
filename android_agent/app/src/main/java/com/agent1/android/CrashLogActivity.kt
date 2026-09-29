@@ -7,9 +7,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import com.agent1.android.productivity.logic.business.CrashLogAccess
 import com.agent1.android.productivity.ui.view.CrashLogScreen
 import com.agent1.android.productivity.ui.view.ProductivityTheme
-import com.agent1.android.productivity.ui.view.loadCombinedCrashReport
 
 /**
  * 诊断包专用入口；主包也会在检测到上次崩溃时于 [MainActivity] 先展示同一界面。
@@ -17,12 +17,13 @@ import com.agent1.android.productivity.ui.view.loadCombinedCrashReport
 class CrashLogActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val report = loadCombinedCrashReport(this)
+        val snapshot = CrashLogAccess.load(this)
         setContent {
             ProductivityTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     CrashLogScreen(
-                        report = report,
+                        report = snapshot.report,
+                        filePathHint = snapshot.filePathHint,
                         showContinueToApp = true,
                         onContinueToApp = {
                             startActivity(
@@ -31,7 +32,10 @@ class CrashLogActivity : ComponentActivity() {
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
                             )
                         },
-                        onCleared = { recreate() },
+                        onClearReports = {
+                            CrashLogAccess.clearAll(this@CrashLogActivity)
+                            recreate()
+                        },
                     )
                 }
             }

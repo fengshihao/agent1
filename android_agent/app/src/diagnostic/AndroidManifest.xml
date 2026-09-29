@@ -12,7 +12,8 @@
         <activity
             android:name=".CrashLogActivity"
             android:exported="true"
-            android:label="崩溃日志">
+            android:label="崩溃日志"
+            tools:replace="android:exported">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -11,28 +11,32 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.agent1.android.productivity.logic.business.CrashLogAccess
 import com.agent1.android.productivity.ui.view.CrashLogScreen
 import com.agent1.android.productivity.ui.view.ProductivityNavHost
 import com.agent1.android.productivity.ui.view.ProductivityTheme
-import com.agent1.android.productivity.ui.view.loadCombinedCrashReport
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val skipCrashGate = intent.getBooleanExtra(EXTRA_SKIP_CRASH_GATE, false)
-        val pendingReport = if (skipCrashGate) null else loadCombinedCrashReport(this)
+        val crashSnapshot = if (skipCrashGate) null else CrashLogAccess.load(this)
         setContent {
             ProductivityTheme {
                 var showMain by rememberSaveable {
-                    mutableStateOf(skipCrashGate || pendingReport.isNullOrBlank())
+                    mutableStateOf(skipCrashGate || crashSnapshot?.report.isNullOrBlank() == true)
                 }
-                if (!showMain) {
+                if (!showMain && crashSnapshot != null) {
                     CrashLogScreen(
-                        report = pendingReport,
+                        report = crashSnapshot.report,
+                        filePathHint = crashSnapshot.filePathHint,
                         showContinueToApp = true,
                         onContinueToApp = { showMain = true },
-                        onCleared = { showMain = true },
+                        onClearReports = {
+                            CrashLogAccess.clearAll(this@MainActivity)
+                            showMain = true
+                        },
                     )
                 } else {
                     Surface(modifier = Modifier.fillMaxSize()) {
