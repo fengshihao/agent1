@@ -7,7 +7,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
-APK_PATH="$ROOT_DIR/app/build/outputs/apk/debug/agent1-android-debug.apk"
+APK_PATH="$ROOT_DIR/app/build/outputs/apk/app/debug/agent1-android-app-debug.apk"
 APP_ID="com.agent1.android"
 ACTIVITY=".MainActivity"
 
@@ -25,7 +25,7 @@ echo "==> 1/4 发布 java-agent-core 到本地 Maven"
 echo "==> 2/4 编译 APK"
 (
   cd "$ROOT_DIR"
-  ./gradlew :app:assembleDebug
+  ./gradlew :app:assembleAppDebug
 )
 
 echo "==> 3/4 安装 APK"

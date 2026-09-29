@@ -57,6 +57,19 @@ android {
     namespace = "com.agent1.android"
     compileSdk = 34
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("app") {
+            dimension = "distribution"
+            isDefault = true
+        }
+        create("diagnostic") {
+            dimension = "distribution"
+            applicationIdSuffix = ".diagnostic"
+            versionNameSuffix = "-diag"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.agent1.android"
         minSdk = 26
@@ -125,7 +138,7 @@ android {
     applicationVariants.configureEach {
         outputs.configureEach {
             val impl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            impl.outputFileName = "agent1-android-${buildType.name}.apk"
+            impl.outputFileName = "agent1-android-${flavorName}-${buildType.name}.apk"
         }
     }
 }

@@ -2,6 +2,7 @@ package com.agent1.android.llm
 
 import android.content.Context
 import android.util.Log
+import com.agent1.android.productivity.logic.data.PublicCrashExport
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -88,6 +89,8 @@ object CrashReporter {
             Log.e(TAG, "write crash archive failed", it)
             false
         }
+        runCatching { PublicCrashExport.mirrorFromMainApp(context.applicationContext, report) }
+            .onFailure { Log.e(TAG, "public crash mirror failed", it) }
         Log.e(TAG, "App crashed, report persisted prefs=$committed file=$fileSaved archive=$archiveSaved")
     }
 

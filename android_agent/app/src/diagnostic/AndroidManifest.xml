@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:label="Agent1 诊断"
+        tools:replace="android:label">
+        <activity
+            android:name=".MainActivity"
+            tools:node="remove" />
+
+        <activity
+            android:name=".CrashLogActivity"
+            android:exported="true"
+            android:label="崩溃日志">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
