@@ -7,6 +7,7 @@
 #   export WEIZHI_GIT_URL='https://github.com/<you>/weizhi.git'
 #
 # 未设置 WEIZHI_GIT_URL 时默认克隆公开仓库 fengshihao/weizhi。
+# ES module workspace→catalog 回退需 Weizhi master ≥ dd7904c（weizhi#10）；`git -C weizhi rev-parse HEAD` 可核对。
 #
 # 默认克隆到本仓库内 agent1/weizhi（与 android_agent/../weizhi 路径一致）。
 # 若已存在同级目录 ../weizhi，则不会重复克隆，仅尝试 git pull。

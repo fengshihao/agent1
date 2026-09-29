@@ -33,8 +33,8 @@ object WeizhiHostLoader {
             你必须在面向用户的最终回复里用 Markdown 引用工作区相对路径，例如 ![小猫](cat.png)，
             不要粘贴工具 JSON、base64 或 resultPreview。工具执行后若尚未给出带 ![](...) 的总结，应再调用一轮完成说明。
 
-            Word（.docx）：简单转换用 docx_markdown_to_word；复杂流程可在工作区 orchestrator（file 模式）
-            中 `import './docx.js'` 或 `import 'docx'`（catalog 标准库由引擎 scriptFolder 解析，勿 cp）。勿 bash/read agentRoot 或 assets。
+            Word（.docx）：简单转换用 docx_markdown_to_word；复杂流程在工作区写 orchestrator（file 模式，如 jobs/run.js），
+            `import './docx.js'` 由 Weizhi 回退到 catalog（勿 cp）。勿 bash/read agentRoot 或 assets。
             """.trimIndent(),
             scriptTools,
             WeizhiAgentTools(context),

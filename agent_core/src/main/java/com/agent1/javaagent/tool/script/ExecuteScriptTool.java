@@ -9,7 +9,6 @@ import com.agent1.javaagent.script.ScriptEngine;
 import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptEvalFrame;
 import com.agent1.javaagent.script.ScriptFailureFormatter;
-import com.agent1.javaagent.script.WorkspaceOrchestratorMirror;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolUpdateListener;
@@ -133,78 +132,52 @@ public final class ExecuteScriptTool implements AgentTool {
         ScriptEvalFrame.SourceKind kind = hasFile ? ScriptEvalFrame.SourceKind.FILE : ScriptEvalFrame.SourceKind.INLINE;
 
         Path workspaceRoot = sandbox.getRoot();
-        String quickJsFilename = hasFile ? file : null;
-        String runSource = source;
-        Path mirrorRoot = null;
-        if (hasFile && agentRoot != null && WorkspaceOrchestratorMirror.usesEsModules(source)) {
-            try {
-                WorkspaceOrchestratorMirror.ExecutionPlan plan = WorkspaceOrchestratorMirror.plan(
-                    agentRoot,
-                    workspaceRoot,
-                    file,
-                    source
-                );
-                runSource = plan.effectiveSource();
-                if (plan.strategy() == WorkspaceOrchestratorMirror.Strategy.EVAL_IN_SCRIPT_FOLDER) {
-                    quickJsFilename = null;
-                } else if (plan.mirror().isPresent()) {
-                    quickJsFilename = plan.mirror().get().scriptFolderRelativeEntry();
-                    mirrorRoot = plan.mirror().get().mirrorRoot();
-                }
-            } catch (IOException e) {
-                return ToolExecutionResult.text("错误：工作区脚本模块解析失败: " + e.getMessage());
-            }
-        }
 
         ScriptEvalFrame frame;
         String autoInstallPrefix = "";
-        try {
-            for (int attempt = 0; attempt < 2; attempt++) {
-                try (ScriptEngine engine = engineFactory.open(workspaceRoot)) {
-                    frame = new ScriptEvalFrame(
-                        kind,
-                        hasFile ? file : "",
-                        ScriptEvalFrame.countPreludeLines(prelude),
-                        engine.agentHostPreludeLines(),
-                        ScriptEvalFrame.countLines(runSource)
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try (ScriptEngine engine = engineFactory.open(workspaceRoot)) {
+                frame = new ScriptEvalFrame(
+                    kind,
+                    hasFile ? file : "",
+                    ScriptEvalFrame.countPreludeLines(prelude),
+                    engine.agentHostPreludeLines(),
+                    ScriptEvalFrame.countLines(source)
+                );
+                AtomicBoolean cancelSent = new AtomicBoolean(false);
+                Thread watcher = startCancelWatcher(engine, cancellationToken, cancelSent);
+                try {
+                    String json = engine.evalForAgent(
+                        source,
+                        prelude,
+                        defaultTimeoutMs,
+                        cancellationToken,
+                        hasFile ? file : null
                     );
-                    AtomicBoolean cancelSent = new AtomicBoolean(false);
-                    Thread watcher = startCancelWatcher(engine, cancellationToken, cancelSent);
+                    String text = json == null ? "null" : json;
+                    if (!autoInstallPrefix.isEmpty()) {
+                        text = autoInstallPrefix + text;
+                    }
+                    return ToolExecutionResult.text(text);
+                } catch (RuntimeException e) {
+                    String failText = ScriptFailureFormatter.formatJson(frame, e);
+                    if (attempt == 0 && tryAutoInstallNative(source, failText)) {
+                        autoInstallPrefix = "[catalog] auto-installed native plugin for ensureNative\n\n";
+                        continue;
+                    }
+                    return ToolExecutionResult.text(failText);
+                } finally {
+                    cancelSent.set(true);
+                    watcher.interrupt();
                     try {
-                        String json = engine.evalForAgent(
-                            runSource,
-                            prelude,
-                            defaultTimeoutMs,
-                            cancellationToken,
-                            quickJsFilename
-                        );
-                        String text = json == null ? "null" : json;
-                        if (!autoInstallPrefix.isEmpty()) {
-                            text = autoInstallPrefix + text;
-                        }
-                        return ToolExecutionResult.text(text);
-                    } catch (RuntimeException e) {
-                        String failText = ScriptFailureFormatter.formatJson(frame, e);
-                        if (attempt == 0 && tryAutoInstallNative(source, failText)) {
-                            autoInstallPrefix = "[catalog] auto-installed native plugin for ensureNative\n\n";
-                            continue;
-                        }
-                        return ToolExecutionResult.text(failText);
-                    } finally {
-                        cancelSent.set(true);
-                        watcher.interrupt();
-                        try {
-                            watcher.join(2_000);
-                        } catch (InterruptedException ignored) {
-                            Thread.currentThread().interrupt();
-                        }
+                        watcher.join(2_000);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
                     }
                 }
             }
-            return ToolExecutionResult.text("错误：脚本执行失败（auto-install 重试后仍失败）");
-        } finally {
-            WorkspaceOrchestratorMirror.deleteQuietly(mirrorRoot);
         }
+        return ToolExecutionResult.text("错误：脚本执行失败（auto-install 重试后仍失败）");
     }
 
     private boolean tryAutoInstallNative(String source, String failText) {

@@ -1,31 +1,24 @@
-# Catalog 模块解析（目标行为 vs 当前）
+# Catalog 模块解析（Weizhi 主干行为）
 
-## 期望（产品）
+Weizhi [weizhi#10](https://github.com/fengshihao/weizhi/pull/10)（closes [weizhi#9](https://github.com/fengshihao/weizhi/issues/9)）已合并：**workspace 相对 import 失败时，单层 `./leaf.js` 回退到 `setScriptFolder`**。
 
-1. **Catalog 脚本目录**（`shared/catalog/scripts`）内的脚本互相引用时，尽量 **不写路径** 或只写逻辑名，例如 `import { markdownToDocx } from 'docx'`，由引擎在 `scriptFolder` 内自动解析。
-2. **工作区 orchestrator**（`execute_script` + workspace 内 `.js`）引用标准库时，同样 **不应** 靠 bash/cp；引擎应在解析 `./docx.js` 或 bare name 时 **回退到 scriptFolder**，本地 `./helper.js` 仍相对 workspace。
+规范真源：[weizhi `docs/MODULE_LOADING.md`](https://github.com/fengshihao/weizhi/blob/master/docs/MODULE_LOADING.md)
 
-上述第 2 条需要在 **Weizhi QuickJS 模块加载器** 中实现（workspace 入口 + catalog 回退）。Agent1 在合入前用 `.workspace-run` 镜像作为兼容层。
+## Agent1 约定
 
-## 当前 Weizhi 行为（Agent1 观测）
+| 根 | 路径 |
+|----|------|
+| `setFsRoot` | 会话 workspace |
+| `setScriptFolder` | `agentRoot/shared/catalog/scripts`（bootstrap：`docx.js`、`docx-raw.js`、`docx-build.js`） |
 
-- `setScriptFolder` → catalog 根目录。
-- `setFsRoot` → 会话 workspace。
-- ES module 的 `import './x.js'` 相对 **当前模块文件路径**；`execute_script` file 模式用 workspace 相对路径作文件名时，**`.` 落在 workspace**，找不到 catalog 里的 `docx.js`。
-- 报错形如：`unsupported: module "…" (available: … or ./file.js under script folder!)` —— 即 **仅 scriptFolder 下的 `./leaf.js`** 可靠。
+- **`execute_script` file 模式**：`runJs(..., "jobs/run.js")`，脚本内 `import './docx.js'`（先 workspace，再 catalog）；`import './helper.js'` 仅 workspace。
+- **系统提示**：教 AI 用 `import … from "./docx.js"` 等同目录叶子名；**避免** bare `import 'xxx'`（除文档明确列出的官方库外），以免与 catalog 扁平命名冲突。
+- Agent1 **不再**使用 `.workspace-run/` 镜像（见 [agent1#30](https://github.com/fengshihao/agent1/issues/30)）。
 
-## Agent1 过渡策略（已实现）
+## 集成测
 
-| 场景 | 行为 |
-|------|------|
-| file + ES module，**仅 import catalog**（含 bare `docx` / `docx.js` 重写为 `./docx.js`） | 用 `<eval>` 在 scriptFolder 上下文执行，**不复制文件** |
-| file + ES module，**含 workspace 本地** `./helper.js` | 镜像到 `.workspace-run/`（直到 Weizhi 支持 workspace+catalog 双根解析） |
-| inline `code` + import | 已是 `<eval>`，可直接 `./docx.js` |
+- `WeizhiWorkspaceCatalogModuleFallbackTest`（`:weizhi-bridge:test`，需已构建 `libweizhijni`，Weizhi ≥ `dd7904c`）
 
-## 建议在 Weizhi 仓库实现
+## 关联
 
-1. **Catalog bare specifier**：在 scriptFolder 维护模块表（`docx` → `docx.js`），支持 `import from 'docx'` / `'docx.js'`。
-2. **Workspace 入口回退**：当当前文件在 workspace 下且 `./x` 不存在时，尝试 `scriptFolder/x`（仅一层 `./`，防越权）。
-3. （可选）**Import map** JSON 由 Agent1 bootstrap 写入 catalog，Weizhi 启动时加载。
-
-跟踪：与 [WEIZHI_DOCX.md](./WEIZHI_DOCX.md)、[weizhi#8](https://github.com/fengshihao/weizhi/issues/8) 同线；模块解析需求 [weizhi#9](https://github.com/fengshihao/weizhi/issues/9)。
+- [WEIZHI_DOCX.md](./WEIZHI_DOCX.md)、weizhi#8
