@@ -69,4 +69,35 @@ class WorkspaceOrchestratorMirrorTest {
         assertTrue(WorkspaceOrchestratorMirror.usesEsModules("export default 1"));
         assertEquals(false, WorkspaceOrchestratorMirror.usesEsModules("JSON.stringify(1)"));
     }
+
+    @Test
+    void plan_catalogOnlyImports_skipMirror(@TempDir Path agentRoot, @TempDir Path workspace) throws Exception {
+        Path scripts = AgentCatalogPaths.catalogScriptsDir(agentRoot);
+        Files.createDirectories(scripts);
+        Files.writeString(scripts.resolve("docx.js"), "export const ok = true;\n");
+        Files.writeString(
+            workspace.resolve("run.js"),
+            "import { ok } from './docx.js';\nexport default ok;\n",
+        );
+        var plan = WorkspaceOrchestratorMirror.plan(
+            agentRoot,
+            workspace,
+            "run.js",
+            Files.readString(workspace.resolve("run.js")),
+        );
+        assertEquals(WorkspaceOrchestratorMirror.Strategy.EVAL_IN_SCRIPT_FOLDER, plan.strategy());
+        assertTrue(plan.mirror().isEmpty());
+    }
+
+    @Test
+    void rewriteBareCatalogImports(@TempDir Path agentRoot) throws Exception {
+        Path scripts = AgentCatalogPaths.catalogScriptsDir(agentRoot);
+        Files.createDirectories(scripts);
+        Files.writeString(scripts.resolve("docx.js"), "export {};\n");
+        String out = WorkspaceOrchestratorMirror.rewriteBareCatalogImports(
+            agentRoot,
+            "import { markdownToDocx } from 'docx';\n",
+        );
+        assertTrue(out.contains("./docx.js"));
+    }
 }

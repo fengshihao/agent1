@@ -39,7 +39,7 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String WORK_MODE_OFFICE_DOCX = """
         Word（.docx）：优先专用工具 docx_markdown_to_word、docx_inspect、docx_read_grep_edit、docx_raw_edit。
-        工作区 orchestrator（execute_script 的 file 模式、含 import/export）可 `import './docx.js'` 等 catalog 标准库（宿主会镜像到 scriptFolder）；同目录 `./helper.js` 等工作区脚本也可 import。勿 import agentRoot 外路径。
+        工作区 orchestrator（execute_script file、含 import/export）可 `import './docx.js'` 或 bare `docx`（catalog 标准库，宿主在 scriptFolder 解析，无需 cp）；若有 `./helper.js` 等工作区本地模块才会临时镜像。勿 import agentRoot 外路径。
         具体函数签名、grep/样式/raw 校验等 **不要猜**——用 read_agent_doc 阅读 docs/system/office-docx.md（较长时可 offset/limit 分段读）。
         生成或修改 docx 后，在回复里用 Markdown 链接写出 workspace 相对路径，例如 [报告](out/report.docx)，便于用户在 App 内点开；图片仍用 ![](path.png)。
         """.trim();

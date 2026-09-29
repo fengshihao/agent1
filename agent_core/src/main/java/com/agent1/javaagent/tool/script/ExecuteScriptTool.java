@@ -134,16 +134,25 @@ public final class ExecuteScriptTool implements AgentTool {
 
         Path workspaceRoot = sandbox.getRoot();
         String quickJsFilename = hasFile ? file : null;
+        String runSource = source;
         Path mirrorRoot = null;
         if (hasFile && agentRoot != null && WorkspaceOrchestratorMirror.usesEsModules(source)) {
             try {
-                var layout = WorkspaceOrchestratorMirror.prepare(agentRoot, workspaceRoot, file, source);
-                if (layout.isPresent()) {
-                    quickJsFilename = layout.get().scriptFolderRelativeEntry();
-                    mirrorRoot = layout.get().mirrorRoot();
+                WorkspaceOrchestratorMirror.ExecutionPlan plan = WorkspaceOrchestratorMirror.plan(
+                    agentRoot,
+                    workspaceRoot,
+                    file,
+                    source
+                );
+                runSource = plan.effectiveSource();
+                if (plan.strategy() == WorkspaceOrchestratorMirror.Strategy.EVAL_IN_SCRIPT_FOLDER) {
+                    quickJsFilename = null;
+                } else if (plan.mirror().isPresent()) {
+                    quickJsFilename = plan.mirror().get().scriptFolderRelativeEntry();
+                    mirrorRoot = plan.mirror().get().mirrorRoot();
                 }
             } catch (IOException e) {
-                return ToolExecutionResult.text("错误：工作区脚本模块镜像失败: " + e.getMessage());
+                return ToolExecutionResult.text("错误：工作区脚本模块解析失败: " + e.getMessage());
             }
         }
 
@@ -157,13 +166,13 @@ public final class ExecuteScriptTool implements AgentTool {
                         hasFile ? file : "",
                         ScriptEvalFrame.countPreludeLines(prelude),
                         engine.agentHostPreludeLines(),
-                        ScriptEvalFrame.countLines(source)
+                        ScriptEvalFrame.countLines(runSource)
                     );
                     AtomicBoolean cancelSent = new AtomicBoolean(false);
                     Thread watcher = startCancelWatcher(engine, cancellationToken, cancelSent);
                     try {
                         String json = engine.evalForAgent(
-                            source,
+                            runSource,
                             prelude,
                             defaultTimeoutMs,
                             cancellationToken,

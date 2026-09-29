@@ -15,9 +15,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 工作区 orchestrator（execute_script file）在 QuickJS 下需要模块路径落在 scriptFolder 内。
- * 将入口脚本及其相对 import 镜像到 {@code shared/catalog/scripts/.workspace-run/}，
- * 使 {@code import './docx.js'} 可同时解析工作区同目录脚本与 catalog 标准库。
+ * 工作区 orchestrator（execute_script file）在 QuickJS 下的模块解析。
+ * <ul>
+ *   <li>仅依赖 catalog 标准库 → {@link ExecutionPlan#evalInScriptFolder()}（无文件复制，等同 inline 模块上下文）</li>
+ *   <li>含 workspace 本地 import → 镜像到 {@code .workspace-run/}（Weizhi 支持 workspace+catalog 回退后可删）</li>
+ * </ul>
  */
 public final class WorkspaceOrchestratorMirror {
 
@@ -29,7 +31,29 @@ public final class WorkspaceOrchestratorMirror {
         Pattern.MULTILINE
     );
 
+    private static final Pattern BARE_IMPORT = Pattern.compile(
+        "import\\s+(?:[^'\"\\n]+?\\s+from\\s+)?['\"]([^./][^'\"]*)['\"]",
+        Pattern.MULTILINE
+    );
+
     private WorkspaceOrchestratorMirror() {
+    }
+
+    public enum Strategy {
+        /** 不镜像；QuickJS 文件名用 {@code null}（scriptFolder 上下文）。 */
+        EVAL_IN_SCRIPT_FOLDER,
+        /** 镜像到 .workspace-run。 */
+        MIRROR,
+    }
+
+    public record ExecutionPlan(Strategy strategy, String effectiveSource, Optional<Layout> mirror) {
+        static ExecutionPlan evalInScriptFolder(String source) {
+            return new ExecutionPlan(Strategy.EVAL_IN_SCRIPT_FOLDER, source, Optional.empty());
+        }
+
+        static ExecutionPlan mirror(String source, Layout layout) {
+            return new ExecutionPlan(Strategy.MIRROR, source, Optional.of(layout));
+        }
     }
 
     public record Layout(Path mirrorRoot, String scriptFolderRelativeEntry) {
@@ -40,6 +64,27 @@ public final class WorkspaceOrchestratorMirror {
             return false;
         }
         return source.contains("import ") || source.contains("export ");
+    }
+
+    /**
+     * 决定如何执行 workspace 内 ES module 脚本；优先无复制的 scriptFolder 上下文。
+     */
+    public static ExecutionPlan plan(
+        Path agentRoot,
+        Path workspaceRoot,
+        String workspaceRelativeEntry,
+        String source
+    ) throws IOException {
+        if (agentRoot == null || workspaceRoot == null || !usesEsModules(source)) {
+            return ExecutionPlan.evalInScriptFolder(source);
+        }
+        String rewritten = rewriteBareCatalogImports(agentRoot, source);
+        DependencyGraph graph = analyzeDependencies(agentRoot, workspaceRoot, workspaceRelativeEntry, rewritten);
+        if (!graph.needsWorkspaceMirror()) {
+            return ExecutionPlan.evalInScriptFolder(rewritten);
+        }
+        Optional<Layout> layout = prepareMirror(agentRoot, workspaceRoot, workspaceRelativeEntry, graph);
+        return ExecutionPlan.mirror(rewritten, layout.orElseThrow());
     }
 
     /**
@@ -54,16 +99,50 @@ public final class WorkspaceOrchestratorMirror {
         if (agentRoot == null || workspaceRoot == null || !usesEsModules(source)) {
             return Optional.empty();
         }
+        DependencyGraph graph = analyzeDependencies(agentRoot, workspaceRoot, workspaceRelativeEntry, source);
+        return prepareMirror(agentRoot, workspaceRoot, workspaceRelativeEntry, graph);
+    }
+
+    private record DependencyGraph(Map<Path, Path> mirrorToSource, boolean needsWorkspaceMirror) {
+    }
+
+    private static Optional<Layout> prepareMirror(
+        Path agentRoot,
+        Path workspaceRoot,
+        String workspaceRelativeEntry,
+        DependencyGraph graph
+    ) throws IOException {
         Path scriptsDir = AgentCatalogPaths.catalogScriptsDir(agentRoot);
         Files.createDirectories(scriptsDir);
+        Path entryRel = normalizeWorkspaceRelative(workspaceRelativeEntry);
 
+        String runId = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        Path mirrorRoot = scriptsDir.resolve(RUNS_DIR).resolve(runId);
+        for (Map.Entry<Path, Path> e : graph.mirrorToSource().entrySet()) {
+            Path target = mirrorRoot.resolve(e.getKey());
+            Files.createDirectories(target.getParent() == null ? mirrorRoot : target.getParent());
+            Files.copy(e.getValue(), target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        pruneOldRuns(scriptsDir.resolve(RUNS_DIR));
+        String scriptFolderEntry = RUNS_DIR + "/" + runId + "/" + entryRel.toString().replace('\\', '/');
+        return Optional.of(new Layout(mirrorRoot, scriptFolderEntry));
+    }
+
+    private static DependencyGraph analyzeDependencies(
+        Path agentRoot,
+        Path workspaceRoot,
+        String workspaceRelativeEntry,
+        String source
+    ) throws IOException {
+        Path scriptsDir = AgentCatalogPaths.catalogScriptsDir(agentRoot);
         Path entryRel = normalizeWorkspaceRelative(workspaceRelativeEntry);
         Path entryAbs = workspaceRoot.resolve(entryRel).normalize();
         if (!entryAbs.startsWith(workspaceRoot.normalize()) || !Files.isRegularFile(entryAbs)) {
-            return Optional.empty();
+            return new DependencyGraph(Map.of(), false);
         }
 
         Map<Path, Path> mirrorToSource = new LinkedHashMap<>();
+        boolean needsWorkspaceMirror = false;
         ArrayDeque<Path> queue = new ArrayDeque<>();
         Set<Path> seen = new HashSet<>();
         queue.add(entryRel);
@@ -79,18 +158,21 @@ public final class WorkspaceOrchestratorMirror {
                 }
                 mirrorToSource.put(rel, abs);
             }
-            String text = Files.readString(abs);
+            String text = rel.equals(entryRel) ? source : Files.readString(abs);
             Matcher m = RELATIVE_IMPORT.matcher(text);
             while (m.find()) {
-                String spec = m.group(1).trim();
-                Path depRel = resolveImportRelative(rel.getParent(), spec);
+                Path depRel = resolveImportRelative(rel.getParent(), m.group(1).trim());
                 if (depRel == null) {
                     continue;
+                }
+                Path depWs = workspaceRoot.resolve(depRel).normalize();
+                if (depWs.startsWith(workspaceRoot.normalize()) && Files.isRegularFile(depWs)) {
+                    needsWorkspaceMirror = true;
                 }
                 if (!mirrorToSource.containsKey(depRel)) {
                     Path depAbs = resolveReadableFile(workspaceRoot, scriptsDir, depRel);
                     if (depAbs == null) {
-                        throw new IOException("无法解析 import '" + spec + "'（自 " + rel + "）");
+                        throw new IOException("无法解析 import '" + m.group(1) + "'（自 " + rel + "）");
                     }
                     mirrorToSource.put(depRel, depAbs);
                 }
@@ -99,18 +181,31 @@ public final class WorkspaceOrchestratorMirror {
                 }
             }
         }
+        return new DependencyGraph(mirrorToSource, needsWorkspaceMirror);
+    }
 
-        String runId = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        Path mirrorRoot = scriptsDir.resolve(RUNS_DIR).resolve(runId);
-        for (Map.Entry<Path, Path> e : mirrorToSource.entrySet()) {
-            Path target = mirrorRoot.resolve(e.getKey());
-            Files.createDirectories(target.getParent() == null ? mirrorRoot : target.getParent());
-            Files.copy(e.getValue(), target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    /** bare name（如 docx、docx.js）→ ./docx.js，仅当 catalog 根目录存在该文件。 */
+    static String rewriteBareCatalogImports(Path agentRoot, String source) throws IOException {
+        Path scriptsDir = AgentCatalogPaths.catalogScriptsDir(agentRoot);
+        Matcher m = BARE_IMPORT.matcher(source);
+        StringBuffer sb = new StringBuffer();
+        while (m.find()) {
+            String spec = m.group(1).trim();
+            if (spec.isEmpty() || spec.startsWith("http://") || spec.startsWith("https://")) {
+                m.appendReplacement(sb, Matcher.quoteReplacement(m.group(0)));
+                continue;
+            }
+            String leaf = spec.endsWith(".js") ? spec : spec + ".js";
+            Path cat = scriptsDir.resolve(leaf);
+            if (!Files.isRegularFile(cat)) {
+                m.appendReplacement(sb, Matcher.quoteReplacement(m.group(0)));
+                continue;
+            }
+            String replacement = m.group(0).replace(spec, "./" + leaf);
+            m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         }
-        pruneOldRuns(scriptsDir.resolve(RUNS_DIR));
-
-        String scriptFolderEntry = RUNS_DIR + "/" + runId + "/" + entryRel.toString().replace('\\', '/');
-        return Optional.of(new Layout(mirrorRoot, scriptFolderEntry));
+        m.appendTail(sb);
+        return sb.toString();
     }
 
     public static void deleteQuietly(Path mirrorRoot) {
