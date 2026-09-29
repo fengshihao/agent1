@@ -152,7 +152,8 @@ android {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
+    // markdown-renderer 0.35+ 需要较新 BasicText（含 TextAutoSize）；2024.06 BOM 会 NoSuchMethodError
+    val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
