@@ -15,33 +15,42 @@ import java.io.File
 object PublicCrashExport {
     const val MAIN_APP_ID = "com.agent1.android"
     private const val FOLDER = "Agent1"
-    private const val FILE_NAME = "last_crash_report.txt"
+    private const val CRASH_FILE_NAME = "last_crash_report.txt"
+    private const val STARTUP_FILE_NAME = "startup_trace.txt"
 
     /** 给用户看的说明（中文路径习惯）。 */
-    fun userVisiblePathHint(): String = "文件管理器 → 下载 → $FOLDER → $MAIN_APP_ID → $FILE_NAME"
+    fun userVisiblePathHint(): String =
+        "文件管理器 → 下载 → $FOLDER → $MAIN_APP_ID →（$CRASH_FILE_NAME 或 $STARTUP_FILE_NAME）"
 
     fun mirrorFromMainApp(context: Context, report: String) {
-        mirror(context, MAIN_APP_ID, report)
+        mirrorNamed(context, MAIN_APP_ID, CRASH_FILE_NAME, report)
     }
 
-    fun readMainAppMirror(context: Context): String? = readMirror(context, MAIN_APP_ID)
+    fun readMainAppMirror(context: Context): String? = readNamedMirror(context, MAIN_APP_ID, CRASH_FILE_NAME)
 
-    private fun mirror(context: Context, ownerPackage: String, report: String) {
+    fun mirrorStartupTrace(context: Context, report: String) {
+        mirrorNamed(context, MAIN_APP_ID, STARTUP_FILE_NAME, report)
+    }
+
+    fun readStartupTraceMirror(context: Context): String? =
+        readNamedMirror(context, MAIN_APP_ID, STARTUP_FILE_NAME)
+
+    private fun mirrorNamed(context: Context, ownerPackage: String, displayName: String, report: String) {
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                writeViaMediaStore(context, ownerPackage, report)
+                writeViaMediaStore(context, ownerPackage, displayName, report)
             } else {
-                writeLegacyDownloads(ownerPackage, report)
+                writeLegacyDownloads(ownerPackage, displayName, report)
             }
         }
     }
 
-    private fun readMirror(context: Context, ownerPackage: String): String? {
+    private fun readNamedMirror(context: Context, ownerPackage: String, displayName: String): String? {
         return runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                readViaMediaStore(context, ownerPackage)
+                readViaMediaStore(context, ownerPackage, displayName)
             } else {
-                readLegacyDownloads(ownerPackage)
+                readLegacyDownloads(ownerPackage, displayName)
             }
         }.getOrNull()
     }
@@ -50,7 +59,12 @@ object PublicCrashExport {
         return "${Environment.DIRECTORY_DOWNLOADS}/$FOLDER/$ownerPackage"
     }
 
-    private fun writeViaMediaStore(context: Context, ownerPackage: String, report: String) {
+    private fun writeViaMediaStore(
+        context: Context,
+        ownerPackage: String,
+        displayName: String,
+        report: String,
+    ) {
         val resolver = context.applicationContext.contentResolver
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
         val relative = relativePath(ownerPackage)
@@ -58,7 +72,7 @@ object PublicCrashExport {
             collection,
             arrayOf(MediaStore.Downloads._ID),
             "${MediaStore.Downloads.DISPLAY_NAME}=? AND ${MediaStore.Downloads.RELATIVE_PATH}=?",
-            arrayOf(FILE_NAME, "$relative/"),
+            arrayOf(displayName, "$relative/"),
             null,
         )
         existing?.use { cursor ->
@@ -70,7 +84,7 @@ object PublicCrashExport {
             }
         }
         val values = ContentValues().apply {
-            put(MediaStore.Downloads.DISPLAY_NAME, FILE_NAME)
+            put(MediaStore.Downloads.DISPLAY_NAME, displayName)
             put(MediaStore.Downloads.MIME_TYPE, "text/plain")
             put(MediaStore.Downloads.RELATIVE_PATH, relative)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -86,7 +100,7 @@ object PublicCrashExport {
         }
     }
 
-    private fun readViaMediaStore(context: Context, ownerPackage: String): String? {
+    private fun readViaMediaStore(context: Context, ownerPackage: String, displayName: String): String? {
         val resolver = context.applicationContext.contentResolver
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
         val relative = relativePath(ownerPackage)
@@ -94,7 +108,7 @@ object PublicCrashExport {
             collection,
             arrayOf(MediaStore.Downloads._ID),
             "${MediaStore.Downloads.DISPLAY_NAME}=? AND ${MediaStore.Downloads.RELATIVE_PATH}=?",
-            arrayOf(FILE_NAME, "$relative/"),
+            arrayOf(displayName, "$relative/"),
             null,
         )?.use { cursor ->
             if (!cursor.moveToFirst()) return null
@@ -105,18 +119,18 @@ object PublicCrashExport {
         return null
     }
 
-    private fun legacyFile(ownerPackage: String): File {
+    private fun legacyFile(ownerPackage: String, displayName: String): File {
         @Suppress("DEPRECATION")
         val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        return File(File(downloads, FOLDER), ownerPackage).apply { mkdirs() }.resolve(FILE_NAME)
+        return File(File(downloads, FOLDER), ownerPackage).apply { mkdirs() }.resolve(displayName)
     }
 
-    private fun writeLegacyDownloads(ownerPackage: String, report: String) {
-        legacyFile(ownerPackage).writeText(report)
+    private fun writeLegacyDownloads(ownerPackage: String, displayName: String, report: String) {
+        legacyFile(ownerPackage, displayName).writeText(report)
     }
 
-    private fun readLegacyDownloads(ownerPackage: String): String? {
-        val file = legacyFile(ownerPackage)
+    private fun readLegacyDownloads(ownerPackage: String, displayName: String): String? {
+        val file = legacyFile(ownerPackage, displayName)
         return if (file.exists()) file.readText() else null
     }
 }

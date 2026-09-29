@@ -25,6 +25,11 @@
             android:exported="false"
             android:label="崩溃日志" />
         <provider
+            android:name=".StartupDiagnosticProvider"
+            android:authorities="${applicationId}.startup-diagnostic"
+            android:exported="false"
+            android:initOrder="100" />
+        <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"

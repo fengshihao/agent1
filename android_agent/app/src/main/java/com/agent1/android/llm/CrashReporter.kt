@@ -17,6 +17,12 @@ object CrashReporter {
     @Volatile
     private var installed = false
 
+    fun recordHandledError(context: Context, source: String, throwable: Throwable) {
+        val thread = Thread.currentThread()
+        val wrapped = RuntimeException("$source: ${throwable.message}", throwable)
+        persistCrash(context.applicationContext, thread, wrapped)
+    }
+
     fun install(context: Context) {
         if (installed) return
         val appContext = context.applicationContext

@@ -14,14 +14,21 @@ object ProductivityGatewayProvider {
         ref.get()?.let { return it }
         synchronized(this) {
             ref.get()?.let { return it }
-            val root = agentRoot(context)
-            val gateway = ProductivityAgentGateway(
-                context.applicationContext,
-                root,
-                AndroidAgentRuntimeConfig.load(context),
-            )
-            ref.set(gateway)
-            return gateway
+            StartupDiagnostics.mark(context, "ProductivityGatewayProvider.create.begin")
+            return runCatching {
+                val root = agentRoot(context)
+                val gateway = ProductivityAgentGateway(
+                    context.applicationContext,
+                    root,
+                    AndroidAgentRuntimeConfig.load(context),
+                )
+                ref.set(gateway)
+                StartupDiagnostics.mark(context, "ProductivityGatewayProvider.create.ok")
+                gateway
+            }.getOrElse { error ->
+                StartupDiagnostics.recordFailure(context, "ProductivityGatewayProvider.create", error)
+                throw error
+            }
         }
     }
 
