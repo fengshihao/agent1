@@ -10,8 +10,9 @@
 - 优先 **file** 模式（workspace 内 `.js`），便于行号与调试。
 - 失败时工具返回 JSON，字段 **location.userLine** 相对用户脚本（prelude 已扣减；Weizhi 内建注入需 D4 完全对齐）。
 - inline 过长会触发 Coach **script.inline_long**。
-- **Catalog 脚本库（7.2）**：`shared/catalog/scripts` 会挂到 Weizhi `scriptFolder`；用 **`import './leaf.js'`** 加载 catalog 脚本（**无 loadScript**）。
-- **Word（docx.js）**：bootstrap 会将 `docx.js` / `docx-raw.js` 放入 `shared/catalog/scripts/`；工具 `docx_markdown_to_word` 或 `execute_script` 内 `import { markdownToDocx } from './docx.js'`。详见 `doc/集成/WEIZHI_DOCX.md`。
+- **Catalog 脚本库（7.2）**：`shared/catalog/scripts` 会挂到 Weizhi `scriptFolder`；catalog 内脚本用 **`import './leaf.js'`**。
+- **工作区 orchestrator（file 模式）**：含 `import`/`export` 时，宿主会把入口及相对依赖镜像到 `shared/catalog/scripts/.workspace-run/`，因此可在 workspace 写 `jobs/run.js` 并 `import './docx.js'`（解析 catalog 标准库）或 `import './helper.js'`（同工作区目录）。行号报错仍对应 workspace 源文件。
+- **Word（docx.js）**：bootstrap 会将 `docx.js` / `docx-raw.js` 放入 catalog；优先工具 `docx_markdown_to_word`，或 orchestrator 内 `import { markdownToDocx } from './docx.js'`。详见 `doc/集成/WEIZHI_DOCX.md`。
 - **Native**：`await host.ensureNative("插件名")`；缺插件时同一轮 `execute_script` 会尝试 catalog sync 并重试（见 catalog-install.md）。
 
 ## 进化与安装
