@@ -1,12 +1,21 @@
 package com.agent1.android.llm
 
 import android.content.Context
+import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.widget.Toast
+import com.agent1.android.BuildConfig
+import com.agent1.android.CrashBriefActivity
 import com.agent1.android.productivity.logic.data.PublicCrashExport
+import com.agent1.android.productivity.logic.data.StartupTrace
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 object CrashReporter {
     private const val TAG = "CrashReporter"
@@ -14,6 +23,7 @@ object CrashReporter {
     private const val KEY_LAST_CRASH = "last_crash_stack"
     private const val CRASH_FILE_NAME = "last_crash_report.txt"
     private const val CRASH_DIR_NAME = "crash-reports"
+    private const val USER_VISIBLE_PAUSE_MS = 4_500L
     @Volatile
     private var installed = false
 
@@ -21,6 +31,9 @@ object CrashReporter {
         val thread = Thread.currentThread()
         val wrapped = RuntimeException("$source: ${throwable.message}", throwable)
         persistCrash(context.applicationContext, thread, wrapped)
+        if (BuildConfig.DEBUG) {
+            notifyUserBriefly(context.applicationContext, thread, wrapped)
+        }
     }
 
     fun install(context: Context) {
@@ -29,7 +42,11 @@ object CrashReporter {
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             runCatching {
+                StartupTrace.mark(appContext, "UncaughtExceptionHandler.${throwable.javaClass.simpleName}")
                 persistCrash(appContext, thread, throwable)
+                if (BuildConfig.DEBUG) {
+                    notifyUserBriefly(appContext, thread, throwable)
+                }
             }.onFailure {
                 Log.e(TAG, "persist crash failed", it)
             }
@@ -62,6 +79,53 @@ object CrashReporter {
                 dir.listFiles()?.forEach { it.delete() }
                 dir.delete()
             }
+        }
+    }
+
+    private fun formatBrief(throwable: Throwable): String {
+        val head = throwable::class.java.simpleName
+        val msg = throwable.message?.trim().orEmpty().take(160)
+        return if (msg.isEmpty()) "Agent1 崩溃: $head" else "Agent1 崩溃: $head — $msg"
+    }
+
+    private fun notifyUserBriefly(context: Context, thread: Thread, throwable: Throwable) {
+        val brief = formatBrief(throwable)
+        val app = context.applicationContext
+        val onMain = thread === Looper.getMainLooper().thread
+        if (onMain) {
+            Toast.makeText(app, brief, Toast.LENGTH_LONG).show()
+            launchBriefActivity(app, brief, throwable)
+            pauseBriefly()
+        } else {
+            val latch = CountDownLatch(1)
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(app, brief, Toast.LENGTH_LONG).show()
+                launchBriefActivity(app, brief, throwable)
+                latch.countDown()
+            }
+            runCatching { latch.await(800, TimeUnit.MILLISECONDS) }
+            pauseBriefly()
+        }
+    }
+
+    private fun launchBriefActivity(context: Context, brief: String, throwable: Throwable) {
+        val detail = buildString {
+            appendLine(brief)
+            appendLine()
+            append(Log.getStackTraceString(throwable).take(6_000))
+        }
+        val intent = Intent(context, CrashBriefActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .putExtra(CrashBriefActivity.EXTRA_MESSAGE, detail)
+        runCatching { context.startActivity(intent) }
+            .onFailure { Log.w(TAG, "CrashBriefActivity start failed", it) }
+    }
+
+    private fun pauseBriefly() {
+        try {
+            Thread.sleep(USER_VISIBLE_PAUSE_MS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
         }
     }
 

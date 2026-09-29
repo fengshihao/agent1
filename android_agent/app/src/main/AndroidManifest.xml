@@ -24,6 +24,12 @@
             android:name=".CrashLogActivity"
             android:exported="false"
             android:label="崩溃日志" />
+        <activity
+            android:name=".CrashBriefActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Material.Light.Dialog" />
         <provider
             android:name=".StartupDiagnosticProvider"
             android:authorities="${applicationId}.startup-diagnostic"
