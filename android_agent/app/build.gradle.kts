@@ -152,8 +152,8 @@ android {
 }
 
 dependencies {
-    // markdown-renderer 0.35 调用含 TextAutoSize 的 BasicText；须与 m3 同用较新 Compose BOM（2024.06 会 NoSuchMethodError）
-    val composeBom = platform("androidx.compose:compose-bom:2025.02.00")
+    // markdown-renderer 0.35 调用含 TextAutoSize 的 BasicText（Compose Foundation 1.8+）；2025.02 BOM 仍为 1.7.8 会 NoSuchMethodError
+    val composeBom = platform("androidx.compose:compose-bom:2025.04.01")
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
@@ -166,6 +166,7 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
     implementation("com.agent1:java-agent-core:0.1.0-SNAPSHOT")
