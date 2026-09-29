@@ -686,6 +686,14 @@ private fun MessageBubble(
                             warning = line.imageWarning,
                         )
                     }
+                    if (line.workspaceFilePaths.isNotEmpty()) {
+                        WorkspaceFileAttachments(
+                            workspaceAbsolutePath = workspacePath,
+                            relativePaths = line.workspaceFilePaths,
+                            excludePaths = line.workspaceImagePath?.let { setOf(it) } ?: emptySet(),
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
             }
         }
@@ -712,6 +720,14 @@ private fun MessageBubble(
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
+                }
+                if (line.workspaceFilePaths.isNotEmpty()) {
+                    WorkspaceFileAttachments(
+                        workspaceAbsolutePath = workspacePath,
+                        relativePaths = line.workspaceFilePaths,
+                        excludePaths = emptySet(),
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
                 }
             }
         }

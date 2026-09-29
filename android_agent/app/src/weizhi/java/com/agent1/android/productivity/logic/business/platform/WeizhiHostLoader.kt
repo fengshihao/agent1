@@ -21,6 +21,7 @@ object WeizhiHostLoader {
             config,
             WeizhiAndroidScriptEngineFactory(
                 context,
+                agentRoot,
                 scriptToolBridge = scriptTools,
             ),
             600_000L,

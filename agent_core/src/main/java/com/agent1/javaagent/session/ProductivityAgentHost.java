@@ -34,7 +34,9 @@ import com.agent1.javaagent.tool.agent.CatalogInstallTool;
 import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
 import com.agent1.javaagent.tool.agent.ListCatalogTool;
 import com.agent1.javaagent.tool.agent.ListSessionsTool;
+import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import com.agent1.javaagent.tool.agent.ProductivitySkillTool;
+import com.agent1.javaagent.tool.office.DocxOfficeTools;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
 import com.agent1.javaagent.tool.agent.ReadAgentDocTool;
 import com.agent1.javaagent.log.AgentDataPaths;
@@ -382,7 +384,13 @@ public final class ProductivityAgentHost implements Closeable {
         boolean scriptTool = scriptEngineFactory != null;
         runtime.setSystemPrompt(new ProductivitySystemPromptBuilder()
             .hostAppend(scriptPromptAppend)
-            .buildMainPrompt(workspace, agentRoot, scriptTool, scriptToolBridge != null));
+            .buildMainPrompt(
+                workspace,
+                agentRoot,
+                scriptTool,
+                scriptToolBridge != null,
+                OfficeCatalogScripts.isOfficeReady(agentRoot)
+            ));
         runtime.setTools(buildTools(sessionId, workspace));
         runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace));
         AgentCoachConfig coachConfig = AgentCoachConfig.load(agentRoot);
@@ -413,6 +421,10 @@ public final class ProductivityAgentHost implements Closeable {
         }
         if (scriptEngineFactory != null) {
             tools.add(new ExecuteScriptTool(sandbox, scriptEngineFactory, executeScriptTimeoutMs, agentRoot));
+            if (OfficeCatalogScripts.isOfficeReady(agentRoot)) {
+                tools.addAll(DocxOfficeTools.create(
+                    sandbox, scriptEngineFactory, executeScriptTimeoutMs, agentRoot));
+            }
         }
         if (scriptToolBridge instanceof MutableScriptToolBridge mutable) {
             mutable.set(new AgentToolsScriptBridge(tools));

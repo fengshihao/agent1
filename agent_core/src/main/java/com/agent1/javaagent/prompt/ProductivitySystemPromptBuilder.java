@@ -37,6 +37,12 @@ public final class ProductivitySystemPromptBuilder {
         缺少关键信息时向用户提问，不要编造事实。
         """.trim();
 
+    static final String WORK_MODE_OFFICE_DOCX = """
+        Word（.docx）：优先专用工具 docx_markdown_to_word、docx_inspect、docx_read_grep_edit、docx_raw_edit；也可用 execute_script + import './docx.js'（脚本目录在 shared/catalog/scripts）。
+        具体函数签名、grep/样式/raw 校验等 **不要猜**——用 read_agent_doc 阅读 docs/system/office-docx.md（较长时可 offset/limit 分段读）。
+        生成或修改 docx 后，在回复里用 Markdown 链接写出 workspace 相对路径，例如 [报告](out/report.docx)，便于用户在 App 内点开；图片仍用 ![](path.png)。
+        """.trim();
+
     static final String AGENT_BOUNDARIES = """
         权限与 catalog：
         - 文件工具（read/write/edit/list）仅对当前会话 workspace 路径可写；shared/、docs/ 只读，禁止 write_file 写入。
@@ -81,6 +87,16 @@ public final class ProductivitySystemPromptBuilder {
         boolean scriptToolRegistered,
         boolean scriptHostTools
     ) {
+        return buildMainPrompt(workspaceRoot, agentRoot, scriptToolRegistered, scriptHostTools, false);
+    }
+
+    public String buildMainPrompt(
+        Path workspaceRoot,
+        Path agentRoot,
+        boolean scriptToolRegistered,
+        boolean scriptHostTools,
+        boolean officeDocxReady
+    ) {
         StringBuilder sb = new StringBuilder();
         sb.append(IDENTITY).append("\n\n");
         sb.append(WORK_MODE_FILES);
@@ -88,6 +104,9 @@ public final class ProductivitySystemPromptBuilder {
             sb.append("\n").append(WORK_MODE_SCRIPT);
             if (scriptHostTools) {
                 sb.append("\n").append(WORK_MODE_SCRIPT_HOST_TOOLS);
+            }
+            if (officeDocxReady) {
+                sb.append("\n").append(WORK_MODE_OFFICE_DOCX);
             }
         }
         sb.append("\n\n");

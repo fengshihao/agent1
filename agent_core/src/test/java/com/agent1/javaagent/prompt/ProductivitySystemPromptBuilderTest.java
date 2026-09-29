@@ -79,6 +79,15 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
+    void includesOfficeDocxHintWhenReady() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), temp.resolve("ar"), true, false, true);
+        assertTrue(prompt.contains("docx_markdown_to_word"));
+        assertTrue(prompt.contains("read_agent_doc"));
+        assertTrue(prompt.contains("office-docx.md"));
+    }
+
+    @Test
     void explorePromptDoesNotMentionWriteFile() {
         String prompt = new ProductivitySystemPromptBuilder().buildExploreSubagentPrompt();
         assertFalse(prompt.contains("write_file"));

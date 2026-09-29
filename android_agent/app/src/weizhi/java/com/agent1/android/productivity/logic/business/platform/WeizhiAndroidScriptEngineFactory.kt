@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.logic.business.platform
 
 import android.content.Context
+import com.agent1.javaagent.catalog.AgentCatalogPaths
 import com.agent1.javaagent.core.CancellationToken
 import com.agent1.javaagent.script.ScriptEngine
 import com.agent1.javaagent.script.ScriptEngineFactory
@@ -16,16 +17,18 @@ import java.nio.file.Path
  */
 class WeizhiAndroidScriptEngineFactory(
     private val appContext: Context,
+    private val agentRoot: java.nio.file.Path,
     private val confirmer: (String) -> Boolean = { true },
     private val scriptToolBridge: ScriptToolBridge? = null,
 ) : ScriptEngineFactory {
 
     override fun open(workspace: Path): ScriptEngine {
-        return AndroidWeizhiScriptEngine(appContext, workspace, confirmer, scriptToolBridge)
+        return AndroidWeizhiScriptEngine(appContext, agentRoot, workspace, confirmer, scriptToolBridge)
     }
 
     private class AndroidWeizhiScriptEngine(
         appContext: Context,
+        agentRoot: java.nio.file.Path,
         workspace: Path,
         confirmer: (String) -> Boolean,
         private val scriptToolBridge: ScriptToolBridge?,
@@ -35,8 +38,13 @@ class WeizhiAndroidScriptEngineFactory(
         private val workspaceFile = workspace.toFile()
 
         init {
+            AndroidOfficeCatalogSync.ensureFromAssets(appContext, agentRoot)
             workspaceFile.mkdirs()
             engine.setFsRoot(workspaceFile.absolutePath)
+            val scriptDir = AgentCatalogPaths.resolveCatalogScriptFolder(agentRoot)
+            if (scriptDir != null) {
+                engine.setScriptFolder(scriptDir.toString())
+            }
             val session = AndroidCaps.Session(appContext, workspaceFile)
             session.confirmer = PlatformHost.Confirmer { message -> confirmer(message) }
             AndroidCaps.install(engine, session)
