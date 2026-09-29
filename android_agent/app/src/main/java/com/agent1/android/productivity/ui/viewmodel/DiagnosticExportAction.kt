@@ -6,7 +6,9 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.agent1.android.productivity.logic.business.BriefChatExport
 import com.agent1.android.productivity.logic.business.DiagnosticExport
+import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -43,6 +45,55 @@ internal fun ViewModel.launchDiagnosticExport(
             },
         )
     }
+}
+
+internal fun ViewModel.launchBriefChatExport(
+    activity: Context,
+    sessionId: String,
+    sessionTitle: String,
+    onBusy: (Boolean) -> Unit,
+    onMessage: (String) -> Unit,
+) {
+    onBusy(true)
+    onMessage("正在整理简略聊天记录…")
+    viewModelScope.launch {
+        val text = runCatching {
+            withContext(Dispatchers.IO) {
+                val gateway = ProductivityGatewayProvider.get(activity.applicationContext)
+                val messages = gateway.loadTranscript(sessionId)
+                BriefChatExport.format(messages, sessionTitle)
+            }
+        }
+        text.fold(
+            onSuccess = { body ->
+                val shared = runCatching {
+                    activity.startActivity(briefChatShareIntent(activity, body, sessionTitle))
+                }
+                onBusy(false)
+                onMessage(
+                    if (shared.isSuccess) {
+                        "已打开分享，选「复制」或发给自己即可粘贴到 Cursor"
+                    } else {
+                        "整理完成，但无法打开分享：${shared.exceptionOrNull()?.message ?: "未知错误"}"
+                    },
+                )
+            },
+            onFailure = { error ->
+                onBusy(false)
+                onMessage("导出失败：${error.message ?: error.javaClass.simpleName}")
+            },
+        )
+    }
+}
+
+internal fun briefChatShareIntent(context: Context, text: String, sessionTitle: String): Intent {
+    val subject = sessionTitle.ifBlank { "聊天简报" }
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+        putExtra(Intent.EXTRA_SUBJECT, "agent1 $subject")
+    }
+    return Intent.createChooser(send, "分享聊天简报")
 }
 
 internal fun diagnosticShareIntent(context: Context, zip: File): Intent {

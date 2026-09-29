@@ -86,7 +86,20 @@ android {
         buildConfigField("boolean", "WEIZHI_INTEGRATED", weizhiIntegrated.toString())
     }
 
+    signingConfigs {
+        getByName("debug") {
+            // 团队共用 debug 签名，避免不同机器 ~/.android/debug.keystore 不一致导致只能卸载重装
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -170,7 +183,7 @@ dependencies {
         implementation(w("artifact.agent-tools-mcp"))
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.27.0")
+    implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.35.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 

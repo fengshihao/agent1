@@ -44,6 +44,8 @@ adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk
 
 仍无法覆盖时：设置里卸载旧包（旧 id 为 `com.dynamicui.demo` 的需单独卸），或临时指定更大版本：`VERSION_CODE=200000 ./gradlew :app:assembleDebug`。
 
+**签名不一致**（例如曾用 Android Studio 默认 `~/.android/debug.keystore` 装过）：本仓库使用 **`android_agent/debug.keystore`** 作为 Debug 签名，与 `./run.sh` 的 `adb install -r -d` 配合后，同团队机器上一般可直接覆盖安装。若手机上是旧签名装的包，需卸载一次后再装本仓库编出的 APK。
+
 ### 真机连通测试（Compose 冒烟，不调用 LLM）
 
 已连接 `adb devices` 为 `device` 时：

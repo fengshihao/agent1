@@ -29,7 +29,7 @@ echo "==> 2/4 编译 APK"
 )
 
 echo "==> 3/4 安装 APK"
-adb install -r "$APK_PATH"
+adb install -r -d "$APK_PATH"
 
 echo "==> 4/4 启动 App"
 adb shell am start -n "${APP_ID}/${ACTIVITY}"

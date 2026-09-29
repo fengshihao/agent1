@@ -316,6 +316,17 @@ class ChatViewModel(
         )
     }
 
+    fun exportBriefTranscript(activity: Context) {
+        if (_state.value.exportInProgress) return
+        launchBriefChatExport(
+            activity,
+            sessionId = sessionId,
+            sessionTitle = _state.value.title.ifBlank { sessionTitle },
+            onBusy = { busy -> _state.value = _state.value.copy(exportInProgress = busy) },
+            onMessage = { message -> _state.value = _state.value.copy(exportMessage = message) },
+        )
+    }
+
     private fun sessionWorkspacePath(): String {
         return SessionWorkspacePaths.workspaceRoot(appContext, sessionId)?.toAbsolutePath()?.toString().orEmpty()
     }

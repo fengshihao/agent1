@@ -17,9 +17,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -99,8 +96,7 @@ fun SessionListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding(),
+            .background(MaterialTheme.colorScheme.background),
     ) {
         AgentTopBar(
             title = "会话",
@@ -183,7 +179,6 @@ fun ChatScreen(
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
-            contentWindowInsets = WindowInsets.statusBars,
             topBar = {
                 Column {
                     AgentTopBar(
@@ -194,7 +189,12 @@ fun ChatScreen(
                         },
                         actions = {
                             TopBarIconButton(
-                                label = if (state.exportInProgress) "…" else "导出",
+                                label = if (state.exportInProgress) "…" else "简报",
+                                onClick = { viewModel.exportBriefTranscript(context) },
+                                enabled = !state.exportInProgress,
+                            )
+                            TopBarIconButton(
+                                label = if (state.exportInProgress) "…" else "诊断",
                                 onClick = { viewModel.exportDiagnostics(context) },
                                 enabled = !state.exportInProgress,
                             )

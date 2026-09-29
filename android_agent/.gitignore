@@ -16,6 +16,7 @@ local.properties
 # Captures / profiling
 captures/
 
-# Keystores (never commit real secrets)
+# Keystores (release / personal only; shared debug.keystore is committed on purpose)
 *.jks
 *.keystore
+!debug.keystore
