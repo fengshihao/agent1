@@ -20,6 +20,7 @@ class MainActivity : ComponentActivity() {
         try {
             StartupTrace.mark(this, "MainActivity.onCreate.begin")
             super.onCreate(savedInstanceState)
+            StartupTrace.mark(this, "MainActivity.onCreate.afterSuper")
             val skipCrashGate = intent.getBooleanExtra(EXTRA_SKIP_CRASH_GATE, false)
             val snapshot = runCatching { CrashLogAccess.load(this) }.getOrNull()
                 ?: CrashLogSnapshot(null, com.agent1.android.productivity.logic.data.PublicCrashExport.userVisiblePathHint())
@@ -29,9 +30,9 @@ class MainActivity : ComponentActivity() {
                 return
             }
             openMainCompose()
-        } catch (t: Exception) {
+        } catch (t: Throwable) {
             Log.e("MainActivity", "onCreate failed", t)
-            StartupTrace.mark(this, "MainActivity.onCreate.fail:${t.message}")
+            StartupTrace.mark(this, "MainActivity.onCreate.fail:${t.javaClass.name}:${t.message}")
             val emergency = CrashLogSnapshot(
                 displayText = Log.getStackTraceString(t),
                 filePathHint = com.agent1.android.productivity.logic.data.PublicCrashExport.userVisiblePathHint(),

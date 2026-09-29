@@ -23,8 +23,8 @@ class CrashLogActivity : Activity() {
                 },
             )
             StartupTrace.mark(this, "CrashLogActivity.onCreate")
-            val snapshot = runCatching { CrashLogAccess.load(this) }
-                .getOrElse { CrashLogAccess.load(applicationContext) }
+            val snapshot = runCatching { CrashLogAccess.load(this, includePublicMirror = true) }
+                .getOrElse { CrashLogAccess.load(applicationContext, includePublicMirror = true) }
             val traceOnly = snapshot.displayText ?: StartupTrace.readPrivate(this)?.let {
                 "=== startup trace（诊断包）===\n$it"
             } ?: "（暂无日志；若主 App 闪退，请先打开主 App 一次再回来看本页）"
