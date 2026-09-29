@@ -28,4 +28,24 @@ class BriefChatExportTest {
         val text = BriefChatExport.format(messages, "")
         assertTrue(text.contains("工具异常"))
     }
+
+    @Test
+    fun compressAssistantContent_stripsCodeFence() {
+        val long = "结论如下。\n```kotlin\n" + "x\n".repeat(80) + "```\n收尾。"
+        val out = BriefChatExport.compressAssistantContent(long)
+        assertFalse(out.contains("```"))
+        assertTrue(out.contains("省略代码块"))
+        assertTrue(out.contains("结论如下"))
+        assertTrue(out.contains("收尾"))
+    }
+
+    @Test
+    fun compressAssistantContent_truncatesVeryLongPlainText() {
+        val body = "开头说明。" + "中".repeat(3_000) + "结尾总结。"
+        val out = BriefChatExport.compressAssistantContent(body)
+        assertTrue(out.contains("略去约"))
+        assertTrue(out.contains("开头说明"))
+        assertTrue(out.contains("结尾总结"))
+        assertTrue(out.length < body.length)
+    }
 }

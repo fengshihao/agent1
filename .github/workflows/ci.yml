@@ -135,8 +135,11 @@ jobs:
         working-directory: android_agent
         env:
           DASHSCOPE_API_KEY: ""
+          # GITHUB_RUN_NUMBER 由 Actions 注入；Gradle 用于单调 versionCode（见 app/build.gradle.kts）
         run: |
           ./gradlew --no-daemon :app:assembleDebug
+          unzip -p app/build/outputs/apk/debug/agent1-android-debug.apk META-INF/com/android/build/gradle/app-metadata.properties \
+            | grep -E 'versionCode|versionName' || true
           if [ -d ../weizhi/android ]; then
             unzip -l app/build/outputs/apk/debug/agent1-android-debug.apk | grep 'lib/arm64-v8a/libweizhijni.so'
           fi

@@ -25,6 +25,10 @@ val weizhiIntegrated = weizhiAndroidRoot != null || weizhiPrebuiltBase != null
  */
 fun agent1VersionCode(): Int {
     System.getenv("VERSION_CODE")?.toIntOrNull()?.let { return it }
+    // GitHub Actions：run_number 单调递增，避免仅装 CI 包时因 shallow/回滚导致 versionCode 倒退
+    System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()?.let { run ->
+        return 100_000 + run.coerceAtLeast(1)
+    }
     val repoRoot = rootProject.layout.projectDirectory.dir("..").asFile
     return try {
         val proc = ProcessBuilder("git", "rev-list", "--count", "HEAD")
@@ -42,7 +46,11 @@ fun agent1VersionCode(): Int {
 
 fun agent1VersionName(): String {
     System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }?.let { return it }
-    val patch = agent1VersionCode() - 10_000
+    val code = agent1VersionCode()
+    val patch = when {
+        code >= 100_000 -> code - 100_000
+        else -> code - 10_000
+    }
     return "0.1.$patch"
 }
 

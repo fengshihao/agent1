@@ -32,19 +32,21 @@ chmod +x run.sh   # 首次可选
 
 等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk`、启动 `com.agent1.android` 的主界面。
 
-### 覆盖安装与 versionCode
+### 覆盖安装与 versionCode（含 GitHub Actions CI 包）
 
-Android **只认 `versionCode` 数字**（不是 APK 文件名）。若 Gradle 里长期写死 `versionCode = 1`，而手机里曾装过更高版本（例如 Android Studio 调过版本、或旧渠道包），新包会提示「当前版本低于已安装版本」，只能卸载重装。
-
-本工程现为 **`versionCode = 10000 + git 提交数`**（见 `app/build.gradle.kts`），每次有新提交或拉新代码后编译，版本号会自动变大，一般可直接：
+Android **只认 `versionCode` 数字**（不是 APK 文件名）。从 **CI Artifacts** 下载 `agent1-android-debug.apk` 安装时，推荐：
 
 ```bash
-adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk
+adb install -r -d agent1-android-debug.apk
 ```
 
-仍无法覆盖时：设置里卸载旧包（旧 id 为 `com.dynamicui.demo` 的需单独卸），或临时指定更大版本：`VERSION_CODE=200000 ./gradlew :app:assembleDebug`。
+`-r` 覆盖同签名包；`-d` 允许在误装过**更高** versionCode 的旧 CI 包后，再装一次稍低的 artifact（例如重跑旧 workflow）。
 
-**签名不一致**（例如曾用 Android Studio 默认 `~/.android/debug.keystore` 装过）：本仓库使用 **`android_agent/debug.keystore`** 作为 Debug 签名，与 `./run.sh` 的 `adb install -r -d` 配合后，同团队机器上一般可直接覆盖安装。若手机上是旧签名装的包，需卸载一次后再装本仓库编出的 APK。
+**CI 版本号**：GitHub Actions 构建时使用 **`versionCode = 100000 + github.run_number`**（每次 workflow 单调递增）。本地 Gradle 仍用 `10000 + git 提交数`，除非你设 `VERSION_CODE`。
+
+**CI 签名**：Debug 包统一用仓库内 **`android_agent/debug.keystore`** 签名，不同 CI 任务产物可互相覆盖。若你曾在本机用 Android Studio 默认 debug 签名装过同包名，或装过旧 id `com.dynamicui.demo`，需**卸载一次**后再装 CI 包。
+
+仍无法覆盖时：设置里卸载 `com.agent1.android`，或临时打更大版本：`VERSION_CODE=200000 ./gradlew :app:assembleDebug`。
 
 ### 真机连通测试（Compose 冒烟，不调用 LLM）
 

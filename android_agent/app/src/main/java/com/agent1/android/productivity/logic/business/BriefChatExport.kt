@@ -5,6 +5,14 @@ import com.agent1.javaagent.model.AgentMessage
 /** 供粘贴到 Cursor / 云端 Agent 的简略会话文本（不含完整工具 JSON 与诊断日志）。 */
 object BriefChatExport {
 
+    /** 单条助手回复压缩后上限（字符）；用户消息保持全文便于还原意图。 */
+    private const val ASSISTANT_MAX_CHARS = 1_600
+    private const val ASSISTANT_HEAD_CHARS = 900
+    private const val ASSISTANT_TAIL_CHARS = 450
+
+    private val codeFence = Regex("```[\\s\\S]*?```")
+    private val markdownTable = Regex("(?m)^\\|.+\\|\\s*$")
+
     fun format(messages: List<AgentMessage>, sessionTitle: String): String {
         if (messages.isEmpty()) {
             return "（空会话）"
@@ -26,6 +34,39 @@ object BriefChatExport {
         }.trimEnd()
     }
 
+    /** 压缩助手长文：去掉大块代码/表格细节，必要时保留首尾摘要。 */
+    internal fun compressAssistantContent(raw: String): String {
+        var text = raw.trim()
+        if (text.isEmpty()) return text
+
+        text = codeFence.replace(text) { match ->
+            val lines = match.value.count { it == '\n' } + 1
+            "[省略代码块 · ${lines}行]"
+        }
+
+        val tableLines = markdownTable.findAll(text).count()
+        if (tableLines >= 4) {
+            text = markdownTable.replace(text, "")
+            text = text.replace(Regex("\n{3,}"), "\n\n").trim()
+            text += "\n[表格 ${tableLines} 行已省略，保留上文说明]"
+        }
+
+        if (text.length <= ASSISTANT_MAX_CHARS) {
+            return text.trim()
+        }
+
+        val head = text.take(ASSISTANT_HEAD_CHARS).trimEnd()
+        val tail = text.takeLast(ASSISTANT_TAIL_CHARS).trimStart()
+        val omitted = text.length - ASSISTANT_HEAD_CHARS - ASSISTANT_TAIL_CHARS
+        return buildString {
+            append(head)
+            append("\n\n…（助手回复略去约 ")
+            append(omitted.coerceAtLeast(0))
+            append(" 字）\n\n")
+            append(tail)
+        }.trim()
+    }
+
     private fun StringBuilder.appendUser(msg: AgentMessage) {
         appendLine("**用户**")
         appendLine(msg.content.trim())
@@ -33,7 +74,7 @@ object BriefChatExport {
     }
 
     private fun StringBuilder.appendAssistant(msg: AgentMessage) {
-        val text = msg.content.trim()
+        val text = compressAssistantContent(msg.content)
         if (text.isEmpty()) return
         appendLine("**助手**")
         appendLine(text)
@@ -47,7 +88,6 @@ object BriefChatExport {
             appendLine()
             return
         }
-        // 正常工具结果在 UI 已展示摘要，简略导出只保留一行以免刷屏
         if (summary.length <= 120) {
             appendLine("_[工具]_ $summary")
             appendLine()
