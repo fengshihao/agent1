@@ -10,11 +10,17 @@ data class ToolResultDisplay(
     /** 工作区内相对路径，供 UI 加载预览。 */
     val workspaceImagePath: String? = null,
     val imageWarning: String? = null,
+    /** 可打开/分享的非图片工作区文件。 */
+    val workspaceFilePaths: List<String> = emptyList(),
 )
 
 object ChatTranscriptFormatting {
 
     private val imageExt = setOf("png", "jpg", "jpeg", "webp", "gif")
+
+    private val attachmentExt = setOf(
+        "docx", "doc", "pdf", "xlsx", "xls", "pptx", "ppt", "md", "txt", "csv", "svg",
+    )
 
     fun formatToolResult(raw: String, workspaceRoot: Path?): ToolResultDisplay {
         val trimmed = raw.trim()
@@ -46,6 +52,24 @@ object ChatTranscriptFormatting {
                 summary = parts.joinToString(" · "),
                 workspaceImagePath = outputPath,
                 imageWarning = warning,
+            )
+        }
+        if (outputPath.isNotEmpty() && isAttachmentPath(outputPath)) {
+            val ok = json.optBoolean("ok", true)
+            val parts = buildList {
+                add(if (ok) "已生成文件" else "文件工具返回异常")
+                add(outputPath)
+            }
+            return ToolResultDisplay(
+                summary = parts.joinToString(" · "),
+                workspaceFilePaths = listOf(outputPath),
+            )
+        }
+        val pathField = json.optString("path", "").trim()
+        if (pathField.isNotEmpty() && isAttachmentPath(pathField)) {
+            return ToolResultDisplay(
+                summary = "输出: $pathField",
+                workspaceFilePaths = listOf(pathField),
             )
         }
         val preview = json.optString("resultPreview", "").trim()
@@ -84,5 +108,21 @@ object ChatTranscriptFormatting {
     fun extractMarkdownImagePaths(content: String): List<String> {
         val regex = Regex("""!\[[^\]]*]\(([^)]+)\)""")
         return regex.findAll(content).map { it.groupValues[1].trim() }.filter { it.isNotEmpty() }.toList()
+    }
+
+    /** 从 Markdown 链接 `[label](path)` 提取工作区附件路径（非 http）。 */
+    fun extractMarkdownFileLinks(content: String): List<String> {
+        val regex = Regex("""(?<!!)\[[^\]]*]\(([^)]+)\)""")
+        return regex.findAll(content)
+            .map { it.groupValues[1].trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("http://") && !it.startsWith("https://") }
+            .filter { isAttachmentPath(it) || isImagePath(it) }
+            .distinct()
+            .toList()
+    }
+
+    private fun isAttachmentPath(path: String): Boolean {
+        val ext = path.substringAfterLast('.', "").lowercase()
+        return ext in attachmentExt
     }
 }

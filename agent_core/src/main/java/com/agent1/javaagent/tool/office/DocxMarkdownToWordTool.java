@@ -2,7 +2,6 @@ package com.agent1.javaagent.tool.office;
 
 import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import com.agent1.javaagent.core.CancellationToken;
-import com.agent1.javaagent.script.ScriptEngine;
 import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
@@ -75,13 +74,9 @@ public final class DocxMarkdownToWordTool implements AgentTool {
         CancellationToken cancellationToken,
         ToolUpdateListener onUpdate
     ) {
-        if (cancellationToken.isCancelled()) {
-            return ToolExecutionResult.text("错误：执行已取消");
-        }
-        if (agentRoot == null || !OfficeCatalogScripts.isOfficeReady(agentRoot)) {
-            return ToolExecutionResult.text(
-                "错误：docx.js 未就绪。请设置 AGENT1_WEIZHI_REPO 并启动 Host，或确保 shared/catalog/scripts 含 docx.js"
-            );
+        ToolExecutionResult cancelled = DocxOfficeJsRunner.cancelled(cancellationToken);
+        if (cancelled != null) {
+            return cancelled;
         }
         String inputPath = parameters.path("input_path").asText("").trim();
         String outputPath = parameters.path("output_path").asText("").trim();
@@ -99,19 +94,10 @@ public final class DocxMarkdownToWordTool implements AgentTool {
             });
             """.formatted(jsonString(inputPath), jsonString(outputPath), titleJson);
 
-        try (ScriptEngine engine = engineFactory.open(sandbox.getRoot())) {
-            String result = engine.eval(js, timeoutMs, cancellationToken);
-            return ToolExecutionResult.text(result);
-        } catch (Exception e) {
-            return ToolExecutionResult.text("docx_markdown_to_word 失败: " + e.getMessage());
-        }
+        return DocxOfficeJsRunner.run(sandbox, engineFactory, timeoutMs, agentRoot, js, cancellationToken);
     }
 
     private static String jsonString(String value) {
-        try {
-            return MAPPER.writeValueAsString(value);
-        } catch (Exception e) {
-            return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
-        }
+        return DocxOfficeJsRunner.jsonString(value);
     }
 }

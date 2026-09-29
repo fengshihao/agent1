@@ -11,11 +11,20 @@ https://github.com/fengshihao/weizhi/blob/master/docs/AGENT1_DOCX_INTEGRATION.md
 
 | 项 | 位置 |
 |----|------|
-| 拷贝 `docx.js` / `docx-raw.js` 到 agentRoot | `OfficeCatalogScripts` → `shared/catalog/scripts/`（bootstrap + Weizhi `assets/office` 或 classpath） |
-| Weizhi `setScriptFolder` | `WeizhiScriptEngineFactory`（桌面）；`WeizhiAndroidScriptEngineFactory` + `AndroidOfficeCatalogSync`（APK assets） |
-| 工具 | `docx_markdown_to_word`（`DocxMarkdownToWordTool`），Weizhi 脚本启用且 office 就绪时注册 |
-| 测试 | `DocxOfficeIntegrationTest`（`:weizhi-bridge:test`，需 libweizhijni） |
-| 用户打开 docx | App 层 FileProvider + `ACTION_VIEW`（见 `16-渲染-文档与Android附件计划.md` Phase F，待做） |
+| 拷贝 `docx.js` / `docx-raw.js` 到 agentRoot | `OfficeCatalogScripts` → `shared/catalog/scripts/` |
+| Weizhi `setScriptFolder` | 桌面 + Android（`AndroidOfficeCatalogSync`） |
+| 工具 | `docx_markdown_to_word`、`docx_inspect`、`docx_read_grep_edit`、`docx_raw_edit` |
+| 系统提示 | 用法摘要；**API** → `read_agent_doc` → `docs/system/office-docx.md` |
+| 测试 | `DocxOfficeIntegrationTest`、Android `ChatTranscriptFormattingTest` |
+| 用户打开 docx | `WorkspaceFileAttachments` + `WorkspaceFileActions`（FileProvider） |
+
+## Issue #8 checklist（Agent1）
+
+- [x] `setScriptFolder` 含 `docx.js` + `docx-raw.js`
+- [x] workspace 与 `setFsRoot` 一致（既有 Weizhi 行为）
+- [x] `@Tool` docx 四件套 + `validateDocx` 路径（raw 工具）
+- [x] 系统提示：用法 + 指向 `office-docx.md`
+- [x] App 内打开/分享 workspace 附件（`.docx` 等）
 
 ## 系统提示 / 能力
 

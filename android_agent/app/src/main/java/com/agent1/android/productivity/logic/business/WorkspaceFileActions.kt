@@ -1,0 +1,64 @@
+package com.agent1.android.productivity.logic.business
+
+import android.content.Context
+import android.content.Intent
+import android.webkit.MimeTypeMap
+import android.widget.Toast
+import androidx.core.content.FileProvider
+import java.io.File
+import java.nio.file.Path
+
+/** 打开 / 分享 workspace 内用户文件（logic.business，无 Compose 依赖）。 */
+object WorkspaceFileActions {
+
+    fun mimeTypeForRelativePath(relativePath: String): String {
+        val ext = relativePath.substringAfterLast('.', "").lowercase()
+        return when (ext) {
+            "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            "doc" -> "application/msword"
+            "pdf" -> "application/pdf"
+            "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            "xls" -> "application/vnd.ms-excel"
+            "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            "ppt" -> "application/vnd.ms-powerpoint"
+            "md" -> "text/markdown"
+            "txt" -> "text/plain"
+            "csv" -> "text/csv"
+            "svg" -> "image/svg+xml"
+            "png" -> "image/png"
+            "jpg", "jpeg" -> "image/jpeg"
+            else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
+        }
+    }
+
+    fun openWorkspaceFile(context: Context, workspaceRoot: Path, relativePath: String): Boolean {
+        val file = SessionWorkspacePaths.resolveFile(workspaceRoot, relativePath) ?: return false
+        val authority = "${context.packageName}.fileprovider"
+        val uri = FileProvider.getUriForFile(context, authority, file)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mimeTypeForRelativePath(relativePath))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return runCatching { context.startActivity(intent) }.isSuccess.also { ok ->
+            if (!ok) {
+                Toast.makeText(context, "未找到可打开此文件的应用", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun shareWorkspaceFile(context: Context, workspaceRoot: Path, relativePath: String): Boolean {
+        val file = SessionWorkspacePaths.resolveFile(workspaceRoot, relativePath) ?: return false
+        val authority = "${context.packageName}.fileprovider"
+        val uri = FileProvider.getUriForFile(context, authority, file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = mimeTypeForRelativePath(relativePath)
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(intent, "分享 ${file.name}").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return runCatching { context.startActivity(chooser) }.isSuccess
+    }
+}

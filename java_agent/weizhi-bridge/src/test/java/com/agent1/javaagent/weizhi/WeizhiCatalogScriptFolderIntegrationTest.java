@@ -33,7 +33,7 @@ class WeizhiCatalogScriptFolderIntegrationTest {
         Files.createDirectories(scripts);
         Files.writeString(
             scripts.resolve("math-lib.js"),
-            "function inc(x) { return x + 1; }\n"
+            "export function inc(x) { return x + 1; }\n"
         );
 
         Path workspace = agentRoot.resolve("workspace");
@@ -45,7 +45,10 @@ class WeizhiCatalogScriptFolderIntegrationTest {
         );
         try (ScriptEngine engine = factory.open(workspace)) {
             String out = engine.eval(
-                "loadScript(\"math-lib.js\"); inc(41)",
+                """
+                import { inc } from './math-lib.js';
+                export default inc(41);
+                """,
                 5_000,
                 null
             );

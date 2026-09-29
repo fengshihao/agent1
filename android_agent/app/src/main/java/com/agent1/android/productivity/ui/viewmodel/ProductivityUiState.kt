@@ -22,6 +22,7 @@ data class ChatLine(
     /** 工作区内图片相对路径（工具结果或助手 Markdown 引用）。 */
     val workspaceImagePath: String? = null,
     val imageWarning: String? = null,
+    val workspaceFilePaths: List<String> = emptyList(),
 )
 
 data class ChatUiState(

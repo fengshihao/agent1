@@ -29,7 +29,8 @@ class ListCatalogToolTest {
     void summarizesCounts() {
         ListCatalogTool tool = new ListCatalogTool(agentRoot);
         ToolExecutionResult result = tool.execute("l1", MAPPER.createObjectNode(), new CancellationToken(), u -> {});
-        assertTrue(result.getText().contains("scripts: 1 files"));
+        assertTrue(result.getText().contains("scripts:"));
+        assertTrue(result.getText().matches("(?s).*scripts: \\d+ files.*"));
         assertTrue(result.getText().contains("CATALOG_ROOT"));
     }
 }

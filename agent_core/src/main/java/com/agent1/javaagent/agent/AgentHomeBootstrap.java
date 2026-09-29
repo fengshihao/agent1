@@ -103,6 +103,7 @@ public final class AgentHomeBootstrap {
             systemDir.resolve("events-audit.md"),
             "/agent-home/docs/system/events-audit.md"
         );
+        copyResourceIfMissing(systemDir.resolve("office-docx.md"), "/agent-home/docs/system/office-docx.md");
     }
 
     private static void copyResourceIfMissing(Path target, String resourcePath) {

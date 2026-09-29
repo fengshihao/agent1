@@ -24,7 +24,26 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
-    fun formatToolResult_plainTextUnchanged() {
+    fun formatToolResult_parsesDocxOutputPath() {
+        val raw = """{"ok":true,"path":"out/report.docx","bytes":12000}"""
+        val display = ChatTranscriptFormatting.formatToolResult(raw, null)
+        assertEquals(listOf("out/report.docx"), display.workspaceFilePaths)
+        assert(display.summary.contains("report.docx"))
+    }
+
+    @Test
+    fun extractMarkdownFileLinks_findsDocxLink() {
+        val paths = ChatTranscriptFormatting.extractMarkdownFileLinks("见 [报告](out/a.docx) 和 ![图](x.png)")
+        assertEquals(listOf("out/a.docx", "x.png"), paths)
+    }
+
+    @Test
+    fun extractMarkdownFileLinks_skipsHttp() {
+        val paths = ChatTranscriptFormatting.extractMarkdownFileLinks("[外](https://example.com/x.docx)")
+        assertEquals(emptyList<String>(), paths)
+    }
+
+    @Test
         val display = ChatTranscriptFormatting.formatToolResult("hello tool", null)
         assertEquals("hello tool", display.summary)
         assertNull(display.workspaceImagePath)

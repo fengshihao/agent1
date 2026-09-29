@@ -294,13 +294,16 @@ class ChatViewModel(
                 isTool = true,
                 workspaceImagePath = display.workspaceImagePath,
                 imageWarning = display.imageWarning,
+                workspaceFilePaths = display.workspaceFilePaths,
             )
         }
+        val files = ChatTranscriptFormatting.extractMarkdownFileLinks(content)
         return ChatLine(
             role = role,
             content = content,
             reasoning = reasoningContent,
             isTool = false,
+            workspaceFilePaths = files,
         )
     }
 
