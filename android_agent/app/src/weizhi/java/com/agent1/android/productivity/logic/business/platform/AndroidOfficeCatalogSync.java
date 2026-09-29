@@ -27,22 +27,11 @@ public final class AndroidOfficeCatalogSync {
         }
         for (String name : OfficeCatalogScripts.OFFICE_SCRIPT_NAMES) {
             Path target = scripts.resolve(name);
-            if (isNonEmpty(target)) {
-                continue;
-            }
             try (InputStream in = context.getAssets().open("office/" + name)) {
                 Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
                 throw new IllegalStateException("copy asset office/" + name, e);
             }
-        }
-    }
-
-    private static boolean isNonEmpty(Path path) {
-        try {
-            return Files.isRegularFile(path) && Files.size(path) > 0L;
-        } catch (IOException e) {
-            return false;
         }
     }
 }
