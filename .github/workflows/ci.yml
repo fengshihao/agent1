@@ -113,7 +113,20 @@ jobs:
           fi
           echo "${ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
           yes | "$SDKM" --licenses >/dev/null
-          "$SDKM" "platforms;android-34" "platforms;android-35" "build-tools;35.0.0"
+          "$SDKM" "platforms;android-34" "platforms;android-35" "build-tools;35.0.0" "ndk;26.1.10909125"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/26.1.10909125" >> "$GITHUB_ENV"
+
+      - name: Build libweizhijni.so
+        run: |
+          if [ ! -d weizhi/android ]; then
+            echo "未联编 weizhi 源码，跳过 native"
+            exit 0
+          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake ninja-build
+          chmod +x weizhi/scripts/build-android.sh weizhi/scripts/fetch-deps.sh
+          (cd weizhi && ./scripts/build-android.sh arm64-v8a)
+          test -f weizhi/android/weizhi/src/main/jniLibs/arm64-v8a/libweizhijni.so
 
       - name: Publish java-agent-core to local Maven
         run: ./java_agent/gradlew --no-daemon -p java_agent publishCoreToLocalRepo
@@ -122,7 +135,11 @@ jobs:
         working-directory: android_agent
         env:
           DASHSCOPE_API_KEY: ""
-        run: ./gradlew --no-daemon :app:assembleAppDebug :app:assembleDiagnosticDebug
+        run: |
+          ./gradlew --no-daemon :app:assembleAppDebug :app:assembleDiagnosticDebug
+          if [ -d ../weizhi/android ]; then
+            unzip -l app/build/outputs/apk/app/debug/agent1-android-app-debug.apk | grep 'lib/arm64-v8a/libweizhijni.so'
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
