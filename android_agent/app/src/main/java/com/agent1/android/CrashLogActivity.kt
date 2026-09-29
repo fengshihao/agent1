@@ -11,6 +11,7 @@ import com.agent1.android.productivity.logic.data.StartupTrace
 
 /** 诊断包入口：纯 [Activity]，不加载 Compose。 */
 class CrashLogActivity : Activity() {
+    @Suppress("TooGenericExceptionCaught")
     override fun onCreate(savedInstanceState: Bundle?) {
         try {
             super.onCreate(savedInstanceState)
@@ -33,7 +34,7 @@ class CrashLogActivity : Activity() {
                 showContinue = false,
             )
             StartupTrace.mark(this, "CrashLogActivity.onCreate.end")
-        } catch (t: RuntimeException) {
+        } catch (t: Exception) {
             Log.e("CrashLogActivity", "fatal in onCreate", t)
             showEmergency(t)
         }

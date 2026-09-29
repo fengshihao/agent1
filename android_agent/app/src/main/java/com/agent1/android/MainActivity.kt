@@ -15,6 +15,7 @@ import com.agent1.android.productivity.ui.view.ProductivityNavHost
 import com.agent1.android.productivity.ui.view.ProductivityTheme
 
 class MainActivity : ComponentActivity() {
+    @Suppress("TooGenericExceptionCaught")
     override fun onCreate(savedInstanceState: Bundle?) {
         try {
             StartupTrace.mark(this, "MainActivity.onCreate.begin")
@@ -28,7 +29,7 @@ class MainActivity : ComponentActivity() {
                 return
             }
             openMainCompose()
-        } catch (t: RuntimeException) {
+        } catch (t: Exception) {
             Log.e("MainActivity", "onCreate failed", t)
             StartupTrace.mark(this, "MainActivity.onCreate.fail:${t.message}")
             val emergency = CrashLogSnapshot(
