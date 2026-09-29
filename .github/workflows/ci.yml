@@ -113,7 +113,7 @@ jobs:
           fi
           echo "${ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
           yes | "$SDKM" --licenses >/dev/null
-          "$SDKM" "platforms;android-34" "build-tools;34.0.0"
+          "$SDKM" "platforms;android-34" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Publish java-agent-core to local Maven
         run: ./java_agent/gradlew --no-daemon -p java_agent publishCoreToLocalRepo

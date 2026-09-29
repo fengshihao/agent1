@@ -7,9 +7,9 @@ import com.agent1.android.productivity.logic.data.StartupTrace
 
 class Agent1Application : Application() {
     override fun attachBaseContext(base: Context) {
-        CrashReporter.install(base)
-        StartupTrace.mark(base, "Application.attachBaseContext")
         super.attachBaseContext(base)
+        CrashReporter.install(this)
+        StartupTrace.mark(this, "Application.attachBaseContext")
     }
 
     override fun onCreate() {

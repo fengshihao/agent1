@@ -95,8 +95,7 @@ object CrashReporter {
             Log.e(TAG, "write crash archive failed", it)
             false
         }
-        runCatching { PublicCrashExport.mirrorFromMainApp(context.applicationContext, report) }
-            .onFailure { Log.e(TAG, "public crash mirror failed", it) }
+        PublicCrashExport.mirrorFromMainAppAsync(context.applicationContext, report)
         Log.e(TAG, "App crashed, report persisted prefs=$committed file=$fileSaved archive=$archiveSaved")
     }
 

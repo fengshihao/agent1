@@ -55,7 +55,7 @@ detekt {
 
 android {
     namespace = "com.agent1.android"
-    compileSdk = 34
+    compileSdk = 35
 
     flavorDimensions += "distribution"
     productFlavors {
@@ -67,13 +67,14 @@ android {
             dimension = "distribution"
             applicationIdSuffix = ".diagnostic"
             versionNameSuffix = "-diag"
+            buildConfigField("boolean", "WEIZHI_INTEGRATED", "false")
         }
     }
 
     defaultConfig {
         applicationId = "com.agent1.android"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 35
         versionCode = agent1VersionCode()
         versionName = agent1VersionName()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -127,7 +128,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
-    sourceSets.named("main") {
+    sourceSets.named("app") {
         if (weizhiIntegrated) {
             java.srcDir("../../java_agent/weizhi-bridge/src/shared/java")
             java.srcDir("src/weizhi/java")
@@ -161,11 +162,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
     implementation("com.agent1:java-agent-core:0.1.0-SNAPSHOT")
     if (findProject(":weizhi") != null) {
-        implementation(project(":weizhi"))
-        implementation(project(":caps"))
-        implementation(project(":agent-tools"))
-        implementation(project(":agent-tools-webview"))
-        implementation(project(":agent-tools-mcp"))
+        add("appImplementation", project(":weizhi"))
+        add("appImplementation", project(":caps"))
+        add("appImplementation", project(":agent-tools"))
+        add("appImplementation", project(":agent-tools-webview"))
+        add("appImplementation", project(":agent-tools-mcp"))
     } else if (weizhiPrebuiltBase != null) {
         val coords = Properties().apply {
             weizhiPrebuiltBase.resolve("coordinates.properties").inputStream().use { load(it) }
@@ -176,11 +177,11 @@ dependencies {
             val a = coords.getProperty(key)?.trim().orEmpty()
             return "$g:$a:$v"
         }
-        implementation(w("artifact.weizhi"))
-        implementation(w("artifact.caps"))
-        implementation(w("artifact.agent-tools"))
-        implementation(w("artifact.agent-tools-webview"))
-        implementation(w("artifact.agent-tools-mcp"))
+        add("appImplementation", w("artifact.weizhi"))
+        add("appImplementation", w("artifact.caps"))
+        add("appImplementation", w("artifact.agent-tools"))
+        add("appImplementation", w("artifact.agent-tools-webview"))
+        add("appImplementation", w("artifact.agent-tools-mcp"))
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.27.0")

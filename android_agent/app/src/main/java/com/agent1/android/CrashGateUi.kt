@@ -15,6 +15,19 @@ import com.agent1.android.productivity.logic.business.CrashLogSnapshot
 object CrashGateUi {
 
     fun bind(activity: Activity, snapshot: CrashLogSnapshot, showContinue: Boolean) {
+        runCatching {
+            bindInternal(activity, snapshot, showContinue)
+        }.onFailure { error ->
+            activity.setContentView(
+                android.widget.TextView(activity).apply {
+                    text = "CrashGateUi.bind failed:\n${android.util.Log.getStackTraceString(error)}"
+                    setPadding(32, 32, 32, 32)
+                },
+            )
+        }
+    }
+
+    private fun bindInternal(activity: Activity, snapshot: CrashLogSnapshot, showContinue: Boolean) {
         activity.setContentView(R.layout.activity_crash_gate)
         val body = snapshot.displayText.orEmpty()
         activity.findViewById<TextView>(R.id.crash_gate_hint).text =

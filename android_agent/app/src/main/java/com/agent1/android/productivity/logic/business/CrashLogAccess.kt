@@ -11,9 +11,14 @@ data class CrashLogSnapshot(
 )
 
 object CrashLogAccess {
-    fun load(context: Context): CrashLogSnapshot {
-        val crash = CrashReporter.getLastCrash(context) ?: PublicCrashExport.readMainAppMirror(context)
-        val trace = StartupTrace.readCombined(context)
+    /**
+     * @param includePublicMirror 是否读下载目录镜像（慢且部分 Android 16 机型上可能失败，启动页默认 false）
+     */
+    fun load(context: Context, includePublicMirror: Boolean = false): CrashLogSnapshot {
+        val crash = CrashReporter.getLastCrash(context)
+            ?: if (includePublicMirror) PublicCrashExport.readMainAppMirror(context) else null
+        val trace = StartupTrace.readPrivate(context)
+            ?: if (includePublicMirror) PublicCrashExport.readStartupTraceMirror(context) else null
         val display = buildString {
             if (!crash.isNullOrBlank()) {
                 appendLine(crash.trim())
@@ -39,7 +44,7 @@ object CrashLogAccess {
         if (skipGate) return false
         val crash = CrashReporter.getLastCrash(context) ?: PublicCrashExport.readMainAppMirror(context)
         if (!crash.isNullOrBlank()) return true
-        val trace = StartupTrace.readCombined(context).orEmpty()
+        val trace = StartupTrace.readPrivate(context).orEmpty()
         return trace.contains(".fail:", ignoreCase = true) ||
             trace.contains("App Crash Captured", ignoreCase = true)
     }

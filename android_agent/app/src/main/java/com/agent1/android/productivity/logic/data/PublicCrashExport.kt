@@ -1,58 +1,71 @@
 package com.agent1.android.productivity.logic.data
 
-import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import java.io.File
+import java.util.concurrent.Executors
 
 /**
- * 把崩溃报告镜像到用户可见的「下载/Agent1/」，便于主 App 反复启动崩溃时仍可用文件管理器复制。
- * 诊断包 [com.agent1.android.diagnostic] 与主包共用同一路径（按主包 applicationId 命名子目录）。
+ * 把诊断文本镜像到用户可见的「下载/Agent1/」。
+ * 写入一律异步，读取失败时返回 null，**绝不在启动关键路径抛异常**。
  */
 object PublicCrashExport {
+    private const val TAG = "PublicCrashExport"
     const val MAIN_APP_ID = "com.agent1.android"
     private const val FOLDER = "Agent1"
     private const val CRASH_FILE_NAME = "last_crash_report.txt"
     private const val STARTUP_FILE_NAME = "startup_trace.txt"
 
-    /** 给用户看的说明（中文路径习惯）。 */
+    private val mirrorExecutor = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "agent1-public-mirror").apply { isDaemon = true }
+    }
+
     fun userVisiblePathHint(): String =
         "文件管理器 → 下载 → $FOLDER → $MAIN_APP_ID →（$CRASH_FILE_NAME 或 $STARTUP_FILE_NAME）"
 
-    fun mirrorFromMainApp(context: Context, report: String) {
-        mirrorNamed(context, MAIN_APP_ID, CRASH_FILE_NAME, report)
+    fun mirrorFromMainAppAsync(context: Context, report: String) {
+        scheduleMirror(context, MAIN_APP_ID, CRASH_FILE_NAME, report)
     }
 
-    fun readMainAppMirror(context: Context): String? = readNamedMirror(context, MAIN_APP_ID, CRASH_FILE_NAME)
-
-    fun mirrorStartupTrace(context: Context, report: String) {
-        mirrorNamed(context, MAIN_APP_ID, STARTUP_FILE_NAME, report)
+    fun mirrorStartupTraceAsync(context: Context, report: String) {
+        scheduleMirror(context, MAIN_APP_ID, STARTUP_FILE_NAME, report)
     }
+
+    fun readMainAppMirror(context: Context): String? =
+        readNamedMirrorSafe(context, MAIN_APP_ID, CRASH_FILE_NAME)
 
     fun readStartupTraceMirror(context: Context): String? =
-        readNamedMirror(context, MAIN_APP_ID, STARTUP_FILE_NAME)
+        readNamedMirrorSafe(context, MAIN_APP_ID, STARTUP_FILE_NAME)
 
-    private fun mirrorNamed(context: Context, ownerPackage: String, displayName: String, report: String) {
-        runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                writeViaMediaStore(context, ownerPackage, displayName, report)
-            } else {
-                writeLegacyDownloads(ownerPackage, displayName, report)
-            }
+    private fun scheduleMirror(context: Context, ownerPackage: String, displayName: String, report: String) {
+        val app = context.applicationContext
+        mirrorExecutor.execute {
+            runCatching { mirrorNamedBlocking(app, ownerPackage, displayName, report) }
+                .onFailure { Log.w(TAG, "mirror failed: $displayName", it) }
         }
     }
 
-    private fun readNamedMirror(context: Context, ownerPackage: String, displayName: String): String? {
+    private fun mirrorNamedBlocking(context: Context, ownerPackage: String, displayName: String, report: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            writeViaMediaStore(context, ownerPackage, displayName, report)
+        } else {
+            writeLegacyDownloads(ownerPackage, displayName, report)
+        }
+    }
+
+    private fun readNamedMirrorSafe(context: Context, ownerPackage: String, displayName: String): String? {
         return runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 readViaMediaStore(context, ownerPackage, displayName)
             } else {
                 readLegacyDownloads(ownerPackage, displayName)
             }
-        }.getOrNull()
+        }.onFailure { Log.w(TAG, "read mirror failed: $displayName", it) }
+            .getOrNull()
     }
 
     private fun relativePath(ownerPackage: String): String {
@@ -83,7 +96,7 @@ object PublicCrashExport {
                 return
             }
         }
-        val values = ContentValues().apply {
+        val values = android.content.ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, displayName)
             put(MediaStore.Downloads.MIME_TYPE, "text/plain")
             put(MediaStore.Downloads.RELATIVE_PATH, relative)
