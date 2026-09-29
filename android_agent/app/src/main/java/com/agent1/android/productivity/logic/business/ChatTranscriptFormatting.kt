@@ -16,6 +16,9 @@ data class ToolResultDisplay(
 
 object ChatTranscriptFormatting {
 
+    /** 聊天气泡内正文上限，避免 Compose/Markdown 渲染超大字符串导致 OOM 或 ANR。 */
+    const val UI_BUBBLE_MAX_CHARS = 20_000
+
     private val imageExt = setOf("png", "jpg", "jpeg", "webp", "gif")
 
     private val attachmentExt = setOf(
@@ -97,6 +100,20 @@ object ChatTranscriptFormatting {
     private fun isImagePath(path: String): Boolean {
         val ext = path.substringAfterLast('.', "").lowercase()
         return ext in imageExt
+    }
+
+    fun truncateForUiDisplay(text: String, maxChars: Int = UI_BUBBLE_MAX_CHARS): String {
+        val trimmed = text.trim()
+        if (trimmed.length <= maxChars) return trimmed
+        return trimmed.take(maxChars) +
+            "\n\n…（界面仅展示前 $maxChars 字，完整共 ${trimmed.length} 字，见 workspace 或导出简报）"
+    }
+
+    /** 大表格/超长正文不走 Markdown 渲染，降低崩溃风险。 */
+    fun shouldRenderAsMarkdown(content: String): Boolean {
+        if (content.length > 6_000) return false
+        val tableLines = content.lineSequence().count { it.trimStart().startsWith("|") }
+        return tableLines <= 40
     }
 
     private fun truncatePlain(text: String, max: Int = 400): String {

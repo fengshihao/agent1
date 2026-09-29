@@ -65,21 +65,33 @@ class ChatViewModel(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun loadTranscriptIntoState(initialLoad: Boolean = false) {
         if (initialLoad || _state.value.lines.isEmpty()) {
-            _state.value = _state.value.copy(isLoadingTranscript = true)
+            _state.value = _state.value.copy(isLoadingTranscript = true, transcriptLoadError = null)
         }
-        val messages = withContext(Dispatchers.IO) {
-            gateway.loadTranscript(sessionId)
+        try {
+            val wsPath = sessionWorkspacePath()
+            val built = withContext(Dispatchers.IO) {
+                val messages = gateway.loadTranscript(sessionId)
+                val ws = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
+                messages.map { it.toChatLine(ws) }
+            }
+            _state.value = _state.value.copy(
+                lines = built,
+                streamingText = "",
+                streamingReasoning = "",
+                toolTrail = emptyList(),
+                isLoadingTranscript = false,
+                workspacePath = wsPath,
+                transcriptLoadError = null,
+            )
+        } catch (e: Exception) {
+            _state.value = _state.value.copy(
+                isLoadingTranscript = false,
+                transcriptLoadError = e.message ?: e.javaClass.simpleName,
+            )
         }
-        _state.value = _state.value.copy(
-            lines = messages.map { it.toChatLine() },
-            streamingText = "",
-            streamingReasoning = "",
-            toolTrail = emptyList(),
-            isLoadingTranscript = false,
-            workspacePath = sessionWorkspacePath(),
-        )
     }
 
     fun toggleModelPanel() {
@@ -282,15 +294,14 @@ class ChatViewModel(
         }
     }
 
-    private fun AgentMessage.toChatLine(): ChatLine {
+    private fun AgentMessage.toChatLine(workspaceRoot: java.nio.file.Path?): ChatLine {
         val tool = AgentMessage.ROLE_TOOL_RESULT == role
         if (tool) {
-            val ws = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
-            val display = ChatTranscriptFormatting.formatToolResult(content, ws)
+            val display = ChatTranscriptFormatting.formatToolResult(content, workspaceRoot)
             return ChatLine(
                 role = role,
                 content = display.summary,
-                reasoning = reasoningContent,
+                reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
                 isTool = true,
                 workspaceImagePath = display.workspaceImagePath,
                 imageWarning = display.imageWarning,
@@ -300,8 +311,8 @@ class ChatViewModel(
         val files = ChatTranscriptFormatting.extractMarkdownFileLinks(content)
         return ChatLine(
             role = role,
-            content = content,
-            reasoning = reasoningContent,
+            content = ChatTranscriptFormatting.truncateForUiDisplay(content),
+            reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
             isTool = false,
             workspaceFilePaths = files,
         )
@@ -311,6 +322,17 @@ class ChatViewModel(
         if (_state.value.exportInProgress) return
         launchDiagnosticExport(
             activity,
+            onBusy = { busy -> _state.value = _state.value.copy(exportInProgress = busy) },
+            onMessage = { message -> _state.value = _state.value.copy(exportMessage = message) },
+        )
+    }
+
+    fun exportBriefTranscript(activity: Context) {
+        if (_state.value.exportInProgress) return
+        launchBriefChatExport(
+            activity,
+            sessionId = sessionId,
+            sessionTitle = _state.value.title.ifBlank { sessionTitle },
             onBusy = { busy -> _state.value = _state.value.copy(exportInProgress = busy) },
             onMessage = { message -> _state.value = _state.value.copy(exportMessage = message) },
         )

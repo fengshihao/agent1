@@ -11,7 +11,7 @@ import java.util.List;
 /** 将 Weizhi {@code assets/office/docx*.js} 同步到 {@code shared/catalog/scripts}（Issue weizhi#8）。 */
 public final class OfficeCatalogScripts {
 
-    public static final List<String> OFFICE_SCRIPT_NAMES = List.of("docx.js", "docx-raw.js");
+    public static final List<String> OFFICE_SCRIPT_NAMES = List.of("docx.js", "docx-raw.js", "docx-build.js");
 
     private OfficeCatalogScripts() {
     }

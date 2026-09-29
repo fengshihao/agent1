@@ -44,6 +44,7 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
+    fun formatToolResult_plainText() {
         val display = ChatTranscriptFormatting.formatToolResult("hello tool", null)
         assertEquals("hello tool", display.summary)
         assertNull(display.workspaceImagePath)

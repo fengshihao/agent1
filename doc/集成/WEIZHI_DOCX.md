@@ -11,7 +11,7 @@ https://github.com/fengshihao/weizhi/blob/master/docs/AGENT1_DOCX_INTEGRATION.md
 
 | 项 | 位置 |
 |----|------|
-| 拷贝 `docx.js` / `docx-raw.js` 到 agentRoot | `OfficeCatalogScripts` → `shared/catalog/scripts/` |
+| 拷贝 `docx.js` / `docx-raw.js` / `docx-build.js` 到 agentRoot | `OfficeCatalogScripts` → `shared/catalog/scripts/` |
 | Weizhi `setScriptFolder` | 桌面 + Android（`AndroidOfficeCatalogSync`） |
 | 工具 | `docx_markdown_to_word`、`docx_inspect`、`docx_read_grep_edit`、`docx_raw_edit` |
 | 系统提示 | 用法摘要；**API** → `read_agent_doc` → `docs/system/office-docx.md` |

@@ -17,9 +17,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -65,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import com.agent1.javaagent.modelcatalog.QwenModelInfo
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
+import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
@@ -99,8 +97,7 @@ fun SessionListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding(),
+            .background(MaterialTheme.colorScheme.background),
     ) {
         AgentTopBar(
             title = "会话",
@@ -183,7 +180,6 @@ fun ChatScreen(
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
-            contentWindowInsets = WindowInsets.statusBars,
             topBar = {
                 Column {
                     AgentTopBar(
@@ -194,7 +190,12 @@ fun ChatScreen(
                         },
                         actions = {
                             TopBarIconButton(
-                                label = if (state.exportInProgress) "…" else "导出",
+                                label = if (state.exportInProgress) "…" else "简报",
+                                onClick = { viewModel.exportBriefTranscript(context) },
+                                enabled = !state.exportInProgress,
+                            )
+                            TopBarIconButton(
+                                label = if (state.exportInProgress) "…" else "诊断",
                                 onClick = { viewModel.exportDiagnostics(context) },
                                 enabled = !state.exportInProgress,
                             )
@@ -215,6 +216,9 @@ fun ChatScreen(
                     }
                     if (!state.showModelPanel && state.configError != null) {
                         ConfigErrorBanner(state.configError.orEmpty())
+                    }
+                    if (!state.transcriptLoadError.isNullOrBlank()) {
+                        ConfigErrorBanner("对话加载失败：${state.transcriptLoadError}")
                     }
                 }
             },
@@ -557,9 +561,17 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
         contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
     ) {
-        items(state.lines.size) { index ->
+        items(
+            count = state.lines.size,
+            key = { index ->
+                val line = state.lines[index]
+                "$index-${line.role}-${line.isTool}-${line.content.hashCode()}"
+            },
+        ) { index ->
             val line = state.lines[index]
-            val useMarkdown = !line.isTool && line.role != "user" && line.content.length <= 6_000
+            val useMarkdown = !line.isTool &&
+                line.role != "user" &&
+                ChatTranscriptFormatting.shouldRenderAsMarkdown(line.content)
             MessageBubble(line, workspacePath = state.workspacePath, markdown = useMarkdown)
         }
         if (state.toolTrail.isNotEmpty()) {

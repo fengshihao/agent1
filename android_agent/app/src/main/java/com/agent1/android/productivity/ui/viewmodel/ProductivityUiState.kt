@@ -43,4 +43,5 @@ data class ChatUiState(
     val showModelPanel: Boolean = false,
     val exportInProgress: Boolean = false,
     val exportMessage: String? = null,
+    val transcriptLoadError: String? = null,
 )

@@ -30,6 +30,9 @@ object CrashReporter {
         }
         installed = true
         Log.d(TAG, "UncaughtExceptionHandler installed")
+        getLastCrash(appContext)?.let { report ->
+            Log.e(TAG, "previous crash on disk (see files/last_crash_report.txt):\n$report")
+        }
     }
 
     fun getLastCrash(context: Context): String? {

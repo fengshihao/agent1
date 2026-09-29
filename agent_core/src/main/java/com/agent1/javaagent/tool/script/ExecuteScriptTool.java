@@ -132,6 +132,7 @@ public final class ExecuteScriptTool implements AgentTool {
         ScriptEvalFrame.SourceKind kind = hasFile ? ScriptEvalFrame.SourceKind.FILE : ScriptEvalFrame.SourceKind.INLINE;
 
         Path workspaceRoot = sandbox.getRoot();
+
         ScriptEvalFrame frame;
         String autoInstallPrefix = "";
         for (int attempt = 0; attempt < 2; attempt++) {

@@ -10,8 +10,9 @@
 - 优先 **file** 模式（workspace 内 `.js`），便于行号与调试。
 - 失败时工具返回 JSON，字段 **location.userLine** 相对用户脚本（prelude 已扣减；Weizhi 内建注入需 D4 完全对齐）。
 - inline 过长会触发 Coach **script.inline_long**。
-- **Catalog 脚本库（7.2）**：`shared/catalog/scripts` 会挂到 Weizhi `scriptFolder`；用 **`import './leaf.js'`** 加载 catalog 脚本（**无 loadScript**）。
-- **Word（docx.js）**：bootstrap 会将 `docx.js` / `docx-raw.js` 放入 `shared/catalog/scripts/`；工具 `docx_markdown_to_word` 或 `execute_script` 内 `import { markdownToDocx } from './docx.js'`。详见 `doc/集成/WEIZHI_DOCX.md`。
+- **Catalog 脚本库（7.2）**：`shared/catalog/scripts` → `setScriptFolder`；见 Weizhi `MODULE_LOADING.md`。
+- **工作区 orchestrator（file 模式）**：`runJs` 使用 workspace 相对 filename（如 `jobs/run.js`）；`import './docx.js'` 先查 workspace 再 **回退 catalog**；`import './helper.js'` 仍在 workspace。Agent1 不再镜像 `.workspace-run/`。
+- **Word**：bootstrap `docx.js` / `docx-raw.js` / `docx-build.js`；优先 `docx_markdown_to_word`，或 orchestrator `import … from './docx.js'`。详见 `doc/集成/WEIZHI_DOCX.md`。
 - **Native**：`await host.ensureNative("插件名")`；缺插件时同一轮 `execute_script` 会尝试 catalog sync 并重试（见 catalog-install.md）。
 
 ## 进化与安装

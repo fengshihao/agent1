@@ -25,6 +25,10 @@ val weizhiIntegrated = weizhiAndroidRoot != null || weizhiPrebuiltBase != null
  */
 fun agent1VersionCode(): Int {
     System.getenv("VERSION_CODE")?.toIntOrNull()?.let { return it }
+    // GitHub Actions：run_number 单调递增，避免仅装 CI 包时因 shallow/回滚导致 versionCode 倒退
+    System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()?.let { run ->
+        return 100_000 + run.coerceAtLeast(1)
+    }
     val repoRoot = rootProject.layout.projectDirectory.dir("..").asFile
     return try {
         val proc = ProcessBuilder("git", "rev-list", "--count", "HEAD")
@@ -42,7 +46,11 @@ fun agent1VersionCode(): Int {
 
 fun agent1VersionName(): String {
     System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }?.let { return it }
-    val patch = agent1VersionCode() - 10_000
+    val code = agent1VersionCode()
+    val patch = when {
+        code >= 100_000 -> code - 100_000
+        else -> code - 10_000
+    }
     return "0.1.$patch"
 }
 
@@ -55,7 +63,8 @@ detekt {
 
 android {
     namespace = "com.agent1.android"
-    compileSdk = 34
+    // Compose BOM 2025.04+（Foundation 1.8）要求 compileSdk ≥ 35
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.agent1.android"
@@ -86,7 +95,20 @@ android {
         buildConfigField("boolean", "WEIZHI_INTEGRATED", weizhiIntegrated.toString())
     }
 
+    signingConfigs {
+        getByName("debug") {
+            // 团队共用 debug 签名，避免不同机器 ~/.android/debug.keystore 不一致导致只能卸载重装
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -131,7 +153,8 @@ android {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
+    // markdown-renderer 0.35 调用含 TextAutoSize 的 BasicText（Compose Foundation 1.8+）；2025.02 BOM 仍为 1.7.8 会 NoSuchMethodError
+    val composeBom = platform("androidx.compose:compose-bom:2025.04.01")
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
@@ -144,6 +167,7 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
     implementation("com.agent1:java-agent-core:0.1.0-SNAPSHOT")
@@ -170,7 +194,7 @@ dependencies {
         implementation(w("artifact.agent-tools-mcp"))
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.27.0")
+    implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.35.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 
