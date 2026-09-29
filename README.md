@@ -53,6 +53,10 @@ export DASHSCOPE_API_KEY="your-key"   # 或 ALIBABA_API_KEY / OPENAI_API_KEY
 
 ```bash
 gradle -p java_agent :core:test :cli:test
+
+# 本地对齐 GitHub CI（push 前推荐）
+./scripts/ci-local.sh fast    # Java 静态 + Mock V6（需 weizhi 时与 CI 一致）
+./scripts/ci-local.sh full    # 含 Android 静态 + assemble（需 ANDROID_HOME）
 ```
 
 ### Java CLI
