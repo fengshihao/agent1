@@ -60,23 +60,22 @@ final class WeizhiScriptEngine implements ScriptEngine {
         if (cancellationToken != null && cancellationToken.isCancelled()) {
             throw new RuntimeException("cancelled");
         }
-        String safeUser = userSource == null ? "" : userSource;
-        if (agentArgsPrelude != null && !agentArgsPrelude.isBlank()) {
-            runOnce(agentArgsPrelude, timeoutMs, cancellationToken, "<agent-args>");
+        String last = "";
+        for (WeizhiScriptToolInstaller.EvalStep step : WeizhiScriptToolInstaller.evalSteps(
+            userSource,
+            agentArgsPrelude,
+            options.scriptToolBridge(),
+            workspaceRelativeFile
+        )) {
+            last = runOnce(step.source(), timeoutMs, cancellationToken, step.filename());
         }
-        String toolsPrelude = WeizhiScriptToolInstaller.preludeSource(options.scriptToolBridge());
-        if (!toolsPrelude.isBlank()) {
-            runOnce(toolsPrelude, timeoutMs, cancellationToken, "<tools-prelude>");
-        }
-        String filename = workspaceRelativeFile == null || workspaceRelativeFile.isBlank()
-            ? "<eval>"
-            : workspaceRelativeFile.trim();
-        return runOnce(safeUser, timeoutMs, cancellationToken, filename);
+        return last;
     }
 
     @Override
     public int agentHostPreludeLines() {
-        return WeizhiScriptToolInstaller.preludeLineCount(options.scriptToolBridge());
+        // prelude 是单独的 runJs，QuickJS 行号已经对应用户脚本。
+        return 0;
     }
 
     private String runOnce(String source, long timeoutMs, CancellationToken cancellationToken, String filename) {
