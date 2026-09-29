@@ -79,29 +79,22 @@ public final class DocxReadGrepEditTool implements AgentTool {
         if (docx.isEmpty() || pattern.isEmpty() || out.isEmpty()) {
             return ToolExecutionResult.text("错误：docx_path、pattern、output_path 必填");
         }
-        int blockIndex = parameters.path("block_index").asInt(-1);
         String editJs;
-        if (blockIndex >= 0 && !replace.isEmpty()) {
+        if (!replace.isEmpty()) {
             editJs =
                 """
                 const { matches } = doc.grep(%s);
-                if (matches.length === 0) export default { ok: false, reason: 'grep no match' };
-                doc.replaceInBlock(matches[0].blockIndex, %s, %s);
+                if (matches.length === 0) {
+                  doc.replaceAll(%s, %s);
+                } else {
+                  doc.replaceInBlock(matches[0].blockIndex, %s, %s);
+                }
                 export default doc.save(%s);
                 """
                     .formatted(
                         DocxOfficeJsRunner.jsonString(pattern),
                         DocxOfficeJsRunner.jsonString(pattern),
                         DocxOfficeJsRunner.jsonString(replace),
-                        DocxOfficeJsRunner.jsonString(out)
-                    );
-        } else if (!replace.isEmpty()) {
-            editJs =
-                """
-                doc.replaceAll(%s, %s);
-                export default doc.save(%s);
-                """
-                    .formatted(
                         DocxOfficeJsRunner.jsonString(pattern),
                         DocxOfficeJsRunner.jsonString(replace),
                         DocxOfficeJsRunner.jsonString(out)

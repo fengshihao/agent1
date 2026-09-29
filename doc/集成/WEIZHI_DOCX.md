@@ -34,5 +34,5 @@ https://github.com/fengshihao/weizhi/blob/master/docs/AGENT1_DOCX_INTEGRATION.md
 
 ## 构建
 
-- `weizhi-bridge` 编译前会从 `weizhi/assets/office/` 同步 JS 到 `agent_core/.../resources/agent-home/catalog/scripts/`（`syncOfficeScripts`）。
-- 本地需 `./sync-weizhi.sh` 且 `./weizhi/scripts/build.sh` 以跑集成测。
+- `docx.js` / `docx-raw.js` 已提交在 `agent_core/src/main/resources/agent-home/catalog/scripts/`；运行时 `OfficeCatalogScripts` 还会从 `AGENT1_WEIZHI_REPO/assets/office/` 覆盖拷贝（若存在）。
+- 本地需 `./sync-weizhi.sh` 且 `./weizhi/scripts/build.sh` 以跑 `:weizhi-bridge` 集成测。

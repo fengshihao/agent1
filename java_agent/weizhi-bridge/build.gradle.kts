@@ -60,15 +60,8 @@ sourceSets {
     }
 }
 
-val syncOfficeScripts = tasks.register<Copy>("syncOfficeScripts") {
-    from(weizhiRepo.resolve("assets/office")) {
-        include("docx.js", "docx-raw.js")
-    }
-    into(project(":core").projectDir.resolve("src/main/resources/agent-home/catalog/scripts"))
-}
-
 tasks.named("compileJava") {
-    dependsOn(syncMcpSources, syncWebViewJvmSources, syncOfficeScripts)
+    dependsOn(syncMcpSources, syncWebViewJvmSources)
 }
 
 tasks.test {

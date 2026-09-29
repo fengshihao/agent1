@@ -2,6 +2,7 @@ package com.agent1.javaagent.catalog;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -65,14 +66,11 @@ public final class OfficeCatalogScripts {
 
     private static void copyFromClasspath(String name, Path target) {
         String resource = "/agent-home/catalog/scripts/" + name;
-        try (InputStream in = OfficeCatalogScripts.class.getResourceAsStream(resource)) {
-            if (in == null) {
-                return;
-            }
-            Path parent = target.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
+        URL url = OfficeCatalogScripts.class.getResource(resource);
+        if (url == null) {
+            return;
+        }
+        try (InputStream in = url.openStream()) {
             Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new IllegalStateException("copy office script failed: " + target, e);
