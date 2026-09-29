@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
                 return
             }
             openMainCompose()
-        } catch (t: Throwable) {
+        } catch (t: RuntimeException) {
             Log.e("MainActivity", "onCreate failed", t)
             StartupTrace.mark(this, "MainActivity.onCreate.fail:${t.message}")
             val emergency = CrashLogSnapshot(

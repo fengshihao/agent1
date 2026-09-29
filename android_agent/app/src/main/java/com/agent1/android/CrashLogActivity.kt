@@ -33,7 +33,7 @@ class CrashLogActivity : Activity() {
                 showContinue = false,
             )
             StartupTrace.mark(this, "CrashLogActivity.onCreate.end")
-        } catch (t: Throwable) {
+        } catch (t: RuntimeException) {
             Log.e("CrashLogActivity", "fatal in onCreate", t)
             showEmergency(t)
         }
