@@ -119,7 +119,7 @@
 ### 4.3 行为
 
 1. 打开 `capabilities.db`（缺失或 schema 过旧 → `ensure` 从 seed 重建）。
-2. **Phase A 检索**：FTS5 `MATCH` + `bm25()` × `weight`；无命中则 **LIKE 回退**；kind/platform 过滤。
+2. **Phase A 检索**：FTS5 `MATCH` + `bm25(table, w_title, w_summary, w_tags, w_entry)`（**title &gt; tags &gt; summary/entry**）× 行 `weight`；无命中则 **LIKE 回退**（同档位优先级）；kind/platform 过滤。
 3. 返回 **纯文本**（模型友好）+ 可选 `details` JSON（UI/日志用），每条含 `id kind title summary entry doc_hint`。
 4. **不**返回 SKILL 全文或 MCP 全 schema。
 

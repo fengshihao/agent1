@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -21,6 +22,22 @@ public final class CapabilityIndexStore {
 
     /** v2：seed platforms 数组正确入库（android/desktop 过滤生效）。 */
     public static final int SCHEMA_VERSION = 2;
+
+    /**
+     * FTS5 bm25 列权（仅 indexed 列，顺序与 {@code capability_fts} 一致：title, summary, tags, entry）。
+     * title（名称）最高，tags 次之，summary/entry 正文最低。
+     */
+    static final double BM25_WEIGHT_TITLE = 10.0;
+    static final double BM25_WEIGHT_SUMMARY = 1.0;
+    static final double BM25_WEIGHT_TAGS = 4.0;
+    static final double BM25_WEIGHT_ENTRY = 1.0;
+
+    /** LIKE 回退时的字段档位分（与 bm25 优先级一致，数值越大越靠前）。 */
+    static final double LIKE_SCORE_TITLE = 1_000.0;
+    static final double LIKE_SCORE_TAGS = 400.0;
+    static final double LIKE_SCORE_SUMMARY = 100.0;
+    static final double LIKE_SCORE_ENTRY = 80.0;
+    static final double LIKE_SCORE_ID = 50.0;
 
     private static final Pattern FTS_SPECIAL = Pattern.compile("[\"*:^()]");
 
@@ -77,6 +94,21 @@ public final class CapabilityIndexStore {
             return ftsHits;
         }
         return searchLike(dbPath, query, kinds, normalizedPlatform, effectiveLimit);
+    }
+
+    static List<String> queryTerms(String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        String cleaned = FTS_SPECIAL.matcher(query.trim()).replaceAll(" ");
+        String[] parts = cleaned.split("\\s+");
+        List<String> terms = new ArrayList<>();
+        for (String part : parts) {
+            if (!part.isEmpty()) {
+                terms.add(part.toLowerCase(Locale.ROOT));
+            }
+        }
+        return terms;
     }
 
     private static boolean needsRebuild(Path dbPath) {
@@ -214,10 +246,23 @@ public final class CapabilityIndexStore {
         if (match.isEmpty()) {
             return List.of();
         }
+        String bm25 =
+            "bm25(capability_fts, "
+                + BM25_WEIGHT_TITLE
+                + ", "
+                + BM25_WEIGHT_SUMMARY
+                + ", "
+                + BM25_WEIGHT_TAGS
+                + ", "
+                + BM25_WEIGHT_ENTRY
+                + ")";
         StringBuilder sql = new StringBuilder(
             """
-            SELECT c.id, c.kind, c.title, c.summary, c.entry, c.doc_path, c.platforms,
-                   (bm25(capability_fts) * c.weight) AS score
+            SELECT c.id, c.kind, c.title, c.summary, c.tags, c.entry, c.doc_path, c.platforms,
+                   ("""
+                + bm25
+                + " * c.weight) AS score\n"
+                + """
             FROM capability_fts f
             JOIN capability c ON c.id = f.id
             WHERE capability_fts MATCH ?
@@ -227,13 +272,15 @@ public final class CapabilityIndexStore {
         params.add(match);
         appendKindFilter(sql, params, kinds);
         appendPlatformFilter(sql, params, platform);
-        sql.append(" ORDER BY score LIMIT ?");
-        params.add(limit);
+        int candidateLimit = Math.min(Math.max(limit * 8, limit), 80);
+        sql.append(" ORDER BY score ASC LIMIT ?");
+        params.add(candidateLimit);
 
-        return runSearch(dbPath, sql.toString(), params);
+        List<CapabilityHit> hits = runSearch(dbPath, sql.toString(), params);
+        return finalizeRanking(hits, query, limit);
     }
 
-    private static List<CapabilityHit> searchLike(
+    static List<CapabilityHit> searchLike(
         Path dbPath,
         String query,
         List<String> kinds,
@@ -247,24 +294,116 @@ public final class CapabilityIndexStore {
         String like = "%" + q.toLowerCase(Locale.ROOT) + "%";
         StringBuilder sql = new StringBuilder(
             """
-            SELECT c.id, c.kind, c.title, c.summary, c.entry, c.doc_path, c.platforms,
-                   c.weight AS score
+            SELECT c.id, c.kind, c.title, c.summary, c.tags, c.entry, c.doc_path, c.platforms,
+                   (
+                     (CASE WHEN lower(c.title) LIKE ? THEN %1$f ELSE 0 END)
+                     + (CASE WHEN lower(c.tags) LIKE ? THEN %2$f ELSE 0 END)
+                     + (CASE WHEN lower(c.summary) LIKE ? THEN %3$f ELSE 0 END)
+                     + (CASE WHEN lower(c.entry) LIKE ? THEN %4$f ELSE 0 END)
+                     + (CASE WHEN lower(c.id) LIKE ? THEN %5$f ELSE 0 END)
+                   ) * c.weight AS score
             FROM capability c
             WHERE (
               lower(c.title) LIKE ? OR lower(c.summary) LIKE ? OR lower(c.tags) LIKE ?
               OR lower(c.entry) LIKE ? OR lower(c.id) LIKE ?
             )
             """
+                .formatted(
+                    LIKE_SCORE_TITLE,
+                    LIKE_SCORE_TAGS,
+                    LIKE_SCORE_SUMMARY,
+                    LIKE_SCORE_ENTRY,
+                    LIKE_SCORE_ID
+                )
         );
         List<Object> params = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
             params.add(like);
         }
+        for (int i = 0; i < 5; i++) {
+            params.add(like);
+        }
         appendKindFilter(sql, params, kinds);
         appendPlatformFilter(sql, params, platform);
-        sql.append(" ORDER BY c.weight DESC, c.title LIMIT ?");
-        params.add(limit);
-        return runSearch(dbPath, sql.toString(), params);
+        int candidateLimit = Math.min(Math.max(limit * 8, limit), 80);
+        sql.append(" ORDER BY score DESC, c.title LIMIT ?");
+        params.add(candidateLimit);
+        List<CapabilityHit> hits = runSearch(dbPath, sql.toString(), params);
+        return finalizeRanking(hits, query, limit);
+    }
+
+    private static List<CapabilityHit> finalizeRanking(List<CapabilityHit> hits, String query, int limit) {
+        if (hits.isEmpty()) {
+            return hits;
+        }
+        List<String> terms = queryTerms(query);
+        List<CapabilityHit> sorted = new ArrayList<>(hits);
+        sorted.sort(fieldPriorityComparator(terms));
+        if (sorted.size() <= limit) {
+            return sorted;
+        }
+        return List.copyOf(sorted.subList(0, limit));
+    }
+
+    private static Comparator<CapabilityHit> fieldPriorityComparator(List<String> terms) {
+        return (a, b) -> {
+            int tierA = fieldMatchTier(a, terms);
+            int tierB = fieldMatchTier(b, terms);
+            if (tierA != tierB) {
+                return Integer.compare(tierA, tierB);
+            }
+            int scoreCmp = compareScoresWithinTier(a.score(), b.score());
+            if (scoreCmp != 0) {
+                return scoreCmp;
+            }
+            return a.title().compareToIgnoreCase(b.title());
+        };
+    }
+
+    /** 0=title, 1=tags, 2=summary, 3=entry, 4=id；多词取最优档。 */
+    static int fieldMatchTier(CapabilityHit hit, List<String> terms) {
+        if (terms.isEmpty()) {
+            return 5;
+        }
+        int best = 5;
+        for (String term : terms) {
+            best = Math.min(best, fieldMatchTier(hit, term));
+        }
+        return best;
+    }
+
+    private static int fieldMatchTier(CapabilityHit hit, String term) {
+        if (containsIgnoreCase(hit.title(), term)) {
+            return 0;
+        }
+        if (containsIgnoreCase(hit.tags(), term)) {
+            return 1;
+        }
+        if (containsIgnoreCase(hit.summary(), term)) {
+            return 2;
+        }
+        if (containsIgnoreCase(hit.entry(), term)) {
+            return 3;
+        }
+        if (containsIgnoreCase(hit.id(), term)) {
+            return 4;
+        }
+        return 5;
+    }
+
+    /** bm25 越小越好；LIKE 档位分为正，越大越好。 */
+    private static int compareScoresWithinTier(double scoreA, double scoreB) {
+        if (scoreA >= 0 && scoreB >= 0) {
+            return Double.compare(scoreB, scoreA);
+        }
+        return Double.compare(scoreA, scoreB);
+    }
+
+    private static boolean containsIgnoreCase(String haystack, String needle) {
+        if (haystack == null || needle == null || needle.isEmpty()) {
+            return false;
+        }
+        return haystack.toLowerCase(Locale.ROOT).contains(needle);
     }
 
     private static void appendKindFilter(StringBuilder sql, List<Object> params, List<String> kinds) {
@@ -307,6 +446,7 @@ public final class CapabilityIndexStore {
                             rs.getString("kind"),
                             rs.getString("title"),
                             rs.getString("summary"),
+                            rs.getString("tags"),
                             rs.getString("entry"),
                             rs.getString("doc_path"),
                             rs.getString("platforms"),
@@ -380,6 +520,7 @@ public final class CapabilityIndexStore {
         String kind,
         String title,
         String summary,
+        String tags,
         String entry,
         String docPath,
         String platforms,
