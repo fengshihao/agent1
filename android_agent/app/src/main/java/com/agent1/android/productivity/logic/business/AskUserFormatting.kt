@@ -14,6 +14,8 @@ object AskUserFormatting {
         val prompt: String,
         val type: String,
         val options: List<String>,
+        val required: Boolean = false,
+        val defaultValue: String = "",
     )
 
     data class Request(
@@ -51,7 +53,9 @@ object AskUserFormatting {
                 if (id.isEmpty() || prompt.isEmpty()) continue
                 val type = q.optString("type", "text").ifBlank { "text" }
                 val options = q.optJSONArray("options").toStringList()
-                add(Question(id, prompt, type, options))
+                val required = q.optBoolean("required", false)
+                val defaultValue = q.optString("default", "").trim()
+                add(Question(id, prompt, type, options, required, defaultValue))
             }
         }
         if (questions.isEmpty()) return null
@@ -60,21 +64,15 @@ object AskUserFormatting {
         return Request(title, allowFreeform, questions)
     }
 
-    fun formatForChat(request: Request): String {
+    fun summaryForBubble(request: Request): String {
         return buildString {
             val heading = request.title?.ifBlank { null } ?: "需要您补充以下信息"
-            appendLine("**$heading**")
-            appendLine()
+            appendLine(heading)
             request.questions.forEachIndexed { index, q ->
                 appendLine("${index + 1}. ${q.prompt}")
-                if (q.options.isNotEmpty()) {
-                    appendLine("   选项：${q.options.joinToString(" / ")}")
-                }
             }
-            if (request.allowFreeformReply) {
-                appendLine()
-                append("请在下方输入框回复（可逐条回答，也可自由说明）。")
-            }
+            appendLine()
+            append("请在输入区上方的表单中回答。")
         }.trim()
     }
 

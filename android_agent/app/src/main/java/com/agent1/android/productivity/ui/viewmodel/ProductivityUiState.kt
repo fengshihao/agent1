@@ -1,8 +1,17 @@
 package com.agent1.android.productivity.ui.viewmodel
 
+import com.agent1.android.productivity.logic.business.AskUserFormatting
 import com.agent1.javaagent.modelcatalog.QwenModelInfo
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
+
+data class AskUserFormState(
+    val request: AskUserFormatting.Request,
+    val textAnswers: Map<String, String> = emptyMap(),
+    val singleChoice: Map<String, String> = emptyMap(),
+    val multiChoice: Map<String, Set<String>> = emptyMap(),
+    val validationError: String? = null,
+)
 
 data class SessionListUiState(
     val sessions: List<SessionMeta> = emptyList(),
@@ -27,8 +36,8 @@ data class ChatLine(
     val workspaceFilePaths: List<String> = emptyList(),
     /** 助手消息含 [需要用户选文件] 等标记时，展示「选择文件」按钮。 */
     val requestUserPickFiles: Boolean = false,
-    /** {@code ask_user} 结构化提问；不渲染为普通工具气泡。 */
-    val askUserRequest: Boolean = false,
+    /** 历史消息中的 ask_user 摘要（只读）。 */
+    val askUserForm: AskUserFormatting.Request? = null,
     /** 不在聊天气泡列表中展示（已由助手气泡承载）。 */
     val hideInChat: Boolean = false,
 )
@@ -55,4 +64,6 @@ data class ChatUiState(
     /** 本会话用户已导入、可供 AI read_file 的路径。 */
     val accessibleFilePaths: List<String> = emptyList(),
     val fileImportMessage: String? = null,
+    /** 当前待回复的 ask_user 表单（输入区上方）。 */
+    val pendingAskUser: AskUserFormState? = null,
 )

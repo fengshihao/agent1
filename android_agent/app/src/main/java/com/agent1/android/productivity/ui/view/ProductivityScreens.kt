@@ -260,6 +260,18 @@ fun ChatScreen(
                         AccessibleFilesStrip(paths = state.accessibleFilePaths)
                         AgentHairline()
                     }
+                    state.pendingAskUser?.let { form ->
+                        AskUserFormPanel(
+                            form = form,
+                            enabled = state.configError == null && !state.isRunning,
+                            validationError = form.validationError,
+                            onTextChange = viewModel::onAskUserTextChange,
+                            onSingleSelect = viewModel::onAskUserSingleSelect,
+                            onMultiToggle = viewModel::onAskUserMultiToggle,
+                            onSubmit = viewModel::submitAskUserForm,
+                        )
+                        AgentHairline()
+                    }
                     ChatComposer(
                         value = input,
                         onValueChange = { input = it },
@@ -827,14 +839,6 @@ private fun MessageBubble(
                     ) {
                         Text("选择文件")
                     }
-                }
-                if (line.askUserRequest) {
-                    Text(
-                        "等待您的回复后助手将继续执行。",
-                        modifier = Modifier.padding(top = 8.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
                 }
             }
         }

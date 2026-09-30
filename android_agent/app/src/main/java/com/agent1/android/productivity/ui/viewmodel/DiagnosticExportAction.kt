@@ -80,18 +80,8 @@ internal fun ViewModel.launchBriefChatExport(
         text.fold(
             onSuccess = { body ->
                 copyBriefToClipboard(activity, body)
-                val shared = runCatching {
-                    activity.startActivity(briefChatShareIntent(activity, body, sessionTitle))
-                }
                 onBusy(false)
-                onMessage(
-                    when {
-                        shared.isSuccess ->
-                            "简报已复制到剪贴板；分享面板已打开，也可直接粘贴到 Cursor"
-                        else ->
-                            "简报已复制到剪贴板（分享面板未能打开：${shared.exceptionOrNull()?.message ?: "未知错误"}）"
-                    },
-                )
+                onMessage("简报已复制到剪贴板，可直接粘贴到 Cursor")
             },
             onFailure = { error ->
                 onBusy(false)
