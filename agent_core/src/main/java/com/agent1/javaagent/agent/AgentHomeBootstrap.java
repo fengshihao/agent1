@@ -1,5 +1,6 @@
 package com.agent1.javaagent.agent;
 
+import com.agent1.javaagent.capability.CapabilityIndexStore;
 import com.agent1.javaagent.util.PathIo;
 import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -52,6 +53,7 @@ public final class AgentHomeBootstrap {
         ensureManifest(root);
         ensureBundledSystemDocs(root);
         OfficeCatalogScripts.ensure(root);
+        CapabilityIndexStore.ensure(root);
     }
 
     private static void ensureManifest(Path root) {

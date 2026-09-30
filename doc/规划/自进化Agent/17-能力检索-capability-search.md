@@ -33,13 +33,15 @@
 
 ---
 
-## 2. 存储：文档 + 索引（混合）
+## 2. 存储：文档 + SQLite 索引（混合）
 
-**结论**：正文用 **Markdown / 仓库文件**；机器检索用 **JSONL 索引**（「类数据库」，不必先上 SQL）。
+**结论**：正文用 **Markdown / 仓库文件**；机器检索用 **SQLite（FTS5 + 权重）**。  
+**Seed** 仍用可 review 的 JSONL（classpath），bootstrap 时 **import → DB**。
 
 | 层 | 路径 | 维护方 |
 |----|------|--------|
-| **索引** | `<agentRoot>/docs/capabilities/search-index.jsonl` | Bootstrap 种子 + `CapabilityIndexBuilder` 重建 |
+| **索引库** | `<agentRoot>/docs/capabilities/capabilities.db` | `CapabilityIndexStore.ensure/rebuild` |
+| **种子** | `agent-home/capabilities/search-index.seed.jsonl` | 随 core 发布；不直接编辑 DB |
 | **人类说明** | `docs/capabilities/README.md` | 手改 + 规划文档 |
 | **长文档** | `docs/system/*.md`、Weizhi 外链摘要 | agent-home 拷贝 + 版本策略 |
 | **可执行体** | `shared/catalog/**`、workspace scripts | sync / promote |
@@ -115,8 +117,8 @@
 
 ### 4.3 行为
 
-1. 加载 `search-index.jsonl`（内存缓存 mtime；文件缺失 → 触发 **lazy build** 或返回「索引未就绪 + 如何 bootstrap」）。
-2. **Phase A 检索**：query 分词 + `tags`/`title`/`summary`/`entry` 子串匹配 + kind/platform 过滤；按简单得分排序。
+1. 打开 `capabilities.db`（缺失或 schema 过旧 → `ensure` 从 seed 重建）。
+2. **Phase A 检索**：FTS5 `MATCH` + `bm25()` × `weight`；无命中则 **LIKE 回退**；kind/platform 过滤。
 3. 返回 **纯文本**（模型友好）+ 可选 `details` JSON（UI/日志用），每条含 `id kind title summary entry doc_hint`。
 4. **不**返回 SKILL 全文或 MCP 全 schema。
 
