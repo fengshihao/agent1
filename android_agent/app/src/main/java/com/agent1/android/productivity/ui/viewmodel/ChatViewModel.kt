@@ -8,7 +8,11 @@ import com.agent1.javaagent.event.AgentEventType
 import com.agent1.javaagent.event.EventPayloads
 import com.agent1.javaagent.model.AgentMessage
 import com.agent1.javaagent.modelcatalog.QwenModelCatalog
+import com.agent1.android.productivity.logic.business.AskUserFormatting
+import com.agent1.android.productivity.logic.business.AskUserPendingDetector
+import com.agent1.android.productivity.logic.business.AskUserReplyFormatter
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
+import org.json.JSONObject
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
@@ -78,8 +82,10 @@ class ChatViewModel(
                 val messages = gateway.loadTranscript(sessionId)
                 val ws = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
                 val accessible = gateway.listAccessibleFilePaths(sessionId)
-                Pair(messages.map { it.toChatLine(ws) }, accessible)
+                val pending = AskUserPendingDetector.detectPendingRequest(messages)
+                Triple(messages.flatMap { it.toChatLines(ws) }, accessible, pending)
             }
+            val pendingForm = built.third?.let { initialAskUserForm(it) }
             _state.value = _state.value.copy(
                 lines = built.first,
                 accessibleFilePaths = built.second,
@@ -89,6 +95,7 @@ class ChatViewModel(
                 isLoadingTranscript = false,
                 workspacePath = wsPath,
                 transcriptLoadError = null,
+                pendingAskUser = pendingForm,
             )
         } catch (e: Exception) {
             _state.value = _state.value.copy(
@@ -118,6 +125,7 @@ class ChatViewModel(
             streamingReasoning = "",
             toolTrail = emptyList(),
             runActivityLabel = "正在连接模型…",
+            pendingAskUser = null,
             lines = _state.value.lines + ChatLine(role = "user", content = trimmed),
         )
         viewModelScope.launch {
@@ -274,15 +282,19 @@ class ChatViewModel(
             AgentEventType.TOOL_EXECUTION_END -> {
                 val payload = event.payload as EventPayloads.ToolExecutionEnd
                 val preview = payload.result?.text?.take(120) ?: ""
+                val pending = payload.result?.takeIf { it.stopRunWaitingUser() }?.details?.let { node ->
+                    AskUserFormatting.parseRequest(JSONObject(node.toString()))
+                }
                 _state.value = _state.value.copy(
                     runActivityLabel = if (
                         _state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()
                     ) {
-                        "工具已完成"
+                        if (pending != null) "等待您回答…" else "工具已完成"
                     } else {
                         null
                     },
                     toolTrail = _state.value.toolTrail + "✓ ${preview.replace('\n', ' ')}",
+                    pendingAskUser = pending?.let { initialAskUserForm(it) } ?: _state.value.pendingAskUser,
                 )
             }
             AgentEventType.TURN_END -> {
@@ -298,35 +310,129 @@ class ChatViewModel(
         }
     }
 
-    private fun AgentMessage.toChatLine(workspaceRoot: java.nio.file.Path?): ChatLine {
+    private fun AgentMessage.toChatLines(workspaceRoot: java.nio.file.Path?): List<ChatLine> {
         val tool = AgentMessage.ROLE_TOOL_RESULT == role
         if (tool) {
+            if (AskUserFormatting.isPauseSummary(content)) {
+                return listOf(
+                    ChatLine(
+                        role = role,
+                        content = content.trim(),
+                        isTool = true,
+                        hideInChat = true,
+                    ),
+                )
+            }
             val display = ChatTranscriptFormatting.formatToolResult(content, workspaceRoot)
-            return ChatLine(
-                role = role,
-                content = display.summary,
-                reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
-                isTool = true,
-                workspaceImagePath = display.workspaceImagePath,
-                imageWarning = display.imageWarning,
-                workspaceFilePaths = display.workspaceFilePaths,
+            return listOf(
+                ChatLine(
+                    role = role,
+                    content = display.summary,
+                    reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
+                    isTool = true,
+                    workspaceImagePath = display.workspaceImagePath,
+                    imageWarning = display.imageWarning,
+                    workspaceFilePaths = display.workspaceFilePaths,
+                ),
             )
         }
+        val askCall = toolCalls.firstOrNull { it.name == AskUserFormatting.TOOL_NAME }
+        val askRequest = askCall?.let { AskUserFormatting.parseRequestFromToolCall(it) }
         val files = ChatTranscriptFormatting.extractMarkdownFileLinks(content)
         val pick = role == AgentMessage.ROLE_ASSISTANT && UserFileRequestMarkers.containsRequest(content)
-        val display = if (pick) {
+        val baseDisplay = if (pick) {
             UserFileRequestMarkers.stripForDisplay(content)
         } else {
             content
         }
-        return ChatLine(
-            role = role,
-            content = ChatTranscriptFormatting.truncateForUiDisplay(display),
-            reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
-            isTool = false,
-            workspaceFilePaths = files,
-            requestUserPickFiles = pick,
+        val askText = askRequest?.let { AskUserFormatting.summaryForBubble(it) }
+        val merged = when {
+            baseDisplay.isNotBlank() && askText != null -> "${baseDisplay.trim()}\n\n$askText"
+            askText != null -> askText
+            else -> baseDisplay
+        }
+        if (merged.isBlank() && askRequest == null) {
+            return emptyList()
+        }
+        return listOf(
+            ChatLine(
+                role = role,
+                content = ChatTranscriptFormatting.truncateForUiDisplay(merged),
+                reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
+                isTool = false,
+                workspaceFilePaths = files,
+                requestUserPickFiles = pick,
+                askUserForm = askRequest,
+            ),
         )
+    }
+
+    fun onAskUserTextChange(questionId: String, value: String) {
+        val form = _state.value.pendingAskUser ?: return
+        _state.value = _state.value.copy(
+            pendingAskUser = form.copy(
+                textAnswers = form.textAnswers + (questionId to value),
+                validationError = null,
+            ),
+        )
+    }
+
+    fun onAskUserSingleSelect(questionId: String, option: String) {
+        val form = _state.value.pendingAskUser ?: return
+        _state.value = _state.value.copy(
+            pendingAskUser = form.copy(
+                singleChoice = form.singleChoice + (questionId to option),
+                validationError = null,
+            ),
+        )
+    }
+
+    fun onAskUserMultiToggle(questionId: String, option: String) {
+        val form = _state.value.pendingAskUser ?: return
+        val current = form.multiChoice[questionId].orEmpty()
+        val next = if (option in current) current - option else current + option
+        _state.value = _state.value.copy(
+            pendingAskUser = form.copy(
+                multiChoice = form.multiChoice + (questionId to next),
+                validationError = null,
+            ),
+        )
+    }
+
+    fun submitAskUserForm() {
+        val form = _state.value.pendingAskUser ?: return
+        if (_state.value.isRunning) return
+        val error = AskUserReplyFormatter.validateRequired(
+            form.request,
+            form.textAnswers,
+            form.singleChoice,
+            form.multiChoice,
+        )
+        if (error != null) {
+            _state.value = _state.value.copy(
+                pendingAskUser = form.copy(validationError = error),
+            )
+            return
+        }
+        val body = AskUserReplyFormatter.format(
+            form.request,
+            form.textAnswers,
+            form.singleChoice,
+            form.multiChoice,
+        )
+        sendMessage(body)
+    }
+
+    private fun initialAskUserForm(request: AskUserFormatting.Request): AskUserFormState {
+        val text = linkedMapOf<String, String>()
+        val single = linkedMapOf<String, String>()
+        for (q in request.questions) {
+            when (q.type) {
+                "text" -> if (q.defaultValue.isNotEmpty()) text[q.id] = q.defaultValue
+                "single_choice" -> if (q.defaultValue.isNotEmpty()) single[q.id] = q.defaultValue
+            }
+        }
+        return AskUserFormState(request, text, single)
     }
 
     fun onUserPickedFiles(uris: List<Uri>) {

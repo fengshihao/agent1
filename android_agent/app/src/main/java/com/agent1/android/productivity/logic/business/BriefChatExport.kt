@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.logic.business
 
 import com.agent1.javaagent.model.AgentMessage
+import com.agent1.javaagent.model.ToolCall
 
 /** 供粘贴到 Cursor / 云端 Agent 的简略会话文本（不含完整工具 JSON 与诊断日志）。 */
 object BriefChatExport {
@@ -13,11 +14,23 @@ object BriefChatExport {
     private val codeFence = Regex("```[\\s\\S]*?```")
     private val markdownTable = Regex("(?m)^\\|.+\\|\\s*$")
 
-    fun format(messages: List<AgentMessage>, sessionTitle: String): String {
+    data class Context(
+        val sessionId: String = "",
+        val modelLabel: String = "",
+        val appVersion: String = "",
+    )
+
+    fun format(
+        messages: List<AgentMessage>,
+        sessionTitle: String,
+        context: Context = Context(),
+    ): String {
         if (messages.isEmpty()) {
             return "（空会话）"
         }
+        val toolCallsById = indexToolCalls(messages)
         return buildString {
+            appendContextHeader(context)
             val title = sessionTitle.trim()
             if (title.isNotEmpty()) {
                 appendLine("# $title")
@@ -26,12 +39,34 @@ object BriefChatExport {
             for (msg in messages) {
                 when (msg.role) {
                     AgentMessage.ROLE_USER -> appendUser(msg)
-                    AgentMessage.ROLE_ASSISTANT -> appendAssistant(msg)
-                    AgentMessage.ROLE_TOOL_RESULT -> appendTool(msg)
+                    AgentMessage.ROLE_ASSISTANT -> appendAssistant(msg, toolCallsById)
+                    AgentMessage.ROLE_TOOL_RESULT -> appendTool(msg, toolCallsById)
                     else -> Unit
                 }
             }
         }.trimEnd()
+    }
+
+    private fun indexToolCalls(messages: List<AgentMessage>): Map<String, ToolCall> {
+        val map = linkedMapOf<String, ToolCall>()
+        for (msg in messages) {
+            if (msg.role != AgentMessage.ROLE_ASSISTANT) continue
+            for (call in msg.toolCalls) {
+                map[call.id] = call
+            }
+        }
+        return map
+    }
+
+    private fun StringBuilder.appendContextHeader(context: Context) {
+        val parts = buildList {
+            if (context.sessionId.isNotBlank()) add("session=${context.sessionId}")
+            if (context.modelLabel.isNotBlank()) add("model=${context.modelLabel}")
+            if (context.appVersion.isNotBlank()) add("app=${context.appVersion}")
+        }
+        if (parts.isEmpty()) return
+        appendLine("<!-- agent1 brief · ${parts.joinToString(" · ")} -->")
+        appendLine()
     }
 
     /** 压缩助手长文：去掉大块代码/表格细节，必要时保留首尾摘要。 */
@@ -73,24 +108,49 @@ object BriefChatExport {
         appendLine()
     }
 
-    private fun StringBuilder.appendAssistant(msg: AgentMessage) {
+    private fun StringBuilder.appendAssistant(
+        msg: AgentMessage,
+        toolCallsById: Map<String, ToolCall>,
+    ) {
         val text = compressAssistantContent(msg.content)
-        if (text.isEmpty()) return
+        val toolDigests = msg.toolCalls.mapNotNull { call ->
+            if (call.name == AskUserFormatting.TOOL_NAME) return@mapNotNull null
+            AskUserFormatting.briefToolCallLine(call)
+        }
+        if (text.isEmpty() && toolDigests.isEmpty()) return
         appendLine("**助手**")
-        appendLine(text)
+        if (text.isNotEmpty()) {
+            appendLine(text)
+        }
+        for (digest in toolDigests) {
+            appendLine()
+            appendLine(digest)
+        }
         appendLine()
     }
 
-    private fun StringBuilder.appendTool(msg: AgentMessage) {
+    private fun StringBuilder.appendTool(
+        msg: AgentMessage,
+        toolCallsById: Map<String, ToolCall>,
+    ) {
+        val call = msg.toolCallId?.let { toolCallsById[it] }
+        val toolName = call?.name ?: "tool"
+        if (call?.name == AskUserFormatting.TOOL_NAME) {
+            val req = call?.let { AskUserFormatting.parseRequestFromToolCall(it) }
+            if (req != null) {
+                appendLine(AskUserFormatting.formatForBrief(req, msg.content.trim()))
+                appendLine()
+                return
+            }
+        }
         val summary = ChatTranscriptFormatting.formatToolResult(msg.content, null).summary
         if (msg.isError) {
-            appendLine("**工具异常** $summary")
+            appendLine("**工具异常 · $toolName** $summary")
             appendLine()
             return
         }
-        if (summary.length <= 120) {
-            appendLine("_[工具]_ $summary")
-            appendLine()
-        }
+        if (summary.isBlank()) return
+        appendLine("_[工具 · $toolName]_ $summary")
+        appendLine()
     }
 }

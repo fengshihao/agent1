@@ -260,6 +260,18 @@ fun ChatScreen(
                         AccessibleFilesStrip(paths = state.accessibleFilePaths)
                         AgentHairline()
                     }
+                    state.pendingAskUser?.let { form ->
+                        AskUserFormPanel(
+                            form = form,
+                            enabled = state.configError == null && !state.isRunning,
+                            validationError = form.validationError,
+                            onTextChange = viewModel::onAskUserTextChange,
+                            onSingleSelect = viewModel::onAskUserSingleSelect,
+                            onMultiToggle = viewModel::onAskUserMultiToggle,
+                            onSubmit = viewModel::submitAskUserForm,
+                        )
+                        AgentHairline()
+                    }
                     ChatComposer(
                         value = input,
                         onValueChange = { input = it },
@@ -591,9 +603,10 @@ private fun ChatMessageList(
     pickFilesEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val visibleLines = state.lines.filterNot { it.hideInChat }
     val listState = rememberLazyListState()
     LaunchedEffect(
-        state.lines.size,
+        visibleLines.size,
         state.toolTrail.size,
         state.streamingText.length,
         state.streamingReasoning.length,
@@ -628,13 +641,13 @@ private fun ChatMessageList(
         contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
     ) {
         items(
-            count = state.lines.size,
+            count = visibleLines.size,
             key = { index ->
-                val line = state.lines[index]
+                val line = visibleLines[index]
                 "$index-${line.role}-${line.isTool}-${line.content.hashCode()}"
             },
         ) { index ->
-            val line = state.lines[index]
+            val line = visibleLines[index]
             val useMarkdown = !line.isTool &&
                 line.role != "user" &&
                 ChatTranscriptFormatting.shouldRenderAsMarkdown(line.content)
