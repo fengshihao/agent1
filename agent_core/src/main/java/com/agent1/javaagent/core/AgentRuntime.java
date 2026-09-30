@@ -62,6 +62,7 @@ public final class AgentRuntime implements Closeable {
     private volatile ProductivityCoach productivityCoach;
     private volatile Path runAuditAgentRoot;
     private volatile RunLogContext runAuditLogContext;
+    private volatile boolean stopRunWaitingUser;
 
     public AgentRuntime(AgentOptions options, LlmClient llmClient) {
         this(options, llmClient, new ObjectMapper());
@@ -195,6 +196,7 @@ public final class AgentRuntime implements Closeable {
         emit(AgentEventType.AGENT_START, state.snapshot());
         int turnIndex = 0;
         int toolCallCount = 0;
+        stopRunWaitingUser = false;
 
         try {
             while (!token.isCancelled() && turnIndex < maxTurnsPerRun) {
@@ -227,10 +229,17 @@ public final class AgentRuntime implements Closeable {
                         }
                         toolResults.add(executeToolCall(toolCall, token));
                         toolCallCount += 1;
+                        if (stopRunWaitingUser) {
+                            break;
+                        }
                     }
                 }
 
                 emit(AgentEventType.TURN_END, new EventPayloads.TurnEnd(assistantMessage, toolResults));
+                if (stopRunWaitingUser) {
+                    state.setError(RunOutcome.waitingUserMessage());
+                    break;
+                }
                 if (assistantResponse.getToolCalls().isEmpty()) {
                     break;
                 }
@@ -452,6 +461,10 @@ public final class AgentRuntime implements Closeable {
         }
         if (toolResult == null) {
             toolResult = ToolExecutionResult.text(errorMessage == null ? "" : errorMessage);
+        }
+
+        if (!isError && toolResult.stopRunWaitingUser()) {
+            stopRunWaitingUser = true;
         }
 
         AgentMessage toolResultMessage = AgentMessage.toolResult(toolCall.getId(), toolResult.getText(), isError);

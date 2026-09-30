@@ -8,7 +8,13 @@ import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.event.AgentEventType;
 import com.agent1.javaagent.event.EventPayloads;
 import com.agent1.javaagent.model.AgentMessage;
+import com.agent1.javaagent.model.ToolCall;
+import com.agent1.javaagent.run.RunState;
+import com.agent1.javaagent.tool.ToolExecutionResult;
+import com.agent1.javaagent.tool.agent.AskUserTool;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,6 +48,45 @@ class AgentEventJsonlBridgeTest {
         assertEquals("run_completed", end.get("type").asText());
         assertEquals(2, end.get("seq").asInt());
         assertEquals("ok", end.get("status").asText());
+    }
+
+    @Test
+    void askUserWritesUserInputRequestedAndRunWaitingUser() throws Exception {
+        Path logFile = temp.resolve("events.jsonl");
+        RunLogContext ctx = new RunLogContext("s1", "r1", "", "main");
+        AgentEventJsonlBridge bridge = new AgentEventJsonlBridge(ctx, logFile);
+        bridge.setDeferRunTerminal(true);
+
+        ObjectNode request = MAPPER.createObjectNode();
+        request.put("kind", "ask_user_request");
+        ArrayNode questions = MAPPER.createArrayNode();
+        ObjectNode q = MAPPER.createObjectNode();
+        q.put("id", "origin");
+        q.put("prompt", "出发地");
+        questions.add(q);
+        request.set("questions", questions);
+
+        ToolCall call = new ToolCall("tc-ask", AskUserTool.TOOL_NAME, "{}");
+        bridge.onEvent(new AgentEvent(AgentEventType.TOOL_EXECUTION_START, new EventPayloads.ToolExecutionStart(call)));
+        bridge.onEvent(new AgentEvent(
+            AgentEventType.TOOL_EXECUTION_END,
+            new EventPayloads.ToolExecutionEnd(
+                "tc-ask",
+                ToolExecutionResult.waitingForUser("paused", request),
+                false,
+                null
+            )
+        ));
+        bridge.writeRunTerminal(RunState.WAITING_USER, "等待用户输入", 3);
+
+        List<String> lines = Files.readAllLines(logFile);
+        assertEquals(4, lines.size());
+        JsonNode requested = MAPPER.readTree(lines.get(2));
+        JsonNode terminal = MAPPER.readTree(lines.get(3));
+        assertEquals("user_input_requested", requested.get("type").asText());
+        assertEquals("origin", requested.get("request").get("questions").get(0).get("id").asText());
+        assertEquals("run_waiting_user", terminal.get("type").asText());
+        assertEquals("waiting_user", terminal.get("status").asText());
     }
 
     @Test

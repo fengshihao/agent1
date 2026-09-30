@@ -34,7 +34,8 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String TOOL_STRATEGY = """
         工具策略：大段内容写入工作区文件，不要在回复里重复粘贴全文。
-        缺少关键信息时向用户提问，不要编造事实。
+        缺少关键信息时调用 ask_user 发起结构化提问并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。
+        用户未确认前不要编造事实；用户下一条消息将开启新的 Run。
         """.trim();
 
     static final String WORK_MODE_OFFICE_DOCX = """

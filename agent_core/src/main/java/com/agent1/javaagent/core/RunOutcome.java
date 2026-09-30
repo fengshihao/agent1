@@ -4,6 +4,7 @@ package com.agent1.javaagent.core;
 public final class RunOutcome {
 
     public static final String PAUSED_PREFIX = "对话回合超过上限";
+    public static final String WAITING_USER_PREFIX = "等待用户输入";
     public static final String CANCELLED_MESSAGE = "执行已取消";
 
     private static final String PROGRESS_SUMMARY_USER =
@@ -26,5 +27,13 @@ public final class RunOutcome {
 
     public static boolean isCancelled(String error) {
         return CANCELLED_MESSAGE.equals(error);
+    }
+
+    public static String waitingUserMessage() {
+        return WAITING_USER_PREFIX + "，本轮已结束；用户回复后将开启新的 Run。";
+    }
+
+    public static boolean isWaitingUser(String error) {
+        return error != null && error.contains(WAITING_USER_PREFIX);
     }
 }

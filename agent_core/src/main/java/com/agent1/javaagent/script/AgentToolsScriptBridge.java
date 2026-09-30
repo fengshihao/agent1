@@ -15,6 +15,7 @@ import java.util.Set;
 public final class AgentToolsScriptBridge implements ScriptToolBridge {
 
     static final String EXCLUDED_TOOL = "execute_script";
+    static final String EXCLUDED_ASK_USER = "ask_user";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final ToolUpdateListener NO_UPDATE = update -> {
@@ -28,7 +29,7 @@ public final class AgentToolsScriptBridge implements ScriptToolBridge {
         this.tools = List.copyOf(tools);
         Set<String> names = new LinkedHashSet<>();
         for (AgentTool tool : this.tools) {
-            if (!EXCLUDED_TOOL.equals(tool.name())) {
+            if (!EXCLUDED_TOOL.equals(tool.name()) && !EXCLUDED_ASK_USER.equals(tool.name())) {
                 names.add(tool.name());
             }
         }
