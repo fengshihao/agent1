@@ -49,7 +49,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -559,7 +558,6 @@ private fun SessionCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(2.dp, RoundedCornerShape(14.dp), clip = false)
             .clickable(onClick = onOpen),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -895,12 +893,11 @@ private fun BubbleShell(
         Column(
             modifier = Modifier
                 .widthIn(max = if (wide) 340.dp else 300.dp)
-                .shadow(if (alignEnd) 0.dp else 1.dp, RoundedCornerShape(12.dp))
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(background)
                 .then(
                     if (borderColor.alpha > 0f) {
-                        Modifier.border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                        Modifier.border(1.dp, borderColor, RoundedCornerShape(16.dp))
                     } else {
                         Modifier
                     },
