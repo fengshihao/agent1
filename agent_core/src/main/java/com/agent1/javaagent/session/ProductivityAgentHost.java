@@ -67,6 +67,7 @@ public final class ProductivityAgentHost implements Closeable {
     private final String scriptPromptAppend;
     private final ScriptToolBridge scriptToolBridge;
     private final WorkspaceToolProvider extraTools;
+    private volatile String sessionEnvironmentSupplement = "";
     private ProductivityCoach productivityCoach;
     private String activeSessionId;
 
@@ -186,6 +187,21 @@ public final class ProductivityAgentHost implements Closeable {
     public void switchSession(String sessionId) {
         sessionStore.getSession(sessionId);
         this.activeSessionId = sessionId;
+        refreshRuntimeForActiveSession();
+    }
+
+    /** 宿主注入的环境摘要（如 Android 会话可访问文件列表），在 {@link #refreshRuntimeForActiveSession} 时写入系统提示词。 */
+    public void setSessionEnvironmentSupplement(String supplement) {
+        this.sessionEnvironmentSupplement = supplement == null ? "" : supplement.trim();
+    }
+
+    /** 用户通过 UI 添加附件等：写入 transcript 并刷新 runtime，不触发 LLM Run。 */
+    public void appendUserMessageToTranscript(String text) {
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("message text required");
+        }
+        String sessionId = requireActiveSession();
+        sessionStore.appendMessage(sessionId, "ui", AgentMessage.user(text));
         refreshRuntimeForActiveSession();
     }
 
@@ -389,7 +405,8 @@ public final class ProductivityAgentHost implements Closeable {
                 agentRoot,
                 scriptTool,
                 scriptToolBridge != null,
-                OfficeCatalogScripts.isOfficeReady(agentRoot)
+                OfficeCatalogScripts.isOfficeReady(agentRoot),
+                sessionEnvironmentSupplement
             ));
         runtime.setTools(buildTools(sessionId, workspace));
         runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace));

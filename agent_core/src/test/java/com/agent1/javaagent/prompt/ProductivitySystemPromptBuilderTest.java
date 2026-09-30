@@ -94,4 +94,19 @@ class ProductivitySystemPromptBuilderTest {
         assertFalse(prompt.contains("write_file"));
         assertTrue(prompt.contains("只读"));
     }
+
+    @Test
+    void environmentSupplementAppearsInEnvironmentSection() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(
+                temp.resolve("ws"),
+                temp.resolve("ar"),
+                false,
+                false,
+                false,
+                "- 本会话用户提供的可访问文件（read_file 相对路径）：\n  - imports/a.pdf"
+            );
+        assertTrue(prompt.contains("imports/a.pdf"));
+        assertTrue(prompt.contains("可访问文件"));
+    }
 }

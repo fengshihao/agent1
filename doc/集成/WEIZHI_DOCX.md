@@ -4,7 +4,7 @@
 https://github.com/fengshihao/weizhi/blob/master/docs/AGENT1_DOCX_INTEGRATION.md  
 
 **跟踪 Issue：** https://github.com/fengshihao/weizhi/issues/8  
-**标题层次（weizhi#11 → Agent1 #34）：** 同步 `docx.js` 后 Markdown `#` 标题带默认 H1/H2/H3 字号与 `word/styles.xml`。
+**标题层次（weizhi#11 / PR #12 已合并 master → Agent1 #34）：** catalog 与 `assets/office/docx.js` 对齐 weizhi `assets/office/docx.js`；Markdown `#` 标题带默认 H1/H2/H3 字号与 `word/styles.xml`。
 
 ---
 

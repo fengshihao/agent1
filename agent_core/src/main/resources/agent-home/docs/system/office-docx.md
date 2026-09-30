@@ -1,7 +1,7 @@
 # office-docx.md — Weizhi docx.js / docx-raw.js（Agent1）
 
 > 用法见系统提示；**本文是 API 参考**，用 read_agent_doc 分段阅读。脚本位于 agentRoot/shared/catalog/scripts/docx.js。
-> Weizhi 真源：https://github.com/fengshihao/weizhi/blob/master/docs/office-js-api.md
+> Weizhi 真源：https://github.com/fengshihao/weizhi/blob/master/docs/office-js-api.md（weizhi#11 / PR #12：`headingStyles`、内置标题层次）
 
 路径：`assets/office/docx.js`。QuickJS **ES module**，无 npm。
 
