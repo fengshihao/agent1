@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -223,12 +221,8 @@ fun ChatScreen(
                 }
             },
             bottomBar = {
-                // edge-to-edge 下用 adjustNothing + 仅 bottomBar 消费 IME，避免 adjustResize 与 imePadding 叠加把输入条顶得过高。
-                Column(
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .imePadding(),
-                ) {
+                // 非 edge-to-edge（decorFitsSystemWindows）下由 adjustResize 抬升窗口；勿再叠 imePadding。
+                Column {
                     if (state.isRunning) {
                         RunActivityStrip(
                             label = state.runActivityLabel ?: "等待助手…",
