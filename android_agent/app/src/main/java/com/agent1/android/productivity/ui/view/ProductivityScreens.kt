@@ -591,9 +591,10 @@ private fun ChatMessageList(
     pickFilesEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val visibleLines = state.lines.filterNot { it.hideInChat }
     val listState = rememberLazyListState()
     LaunchedEffect(
-        state.lines.size,
+        visibleLines.size,
         state.toolTrail.size,
         state.streamingText.length,
         state.streamingReasoning.length,
@@ -628,13 +629,13 @@ private fun ChatMessageList(
         contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
     ) {
         items(
-            count = state.lines.size,
+            count = visibleLines.size,
             key = { index ->
-                val line = state.lines[index]
+                val line = visibleLines[index]
                 "$index-${line.role}-${line.isTool}-${line.content.hashCode()}"
             },
         ) { index ->
-            val line = state.lines[index]
+            val line = visibleLines[index]
             val useMarkdown = !line.isTool &&
                 line.role != "user" &&
                 ChatTranscriptFormatting.shouldRenderAsMarkdown(line.content)
@@ -826,6 +827,14 @@ private fun MessageBubble(
                     ) {
                         Text("选择文件")
                     }
+                }
+                if (line.askUserRequest) {
+                    Text(
+                        "等待您的回复后助手将继续执行。",
+                        modifier = Modifier.padding(top = 8.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
         }

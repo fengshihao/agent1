@@ -8,6 +8,7 @@ import com.agent1.javaagent.event.AgentEventType
 import com.agent1.javaagent.event.EventPayloads
 import com.agent1.javaagent.model.AgentMessage
 import com.agent1.javaagent.modelcatalog.QwenModelCatalog
+import com.agent1.android.productivity.logic.business.AskUserFormatting
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
@@ -78,7 +79,7 @@ class ChatViewModel(
                 val messages = gateway.loadTranscript(sessionId)
                 val ws = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
                 val accessible = gateway.listAccessibleFilePaths(sessionId)
-                Pair(messages.map { it.toChatLine(ws) }, accessible)
+                Pair(messages.flatMap { it.toChatLines(ws) }, accessible)
             }
             _state.value = _state.value.copy(
                 lines = built.first,
@@ -298,34 +299,60 @@ class ChatViewModel(
         }
     }
 
-    private fun AgentMessage.toChatLine(workspaceRoot: java.nio.file.Path?): ChatLine {
+    private fun AgentMessage.toChatLines(workspaceRoot: java.nio.file.Path?): List<ChatLine> {
         val tool = AgentMessage.ROLE_TOOL_RESULT == role
         if (tool) {
+            if (AskUserFormatting.isPauseSummary(content)) {
+                return listOf(
+                    ChatLine(
+                        role = role,
+                        content = content.trim(),
+                        isTool = true,
+                        hideInChat = true,
+                    ),
+                )
+            }
             val display = ChatTranscriptFormatting.formatToolResult(content, workspaceRoot)
-            return ChatLine(
-                role = role,
-                content = display.summary,
-                reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
-                isTool = true,
-                workspaceImagePath = display.workspaceImagePath,
-                imageWarning = display.imageWarning,
-                workspaceFilePaths = display.workspaceFilePaths,
+            return listOf(
+                ChatLine(
+                    role = role,
+                    content = display.summary,
+                    reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
+                    isTool = true,
+                    workspaceImagePath = display.workspaceImagePath,
+                    imageWarning = display.imageWarning,
+                    workspaceFilePaths = display.workspaceFilePaths,
+                ),
             )
         }
+        val askCall = toolCalls.firstOrNull { it.name == AskUserFormatting.TOOL_NAME }
+        val askRequest = askCall?.let { AskUserFormatting.parseRequestFromToolCall(it) }
         val files = ChatTranscriptFormatting.extractMarkdownFileLinks(content)
         val pick = role == AgentMessage.ROLE_ASSISTANT && UserFileRequestMarkers.containsRequest(content)
-        val display = if (pick) {
+        val baseDisplay = if (pick) {
             UserFileRequestMarkers.stripForDisplay(content)
         } else {
             content
         }
-        return ChatLine(
-            role = role,
-            content = ChatTranscriptFormatting.truncateForUiDisplay(display),
-            reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
-            isTool = false,
-            workspaceFilePaths = files,
-            requestUserPickFiles = pick,
+        val askText = askRequest?.let { AskUserFormatting.formatForChat(it) }
+        val merged = when {
+            baseDisplay.isNotBlank() && askText != null -> "${baseDisplay.trim()}\n\n$askText"
+            askText != null -> askText
+            else -> baseDisplay
+        }
+        if (merged.isBlank() && askRequest == null) {
+            return emptyList()
+        }
+        return listOf(
+            ChatLine(
+                role = role,
+                content = ChatTranscriptFormatting.truncateForUiDisplay(merged),
+                reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
+                isTool = false,
+                workspaceFilePaths = files,
+                requestUserPickFiles = pick,
+                askUserRequest = askRequest != null,
+            ),
         )
     }
 

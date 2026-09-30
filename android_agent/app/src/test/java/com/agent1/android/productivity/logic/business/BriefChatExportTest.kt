@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.logic.business
 
 import com.agent1.javaagent.model.AgentMessage
+import com.agent1.javaagent.model.ToolCall
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -37,6 +38,32 @@ class BriefChatExportTest {
         assertTrue(out.contains("省略代码块"))
         assertTrue(out.contains("结论如下"))
         assertTrue(out.contains("收尾"))
+    }
+
+    @Test
+    fun format_includesAskUserQuestionsFromAssistantToolCall() {
+        val askArgs = """
+            {"title":"React PPT","questions":[
+              {"id":"audience","prompt":"听众是谁？","type":"text"},
+              {"id":"length","prompt":"页数","type":"single_choice","options":["5","10"]}
+            ]}
+        """.trimIndent()
+        val messages = listOf(
+            AgentMessage.user("给我生成一个PPT，介绍React模型。"),
+            AgentMessage.assistant(
+                "",
+                listOf(ToolCall("tc1", "ask_user", askArgs)),
+            ),
+            AgentMessage.toolResult(
+                "tc1",
+                "已向用户提出 2 个问题，Run 已暂停等待回复。",
+                false,
+            ),
+        )
+        val text = BriefChatExport.format(messages, "React PPT")
+        assertTrue(text.contains("听众是谁"))
+        assertTrue(text.contains("ask_user"))
+        assertTrue(text.contains("给我生成一个PPT"))
     }
 
     @Test

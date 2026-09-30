@@ -27,6 +27,10 @@ data class ChatLine(
     val workspaceFilePaths: List<String> = emptyList(),
     /** 助手消息含 [需要用户选文件] 等标记时，展示「选择文件」按钮。 */
     val requestUserPickFiles: Boolean = false,
+    /** {@code ask_user} 结构化提问；不渲染为普通工具气泡。 */
+    val askUserRequest: Boolean = false,
+    /** 不在聊天气泡列表中展示（已由助手气泡承载）。 */
+    val hideInChat: Boolean = false,
 )
 
 data class ChatUiState(
