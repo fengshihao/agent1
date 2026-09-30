@@ -672,6 +672,8 @@ private fun ChatMessageList(
                     ),
                     workspacePath = state.workspacePath,
                     markdown = false,
+                    onPickFiles = onPickFiles,
+                    pickFilesEnabled = false,
                 )
             }
         }

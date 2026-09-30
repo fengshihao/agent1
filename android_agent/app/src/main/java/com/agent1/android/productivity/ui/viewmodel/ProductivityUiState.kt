@@ -12,9 +12,6 @@ data class SessionListUiState(
     val isLoading: Boolean = false,
     val exportInProgress: Boolean = false,
     val exportMessage: String? = null,
-    /** 本会话用户已导入、可供 AI read_file 的路径。 */
-    val accessibleFilePaths: List<String> = emptyList(),
-    val fileImportMessage: String? = null,
 )
 
 data class ChatLine(
@@ -49,4 +46,7 @@ data class ChatUiState(
     val exportInProgress: Boolean = false,
     val exportMessage: String? = null,
     val transcriptLoadError: String? = null,
+    /** 本会话用户已导入、可供 AI read_file 的路径。 */
+    val accessibleFilePaths: List<String> = emptyList(),
+    val fileImportMessage: String? = null,
 )

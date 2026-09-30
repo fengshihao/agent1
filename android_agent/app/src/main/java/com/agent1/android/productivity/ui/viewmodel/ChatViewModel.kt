@@ -345,7 +345,7 @@ class ChatViewModel(
                     )
                 }
                 loadTranscriptIntoState(initialLoad = false)
-            } catch (e: Exception) {
+            } catch (e: RuntimeException) {
                 _state.value = _state.value.copy(
                     fileImportMessage = "导入失败：${e.message ?: e.javaClass.simpleName}",
                 )

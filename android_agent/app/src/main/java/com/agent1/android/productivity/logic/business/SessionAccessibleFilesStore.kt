@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.logic.business
 
 import android.content.Context
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Instant
@@ -29,7 +30,7 @@ object SessionAccessibleFilesStore {
         val file = metaFile(context, sessionId) ?: return emptyList()
         if (!Files.isRegularFile(file)) return emptyList()
         return try {
-            val root = JSONObject(Files.readString(file))
+            val root = JSONObject(readUtf8(file))
             val arr = root.optJSONArray("files") ?: return emptyList()
             buildList {
                 for (i in 0 until arr.length()) {
@@ -89,6 +90,13 @@ object SessionAccessibleFilesStore {
                     .put("addedAt", e.addedAt),
             )
         }
-        Files.writeString(sessionDir.resolve(FILE_NAME), JSONObject().put("files", arr).toString(2))
+        writeUtf8(sessionDir.resolve(FILE_NAME), JSONObject().put("files", arr).toString(2))
+    }
+
+    private fun readUtf8(path: Path): String =
+        Files.newInputStream(path).bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+
+    private fun writeUtf8(path: Path, content: String) {
+        Files.newOutputStream(path).bufferedWriter(StandardCharsets.UTF_8).use { it.write(content) }
     }
 }
