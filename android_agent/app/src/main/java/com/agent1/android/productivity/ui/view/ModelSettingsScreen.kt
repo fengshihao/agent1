@@ -14,14 +14,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,7 +60,7 @@ fun ModelSettingsScreen(
             subtitle = "Key / Base URL / 模型均保存在本机",
             leading = {
                 TopBarIconButton(
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    icon = Icons.Filled.ArrowBack,
                     contentDescription = "返回",
                     onClick = onBack,
                 )
@@ -131,7 +129,7 @@ fun ModelSettingsScreen(
                 trailingIcon = {
                     IconButton(onClick = { revealKey = !revealKey }, modifier = Modifier.size(36.dp)) {
                         Icon(
-                            if (revealKey) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                            if (revealKey) AgentIcons.VisibilityOff else AgentIcons.Visibility,
                             contentDescription = if (revealKey) "隐藏" else "显示",
                             modifier = Modifier.size(18.dp),
                         )
@@ -157,7 +155,7 @@ fun ModelSettingsScreen(
                         CircularProgressIndicator(strokeWidth = 1.5.dp, modifier = Modifier.size(16.dp))
                     } else {
                         Icon(
-                            Icons.Filled.CloudDownload,
+                            Icons.Filled.Refresh,
                             contentDescription = "从网络拉取模型",
                             modifier = Modifier.size(18.dp),
                         )
@@ -203,7 +201,7 @@ fun ModelSettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Icon(
-                    if (state.showAdvanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    if (state.showAdvanced) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                     contentDescription = if (state.showAdvanced) "收起高级参数" else "展开高级参数",
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -247,7 +245,7 @@ fun ModelSettingsScreen(
                     modifier = Modifier.size(36.dp),
                 ) {
                     Icon(
-                        Icons.Filled.Restore,
+                        Icons.Filled.Build,
                         contentDescription = "恢复编译默认",
                         modifier = Modifier.size(18.dp),
                     )
@@ -261,7 +259,7 @@ fun ModelSettingsScreen(
                         CircularProgressIndicator(strokeWidth = 1.5.dp, modifier = Modifier.size(16.dp))
                     } else {
                         Icon(
-                            Icons.Filled.Save,
+                            Icons.Filled.Check,
                             contentDescription = "保存并生效",
                             modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.primary,

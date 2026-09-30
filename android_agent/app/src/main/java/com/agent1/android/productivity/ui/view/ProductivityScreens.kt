@@ -23,20 +23,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.IosShare
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -122,12 +119,12 @@ fun SessionListScreen(
             leading = null,
             actions = {
                 TopBarIconButton(
-                    icon = Icons.Filled.Tune,
+                    icon = Icons.Filled.Settings,
                     contentDescription = "模型",
                     onClick = onOpenSettings,
                 )
                 TopBarIconButton(
-                    icon = Icons.Filled.IosShare,
+                    icon = Icons.Filled.Share,
                     contentDescription = "导出",
                     onClick = { viewModel.exportDiagnostics(context) },
                     enabled = !state.exportInProgress,
@@ -224,27 +221,27 @@ fun ChatScreen(
                         subtitle = null,
                         leading = {
                             TopBarIconButton(
-                                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                                icon = Icons.Filled.ArrowBack,
                                 contentDescription = "返回",
                                 onClick = onBack,
                             )
                         },
                         actions = {
                             TopBarIconButton(
-                                icon = Icons.Filled.ContentCopy,
+                                icon = AgentIcons.ContentCopy,
                                 contentDescription = "简报",
                                 onClick = { viewModel.exportBriefTranscript(context) },
                                 enabled = !state.exportInProgress,
                                 busy = state.exportInProgress,
                             )
                             TopBarIconButton(
-                                icon = Icons.Filled.BugReport,
+                                icon = Icons.Filled.Warning,
                                 contentDescription = "诊断",
                                 onClick = { viewModel.exportDiagnostics(context) },
                                 enabled = !state.exportInProgress,
                             )
                             TopBarIconButton(
-                                icon = Icons.Filled.Tune,
+                                icon = Icons.Filled.Settings,
                                 contentDescription = "模型",
                                 onClick = onOpenSettings,
                             )
@@ -512,7 +509,7 @@ private fun ChatComposer(
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
-                    Icons.Filled.AttachFile,
+                    AgentIcons.AttachFile,
                     contentDescription = "选择文件",
                     tint = if (pickFilesEnabled) {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -542,7 +539,7 @@ private fun ChatComposer(
                     modifier = Modifier.size(36.dp),
                 ) {
                     Icon(
-                        Icons.Filled.Stop,
+                        AgentIcons.Stop,
                         contentDescription = "中断",
                         tint = MaterialTheme.colorScheme.error,
                     )
@@ -556,7 +553,7 @@ private fun ChatComposer(
                 contentPadding = PaddingValues(0.dp),
             ) {
                 Icon(
-                    Icons.AutoMirrored.Filled.Send,
+                    Icons.Filled.Send,
                     contentDescription = "发送",
                     modifier = Modifier.size(18.dp),
                 )
@@ -649,7 +646,7 @@ private fun SessionCard(
                 )
                 IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                     Icon(
-                        Icons.Filled.DeleteOutline,
+                        Icons.Filled.Delete,
                         contentDescription = "删除",
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -981,7 +978,7 @@ private fun MessageBubble(
                             .size(32.dp),
                     ) {
                         Icon(
-                            Icons.Filled.AttachFile,
+                            AgentIcons.AttachFile,
                             contentDescription = "选择文件",
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.primary,
@@ -1167,7 +1164,7 @@ private fun RuntimeSummaryStrip(
                     )
                 }
                 Icon(
-                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                     contentDescription = if (expanded) "收起" else "详情",
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
