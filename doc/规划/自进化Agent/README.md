@@ -22,6 +22,8 @@
 | [10-运行时钩子与Coach提示.md](./10-运行时钩子与Coach提示.md) | 条件触发、告诉 AI 可做什么 |
 | [11-QuickJS调试与行号映射.md](./11-QuickJS调试与行号映射.md) | 错误行号、去掉 prelude 偏移 |
 | [12-catalog安装与AI按需拉取.md](./12-catalog安装与AI按需拉取.md) | SO 与 script 等同套 sync；AI 按文档安装 |
+| [17-能力检索-capability-search.md](./17-能力检索-capability-search.md) | **编程智能体能力索引 + capability_search 设计与 REQ** |
+| [../Agent1-SDK愿景.md](../Agent1-SDK愿景.md) | **三方嵌入式 SDK 愿景（后续实现）** |
 
 ## 讨论记录
 
@@ -37,3 +39,4 @@
 - **2026-09-27（十）**：SO 下载与其它资源同流程；AI 按 catalog-install / capabilities 按需 sync apply。
 - **2026-09-27（十一）**：汇总 [13-实施步骤清单.md](./13-实施步骤清单.md)（阶段 1–7 + 发布侧）。
 - **2026-09-27（十二）**：测试优先 [14](./14-用户场景与验收用例.md) UC + [15](./15-可验证需求.md) REQ；CLI/日志 E2E。
+- **2026-09-30（十三）**：编程智能体 + 能力检索 [17](./17-能力检索-capability-search.md)；SDK 愿景 [Agent1-SDK愿景.md](../Agent1-SDK愿景.md)；`ask_user` / `waiting_user` 合入主干（PR #36）。
