@@ -82,8 +82,10 @@
 | `skill` | Skill 流程（非函数） | `skill:travel-planner` |
 | `mcp` | MCP 工具 | `mcp:server.tool` |
 | `bridge_tool` | 仅 `$tools.*` 脚本内 | `$tools.grep` |
-| `agent_tool` | 外层 Java Tool（宜少） | `execute_script` |
+| `agent_tool` | 外层 Java Tool（**宜不入 seed**） | 仅 Phase B 扫描且不在系统提示中重复者 |
 | `doc` | 纯文档条目 | `read_agent_doc:office-docx.md` |
+
+**索引范围（Phase A seed）**：`execute_script`、`capability_search`、`ask_user`、`read_agent_doc`、`skill` 等已在 `ProductivitySystemPromptBuilder` 写明的 **外层基础 Tool 不收录**，避免检索噪声；索引侧重 **caps / catalog_script / bridge_tool / builtin 细节 / doc 指针**（以及后续 catalog、skill、MCP 扫描）。
 
 ### 3.2 字段约束
 
@@ -108,17 +110,18 @@
   "properties": {
     "query": { "type": "string", "description": "自然语言或关键词" },
     "kinds": { "type": "array", "items": { "type": "string" } },
-    "platform": { "type": "string", "enum": ["android", "desktop", "any"] },
     "limit": { "type": "integer", "minimum": 1, "maximum": 20 }
   },
   "required": ["query"]
 }
 ```
 
+**平台过滤**：不由模型传 `platform`。`ProductivityAgentHost` 装配时固定（CLI/desktop 包 → `desktop`，Android APK → `android`），检索 SQL 仍用索引行上的 `platforms` 字段过滤。
+
 ### 4.3 行为
 
 1. 打开 `capabilities.db`（缺失或 schema 过旧 → `ensure` 从 seed 重建）。
-2. **Phase A 检索**：FTS5 `MATCH` + `bm25()` × `weight`；无命中则 **LIKE 回退**；kind/platform 过滤。
+2. **Phase A 检索**：FTS5 `MATCH` + `bm25(table, w_title, w_summary, w_tags, w_entry)`（列权 **title 10 / tags 4 / summary·entry 1**）× 行 `weight`；结果再按 **字段档位** 重排（title → tags → summary → entry → id，同档内 bm25/LIKE 分 + `weight`）。无 FTS 命中则 **LIKE 回退**（CASE 档位分与上同序）；kind/platform 过滤。
 3. 返回 **纯文本**（模型友好）+ 可选 `details` JSON（UI/日志用），每条含 `id kind title summary entry doc_hint`。
 4. **不**返回 SKILL 全文或 MCP 全 schema。
 

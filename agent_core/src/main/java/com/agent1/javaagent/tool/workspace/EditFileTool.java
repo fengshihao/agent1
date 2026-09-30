@@ -88,7 +88,7 @@ public final class EditFileTool implements AgentTool {
         final Path resolvedPath;
         final String displayPath;
         try {
-            resolvedPath = sandbox.resolve(rawPath);
+            resolvedPath = sandbox.resolveWrite(rawPath);
             displayPath = sandbox.relativize(resolvedPath);
         } catch (SecurityException e) {
             return ToolExecutionResult.text("错误：路径超出工作区范围: " + rawPath);

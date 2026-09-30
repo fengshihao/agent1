@@ -40,7 +40,8 @@ import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import com.agent1.javaagent.tool.agent.ProductivitySkillTool;
 import com.agent1.javaagent.tool.office.DocxOfficeTools;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
-import com.agent1.javaagent.tool.agent.ReadAgentDocTool;
+import com.agent1.javaagent.tool.workspace.GlobTool;
+import com.agent1.javaagent.tool.workspace.GrepTool;
 import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
@@ -50,7 +51,9 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import com.agent1.javaagent.llm.openai.OpenAiCompatibleClient;
 
@@ -69,6 +72,8 @@ public final class ProductivityAgentHost implements Closeable {
     private final String scriptPromptAppend;
     private final ScriptToolBridge scriptToolBridge;
     private final WorkspaceToolProvider extraTools;
+    /** capability_search 检索时按 Host 平台过滤（android / desktop），不由模型传参。 */
+    private final String capabilitySearchPlatform;
     private volatile String sessionEnvironmentSupplement = "";
     private ProductivityCoach productivityCoach;
     private String activeSessionId;
@@ -93,6 +98,7 @@ public final class ProductivityAgentHost implements Closeable {
             executeScriptTimeoutMs,
             scriptPromptAppend,
             null,
+            null,
             null
         );
     }
@@ -107,6 +113,30 @@ public final class ProductivityAgentHost implements Closeable {
         ScriptToolBridge scriptToolBridge,
         WorkspaceToolProvider extraTools
     ) {
+        this(
+            agentRoot,
+            config,
+            llmClient,
+            scriptEngineFactory,
+            executeScriptTimeoutMs,
+            scriptPromptAppend,
+            scriptToolBridge,
+            extraTools,
+            null
+        );
+    }
+
+    public ProductivityAgentHost(
+        Path agentRoot,
+        AgentRuntimeConfig config,
+        LlmClient llmClient,
+        ScriptEngineFactory scriptEngineFactory,
+        long executeScriptTimeoutMs,
+        String scriptPromptAppend,
+        ScriptToolBridge scriptToolBridge,
+        WorkspaceToolProvider extraTools,
+        String capabilitySearchPlatform
+    ) {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
         this.projectRoot = AgentDataPaths.projectRoot(this.agentRoot);
         AgentHomeBootstrap.ensure(this.agentRoot);
@@ -117,6 +147,7 @@ public final class ProductivityAgentHost implements Closeable {
         this.scriptPromptAppend = scriptPromptAppend == null ? "" : scriptPromptAppend.trim();
         this.scriptToolBridge = scriptToolBridge;
         this.extraTools = extraTools;
+        this.capabilitySearchPlatform = normalizeCapabilitySearchPlatform(capabilitySearchPlatform);
         this.runtime = new AgentRuntime(
             config.toAgentOptionsBuilder("").tools(List.of()).build(),
             llmClient
@@ -163,12 +194,36 @@ public final class ProductivityAgentHost implements Closeable {
         this(
             agentRoot,
             config,
+            scriptEngineFactory,
+            executeScriptTimeoutMs,
+            scriptPromptAppend,
+            scriptToolBridge,
+            extraTools,
+            null
+        );
+    }
+
+    /** CLI / Android：同上，并指定 capability_search 的平台过滤（如 {@code android}）。 */
+    public ProductivityAgentHost(
+        Path agentRoot,
+        AgentRuntimeConfig config,
+        ScriptEngineFactory scriptEngineFactory,
+        long executeScriptTimeoutMs,
+        String scriptPromptAppend,
+        ScriptToolBridge scriptToolBridge,
+        WorkspaceToolProvider extraTools,
+        String capabilitySearchPlatform
+    ) {
+        this(
+            agentRoot,
+            config,
             new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(Duration.ofSeconds(120), 0.2)),
             scriptEngineFactory,
             executeScriptTimeoutMs,
             scriptPromptAppend,
             scriptToolBridge,
-            extraTools
+            extraTools,
+            capabilitySearchPlatform
         );
     }
 
@@ -414,20 +469,21 @@ public final class ProductivityAgentHost implements Closeable {
                 sessionEnvironmentSupplement
             ));
         runtime.setTools(buildTools(sessionId, workspace));
-        runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace));
+        runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace, agentRoot));
         AgentCoachConfig coachConfig = AgentCoachConfig.load(agentRoot);
         productivityCoach = coachConfig.enabled() ? coachConfig.toCoach() : null;
         runtime.setProductivityCoach(productivityCoach);
     }
 
     private List<AgentTool> buildTools(String sessionId, Path workspace) {
-        WorkspaceSandbox sandbox = new WorkspaceSandbox(workspace);
+        WorkspaceSandbox sandbox = new WorkspaceSandbox(workspace, agentRoot);
         List<AgentTool> tools = new ArrayList<>();
         tools.add(new ReadFileTool(sandbox));
         tools.add(new WriteFileTool(sandbox));
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));
-        tools.add(new ReadAgentDocTool(agentRoot));
+        tools.add(new GrepTool(sandbox));
+        tools.add(new GlobTool(sandbox));
         tools.add(new ListCatalogTool(agentRoot));
         tools.add(new CatalogSyncStatusTool(agentRoot));
         tools.add(new CatalogInstallTool(agentRoot));
@@ -436,11 +492,20 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new ListSessionsTool(sessionStore, this::getActiveSessionId));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         tools.add(new AskUserTool());
-        tools.add(new CapabilitySearchTool(agentRoot));
+        tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform));
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);
             if (extra != null && !extra.isEmpty()) {
-                tools.addAll(extra);
+                Set<String> names = new HashSet<>();
+                for (AgentTool t : tools) {
+                    names.add(t.name());
+                }
+                for (AgentTool t : extra) {
+                    if (!names.add(t.name())) {
+                        continue;
+                    }
+                    tools.add(t);
+                }
             }
         }
         if (scriptEngineFactory != null) {
@@ -465,6 +530,13 @@ public final class ProductivityAgentHost implements Closeable {
 
     private static String newRunId() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+    }
+
+    private static String normalizeCapabilitySearchPlatform(String platform) {
+        if (platform == null || platform.isBlank()) {
+            return "desktop";
+        }
+        return platform.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private static void closeQuietly(AutoCloseable closeable) {

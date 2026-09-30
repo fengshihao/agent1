@@ -28,7 +28,7 @@ public final class AgentReadScope {
         String relUnix = rel.toString().replace('\\', '/');
         if (!relUnix.startsWith("docs/system/") && !relUnix.equals("docs/system")
             && !relUnix.startsWith("docs/capabilities/") && !relUnix.equals("docs/capabilities")) {
-            throw new SecurityException("read_agent_doc only allows docs/system and docs/capabilities: " + trimmed);
+            throw new SecurityException("agent docs read-only scope is docs/system and docs/capabilities: " + trimmed);
         }
         return resolved;
     }

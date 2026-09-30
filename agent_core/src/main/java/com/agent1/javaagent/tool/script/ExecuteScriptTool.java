@@ -115,7 +115,7 @@ public final class ExecuteScriptTool implements AgentTool {
         if (hasFile) {
             final Path resolved;
             try {
-                resolved = sandbox.resolve(file);
+                resolved = sandbox.resolveWrite(file);
             } catch (SecurityException e) {
                 return ToolExecutionResult.text("错误：路径超出工作区范围: " + file);
             }

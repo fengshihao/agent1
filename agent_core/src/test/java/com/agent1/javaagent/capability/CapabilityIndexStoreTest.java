@@ -38,12 +38,21 @@ class CapabilityIndexStoreTest {
     }
 
     @Test
-    void likeFallbackFindsExecuteScript() {
+    void likeFallbackFindsBridgeTool() {
         Path agentRoot = temp.resolve("agentRoot");
         CapabilityIndexStore.ensure(agentRoot);
 
-        var hits = CapabilityIndexStore.search(agentRoot, "execute_script", List.of(), "any", 3);
+        var hits = CapabilityIndexStore.search(agentRoot, "webview_exec", List.of(), "any", 3);
         assertFalse(hits.isEmpty());
-        assertTrue(hits.stream().anyMatch(h -> "execute_script".equals(h.entry())));
+        assertTrue(hits.stream().anyMatch(h -> "webview_exec".equals(h.entry())));
+    }
+
+    @Test
+    void seedOmitsPromptCoveredAgentTools() {
+        Path agentRoot = temp.resolve("agentRoot");
+        CapabilityIndexStore.ensure(agentRoot);
+
+        var hits = CapabilityIndexStore.search(agentRoot, "execute_script", List.of("agent_tool"), "any", 5);
+        assertTrue(hits.isEmpty());
     }
 }

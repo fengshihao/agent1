@@ -45,7 +45,7 @@ public final class CatalogMissingNativeHints {
         return "脚本需要 native 插件"
             + (pluginName.isBlank() ? "" : " \"" + pluginName + "\"")
             + "，本地尚未安装或自动安装失败。生产力路径会在 ensureNative 失败时尝试 catalog sync；"
-            + "若仍失败请 read_agent_doc catalog-install、查 docs/capabilities/，"
+            + "若仍失败请 read_file docs/system/catalog-install.md、查 docs/capabilities/，"
             + "用 catalog_install 安装 " + idHint + "。"
             + "脚本内使用 await host.ensureNative(\""
             + (pluginName.isBlank() ? "插件名" : pluginName)

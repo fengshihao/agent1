@@ -38,7 +38,7 @@ public final class ToolResultSpill {
         }
         String spillName = UUID.randomUUID().toString().replace("-", "").substring(0, 12) + ".txt";
         try {
-            Path spillDir = sandbox.resolve(".spill");
+            Path spillDir = sandbox.resolveWrite(".spill");
             Files.createDirectories(spillDir);
             Path spillFile = spillDir.resolve(spillName);
             PathIo.writeString(spillFile, text, StandardCharsets.UTF_8);

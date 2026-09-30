@@ -18,8 +18,9 @@ class WeizhiWorkspaceToolsTest {
     @Test
     void grepSearchesSessionWorkspace(@TempDir Path workspace) throws Exception {
         Files.writeString(workspace.resolve("note.txt"), "hello-weizhi\n");
-        List<AgentTool> tools = WeizhiWorkspaceTools.create(new WorkspaceSandbox(workspace));
-        AgentTool grep = tools.stream().filter(tool -> "grep".equals(tool.name())).findFirst().orElseThrow();
+        WorkspaceSandbox sandbox = new WorkspaceSandbox(workspace);
+        AgentTool grep = new com.agent1.javaagent.tool.workspace.GrepTool(sandbox);
+        List<AgentTool> tools = WeizhiWorkspaceTools.create(sandbox);
         ObjectNode params = new ObjectMapper().createObjectNode();
         params.put("pattern", "hello-weizhi");
         String text = grep.execute("g1", params, new CancellationToken(), update -> {
