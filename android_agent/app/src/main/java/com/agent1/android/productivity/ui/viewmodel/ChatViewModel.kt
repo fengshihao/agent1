@@ -333,10 +333,12 @@ class ChatViewModel(
         if (uris.isEmpty() || _state.value.isRunning) return
         viewModelScope.launch {
             _state.value = _state.value.copy(fileImportMessage = null)
-            try {
-                val paths = withContext(Dispatchers.IO) {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
                     gateway.importUserPickedFiles(sessionId, uris)
                 }
+            }
+            result.onSuccess { paths ->
                 if (paths.isEmpty()) {
                     _state.value = _state.value.copy(fileImportMessage = "未能导入所选文件")
                 } else {
@@ -345,9 +347,9 @@ class ChatViewModel(
                     )
                 }
                 loadTranscriptIntoState(initialLoad = false)
-            } catch (e: RuntimeException) {
+            }.onFailure { error ->
                 _state.value = _state.value.copy(
-                    fileImportMessage = "导入失败：${e.message ?: e.javaClass.simpleName}",
+                    fileImportMessage = "导入失败：${error.message ?: error.javaClass.simpleName}",
                 )
             }
         }
