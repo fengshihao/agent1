@@ -22,20 +22,32 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -46,10 +58,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -64,9 +76,11 @@ import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
+import com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.SessionListViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -104,19 +118,23 @@ fun SessionListScreen(
             subtitle = if (state.sessions.isEmpty()) "从这里开始一条对话" else "${state.sessions.size} 条对话",
             leading = null,
             actions = {
-                TopBarIconButton(label = "模型", onClick = onOpenSettings)
                 TopBarIconButton(
-                    label = if (state.exportInProgress) "…" else "导出",
+                    icon = Icons.Filled.Settings,
+                    contentDescription = "模型",
+                    onClick = onOpenSettings,
+                )
+                TopBarIconButton(
+                    icon = Icons.Filled.Share,
+                    contentDescription = "导出",
                     onClick = { viewModel.exportDiagnostics(context) },
                     enabled = !state.exportInProgress,
+                    busy = state.exportInProgress,
                 )
-                Button(
+                TopBarIconButton(
+                    icon = Icons.Filled.Add,
+                    contentDescription = "新建",
                     onClick = { viewModel.createSession(onCreated = onOpenSession) },
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    Text("新建")
-                }
+                )
             },
         )
         AgentHairline()
@@ -202,22 +220,34 @@ fun ChatScreen(
                         title = state.title.ifBlank { "AI 助手" },
                         subtitle = null,
                         leading = {
-                            TopBarIconButton(label = "←", onClick = onBack)
+                            TopBarIconButton(
+                                icon = Icons.Filled.ArrowBack,
+                                contentDescription = "返回",
+                                onClick = onBack,
+                            )
                         },
                         actions = {
                             TopBarIconButton(
-                                label = if (state.exportInProgress) "…" else "简报",
+                                icon = AgentIcons.ContentCopy,
+                                contentDescription = "简报",
                                 onClick = { viewModel.exportBriefTranscript(context) },
                                 enabled = !state.exportInProgress,
+                                busy = state.exportInProgress,
                             )
                             TopBarIconButton(
-                                label = if (state.exportInProgress) "…" else "诊断",
+                                icon = Icons.Filled.Warning,
+                                contentDescription = "诊断",
                                 onClick = { viewModel.exportDiagnostics(context) },
                                 enabled = !state.exportInProgress,
                             )
-                            TopBarIconButton(label = "模型", onClick = onOpenSettings)
                             TopBarIconButton(
-                                label = "规格",
+                                icon = Icons.Filled.Settings,
+                                contentDescription = "模型",
+                                onClick = onOpenSettings,
+                            )
+                            TopBarIconButton(
+                                icon = Icons.Filled.Info,
+                                contentDescription = "规格",
                                 onClick = { viewModel.toggleModelPanel() },
                             )
                         },
@@ -260,18 +290,6 @@ fun ChatScreen(
                         AccessibleFilesStrip(paths = state.accessibleFilePaths)
                         AgentHairline()
                     }
-                    state.pendingAskUser?.let { form ->
-                        AskUserFormPanel(
-                            form = form,
-                            enabled = state.configError == null && !state.isRunning,
-                            validationError = form.validationError,
-                            onTextChange = viewModel::onAskUserTextChange,
-                            onSingleSelect = viewModel::onAskUserSingleSelect,
-                            onMultiToggle = viewModel::onAskUserMultiToggle,
-                            onSubmit = viewModel::submitAskUserForm,
-                        )
-                        AgentHairline()
-                    }
                     ChatComposer(
                         value = input,
                         onValueChange = { input = it },
@@ -289,14 +307,31 @@ fun ChatScreen(
                 }
             },
         ) { innerPadding ->
-            ChatMessageList(
-                state = state,
-                onPickFiles = launchPickFiles,
-                pickFilesEnabled = state.configError == null && !state.isRunning,
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-            )
+            ) {
+                ChatMessageList(
+                    state = state,
+                    onPickFiles = launchPickFiles,
+                    pickFilesEnabled = state.configError == null && !state.isRunning,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                )
+                state.pendingAskUser?.let { form ->
+                    AskUserFormPanel(
+                        form = form,
+                        enabled = state.configError == null && !state.isRunning,
+                        validationError = form.validationError,
+                        onTextChange = viewModel::onAskUserTextChange,
+                        onSingleSelect = viewModel::onAskUserSingleSelect,
+                        onMultiToggle = viewModel::onAskUserMultiToggle,
+                        onSubmit = viewModel::submitAskUserForm,
+                    )
+                }
+            }
         }
 
         AnimatedVisibility(visible = state.showModelPanel) {
@@ -330,7 +365,6 @@ internal fun AgentTopBar(
                 Text(
                     title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -355,21 +389,34 @@ internal fun AgentTopBar(
 
 @Composable
 internal fun TopBarIconButton(
-    label: String,
+    icon: ImageVector,
+    contentDescription: String,
     onClick: () -> Unit,
     enabled: Boolean = true,
+    busy: Boolean = false,
 ) {
-    TextButton(
+    IconButton(
         onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.height(40.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp),
+        enabled = enabled && !busy,
+        modifier = Modifier.size(36.dp),
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (busy) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(14.dp),
+                strokeWidth = 1.5.dp,
+            )
+        } else {
+            Icon(
+                icon,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(18.dp),
+                tint = if (enabled) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                },
+            )
+        }
     }
 }
 
@@ -456,14 +503,20 @@ private fun ChatComposer(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
-            OutlinedButton(
+            IconButton(
                 onClick = onPickFiles,
                 enabled = pickFilesEnabled,
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.height(40.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp),
+                modifier = Modifier.size(36.dp),
             ) {
-                Text("文件")
+                Icon(
+                    AgentIcons.AttachFile,
+                    contentDescription = "选择文件",
+                    tint = if (pickFilesEnabled) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    },
+                )
             }
             OutlinedTextField(
                 value = value,
@@ -481,26 +534,29 @@ private fun ChatComposer(
                 ),
             )
             AnimatedVisibility(visible = isRunning) {
-                OutlinedButton(
+                IconButton(
                     onClick = onStop,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.height(40.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ),
+                    modifier = Modifier.size(36.dp),
                 ) {
-                    Text("中断")
+                    Icon(
+                        AgentIcons.Stop,
+                        contentDescription = "中断",
+                        tint = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
             Button(
                 onClick = onSend,
                 enabled = canSend && !isRunning,
                 shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.height(40.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp),
+                modifier = Modifier.size(36.dp),
+                contentPadding = PaddingValues(0.dp),
             ) {
-                Text("发送")
+                Icon(
+                    Icons.Filled.Send,
+                    contentDescription = "发送",
+                    modifier = Modifier.size(18.dp),
+                )
             }
         }
     }
@@ -554,16 +610,15 @@ private fun SessionCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(2.dp, RoundedCornerShape(14.dp), clip = false)
             .clickable(onClick = onOpen),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
                 .padding(start = 16.dp, top = 14.dp, end = 8.dp, bottom = 8.dp),
         ) {
             Text(
@@ -589,8 +644,14 @@ private fun SessionCard(
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.outline,
                 )
-                TextButton(onClick = onOpen) { Text("打开") }
-                TextButton(onClick = onDelete) { Text("删除") }
+                IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = "删除",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -605,20 +666,34 @@ private fun ChatMessageList(
 ) {
     val visibleLines = state.lines.filterNot { it.hideInChat }
     val listState = rememberLazyListState()
+    var stickToBottom by rememberSaveable(state.sessionId) { mutableStateOf(true) }
+
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val layout = listState.layoutInfo
+            val total = layout.totalItemsCount
+            if (total == 0) {
+                true
+            } else {
+                val lastVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: 0
+                lastVisible >= total - 2
+            }
+        }.distinctUntilChanged().collect { atBottom ->
+            stickToBottom = atBottom
+        }
+    }
+
     LaunchedEffect(
         visibleLines.size,
-        state.toolTrail.size,
+        state.runTimeline.size,
         state.streamingText.length,
         state.streamingReasoning.length,
         state.isRunning,
-        state.runActivityLabel,
     ) {
-        if (!state.isRunning && state.streamingText.isEmpty() && state.streamingReasoning.isEmpty()) {
-            return@LaunchedEffect
-        }
+        if (!stickToBottom) return@LaunchedEffect
         val total = listState.layoutInfo.totalItemsCount
         if (total > 0) {
-            listState.scrollToItem(total - 1)
+            listState.animateScrollToItem(total - 1)
         }
     }
     if (state.isLoadingTranscript && state.lines.isEmpty()) {
@@ -643,8 +718,7 @@ private fun ChatMessageList(
         items(
             count = visibleLines.size,
             key = { index ->
-                val line = visibleLines[index]
-                "$index-${line.role}-${line.isTool}-${line.content.hashCode()}"
+                visibleLines[index].stableKey.ifBlank { "line-$index" }
             },
         ) { index ->
             val line = visibleLines[index]
@@ -655,43 +729,71 @@ private fun ChatMessageList(
                 line = line,
                 workspacePath = state.workspacePath,
                 markdown = useMarkdown,
+                reasoningStateKey = line.stableKey.ifBlank { "line-$index" },
                 onPickFiles = onPickFiles,
                 pickFilesEnabled = pickFilesEnabled,
             )
         }
-        if (state.toolTrail.isNotEmpty()) {
-            item {
-                ToolTrailBubble(state.toolTrail)
+        items(
+            items = state.runTimeline,
+            key = { it.id },
+        ) { item ->
+            when (item) {
+                is ChatRunTimelineItem.AssistantPart -> {
+                    MessageBubble(
+                        line = ChatLine(
+                            role = "assistant",
+                            content = item.content,
+                            reasoning = item.reasoning,
+                            stableKey = item.id,
+                        ),
+                        workspacePath = state.workspacePath,
+                        markdown = ChatTranscriptFormatting.shouldRenderAsMarkdown(item.content),
+                        reasoningStateKey = item.id,
+                        onPickFiles = onPickFiles,
+                        pickFilesEnabled = false,
+                    )
+                }
+                is ChatRunTimelineItem.ToolPart -> {
+                    LiveToolBubble(item)
+                }
             }
         }
-        if (
-            state.isRunning &&
-            state.streamingText.isEmpty() &&
-            state.streamingReasoning.isEmpty() &&
-            state.toolTrail.isEmpty()
-        ) {
-            item {
+        if (shouldShowAssistantPending(state)) {
+            item(key = "assistant-pending") {
                 AssistantPendingBubble(
                     label = state.runActivityLabel ?: "等待助手…",
                 )
             }
         }
         if (state.streamingText.isNotEmpty() || state.streamingReasoning.isNotEmpty()) {
-            item {
+            item(key = "assistant-streaming") {
                 MessageBubble(
                     line = ChatLine(
                         role = "assistant",
                         content = state.streamingText + if (state.streamingText.isNotEmpty()) "▌" else "",
                         reasoning = state.streamingReasoning +
                             if (state.streamingReasoning.isNotEmpty() && state.streamingText.isEmpty()) "▌" else "",
+                        stableKey = "assistant-streaming",
                     ),
                     workspacePath = state.workspacePath,
                     markdown = false,
+                    reasoningStateKey = "assistant-streaming-${state.sessionId}",
                     onPickFiles = onPickFiles,
                     pickFilesEnabled = false,
                 )
             }
         }
+    }
+}
+
+private fun shouldShowAssistantPending(state: ChatUiState): Boolean {
+    if (!state.isRunning) return false
+    if (state.streamingText.isNotEmpty() || state.streamingReasoning.isNotEmpty()) return false
+    if (state.runTimeline.isEmpty()) return true
+    return when (val last = state.runTimeline.last()) {
+        is ChatRunTimelineItem.AssistantPart -> false
+        is ChatRunTimelineItem.ToolPart -> last.finished
     }
 }
 
@@ -722,7 +824,7 @@ private fun AssistantPendingBubble(label: String) {
 }
 
 @Composable
-private fun ToolTrailBubble(trail: List<String>) {
+private fun LiveToolBubble(tool: ChatRunTimelineItem.ToolPart) {
     val bubbles = chatBubbleColors()
     BubbleShell(
         alignEnd = false,
@@ -730,13 +832,46 @@ private fun ToolTrailBubble(trail: List<String>) {
         background = bubbles.systemBackground,
         borderColor = bubbles.systemBorder,
     ) {
-        trail.forEach { line ->
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                line,
-                modifier = Modifier.padding(vertical = 2.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                tool.toolName,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
             )
+            if (tool.argsPreview.isNotBlank() && !tool.finished) {
+                Text(
+                    tool.argsPreview,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (!tool.finished) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                    )
+                }
+                Text(
+                    tool.statusLine,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = when {
+                        tool.isError -> MaterialTheme.colorScheme.error
+                        tool.finished -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+            tool.progressLines.forEach { line ->
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -746,6 +881,7 @@ private fun MessageBubble(
     line: ChatLine,
     workspacePath: String,
     markdown: Boolean,
+    reasoningStateKey: String,
     onPickFiles: () -> Unit,
     pickFilesEnabled: Boolean,
 ) {
@@ -806,7 +942,10 @@ private fun MessageBubble(
                 borderColor = bubbles.assistantBorder,
             ) {
                 if (line.reasoning.isNotBlank()) {
-                    CollapsibleReasoningBlock(line.reasoning)
+                    CollapsibleReasoningBlock(
+                        reasoning = line.reasoning,
+                        stateKey = reasoningStateKey,
+                    )
                 }
                 if (line.content.isNotBlank()) {
                     if (markdown) {
@@ -831,13 +970,19 @@ private fun MessageBubble(
                     )
                 }
                 if (line.requestUserPickFiles) {
-                    OutlinedButton(
+                    IconButton(
                         onClick = onPickFiles,
                         enabled = pickFilesEnabled,
-                        modifier = Modifier.padding(top = 8.dp),
-                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .size(32.dp),
                     ) {
-                        Text("选择文件")
+                        Icon(
+                            AgentIcons.AttachFile,
+                            contentDescription = "选择文件",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 }
             }
@@ -846,8 +991,11 @@ private fun MessageBubble(
 }
 
 @Composable
-private fun CollapsibleReasoningBlock(reasoning: String) {
-    var expanded by rememberSaveable(reasoning) { mutableStateOf(false) }
+private fun CollapsibleReasoningBlock(
+    reasoning: String,
+    stateKey: String,
+) {
+    var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val trimmed = reasoning.trim()
     if (trimmed.isEmpty()) return
     val title = if (expanded) {
@@ -890,12 +1038,11 @@ private fun BubbleShell(
         Column(
             modifier = Modifier
                 .widthIn(max = if (wide) 340.dp else 300.dp)
-                .shadow(if (alignEnd) 0.dp else 1.dp, RoundedCornerShape(12.dp))
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(background)
                 .then(
                     if (borderColor.alpha > 0f) {
-                        Modifier.border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                        Modifier.border(1.dp, borderColor, RoundedCornerShape(16.dp))
                     } else {
                         Modifier
                     },
@@ -945,10 +1092,15 @@ private fun RuntimeConfigOverlay(
             ) {
                 Text(
                     "模型与运行时",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall,
                 )
-                TextButton(onClick = onDismiss) { Text("关闭") }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = "关闭",
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
             ModelAndRuntimePanel(summary, catalog, configError)
         }
@@ -1011,10 +1163,11 @@ private fun RuntimeSummaryStrip(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Text(
-                    if (expanded) "收起" else "详情",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelLarge,
+                Icon(
+                    if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (expanded) "收起" else "详情",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (expanded) {
