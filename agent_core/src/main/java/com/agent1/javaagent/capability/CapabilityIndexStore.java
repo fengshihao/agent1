@@ -44,8 +44,19 @@ public final class CapabilityIndexStore {
     private CapabilityIndexStore() {
     }
 
-    /** bootstrap 或索引缺失时从 seed 建库。 */
+    /**
+     * Android 不能加载 sqlite-jdbc 的桌面 .so（16KB 页设备上会在 dlopen 时直接杀掉进程，且写不出 Java 崩溃栈）。
+     */
+    static boolean useInMemoryIndex() {
+        String vm = System.getProperty("java.vm.name", "");
+        return vm.contains("Dalvik") || vm.contains("Android");
+    }
+
+    /** bootstrap 或索引缺失时从 seed 建库。Android 上不打开 JDBC。 */
     public static void ensure(Path agentRoot) {
+        if (useInMemoryIndex()) {
+            return;
+        }
         Path dbPath = CapabilityDatabasePaths.databaseFile(agentRoot);
         createParentDirs(dbPath);
         if (needsRebuild(dbPath)) {
@@ -89,6 +100,15 @@ public final class CapabilityIndexStore {
         Path dbPath = CapabilityDatabasePaths.databaseFile(agentRoot);
         int effectiveLimit = Math.min(Math.max(limit, 1), 20);
         String normalizedPlatform = normalizePlatform(platform);
+        if (useInMemoryIndex()) {
+            return searchRecords(
+                CapabilitySeedLoader.loadBundledSeed(),
+                query,
+                kinds,
+                normalizedPlatform,
+                effectiveLimit
+            );
+        }
         List<CapabilityHit> ftsHits = searchFts(dbPath, query, kinds, normalizedPlatform, effectiveLimit);
         if (!ftsHits.isEmpty()) {
             return ftsHits;
@@ -459,6 +479,92 @@ public final class CapabilityIndexStore {
             throw new IllegalStateException("capability search failed: " + e.getMessage(), e);
         }
         return out;
+    }
+
+    static List<CapabilityHit> searchRecords(
+        List<CapabilityRecord> records,
+        String query,
+        List<String> kinds,
+        String platform,
+        int limit
+    ) {
+        List<String> terms = queryTerms(query);
+        if (terms.isEmpty() || records == null || records.isEmpty()) {
+            return List.of();
+        }
+        List<CapabilityHit> hits = new ArrayList<>();
+        for (CapabilityRecord record : records) {
+            if (!kindAllowed(record.kind(), kinds) || !platformAllowed(record.platforms(), platform)) {
+                continue;
+            }
+            double score = scoreRecord(record, terms);
+            if (score <= 0) {
+                continue;
+            }
+            hits.add(
+                new CapabilityHit(
+                    record.id(),
+                    record.kind(),
+                    record.title(),
+                    record.summary(),
+                    record.tags(),
+                    record.entry(),
+                    record.docPath(),
+                    record.platforms(),
+                    score * record.weight()
+                )
+            );
+        }
+        hits.sort(Comparator.comparingDouble(CapabilityHit::score).reversed());
+        if (hits.size() <= limit) {
+            return hits;
+        }
+        return new ArrayList<>(hits.subList(0, limit));
+    }
+
+    private static boolean kindAllowed(String kind, List<String> kinds) {
+        if (kinds == null || kinds.isEmpty()) {
+            return true;
+        }
+        String normalized = kind == null ? "" : kind.toLowerCase(Locale.ROOT);
+        for (String candidate : kinds) {
+            if (candidate != null && normalized.equals(candidate.trim().toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean platformAllowed(String platforms, String platform) {
+        if (platform == null || platform.isBlank() || "any".equals(platform)) {
+            return true;
+        }
+        String value = platforms == null ? "" : platforms.toLowerCase(Locale.ROOT);
+        if (value.isEmpty() || "any".equals(value)) {
+            return true;
+        }
+        for (String part : value.split("[,\\s]+")) {
+            if (platform.equals(part)) {
+                return true;
+            }
+        }
+        return value.contains(platform);
+    }
+
+    private static double scoreRecord(CapabilityRecord record, List<String> terms) {
+        double score = 0;
+        for (String term : terms) {
+            if (containsIgnoreCase(record.title(), term)) {
+                score += LIKE_SCORE_TITLE;
+            } else if (containsIgnoreCase(record.tags(), term)) {
+                score += LIKE_SCORE_TAGS;
+            } else if (containsIgnoreCase(record.summary(), term)) {
+                score += LIKE_SCORE_SUMMARY;
+            } else if (containsIgnoreCase(record.entry(), term) || containsIgnoreCase(record.id(), term)) {
+                score += LIKE_SCORE_ENTRY;
+            }
+        }
+        return score;
     }
 
     static String toFtsMatchQuery(String query) {

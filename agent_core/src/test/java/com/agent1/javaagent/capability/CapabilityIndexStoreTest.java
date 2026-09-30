@@ -28,6 +28,19 @@ class CapabilityIndexStoreTest {
     }
 
     @Test
+    void inMemorySearchFindsDocxWithoutSqlite() {
+        var hits = CapabilityIndexStore.searchRecords(
+            CapabilitySeedLoader.loadBundledSeed(),
+            "docx word",
+            List.of(),
+            "any",
+            5
+        );
+        assertFalse(hits.isEmpty());
+        assertTrue(hits.stream().anyMatch(h -> h.id().contains("docx")));
+    }
+
+    @Test
     void platformFilterAndroidShare() {
         Path agentRoot = temp.resolve("agentRoot");
         CapabilityIndexStore.ensure(agentRoot);

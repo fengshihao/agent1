@@ -170,7 +170,10 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
-    implementation("com.agent1:java-agent-core:0.1.0-SNAPSHOT")
+    implementation("com.agent1:java-agent-core:0.1.0-SNAPSHOT") {
+        // sqlite-jdbc 自带桌面 .so；打进 APK 后首次建能力索引会在 Android 上 dlopen 失败并直接杀进程。
+        exclude(group = "org.xerial", module = "sqlite-jdbc")
+    }
     if (findProject(":weizhi") != null) {
         implementation(project(":weizhi"))
         implementation(project(":caps"))
