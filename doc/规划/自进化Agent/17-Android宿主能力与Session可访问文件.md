@@ -156,6 +156,53 @@ sessions/<sessionId>/
 - **Phase F（文档 16）**：从 **助手 Markdown 链接** 解析 `[报告](out/report.docx)` → 可点打开/分享（**产出物**）。
 - **本会话列表**：**输入侧**用户主动提供的上下文（**inputs**），应在聊天页有 **「已选文件」** 区域，与 `WorkspaceFileAttachments`（产出）区分。
 
+### 4.5 AI 主动请用户选文件（源头在用户侧）
+
+除用户随时点「添加文件」外，**模型应能在缺文件时主动发起请求**，由宿主弹出系统选择器；选完后再继续同一 Session 的对话或 **续跑** 当前 run。
+
+**原则**
+
+- 模型 **不能** 自己打开 File Chooser；只能 **说明需要什么** → 宿主 **挂起/展示 UI** → 用户选完 → 列表更新 → 模型再 `read_file` 等。
+- 与 `android.ui.confirm` 类似：**需要用户身体在环上的动作，一律走宿主**，不要假装已读到区外文件。
+
+**推荐双通道（可并存）**
+
+| 通道 | 模型侧 | 宿主 / UI 侧 | 适用 |
+|------|--------|--------------|------|
+| **A. 对话询问 + UI  affordance** | 回复中明确说「请添加合同 PDF / 选相册里的截图」；可约定轻量标记便于 Compose 解析（如首行 `[需要用户选文件: pdf,最多3个]`，实现时再定） | 该条 assistant 消息下方出现 **「选择文件」** 按钮；用户选完写入 `accessibleFiles` 并可选自动插入 user 消息 | 实现快；run 已结束，用户选完 **下一轮** 继续 |
+| **B. 宿主工具 `request_user_files`（规划）** | tool-call：`kinds`（pdf/image/…）、`maxCount`、`reason`；tool 结果在用户完成前为 **pending** 或阻塞直到超时 | ViewModel 收到 tool 事件 → 弹 picker → 复制到 `imports/` → tool result 返回 `{ paths: [...] }` | 同一 run 内 **选完即继续** tool loop；需扩展 Gateway 与 **主线程** picker |
+
+**提示词（`hostAppend` / Android 环境段补充）建议写清**
+
+- 工作区里没有所需文件、且任务依赖用户手机/网盘/微信里的原件时：**先向用户说明需要什么**，并 **请用户通过 App 的选文件入口添加**（或触发 `request_user_files`）；**不要编造已读内容**。
+- 用户选完并出现在「本会话可访问文件」列表后，再 `read_file` / 脚本处理；若用户拒绝或超时，说明无法完成并给出替代方案（例如请用户粘贴文字）。
+
+**`session-meta.json` 扩展（可选）**
+
+```json
+{
+  "pendingFileRequest": {
+    "id": "pfr-1",
+    "requestedAt": "...",
+    "kinds": ["application/pdf"],
+    "maxCount": 1,
+    "reason": "整理合同条款",
+    "status": "open|fulfilled|cancelled"
+  }
+}
+```
+
+- UI 可根据 `pendingFileRequest.status === open` 高亮选文件入口； fulfilled 后清 pending 并把路径并入 `accessibleFiles`。
+- events：`user_file_request_opened` / `user_file_request_fulfilled` / `user_file_request_cancelled`。
+
+**与 Weizhi `ui.confirm` 的对比**
+
+| | confirm | 选文件 |
+|--|---------|--------|
+| 用户动作 | 确定/取消 | 系统选择器 + 可能多文件 |
+| 脚本 API | `android.ui.confirm` | 无标准 Caps；**宿主工具或纯 UI** |
+| 续跑 | 同步返回 boolean | 多半 **异步**，适合通道 B 或「选完发下一轮 user 消息」 |
+
 ---
 
 ## 5. 实施顺序建议（与 16 号文档正交）
@@ -165,6 +212,8 @@ sessions/<sessionId>/
 | S1 | 宿主默认接 Weizhi：`ui.confirm`（主线程）+ `directoryPicker` | instrumented：脚本 `pickDirectory` 非 unsupported |
 | S2 | `ACTION_OPEN_DOCUMENT` 多选 → 复制到 `workspace/imports/` → 更新 meta | 复制后 `read_file` 可读 |
 | S3 | `session-meta.json` + 环境段注入 | 新 Session 首轮 prompt 含列表 |
+| S3b | **AI 询问 + 助手消息下「选择文件」**（通道 A）+ 提示词约定 | Mock：assistant 含请求 → UI 显示按钮 → 选后列表与 user 消息更新 |
+| S3c | （可选）`request_user_files` 工具 + run 续跑（通道 B） | instrumented：tool pending → picker → tool result 含 paths |
 | S4 | `ACTION_SEND` 入站 + 「导入当前 Session」 | 微信分享 → imports |
 | S5 | `extraReadRoot` 与 SAF 树只读 grep/read（可选） | 大目录不复制，只读检索 |
 
