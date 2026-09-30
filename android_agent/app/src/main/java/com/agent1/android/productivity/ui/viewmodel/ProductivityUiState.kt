@@ -64,6 +64,6 @@ data class ChatUiState(
     /** 本会话用户已导入、可供 AI read_file 的路径。 */
     val accessibleFilePaths: List<String> = emptyList(),
     val fileImportMessage: String? = null,
-    /** 当前待回复的 ask_user 表单（输入区上方）。 */
+    /** 当前待回复的 ask_user 表单（对话列表与输入框之间，限高可滚动）。 */
     val pendingAskUser: AskUserFormState? = null,
 )

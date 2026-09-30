@@ -260,18 +260,6 @@ fun ChatScreen(
                         AccessibleFilesStrip(paths = state.accessibleFilePaths)
                         AgentHairline()
                     }
-                    state.pendingAskUser?.let { form ->
-                        AskUserFormPanel(
-                            form = form,
-                            enabled = state.configError == null && !state.isRunning,
-                            validationError = form.validationError,
-                            onTextChange = viewModel::onAskUserTextChange,
-                            onSingleSelect = viewModel::onAskUserSingleSelect,
-                            onMultiToggle = viewModel::onAskUserMultiToggle,
-                            onSubmit = viewModel::submitAskUserForm,
-                        )
-                        AgentHairline()
-                    }
                     ChatComposer(
                         value = input,
                         onValueChange = { input = it },
@@ -289,14 +277,31 @@ fun ChatScreen(
                 }
             },
         ) { innerPadding ->
-            ChatMessageList(
-                state = state,
-                onPickFiles = launchPickFiles,
-                pickFilesEnabled = state.configError == null && !state.isRunning,
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-            )
+            ) {
+                ChatMessageList(
+                    state = state,
+                    onPickFiles = launchPickFiles,
+                    pickFilesEnabled = state.configError == null && !state.isRunning,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                )
+                state.pendingAskUser?.let { form ->
+                    AskUserFormPanel(
+                        form = form,
+                        enabled = state.configError == null && !state.isRunning,
+                        validationError = form.validationError,
+                        onTextChange = viewModel::onAskUserTextChange,
+                        onSingleSelect = viewModel::onAskUserSingleSelect,
+                        onMultiToggle = viewModel::onAskUserMultiToggle,
+                        onSubmit = viewModel::submitAskUserForm,
+                    )
+                }
+            }
         }
 
         AnimatedVisibility(visible = state.showModelPanel) {
