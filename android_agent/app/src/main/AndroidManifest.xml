@@ -18,6 +18,11 @@
             </intent-filter>
         </activity>
         <provider
+            android:name=".CrashBootstrapProvider"
+            android:authorities="${applicationId}.crash-bootstrap"
+            android:exported="false"
+            android:initOrder="100" />
+        <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"

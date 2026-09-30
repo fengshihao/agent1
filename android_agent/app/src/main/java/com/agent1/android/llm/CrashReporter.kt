@@ -18,24 +18,42 @@ object CrashReporter {
     private const val CRASH_FILE_NAME = "last_crash_report.txt"
     private const val CRASH_DIR_NAME = "crash-reports"
     @Volatile
-    private var installed = false
+    private var handlerInstalled = false
 
-    fun install(context: Context) {
-        if (installed) return
-        val appContext = context.applicationContext
-        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            runCatching {
-                persistCrash(appContext, thread, throwable)
-            }.onFailure {
-                Log.e(TAG, "persist crash failed", it)
+    /** 仅注册 JVM 未捕获处理器；可在 ContentProvider 早期调用，不做磁盘读。 */
+    fun installUncaughtHandler(context: Context) {
+        if (handlerInstalled) return
+        runCatching {
+            val appContext = context.applicationContext
+            val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+            Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+                runCatching {
+                    persistCrash(appContext, thread, throwable)
+                }.onFailure {
+                    Log.e(TAG, "persist crash failed", it)
+                }
+                previousHandler?.uncaughtException(thread, throwable)
             }
-            previousHandler?.uncaughtException(thread, throwable)
+            handlerInstalled = true
+            Log.i(TAG, "UncaughtExceptionHandler installed")
+        }.onFailure {
+            Log.e(TAG, "installUncaughtHandler failed", it)
         }
-        installed = true
-        Log.d(TAG, "UncaughtExceptionHandler installed")
-        getLastCrash(appContext)?.let { report ->
-            Log.e(TAG, "previous crash on disk (see files/last_crash_report.txt):\n$report")
+    }
+
+    /** Application.onCreate 及以后：确保 handler + 打印上次崩溃摘要。 */
+    fun install(context: Context) {
+        installUncaughtHandler(context)
+        logPreviousCrashIfAny(context)
+    }
+
+    fun logPreviousCrashIfAny(context: Context) {
+        runCatching {
+            getLastCrash(context.applicationContext)?.let { report ->
+                Log.e(TAG, "previous crash on disk (see files/last_crash_report.txt):\n$report")
+            }
+        }.onFailure {
+            Log.w(TAG, "logPreviousCrashIfAny skipped: ${it.message}")
         }
     }
 
@@ -118,12 +136,16 @@ object CrashReporter {
         }
         Log.e(TAG, "Crash report persisted prefs=$committed file=$fileSaved archive=$archiveSaved")
         if (BuildConfig.DEBUG) {
-            Handler(Looper.getMainLooper()).post {
-                Toast.makeText(
-                    context.applicationContext,
-                    "崩溃/错误已写入 files/last_crash_report.txt",
-                    Toast.LENGTH_LONG,
-                ).show()
+            runCatching {
+                Handler(Looper.getMainLooper()).post {
+                    runCatching {
+                        Toast.makeText(
+                            context.applicationContext,
+                            "崩溃/错误已写入 files/last_crash_report.txt",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }
             }
         }
     }

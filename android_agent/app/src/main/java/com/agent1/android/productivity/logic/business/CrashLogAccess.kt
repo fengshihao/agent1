@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.logic.business
 
 import android.content.Context
+import com.agent1.android.llm.BootTrace
 import com.agent1.android.llm.CrashReporter
 
 data class CrashLogSnapshot(
@@ -14,7 +15,17 @@ object CrashLogAccess {
 
     fun load(context: Context): CrashLogSnapshot {
         val crash = CrashReporter.getLastCrash(context)
-        val display = crash?.trim()?.ifBlank { null }
+        val boot = BootTrace.read(context)
+        val display = buildString {
+            if (!crash.isNullOrBlank()) {
+                append(crash.trim())
+            }
+            if (!boot.isNullOrBlank()) {
+                if (isNotEmpty()) appendLine().appendLine()
+                appendLine("=== boot_trace ===")
+                append(boot.trim())
+            }
+        }.trim().ifBlank { null }
         return CrashLogSnapshot(
             displayText = display,
             filePathHint = filePathHint(),
