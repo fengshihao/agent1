@@ -48,5 +48,6 @@ user_memory.md
 
 # Editor configs
 .vscode/
-.cursor/
+.cursor/*
+!.cursor/environment.json
 .idea/
