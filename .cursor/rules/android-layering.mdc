@@ -1,0 +1,124 @@
+---
+description: Android feature layering, dependency direction, and flow-first API design
+globs: agent_ui/android/app/src/main/java/**/*.kt
+alwaysApply: false
+---
+
+# Android Layering & Flow
+
+Apply these rules to all Android Kotlin files under `agent_ui/android`.
+
+## Package Structure (Required)
+
+For each feature module, package by layer:
+
+- `com.xyz.<feature>.ui.view`
+- `com.xyz.<feature>.ui.viewmodel`
+- `com.xyz.<feature>.ui.overlay` (system overlay / floating UI; same dependency rules as `ui.view` for IO bans)
+- `com.xyz.<feature>.logic.business`
+- `com.xyz.<feature>.logic.data`
+
+Directory layout under `src/main/java` must mirror the declared `package` (each segment is one folder; no `pet` sources living under a legacy `agent/...` path).
+
+## Folder Boundaries (pet demo)
+
+Concrete layout for the pet feature (new work follows the same pattern for other features):
+
+- UI: `**/pet/ui/**` (`ui.view`, `ui.viewmodel`, `ui.overlay`)
+- Logic: `**/pet/logic/business/**`, `**/pet/logic/data/**`
+- Process hosts (`Service`, etc.): `**/pet/logic/business/platform/**` (thin host only)
+- Service start/bind orchestration: `**/pet/logic/business/entry/**` (e.g. platform gateway)
+
+Legacy demo modules (`dynamicui`, `llm`) remain separate until migrated.
+
+## `logic.data` scope (intent)
+
+Prefer **data access implementations** here: network clients, local DB/DAO, file-backed stores, upload/download, CRUD. **Not** system permission UX (e.g. `Settings.canDrawOverlays`), generic process binding, or orchestration—those belong in `ui.viewmodel`, `logic.business`, or `logic.business.platform`. The pet demo may still mix legacy types under `logic.data`; migrate incrementally.
+
+## Android process hosts (Service, etc.)
+
+Types that subclass `android.app.Service` belong in `com.xyz.<feature>.logic.business.platform` (thin host). `startForegroundService` / `bindService` orchestration lives in `com.xyz.<feature>.logic.business.entry` (e.g. `PetPlatformGateway`). The layering checker allows `android.app.*` only under `logic.business.platform`, and allows same-feature `logic.data` to reference that subpackage only—not the rest of `logic.business`.
+
+## API & Flow (Required)
+
+- Prefer stream-based outputs (`Flow`, `StateFlow`, `SharedFlow`; `Flowable` only for explicit Rx integration). Expose state/events as streams, not callback-heavy `onXxx` APIs from logic.
+- Build and self-test non-UI APIs first, then integrate into UI.
+- UI maps gestures/view events to logic commands and renders from stream state/events.
+
+## Dependency Direction (Required)
+
+Only downward dependencies are allowed:
+
+- `ui.view -> ui.viewmodel, ui.overlay, logic.business`
+- `ui.viewmodel -> ui.view, ui.overlay, logic.business`
+- `ui.overlay -> ui.viewmodel, ui.view, logic.business, logic.data` (e.g. ASR transport wiring)
+- `logic.business -> logic.data`
+- `logic.data -> (lower-level libs only)` and same-feature `logic.business.platform` only
+
+Forbidden:
+
+- Any lower-to-upper dependency (for example `logic.* -> ui.*`).
+- Cross-feature direct dependency on another feature's `ui.*`.
+
+## UI Framework Isolation (Required)
+
+Android UI framework APIs are only allowed in `ui.*` packages.
+
+`logic.business` and `logic.data` must not import or reference:
+
+- `android.app.Activity`
+- `androidx.fragment.app.Fragment`
+- `android.view.View`
+- `android.widget.*`
+- `androidx.compose.*`
+
+Exception: `...logic.business.platform` may use `android.app.*` for Foreground `Service` hosts (validated by `scripts/check_android_layering.py`).
+
+## No Direct IO in View Layer (Required)
+
+Code in `ui.view` must not perform direct IO, including:
+
+- file read/write
+- network calls
+- direct database access
+- manual thread management or blocking calls
+
+`ui.view` only handles rendering and event forwarding. IO must go through `ui.viewmodel -> logic.business -> logic.data`.
+
+## Utils Are Layer-Owned (Required)
+
+`utils` is not an independent architecture layer.
+
+Forbidden:
+
+- generic cross-layer packages such as `com.xyz.utils` or `<feature>.utils` used to bypass layer boundaries.
+
+Allowed:
+
+- `...ui.utils...` (UI-only helpers)
+- `...logic.business.utils...` (business-only helpers)
+- `...logic.data.utils...` (data-only helpers)
+- `com.xyz.common` / `com.xyz.foundation` pure helpers (must not depend on `ui.*` or `logic.*` implementations)
+
+## Testing (Guidance)
+
+For new interaction features, implement API-level self-tests first: state transition sequence, event ordering, and cancel/abort paths (no stray submit events). UI tests are secondary—rendering and gesture mapping only.
+
+## Lint (Guidance)
+
+Prefer static checks (Detekt, ArchUnit, custom lint) for import boundaries. Until available, enforce via review; track adding lint as follow-up.
+
+## Examples
+
+Bad:
+
+- `com.xyz.featureA.logic.data.UserRepo` imports `androidx.compose.runtime.*`
+- `com.xyz.featureA.ui.view.HomeScreen` calls `okhttp3.OkHttpClient` directly
+- `com.xyz.featureA.utils.JsonExt` is imported by both `ui.*` and `logic.*`
+
+Good:
+
+- `ui.view` delegates user actions to `ui.viewmodel`
+- `ui.viewmodel` calls `logic.business` use-cases
+- `logic.business` orchestrates and calls `logic.data` repositories
+- layer-specific helper code stays in layer-owned `utils`
