@@ -29,11 +29,7 @@ public final class CapabilityIndexStore {
     /** bootstrap 或索引缺失时从 seed 建库。 */
     public static void ensure(Path agentRoot) {
         Path dbPath = CapabilityDatabasePaths.databaseFile(agentRoot);
-        try {
-            Files.createDirectories(dbPath.getParent());
-        } catch (Exception e) {
-            throw new IllegalStateException("create capabilities dir failed: " + dbPath.getParent(), e);
-        }
+        createParentDirs(dbPath);
         if (needsRebuild(dbPath)) {
             rebuildFromBundledSeed(agentRoot);
         }
@@ -47,7 +43,7 @@ public final class CapabilityIndexStore {
     public static void rebuild(Path agentRoot, List<CapabilityRecord> records) {
         Path dbPath = CapabilityDatabasePaths.databaseFile(agentRoot);
         try {
-            Files.createDirectories(dbPath.getParent());
+            createParentDirs(dbPath);
             if (Files.exists(dbPath)) {
                 Files.delete(dbPath);
             }
@@ -94,6 +90,18 @@ public final class CapabilityIndexStore {
             return !Integer.toString(SCHEMA_VERSION).equals(version);
         } catch (SQLException e) {
             return true;
+        }
+    }
+
+    private static void createParentDirs(Path dbPath) {
+        Path parent = dbPath.getParent();
+        if (parent == null) {
+            throw new IllegalStateException("capability db has no parent: " + dbPath);
+        }
+        try {
+            Files.createDirectories(parent);
+        } catch (Exception e) {
+            throw new IllegalStateException("create capabilities dir failed: " + parent, e);
         }
     }
 
