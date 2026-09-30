@@ -11,6 +11,8 @@ import com.weizhi.agent.skill.FileSystemSkillRepository;
 import com.weizhi.agent.skill.LoadSkillTool;
 import com.weizhi.agent.tool.AgentToolkit;
 import com.weizhi.agent.tool.builtin.BashTool;
+import com.weizhi.agent.tool.builtin.GlobTool;
+import com.weizhi.agent.tool.builtin.GrepTool;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -47,13 +49,14 @@ public final class WeizhiWorkspaceTools {
         if (sandbox == null) {
             throw new IllegalArgumentException("sandbox required");
         }
-        Path root = sandbox.getRoot();
         com.weizhi.agent.sandbox.WorkspaceSandbox weizhiSandbox =
-            new com.weizhi.agent.sandbox.WorkspaceSandbox(root);
+            WeizhiSandboxFactory.forProductivity(sandbox);
         AgentToolkit toolkit = new AgentToolkit();
+        toolkit.registerTool(new GrepTool(weizhiSandbox));
+        toolkit.registerTool(new GlobTool(weizhiSandbox));
         toolkit.registerTool(new com.weizhi.agent.tool.builtin.ZipTools(weizhiSandbox));
         toolkit.registerTool(new BashTool(weizhiSandbox));
-        toolkit.registerTool(buildLoadSkillTool(root, projectRootForSkills));
+        toolkit.registerTool(buildLoadSkillTool(sandbox.getRoot(), projectRootForSkills));
         if (agentRootForMcp != null) {
             new McpAgentExtension(agentRootForMcp).register(toolkit, weizhiSandbox);
         }

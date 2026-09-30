@@ -3,16 +3,18 @@ package com.agent1.android.productivity.logic.business.platform
 import android.content.Context
 import com.agent1.javaagent.tool.AgentTool
 import com.agent1.javaagent.tool.WorkspaceToolProvider
+import com.agent1.javaagent.weizhi.WeizhiSandboxFactory
 import com.agent1.javaagent.weizhi.WeizhiToolkitAdapters
 import com.agent1.javaagent.workspace.WorkspaceSandbox
 import com.weizhi.agent.mcp.McpAgentExtension
-import com.weizhi.agent.sandbox.WorkspaceSandbox as WeizhiSandbox
 import com.weizhi.agent.skill.AssetSkillRepository
 import com.weizhi.agent.skill.CompositeSkillRepository
 import com.weizhi.agent.skill.FileSystemSkillRepository
 import com.weizhi.agent.skill.LoadSkillTool
 import com.weizhi.agent.tool.AgentToolkit
 import com.weizhi.agent.tool.builtin.BashTool
+import com.weizhi.agent.tool.builtin.GlobTool
+import com.weizhi.agent.tool.builtin.GrepTool
 import com.weizhi.agent.tool.builtin.ZipTools
 import com.weizhi.agent.web.WebViewAgentExtension
 
@@ -25,16 +27,17 @@ class WeizhiAgentTools(
 ) : WorkspaceToolProvider {
 
     override fun toolsFor(sandbox: WorkspaceSandbox): List<AgentTool> {
-        val root = sandbox.root
-        val weizhiSandbox = WeizhiSandbox(root)
+        val weizhiSandbox = WeizhiSandboxFactory.forProductivity(sandbox)
         val toolkit = AgentToolkit()
+        toolkit.registerTool(GrepTool(weizhiSandbox))
+        toolkit.registerTool(GlobTool(weizhiSandbox))
         toolkit.registerTool(ZipTools(weizhiSandbox))
         toolkit.registerTool(BashTool(weizhiSandbox))
         toolkit.registerTool(
             LoadSkillTool(
                 CompositeSkillRepository(
                     AssetSkillRepository(appContext, "agent_skills"),
-                    FileSystemSkillRepository(root.resolve("skills")),
+                    FileSystemSkillRepository(sandbox.root.resolve("skills")),
                 ),
             ),
         )

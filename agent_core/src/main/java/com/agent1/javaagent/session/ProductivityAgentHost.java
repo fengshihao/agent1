@@ -40,8 +40,6 @@ import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import com.agent1.javaagent.tool.agent.ProductivitySkillTool;
 import com.agent1.javaagent.tool.office.DocxOfficeTools;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
-import com.agent1.javaagent.tool.workspace.GlobTool;
-import com.agent1.javaagent.tool.workspace.GrepTool;
 import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
@@ -482,8 +480,6 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new WriteFileTool(sandbox));
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));
-        tools.add(new GrepTool(sandbox));
-        tools.add(new GlobTool(sandbox));
         tools.add(new ListCatalogTool(agentRoot));
         tools.add(new CatalogSyncStatusTool(agentRoot));
         tools.add(new CatalogInstallTool(agentRoot));

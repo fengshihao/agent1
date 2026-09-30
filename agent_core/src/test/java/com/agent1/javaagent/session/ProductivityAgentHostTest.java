@@ -129,8 +129,6 @@ class ProductivityAgentHostTest {
         try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
             host.createSession();
             host.runUserMessage("ping");
-            assertTrue(toolNames.get().contains("grep"));
-            assertTrue(toolNames.get().contains("glob"));
             assertFalse(toolNames.get().contains("read_agent_doc"));
             assertTrue(toolNames.get().contains("list_catalog"));
             assertTrue(toolNames.get().contains("promote_request"));
@@ -198,10 +196,8 @@ class ProductivityAgentHostTest {
         )) {
             host.createSession();
             host.runUserMessage("ping");
-            assertTrue(toolNames.get().contains("grep"));
             assertTrue(toolNames.get().contains("extra_search"));
             assertTrue(toolNames.get().contains("execute_script"));
-            assertTrue(bridge.exposedNames().contains("grep"));
             assertTrue(bridge.exposedNames().contains("extra_search"));
             assertTrue(bridge.exposedNames().contains("read_file"));
             assertFalse(bridge.exposedNames().contains("execute_script"));
