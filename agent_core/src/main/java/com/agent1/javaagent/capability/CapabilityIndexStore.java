@@ -20,8 +20,8 @@ import java.util.regex.Pattern;
  */
 public final class CapabilityIndexStore {
 
-    /** v2：seed platforms 数组正确入库（android/desktop 过滤生效）。 */
-    public static final int SCHEMA_VERSION = 2;
+    /** v3：seed 去掉已在系统提示中的外层 agent_tool（execute_script 等）。 */
+    public static final int SCHEMA_VERSION = 3;
 
     /**
      * FTS5 bm25 列权（仅 indexed 列，顺序与 {@code capability_fts} 一致：title, summary, tags, entry）。

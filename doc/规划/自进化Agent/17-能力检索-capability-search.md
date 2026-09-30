@@ -82,8 +82,10 @@
 | `skill` | Skill 流程（非函数） | `skill:travel-planner` |
 | `mcp` | MCP 工具 | `mcp:server.tool` |
 | `bridge_tool` | 仅 `$tools.*` 脚本内 | `$tools.grep` |
-| `agent_tool` | 外层 Java Tool（宜少） | `execute_script` |
+| `agent_tool` | 外层 Java Tool（**宜不入 seed**） | 仅 Phase B 扫描且不在系统提示中重复者 |
 | `doc` | 纯文档条目 | `read_agent_doc:office-docx.md` |
+
+**索引范围（Phase A seed）**：`execute_script`、`capability_search`、`ask_user`、`read_agent_doc`、`skill` 等已在 `ProductivitySystemPromptBuilder` 写明的 **外层基础 Tool 不收录**，避免检索噪声；索引侧重 **caps / catalog_script / bridge_tool / builtin 细节 / doc 指针**（以及后续 catalog、skill、MCP 扫描）。
 
 ### 3.2 字段约束
 
