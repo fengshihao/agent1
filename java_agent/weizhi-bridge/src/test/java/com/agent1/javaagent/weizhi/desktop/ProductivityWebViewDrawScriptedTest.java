@@ -48,7 +48,7 @@ class ProductivityWebViewDrawScriptedTest {
 
         ScriptedLlmClient llm = ScriptedLlmClient.builder()
             .whenUserMessageContains(
-                "webview-canvas-draw",
+                "mock-webview-draw",
                 ScriptedResponses.toolCall("webview_exec", args.toString())
             )
             .whenToolResultSucceeded(
@@ -72,7 +72,7 @@ class ProductivityWebViewDrawScriptedTest {
             WeizhiWorkspaceTools.provider(agentRoot, projectRoot)
         )) {
             host.createSession();
-            String runId = host.runUserMessage("任务:webview-canvas-draw 请用 webview_exec 画 PNG");
+            String runId = host.runUserMessage("任务:mock-webview-draw 请用 webview_exec 画 PNG");
             assertEquals(
                 RunState.SUCCEEDED,
                 new FileRunStore(new FileSessionStore(agentRoot))

@@ -24,7 +24,7 @@ Skill 面向真模型；Mock 剧本在 Java 测试里，通常不进 APK。
 ```java
 ScriptedLlmClient llm = ScriptedLlmClient.builder()
     .whenUserMessageContains(
-        "webview-canvas-draw",
+        "mock-webview-draw",
         ScriptedResponses.toolCall("webview_exec", argsJson)
     )
     .whenToolResultSucceeded(ScriptedResponses.text("画好了"))

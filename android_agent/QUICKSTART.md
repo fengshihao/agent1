@@ -118,7 +118,7 @@ App 内 **模型配置** 与聊天页 **模型详情** 会显示当前包装配�
 **WebView 绘图（canvas，非大模型生图）**
 
 - 自动化（adb 真机/模拟器，不调 LLM）：`./run-webview-draw-test.sh`
-- 手动让 Agent 走 `webview_exec`：见 [`doc/webview-draw-e2e.md`](doc/webview-draw-e2e.md)；内置 skill `webview-canvas-draw`
+- 手动让 Agent 走 `webview_exec`：见 [`doc/webview-draw-e2e.md`](doc/webview-draw-e2e.md)（直接在对话里说明任务，无内置 canvas skill）
 
 桌面 Java 生产力模式：`java -jar … --productivity`（需 `../weizhi` 才有 Weizhi 脚本环）；普通 `JavaAgentCli` 仍是 read/bash/python/skill 四套老工具。
 
