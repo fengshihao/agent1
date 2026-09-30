@@ -12,6 +12,8 @@ data class SessionListUiState(
     val isLoading: Boolean = false,
     val exportInProgress: Boolean = false,
     val exportMessage: String? = null,
+    /** Agent 宿主初始化失败（Weizhi/SQLite 等）；详情见 last_crash_report.txt */
+    val startupError: String? = null,
 )
 
 data class ChatLine(

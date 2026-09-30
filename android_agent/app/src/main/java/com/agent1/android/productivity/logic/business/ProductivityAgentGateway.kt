@@ -34,36 +34,48 @@ class ProductivityAgentGateway(
         Thread(r, "productivity-agent").apply { isDaemon = true }
     }
     private val runtimeConfig: AgentRuntimeConfig = config
-    private val host = ProductivityHostAssembly.create(
-        appContext,
-        agentRoot,
-        runtimeConfig,
-    )
+    @Volatile
+    private var host: ProductivityAgentHost? = null
+
+    /** 须在 [execute] 块内调用（agent 单线程），避免与 Host 生命周期竞态。 */
+    private fun ensureHost(): ProductivityAgentHost {
+        host?.let { return it }
+        synchronized(this) {
+            host?.let { return it }
+            val created = ProductivityHostAssembly.create(
+                appContext,
+                agentRoot,
+                runtimeConfig,
+            )
+            host = created
+            return created
+        }
+    }
 
     fun configurationSummary(): RuntimeConfigSummary =
         RuntimeConfigSummary.from(runtimeConfig)
 
     fun configurationError(): String? = runtimeConfig.configurationError()
 
-    fun listSessions(): List<SessionMeta> = execute { host.listSessions() }
+    fun listSessions(): List<SessionMeta> = execute { ensureHost().listSessions() }
 
     fun createSession(): SessionMeta = execute {
-        host.createSession()
+        ensureHost().createSession()
     }
 
     fun deleteSession(sessionId: String) = execute {
-        host.deleteSession(sessionId)
+        ensureHost().deleteSession(sessionId)
     }
 
     fun switchSession(sessionId: String) = execute {
-        host.switchSession(sessionId)
+        ensureHost().switchSession(sessionId)
     }
 
-    fun getActiveSessionId(): String? = execute { host.activeSessionId }
+    fun getActiveSessionId(): String? = execute { ensureHost().activeSessionId }
 
     fun loadTranscript(sessionId: String): List<AgentMessage> = execute {
         prepareSession(sessionId)
-        host.runtime().stateSnapshot.messages
+        ensureHost().runtime().stateSnapshot.messages
     }
 
     fun listAccessibleFilePaths(sessionId: String): List<String> = execute {
@@ -74,6 +86,7 @@ class ProductivityAgentGateway(
      * 用户从系统文件选择器导入到 workspace/imports/，更新可访问列表与 transcript，不触发 LLM。
      */
     fun importUserPickedFiles(sessionId: String, uris: List<Uri>): List<String> = execute {
+        val agentHost = ensureHost()
         prepareSession(sessionId)
         val workspace = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
             ?: throw IllegalStateException("workspace missing for session $sessionId")
@@ -87,29 +100,30 @@ class ProductivityAgentGateway(
             imported.map { it.workspaceRelativePath },
             imported.map { it.displayName },
         )
-        host.setSessionEnvironmentSupplement(
+        agentHost.setSessionEnvironmentSupplement(
             SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
         )
-        host.switchSession(sessionId)
+        agentHost.switchSession(sessionId)
         val paths = imported.map { it.workspaceRelativePath }
-        host.appendUserMessageToTranscript("[已添加附件] ${paths.joinToString(", ")}")
+        agentHost.appendUserMessageToTranscript("[已添加附件] ${paths.joinToString(", ")}")
         paths
     }
 
     fun readTranscriptWithoutSwitch(sessionId: String): List<AgentMessage> = execute {
-        val previous = host.activeSessionId
-        host.switchSession(sessionId)
-        val messages = host.runtime().stateSnapshot.messages
+        val agentHost = ensureHost()
+        val previous = agentHost.activeSessionId
+        agentHost.switchSession(sessionId)
+        val messages = agentHost.runtime().stateSnapshot.messages
         if (previous != null && previous != sessionId) {
-            host.switchSession(previous)
+            agentHost.switchSession(previous)
         }
         messages
     }
 
-    fun isRunInProgress(): Boolean = host.isRunInProgress()
+    fun isRunInProgress(): Boolean = host?.isRunInProgress() ?: false
 
     fun abortActiveRun() {
-        host.abortActiveRun()
+        host?.abortActiveRun()
     }
 
     fun runUserMessage(
@@ -118,19 +132,21 @@ class ProductivityAgentGateway(
         listener: AgentEventListener,
     ): String = execute {
         prepareSession(sessionId)
-        val subscription = host.runtime().subscribe(listener)
+        val agentHost = ensureHost()
+        val subscription = agentHost.runtime().subscribe(listener)
         try {
-            host.runUserMessage(text)
+            agentHost.runUserMessage(text)
         } finally {
             closeQuietly(subscription)
         }
     }
 
     private fun prepareSession(sessionId: String) {
-        host.setSessionEnvironmentSupplement(
+        val agentHost = ensureHost()
+        agentHost.setSessionEnvironmentSupplement(
             SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
         )
-        host.switchSession(sessionId)
+        agentHost.switchSession(sessionId)
     }
 
     private fun <T> execute(block: () -> T): T {
@@ -139,7 +155,10 @@ class ProductivityAgentGateway(
     }
 
     override fun close() {
-        execute { host.close() }
+        execute {
+            host?.close()
+            host = null
+        }
         executor.shutdown()
     }
 

@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.logic.business
 
 import android.content.Context
+import com.agent1.android.llm.CrashReporter
 import com.agent1.android.productivity.logic.data.AndroidAgentRuntimeConfig
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicReference
@@ -15,11 +16,21 @@ object ProductivityGatewayProvider {
         synchronized(this) {
             ref.get()?.let { return it }
             val root = agentRoot(context)
-            val gateway = ProductivityAgentGateway(
-                context.applicationContext,
-                root,
-                AndroidAgentRuntimeConfig.load(context),
-            )
+            @Suppress("TooGenericExceptionCaught")
+            val gateway = try {
+                ProductivityAgentGateway(
+                    context.applicationContext,
+                    root,
+                    AndroidAgentRuntimeConfig.load(context),
+                )
+            } catch (t: Exception) {
+                CrashReporter.recordHandledFailure(
+                    context.applicationContext,
+                    "ProductivityAgentGateway.init",
+                    t,
+                )
+                throw t
+            }
             ref.set(gateway)
             return gateway
         }

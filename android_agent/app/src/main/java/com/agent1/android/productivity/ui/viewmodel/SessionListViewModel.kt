@@ -31,17 +31,25 @@ class SessionListViewModel(
     fun refresh() {
         viewModelScope.launch {
             val current = _state.value
-            _state.value = current.copy(isLoading = true)
-            val sessions = withContext(Dispatchers.IO) { gateway.listSessions() }
-            _state.value = SessionListUiState(
-                sessions = sessions,
-                configSummary = gateway.configurationSummary(),
-                catalogModels = QwenModelCatalog.primaryModels(),
-                configError = gateway.configurationError(),
-                isLoading = false,
-                exportInProgress = current.exportInProgress,
-                exportMessage = current.exportMessage,
-            )
+            _state.value = current.copy(isLoading = true, startupError = null)
+            @Suppress("TooGenericExceptionCaught")
+            try {
+                val sessions = withContext(Dispatchers.IO) { gateway.listSessions() }
+                _state.value = SessionListUiState(
+                    sessions = sessions,
+                    configSummary = gateway.configurationSummary(),
+                    catalogModels = QwenModelCatalog.primaryModels(),
+                    configError = gateway.configurationError(),
+                    isLoading = false,
+                    exportInProgress = current.exportInProgress,
+                    exportMessage = current.exportMessage,
+                )
+            } catch (t: Exception) {
+                _state.value = current.copy(
+                    isLoading = false,
+                    startupError = t.message ?: t.javaClass.simpleName,
+                )
+            }
         }
     }
 

@@ -1,7 +1,11 @@
 package com.agent1.android.llm
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.widget.Toast
+import com.agent1.android.BuildConfig
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -48,6 +52,21 @@ object CrashReporter {
         runCatching { crashFile(context).delete() }
     }
 
+    /** 已捕获的启动/编排失败（非 uncaught），同样落盘便于下次启动展示。 */
+    fun recordHandledFailure(context: Context, where: String, throwable: Throwable) {
+        val now = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+        val stack = Log.getStackTraceString(throwable)
+        val report = buildString {
+            appendLine("=== Handled Failure (persisted) ===")
+            appendLine("time: $now")
+            appendLine("where: $where")
+            appendLine("error: ${throwable::class.java.name}: ${throwable.message.orEmpty()}")
+            appendLine("stacktrace:")
+            appendLine(stack)
+        }
+        persistReport(context, report)
+    }
+
     fun clearAllReports(context: Context) {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs.edit().remove(KEY_LAST_CRASH).commit()
@@ -72,10 +91,16 @@ object CrashReporter {
             appendLine("stacktrace:")
             appendLine(stack)
         }
+        persistReport(context, report)
+    }
+
+    private fun persistReport(context: Context, report: String) {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val committed = prefs.edit().putString(KEY_LAST_CRASH, report).commit()
         val fileSaved = runCatching {
-            crashFile(context).writeText(report)
+            val file = crashFile(context)
+            file.parentFile?.mkdirs()
+            file.writeText(report)
             true
         }.getOrElse {
             Log.e(TAG, "write crash file failed", it)
@@ -91,7 +116,16 @@ object CrashReporter {
             Log.e(TAG, "write crash archive failed", it)
             false
         }
-        Log.e(TAG, "App crashed, report persisted prefs=$committed file=$fileSaved archive=$archiveSaved")
+        Log.e(TAG, "Crash report persisted prefs=$committed file=$fileSaved archive=$archiveSaved")
+        if (BuildConfig.DEBUG) {
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(
+                    context.applicationContext,
+                    "崩溃/错误已写入 files/last_crash_report.txt",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
     }
 
     private fun crashFile(context: Context): File {

@@ -126,6 +126,14 @@ fun SessionListScreen(
             configError = state.configError,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         )
+        if (!state.startupError.isNullOrBlank()) {
+            Text(
+                "Agent 初始化失败：${state.startupError}。请重启 App 查看崩溃页，或 adb 执行 ./pull-crash-report.sh",
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         if (!state.exportMessage.isNullOrBlank()) {
             Text(
                 state.exportMessage.orEmpty(),
