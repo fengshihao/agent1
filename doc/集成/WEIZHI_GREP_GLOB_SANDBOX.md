@@ -1,7 +1,7 @@
 # Weizhi grep/glob 与 Agent1 沙箱共用（跟踪）
 
 **Weizhi Issue：** https://github.com/fengshihao/weizhi/issues/14  
-**Agent1 PR：** [#39](https://github.com/fengshihao/agent1/pull/39)（过渡期在 `agent_core` 内有临时 `grep`/`glob`，待 Weizhi 落地后改回只注册微智实现）
+**Weizhi：** [#14](https://github.com/fengshihao/weizhi/issues/14) 已合并 master。Agent1 经 `WeizhiSandboxFactory` 挂载 `ReadMount`，Host 只注册微智 grep/glob。
 
 ## 目标
 
@@ -58,6 +58,8 @@ String relativize(Path abs);            // 优先相对 workspace，否则 abs �
 2. **relativize**：extra root 下文件应返回 **逻辑路径**（与 `read_file` 一致）。
 3. **Agent1 侧**：`WeizhiWorkspaceTools` / Host 只注册微智 grep/glob；删除 `agent_core` 临时实现；`WeizhiToolkitAdapters` 不变。
 
-## Agent1 临时实现（待删除）
+## Agent1 装配
 
-`com.agent1.javaagent.tool.workspace.GrepTool` / `GlobTool` — 参数较简（无 `include`/`output_mode`/`limit`），仅供 PR #39 过渡。
+- `AgentDocReadMounts.forAgentRoot(agentRoot)` → `docs/system`、`docs/capabilities`
+- `WeizhiSandboxFactory.forProductivity(agent1Sandbox)` → 微智 `WorkspaceSandbox(writeRoot, readMounts)`
+- `WeizhiWorkspaceTools` / Android `WeizhiAgentTools` 注册 `com.weizhi.agent.tool.builtin.GrepTool` / `GlobTool`

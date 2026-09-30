@@ -13,17 +13,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+/** read_file / list_dir 对 docs/system 只读路径（grep/glob 见 weizhi-bridge 单测）。 */
 class AgentDocsReadToolsTest {
 
     @TempDir
     Path temp;
 
     private WorkspaceSandbox sandbox;
-    private Path agentRoot;
 
     @BeforeEach
     void setUp() {
-        agentRoot = temp.resolve("agentRoot");
+        Path agentRoot = temp.resolve("agentRoot");
         AgentHomeBootstrap.ensure(agentRoot);
         sandbox = new WorkspaceSandbox(temp.resolve("workspace"), agentRoot);
     }
@@ -37,28 +37,5 @@ class AgentDocsReadToolsTest {
         ToolExecutionResult result = read.execute("r1", params, new CancellationToken(), u -> {
         });
         assertTrue(result.getText().contains("PATH: docs/system/directories.md"));
-    }
-
-    @Test
-    void grepFindsInDocsSystem() throws Exception {
-        GrepTool grep = new GrepTool(sandbox);
-        ObjectNode params = new ObjectMapper().createObjectNode();
-        params.put("pattern", "agentRoot");
-        params.put("path", "docs/system");
-        ToolExecutionResult result = grep.execute("g1", params, new CancellationToken(), u -> {
-        });
-        assertTrue(result.getText().contains("docs/system/"));
-    }
-
-    @Test
-    void globListsMarkdownUnderDocs() throws Exception {
-        GlobTool glob = new GlobTool(sandbox);
-        ObjectNode params = new ObjectMapper().createObjectNode();
-        params.put("pattern", "*.md");
-        params.put("path", "docs/system");
-        ToolExecutionResult result = glob.execute("gl1", params, new CancellationToken(), u -> {
-        });
-        assertTrue(result.getText().contains("docs/system/"));
-        assertTrue(result.getText().contains(".md"));
     }
 }
