@@ -10,6 +10,7 @@ import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
 import com.agent1.javaagent.model.ChatUsage;
 import com.agent1.javaagent.model.ToolCall;
+import com.agent1.javaagent.model.ToolCallIds;
 import com.agent1.javaagent.tool.AgentTool;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -377,11 +378,8 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 for (JsonNode callDelta : toolCalls) {
                     int index = callDelta.path("index").asInt(0);
                     PartialToolCall partial = acc.toolCallByIndex.computeIfAbsent(index, key -> new PartialToolCall());
-                    if (callDelta.has("id")) {
-                        String id = callDelta.get("id").asText();
-                        if (id != null && !id.isBlank()) {
-                            partial.id = id;
-                        }
+                    if (callDelta.has("id") && !callDelta.get("id").isNull()) {
+                        partial.id = ToolCallIds.normalize(callDelta.get("id").asText());
                     }
                     JsonNode function = callDelta.get("function");
                     if (function != null) {
@@ -477,7 +475,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
         private final StringBuilder arguments = new StringBuilder();
 
         private ToolCall toToolCall() {
-            return new ToolCall(id, name, arguments.toString());
+            return new ToolCall(ToolCallIds.normalize(id), name, arguments.toString());
         }
     }
 
