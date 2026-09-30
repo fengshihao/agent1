@@ -17,7 +17,7 @@ cd android_agent && ./run-webview-draw-test.sh
 
 1. 安装：`./build-android-agent.sh`
 2. 打开生产力助手，新建会话。
-3. 发送（或加载 skill `webview-canvas-draw` 后发送）：
+3. 发送：
 
 > 请**不要**用大模型生图。只用 **webview_exec** 在 canvas 上画 256×256 橙底蓝圆，把 PNG 的纯 base64 写到工作区 `draw/agent-webview.png`，完成后告诉我路径。
 
