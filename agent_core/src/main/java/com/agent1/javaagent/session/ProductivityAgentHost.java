@@ -69,6 +69,8 @@ public final class ProductivityAgentHost implements Closeable {
     private final String scriptPromptAppend;
     private final ScriptToolBridge scriptToolBridge;
     private final WorkspaceToolProvider extraTools;
+    /** capability_search 检索时按 Host 平台过滤（android / desktop），不由模型传参。 */
+    private final String capabilitySearchPlatform;
     private volatile String sessionEnvironmentSupplement = "";
     private ProductivityCoach productivityCoach;
     private String activeSessionId;
@@ -93,6 +95,7 @@ public final class ProductivityAgentHost implements Closeable {
             executeScriptTimeoutMs,
             scriptPromptAppend,
             null,
+            null,
             null
         );
     }
@@ -107,6 +110,30 @@ public final class ProductivityAgentHost implements Closeable {
         ScriptToolBridge scriptToolBridge,
         WorkspaceToolProvider extraTools
     ) {
+        this(
+            agentRoot,
+            config,
+            llmClient,
+            scriptEngineFactory,
+            executeScriptTimeoutMs,
+            scriptPromptAppend,
+            scriptToolBridge,
+            extraTools,
+            null
+        );
+    }
+
+    public ProductivityAgentHost(
+        Path agentRoot,
+        AgentRuntimeConfig config,
+        LlmClient llmClient,
+        ScriptEngineFactory scriptEngineFactory,
+        long executeScriptTimeoutMs,
+        String scriptPromptAppend,
+        ScriptToolBridge scriptToolBridge,
+        WorkspaceToolProvider extraTools,
+        String capabilitySearchPlatform
+    ) {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
         this.projectRoot = AgentDataPaths.projectRoot(this.agentRoot);
         AgentHomeBootstrap.ensure(this.agentRoot);
@@ -117,6 +144,7 @@ public final class ProductivityAgentHost implements Closeable {
         this.scriptPromptAppend = scriptPromptAppend == null ? "" : scriptPromptAppend.trim();
         this.scriptToolBridge = scriptToolBridge;
         this.extraTools = extraTools;
+        this.capabilitySearchPlatform = normalizeCapabilitySearchPlatform(capabilitySearchPlatform);
         this.runtime = new AgentRuntime(
             config.toAgentOptionsBuilder("").tools(List.of()).build(),
             llmClient
@@ -163,12 +191,36 @@ public final class ProductivityAgentHost implements Closeable {
         this(
             agentRoot,
             config,
+            scriptEngineFactory,
+            executeScriptTimeoutMs,
+            scriptPromptAppend,
+            scriptToolBridge,
+            extraTools,
+            null
+        );
+    }
+
+    /** CLI / Android：同上，并指定 capability_search 的平台过滤（如 {@code android}）。 */
+    public ProductivityAgentHost(
+        Path agentRoot,
+        AgentRuntimeConfig config,
+        ScriptEngineFactory scriptEngineFactory,
+        long executeScriptTimeoutMs,
+        String scriptPromptAppend,
+        ScriptToolBridge scriptToolBridge,
+        WorkspaceToolProvider extraTools,
+        String capabilitySearchPlatform
+    ) {
+        this(
+            agentRoot,
+            config,
             new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(Duration.ofSeconds(120), 0.2)),
             scriptEngineFactory,
             executeScriptTimeoutMs,
             scriptPromptAppend,
             scriptToolBridge,
-            extraTools
+            extraTools,
+            capabilitySearchPlatform
         );
     }
 
@@ -436,7 +488,7 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new ListSessionsTool(sessionStore, this::getActiveSessionId));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         tools.add(new AskUserTool());
-        tools.add(new CapabilitySearchTool(agentRoot));
+        tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform));
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);
             if (extra != null && !extra.isEmpty()) {
@@ -465,6 +517,13 @@ public final class ProductivityAgentHost implements Closeable {
 
     private static String newRunId() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+    }
+
+    private static String normalizeCapabilitySearchPlatform(String platform) {
+        if (platform == null || platform.isBlank()) {
+            return "desktop";
+        }
+        return platform.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private static void closeQuietly(AutoCloseable closeable) {

@@ -22,9 +22,17 @@ public final class CapabilitySearchTool implements AgentTool {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final Path agentRoot;
+    /** Host 装配时固定（android / desktop）；索引行上的 platforms 字段仍用于过滤。 */
+    private final String hostPlatform;
 
+    /** 单测等场景：不按平台过滤（等同 any）。 */
     public CapabilitySearchTool(Path agentRoot) {
+        this(agentRoot, "any");
+    }
+
+    public CapabilitySearchTool(Path agentRoot, String hostPlatform) {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
+        this.hostPlatform = normalizeHostPlatform(hostPlatform);
     }
 
     @Override
@@ -54,12 +62,6 @@ public final class CapabilitySearchTool implements AgentTool {
                 .set("items", MAPPER.createObjectNode().put("type", "string"))
         );
         properties.set(
-            "platform",
-            MAPPER.createObjectNode()
-                .put("type", "string")
-                .put("description", "android | desktop | any")
-        );
-        properties.set(
             "limit",
             MAPPER.createObjectNode().put("type", "integer").put("description", "1-20, default 8")
         );
@@ -82,15 +84,14 @@ public final class CapabilitySearchTool implements AgentTool {
             return ToolExecutionResult.text("错误：query 不能为空");
         }
         List<String> kinds = parseKinds(parameters == null ? null : parameters.get("kinds"));
-        String platform = parameters == null ? "any" : parameters.path("platform").asText("any");
         int limit = parameters == null ? 8 : parameters.path("limit").asInt(8);
 
         List<CapabilityIndexStore.CapabilityHit> hits =
-            CapabilityIndexStore.search(agentRoot, query, kinds, platform, limit);
+            CapabilityIndexStore.search(agentRoot, query, kinds, hostPlatform, limit);
 
         if (hits.isEmpty()) {
             return ToolExecutionResult.text(
-                "未找到匹配「" + query + "」的能力条目。可换关键词、放宽 kinds/platform，或 read_agent_doc 读 docs/system。"
+                "未找到匹配「" + query + "」的能力条目。可换关键词、放宽 kinds，或 read_agent_doc 读 docs/system。"
             );
         }
 
@@ -136,6 +137,13 @@ public final class CapabilitySearchTool implements AgentTool {
             }
         }
         return kinds;
+    }
+
+    private static String normalizeHostPlatform(String platform) {
+        if (platform == null || platform.isBlank()) {
+            return "desktop";
+        }
+        return platform.trim().toLowerCase(Locale.ROOT);
     }
 
     private static String truncate(String text, int max) {

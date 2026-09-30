@@ -42,6 +42,7 @@ object WeizhiHostLoader {
             """.trimIndent(),
             scriptTools,
             WeizhiAgentTools(context),
+            "android",
         )
     }
 }

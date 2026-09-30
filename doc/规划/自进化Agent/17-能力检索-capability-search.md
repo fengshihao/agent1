@@ -108,12 +108,13 @@
   "properties": {
     "query": { "type": "string", "description": "自然语言或关键词" },
     "kinds": { "type": "array", "items": { "type": "string" } },
-    "platform": { "type": "string", "enum": ["android", "desktop", "any"] },
     "limit": { "type": "integer", "minimum": 1, "maximum": 20 }
   },
   "required": ["query"]
 }
 ```
+
+**平台过滤**：不由模型传 `platform`。`ProductivityAgentHost` 装配时固定（CLI/desktop 包 → `desktop`，Android APK → `android`），检索 SQL 仍用索引行上的 `platforms` 字段过滤。
 
 ### 4.3 行为
 

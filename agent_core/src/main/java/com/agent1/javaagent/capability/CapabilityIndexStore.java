@@ -19,7 +19,8 @@ import java.util.regex.Pattern;
  */
 public final class CapabilityIndexStore {
 
-    public static final int SCHEMA_VERSION = 1;
+    /** v2：seed platforms 数组正确入库（android/desktop 过滤生效）。 */
+    public static final int SCHEMA_VERSION = 2;
 
     private static final Pattern FTS_SPECIAL = Pattern.compile("[\"*:^()]");
 

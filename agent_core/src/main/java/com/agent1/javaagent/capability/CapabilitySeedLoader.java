@@ -49,7 +49,7 @@ public final class CapabilitySeedLoader {
             node.path("title").asText(""),
             node.path("summary").asText(""),
             tags,
-            node.path("platforms").asText("any"),
+            platformsToStored(node.get("platforms")),
             node.path("entry").asText(""),
             node.path("doc_path").asText(""),
             node.path("doc_anchor").asText(""),
@@ -57,6 +57,31 @@ public final class CapabilitySeedLoader {
             node.path("source").asText("bundled"),
             node.path("weight").asDouble(1.0)
         );
+    }
+
+    private static String platformsToStored(JsonNode platformsNode) {
+        if (platformsNode == null || platformsNode.isMissingNode()) {
+            return "any";
+        }
+        if (platformsNode.isTextual()) {
+            String text = platformsNode.asText("any").trim();
+            return text.isEmpty() ? "any" : text;
+        }
+        if (platformsNode.isArray()) {
+            StringBuilder sb = new StringBuilder();
+            for (JsonNode p : platformsNode) {
+                String text = p.asText("").trim().toLowerCase();
+                if (text.isEmpty()) {
+                    continue;
+                }
+                if (sb.length() > 0) {
+                    sb.append(',');
+                }
+                sb.append(text);
+            }
+            return sb.length() == 0 ? "any" : sb.toString();
+        }
+        return "any";
     }
 
     private static String tagsToCsv(JsonNode tagsNode) {
