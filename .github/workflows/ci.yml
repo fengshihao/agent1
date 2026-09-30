@@ -21,6 +21,9 @@ jobs:
           WEIZHI_SKIP_SYNC: ${{ vars.WEIZHI_SKIP_SYNC }}
         run: chmod +x ./sync-weizhi.sh && ./sync-weizhi.sh
 
+      - name: Overlay Agent1 catalog office scripts onto Weizhi
+        run: chmod +x ./scripts/overlay-weizhi-office-catalog.sh && ./scripts/overlay-weizhi-office-catalog.sh
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
