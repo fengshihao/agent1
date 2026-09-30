@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.logic.business
 
 import android.content.Context
+import android.net.Uri
 import com.agent1.javaagent.config.AgentRuntimeConfig
 import com.agent1.javaagent.event.AgentEventListener
 import com.agent1.javaagent.model.AgentMessage
@@ -24,7 +25,7 @@ import java.util.concurrent.Future
  * 进行中的 Run 会占住 agent 线程；[abortActiveRun] 不走该队列，避免停止被本轮 IO 拖住。
  */
 class ProductivityAgentGateway(
-    context: Context,
+    private val appContext: Context,
     agentRoot: Path,
     config: AgentRuntimeConfig,
 ) : Closeable {
@@ -34,7 +35,7 @@ class ProductivityAgentGateway(
     }
     private val runtimeConfig: AgentRuntimeConfig = config
     private val host = ProductivityHostAssembly.create(
-        context.applicationContext,
+        appContext,
         agentRoot,
         runtimeConfig,
     )
@@ -61,8 +62,38 @@ class ProductivityAgentGateway(
     fun getActiveSessionId(): String? = execute { host.activeSessionId }
 
     fun loadTranscript(sessionId: String): List<AgentMessage> = execute {
-        host.switchSession(sessionId)
+        prepareSession(sessionId)
         host.runtime().stateSnapshot.messages
+    }
+
+    fun listAccessibleFilePaths(sessionId: String): List<String> = execute {
+        SessionAccessibleFilesStore.listRelativePaths(appContext, sessionId)
+    }
+
+    /**
+     * 用户从系统文件选择器导入到 workspace/imports/，更新可访问列表与 transcript，不触发 LLM。
+     */
+    fun importUserPickedFiles(sessionId: String, uris: List<Uri>): List<String> = execute {
+        prepareSession(sessionId)
+        val workspace = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
+            ?: throw IllegalStateException("workspace missing for session $sessionId")
+        val imported = WorkspaceFileImport.copyContentUrisToWorkspace(appContext, workspace, uris)
+        if (imported.isEmpty()) {
+            return@execute emptyList()
+        }
+        SessionAccessibleFilesStore.addEntries(
+            appContext,
+            sessionId,
+            imported.map { it.workspaceRelativePath },
+            imported.map { it.displayName },
+        )
+        host.setSessionEnvironmentSupplement(
+            SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
+        )
+        host.switchSession(sessionId)
+        val paths = imported.map { it.workspaceRelativePath }
+        host.appendUserMessageToTranscript("[已添加附件] ${paths.joinToString(", ")}")
+        paths
     }
 
     fun readTranscriptWithoutSwitch(sessionId: String): List<AgentMessage> = execute {
@@ -86,13 +117,20 @@ class ProductivityAgentGateway(
         text: String,
         listener: AgentEventListener,
     ): String = execute {
-        host.switchSession(sessionId)
+        prepareSession(sessionId)
         val subscription = host.runtime().subscribe(listener)
         try {
             host.runUserMessage(text)
         } finally {
             closeQuietly(subscription)
         }
+    }
+
+    private fun prepareSession(sessionId: String) {
+        host.setSessionEnvironmentSupplement(
+            SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
+        )
+        host.switchSession(sessionId)
     }
 
     private fun <T> execute(block: () -> T): T {

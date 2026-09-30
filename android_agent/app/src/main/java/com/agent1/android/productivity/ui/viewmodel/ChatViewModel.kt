@@ -12,6 +12,8 @@ import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
+import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
+import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -75,10 +77,12 @@ class ChatViewModel(
             val built = withContext(Dispatchers.IO) {
                 val messages = gateway.loadTranscript(sessionId)
                 val ws = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
-                messages.map { it.toChatLine(ws) }
+                val accessible = gateway.listAccessibleFilePaths(sessionId)
+                Pair(messages.map { it.toChatLine(ws) }, accessible)
             }
             _state.value = _state.value.copy(
-                lines = built,
+                lines = built.first,
+                accessibleFilePaths = built.second,
                 streamingText = "",
                 streamingReasoning = "",
                 toolTrail = emptyList(),
@@ -309,13 +313,46 @@ class ChatViewModel(
             )
         }
         val files = ChatTranscriptFormatting.extractMarkdownFileLinks(content)
+        val pick = role == AgentMessage.ROLE_ASSISTANT && UserFileRequestMarkers.containsRequest(content)
+        val display = if (pick) {
+            UserFileRequestMarkers.stripForDisplay(content)
+        } else {
+            content
+        }
         return ChatLine(
             role = role,
-            content = ChatTranscriptFormatting.truncateForUiDisplay(content),
+            content = ChatTranscriptFormatting.truncateForUiDisplay(display),
             reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
             isTool = false,
             workspaceFilePaths = files,
+            requestUserPickFiles = pick,
         )
+    }
+
+    fun onUserPickedFiles(uris: List<Uri>) {
+        if (uris.isEmpty() || _state.value.isRunning) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(fileImportMessage = null)
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    gateway.importUserPickedFiles(sessionId, uris)
+                }
+            }
+            result.onSuccess { paths ->
+                if (paths.isEmpty()) {
+                    _state.value = _state.value.copy(fileImportMessage = "未能导入所选文件")
+                } else {
+                    _state.value = _state.value.copy(
+                        fileImportMessage = "已添加 ${paths.size} 个文件",
+                    )
+                }
+                loadTranscriptIntoState(initialLoad = false)
+            }.onFailure { error ->
+                _state.value = _state.value.copy(
+                    fileImportMessage = "导入失败：${error.message ?: error.javaClass.simpleName}",
+                )
+            }
+        }
     }
 
     fun exportDiagnostics(activity: Context) {

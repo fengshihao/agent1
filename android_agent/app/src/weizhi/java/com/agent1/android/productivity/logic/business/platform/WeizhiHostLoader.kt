@@ -35,6 +35,10 @@ object WeizhiHostLoader {
 
             Word（.docx）：简单转换用 docx_markdown_to_word；复杂流程在工作区写 orchestrator（file 模式，如 jobs/run.js），
             `import './docx.js'` 由 Weizhi 回退到 catalog（勿 cp）。勿 bash/read agentRoot 或 assets。
+
+            用户手机上的原件（相册、微信文件等）不在工作区时：先说明需要什么，并在回复开头单独一行写
+            [需要用户选文件] 或 [需要用户选文件: pdf,最多3个]，请用户点 App「选择文件」添加。
+            用户添加后会写入环境里的可访问文件列表；再用 read_file 读 imports/ 下路径。不要编造已读内容。
             """.trimIndent(),
             scriptTools,
             WeizhiAgentTools(context),
