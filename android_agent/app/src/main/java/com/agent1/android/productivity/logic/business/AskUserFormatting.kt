@@ -72,7 +72,7 @@ object AskUserFormatting {
                 appendLine("${index + 1}. ${q.prompt}")
             }
             appendLine()
-            append("请在对话下方的表单中选择；题目较多时可在表单内滚动，提交按钮固定在底部。")
+            append("请在对话下方的表单中回答；多道题用顶部标签切换。")
         }.trim()
     }
 
