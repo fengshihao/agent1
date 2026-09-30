@@ -50,6 +50,8 @@ class ChatViewModel(
     private var streamGeneration = 0
     @Volatile
     private var flushJob: Job? = null
+    /** 单次 Run 内 LazyColumn 工具项 key，与 toolCallId 解耦以防重复 id 导致 Compose 崩溃。 */
+    private var liveToolSegmentSeq = 0
 
     init {
         refreshConfigSummary()
@@ -122,6 +124,7 @@ class ChatViewModel(
             return
         }
         resetStreamBuffers()
+        liveToolSegmentSeq = 0
         _state.value = _state.value.copy(
             isRunning = true,
             streamingText = "",
@@ -321,8 +324,9 @@ class ChatViewModel(
                 flushStreamingIntoTimeline()
                 val call = payload.toolCall
                 val name = call.name
+                val segmentKey = "tool-${liveToolSegmentSeq++}-${call.id}"
                 val segment = ChatRunTimelineItem.ToolPart(
-                    id = "tool-${call.id}",
+                    id = segmentKey,
                     toolCallId = call.id,
                     toolName = name,
                     argsPreview = call.argumentsJson.trim().take(220),
