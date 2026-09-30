@@ -62,6 +62,21 @@ public final class DocxMarkdownToWordTool implements AgentTool {
             "title",
             MAPPER.createObjectNode().put("type", "string").put("description", "Optional document title")
         );
+        properties.set(
+            "default_style",
+            MAPPER.createObjectNode()
+                .put("type", "object")
+                .put("description", "Optional body default: font, sizePt, bold, lineSpacing (docx.js defaultStyle)")
+        );
+        properties.set(
+            "heading_styles",
+            MAPPER.createObjectNode()
+                .put("type", "object")
+                .put(
+                    "description",
+                    "Optional map of heading level (1-9) to style overrides; default H1 22pt / H2 16pt / H3 14pt bold"
+                )
+        );
         schema.set("properties", properties);
         schema.set("required", MAPPER.createArrayNode().add("input_path").add("output_path"));
         return schema;
@@ -83,16 +98,25 @@ public final class DocxMarkdownToWordTool implements AgentTool {
         if (inputPath.isEmpty() || outputPath.isEmpty()) {
             return ToolExecutionResult.text("错误：需要 input_path 与 output_path");
         }
+        ObjectNode options = MAPPER.createObjectNode();
+        options.put("inputPath", inputPath);
+        options.put("outputPath", outputPath);
         String title = parameters.path("title").asText("").trim();
-        String titleJson = title.isEmpty() ? "" : ", title: " + jsonString(title);
+        if (!title.isEmpty()) {
+            options.put("title", title);
+        }
+        if (parameters.has("default_style") && !parameters.get("default_style").isNull()) {
+            options.set("defaultStyle", parameters.get("default_style"));
+        }
+        if (parameters.has("heading_styles") && !parameters.get("heading_styles").isNull()) {
+            options.set("headingStyles", parameters.get("heading_styles"));
+        }
+        String optionsLiteral = DocxOfficeJsRunner.jsonLiteral(options);
         String js =
             """
             import { markdownToDocx } from './docx.js';
-            export default markdownToDocx({
-              inputPath: %s,
-              outputPath: %s%s
-            });
-            """.formatted(jsonString(inputPath), jsonString(outputPath), titleJson);
+            export default markdownToDocx(%s);
+            """.formatted(optionsLiteral);
 
         return DocxOfficeJsRunner.run(sandbox, engineFactory, timeoutMs, agentRoot, js, cancellationToken);
     }

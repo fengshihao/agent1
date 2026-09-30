@@ -85,6 +85,7 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("docx_markdown_to_word"));
         assertTrue(prompt.contains("read_agent_doc"));
         assertTrue(prompt.contains("office-docx.md"));
+        assertTrue(prompt.contains("HTML"));
     }
 
     @Test

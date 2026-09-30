@@ -46,6 +46,18 @@ final class DocxOfficeJsRunner {
         }
     }
 
+    /** JSON object/array literal for embedding in generated JS (not a quoted string). */
+    static String jsonLiteral(com.fasterxml.jackson.databind.JsonNode node) {
+        if (node == null || node.isNull() || node.isMissingNode()) {
+            return "null";
+        }
+        try {
+            return MAPPER.writeValueAsString(node);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("invalid JSON for docx script: " + e.getMessage(), e);
+        }
+    }
+
     static ToolExecutionResult cancelled(CancellationToken token) {
         if (token != null && token.isCancelled()) {
             return ToolExecutionResult.text("错误：执行已取消");
