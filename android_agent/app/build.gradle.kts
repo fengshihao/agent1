@@ -170,7 +170,10 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
-    implementation("com.agent1:java-agent-core:0.1.0-SNAPSHOT")
+    implementation("com.agent1:java-agent-core:0.1.0-SNAPSHOT") {
+        // 能力库走系统 SQLiteDatabase；sqlite-jdbc 的桌面 .so 不能打进 APK。
+        exclude(group = "org.xerial", module = "sqlite-jdbc")
+    }
     if (findProject(":weizhi") != null) {
         implementation(project(":weizhi"))
         implementation(project(":caps"))

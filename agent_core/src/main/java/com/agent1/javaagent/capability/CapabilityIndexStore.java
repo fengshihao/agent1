@@ -2,12 +2,7 @@ package com.agent1.javaagent.capability;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -41,7 +36,17 @@ public final class CapabilityIndexStore {
 
     private static final Pattern FTS_SPECIAL = Pattern.compile("[\"*:^()]");
 
+    private static volatile CapabilityDatabaseOpener databaseOpener;
+
     private CapabilityIndexStore() {
+    }
+
+    /**
+     * Android 在进程启动时注入系统 {@code SQLiteDatabase}。
+     * 未注入时使用 sqlite-jdbc（仅桌面）。
+     */
+    public static void setDatabaseOpener(CapabilityDatabaseOpener opener) {
+        databaseOpener = opener;
     }
 
     /** bootstrap 或索引缺失时从 seed 建库。 */
@@ -68,11 +73,11 @@ public final class CapabilityIndexStore {
         } catch (Exception e) {
             throw new IllegalStateException("reset capability db failed: " + dbPath, e);
         }
-        try (Connection conn = open(dbPath)) {
-            createSchema(conn);
-            insertAll(conn, records);
-            setMeta(conn, "schema_version", Integer.toString(SCHEMA_VERSION));
-            setMeta(conn, "source", "bundled-seed");
+        try (CapabilityDatabase db = open(dbPath)) {
+            createSchema(db);
+            insertAll(db, records);
+            setMeta(db, "schema_version", Integer.toString(SCHEMA_VERSION));
+            setMeta(db, "source", "bundled-seed");
         } catch (SQLException e) {
             throw new IllegalStateException("build capability index failed: " + dbPath, e);
         }
@@ -89,7 +94,15 @@ public final class CapabilityIndexStore {
         Path dbPath = CapabilityDatabasePaths.databaseFile(agentRoot);
         int effectiveLimit = Math.min(Math.max(limit, 1), 20);
         String normalizedPlatform = normalizePlatform(platform);
-        List<CapabilityHit> ftsHits = searchFts(dbPath, query, kinds, normalizedPlatform, effectiveLimit);
+        List<CapabilityHit> ftsHits = List.of();
+        try {
+            ftsHits = searchFts(dbPath, query, kinds, normalizedPlatform, effectiveLimit);
+        } catch (IllegalStateException e) {
+            String message = e.getMessage() == null ? "" : e.getMessage().toLowerCase(Locale.ROOT);
+            if (!message.contains("no such table") && !message.contains("fts5")) {
+                throw e;
+            }
+        }
         if (!ftsHits.isEmpty()) {
             return ftsHits;
         }
@@ -115,11 +128,11 @@ public final class CapabilityIndexStore {
         if (!Files.isRegularFile(dbPath)) {
             return true;
         }
-        try (Connection conn = open(dbPath)) {
-            if (!tableExists(conn, "capability")) {
+        try (CapabilityDatabase db = open(dbPath)) {
+            if (!tableExists(db, "capability")) {
                 return true;
             }
-            String version = getMeta(conn, "schema_version");
+            String version = getMeta(db, "schema_version");
             return !Integer.toString(SCHEMA_VERSION).equals(version);
         } catch (SQLException e) {
             return true;
@@ -138,39 +151,43 @@ public final class CapabilityIndexStore {
         }
     }
 
-    private static Connection open(Path dbPath) throws SQLException {
-        return DriverManager.getConnection("jdbc:sqlite:" + dbPath.toAbsolutePath());
+    private static CapabilityDatabase open(Path dbPath) throws SQLException {
+        CapabilityDatabaseOpener opener = databaseOpener;
+        if (opener != null) {
+            return opener.open(dbPath);
+        }
+        return new JdbcCapabilityDatabase(dbPath);
     }
 
-    private static void createSchema(Connection conn) throws SQLException {
-        try (Statement st = conn.createStatement()) {
-            st.execute(
-                """
-                CREATE TABLE meta (
-                  key TEXT PRIMARY KEY,
-                  value TEXT NOT NULL
-                )
-                """
-            );
-            st.execute(
-                """
-                CREATE TABLE capability (
-                  id TEXT PRIMARY KEY,
-                  kind TEXT NOT NULL,
-                  title TEXT NOT NULL,
-                  summary TEXT NOT NULL,
-                  tags TEXT NOT NULL DEFAULT '',
-                  platforms TEXT NOT NULL DEFAULT 'any',
-                  entry TEXT NOT NULL DEFAULT '',
-                  doc_path TEXT NOT NULL DEFAULT '',
-                  doc_anchor TEXT NOT NULL DEFAULT '',
-                  requires_json TEXT NOT NULL DEFAULT '',
-                  source TEXT NOT NULL DEFAULT '',
-                  weight REAL NOT NULL DEFAULT 1.0
-                )
-                """
-            );
-            st.execute(
+    private static void createSchema(CapabilityDatabase db) throws SQLException {
+        db.execute(
+            """
+            CREATE TABLE meta (
+              key TEXT PRIMARY KEY,
+              value TEXT NOT NULL
+            )
+            """
+        );
+        db.execute(
+            """
+            CREATE TABLE capability (
+              id TEXT PRIMARY KEY,
+              kind TEXT NOT NULL,
+              title TEXT NOT NULL,
+              summary TEXT NOT NULL,
+              tags TEXT NOT NULL DEFAULT '',
+              platforms TEXT NOT NULL DEFAULT 'any',
+              entry TEXT NOT NULL DEFAULT '',
+              doc_path TEXT NOT NULL DEFAULT '',
+              doc_anchor TEXT NOT NULL DEFAULT '',
+              requires_json TEXT NOT NULL DEFAULT '',
+              source TEXT NOT NULL DEFAULT '',
+              weight REAL NOT NULL DEFAULT 1.0
+            )
+            """
+        );
+        try {
+            db.execute(
                 """
                 CREATE VIRTUAL TABLE capability_fts USING fts5(
                   id UNINDEXED,
@@ -185,10 +202,15 @@ public final class CapabilityIndexStore {
                 )
                 """
             );
+        } catch (SQLException e) {
+            String message = e.getMessage() == null ? "" : e.getMessage().toLowerCase(Locale.ROOT);
+            if (!message.contains("fts5")) {
+                throw e;
+            }
         }
     }
 
-    private static void insertAll(Connection conn, List<CapabilityRecord> records) throws SQLException {
+    private static void insertAll(CapabilityDatabase db, List<CapabilityRecord> records) throws SQLException {
         String insertCap =
             """
             INSERT INTO capability(id, kind, title, summary, tags, platforms, entry, doc_path, doc_anchor,
@@ -200,38 +222,43 @@ public final class CapabilityIndexStore {
             INSERT INTO capability_fts(id, kind, platforms, title, summary, tags, entry, weight)
             VALUES (?,?,?,?,?,?,?,?)
             """;
-        try (PreparedStatement cap = conn.prepareStatement(insertCap);
-            PreparedStatement fts = conn.prepareStatement(insertFts)) {
-            for (CapabilityRecord r : records) {
-                if (r.id().isEmpty() || r.kind().isEmpty()) {
-                    continue;
-                }
-                cap.setString(1, r.id());
-                cap.setString(2, r.kind());
-                cap.setString(3, r.title());
-                cap.setString(4, r.summary());
-                cap.setString(5, r.tags());
-                cap.setString(6, r.platforms());
-                cap.setString(7, r.entry());
-                cap.setString(8, r.docPath());
-                cap.setString(9, r.docAnchor());
-                cap.setString(10, r.requiresJson());
-                cap.setString(11, r.source());
-                cap.setDouble(12, r.weight());
-                cap.addBatch();
-
-                fts.setString(1, r.id());
-                fts.setString(2, r.kind());
-                fts.setString(3, r.platforms());
-                fts.setString(4, r.title());
-                fts.setString(5, r.summary());
-                fts.setString(6, r.tags());
-                fts.setString(7, r.entry());
-                fts.setDouble(8, r.weight());
-                fts.addBatch();
+        boolean fts = tableExists(db, "capability_fts");
+        for (CapabilityRecord r : records) {
+            if (r.id().isEmpty() || r.kind().isEmpty()) {
+                continue;
             }
-            cap.executeBatch();
-            fts.executeBatch();
+            db.execute(
+                insertCap,
+                List.of(
+                    r.id(),
+                    r.kind(),
+                    r.title(),
+                    r.summary(),
+                    r.tags(),
+                    r.platforms(),
+                    r.entry(),
+                    r.docPath(),
+                    r.docAnchor(),
+                    r.requiresJson(),
+                    r.source(),
+                    r.weight()
+                )
+            );
+            if (fts) {
+                db.execute(
+                    insertFts,
+                    List.of(
+                        r.id(),
+                        r.kind(),
+                        r.platforms(),
+                        r.title(),
+                        r.summary(),
+                        r.tags(),
+                        r.entry(),
+                        r.weight()
+                    )
+                );
+            }
         }
     }
 
@@ -433,27 +460,22 @@ public final class CapabilityIndexStore {
 
     private static List<CapabilityHit> runSearch(Path dbPath, String sql, List<Object> params) {
         List<CapabilityHit> out = new ArrayList<>();
-        try (Connection conn = open(dbPath);
-            PreparedStatement ps = conn.prepareStatement(sql)) {
-            for (int i = 0; i < params.size(); i++) {
-                ps.setObject(i + 1, params.get(i));
-            }
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    out.add(
-                        new CapabilityHit(
-                            rs.getString("id"),
-                            rs.getString("kind"),
-                            rs.getString("title"),
-                            rs.getString("summary"),
-                            rs.getString("tags"),
-                            rs.getString("entry"),
-                            rs.getString("doc_path"),
-                            rs.getString("platforms"),
-                            rs.getDouble("score")
-                        )
-                    );
-                }
+        try (CapabilityDatabase db = open(dbPath);
+            CapabilityRowCursor rs = db.query(sql, params)) {
+            while (rs.next()) {
+                out.add(
+                    new CapabilityHit(
+                        rs.getString("id"),
+                        rs.getString("kind"),
+                        rs.getString("title"),
+                        rs.getString("summary"),
+                        rs.getString("tags"),
+                        rs.getString("entry"),
+                        rs.getString("doc_path"),
+                        rs.getString("platforms"),
+                        rs.getDouble("score")
+                    )
+                );
             }
         } catch (SQLException e) {
             throw new IllegalStateException("capability search failed: " + e.getMessage(), e);
@@ -487,31 +509,22 @@ public final class CapabilityIndexStore {
         return platform.trim().toLowerCase(Locale.ROOT);
     }
 
-    private static void setMeta(Connection conn, String key, String value) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("INSERT OR REPLACE INTO meta(key,value) VALUES (?,?)")) {
-            ps.setString(1, key);
-            ps.setString(2, value);
-            ps.executeUpdate();
+    private static void setMeta(CapabilityDatabase db, String key, String value) throws SQLException {
+        db.execute("INSERT OR REPLACE INTO meta(key,value) VALUES (?,?)", List.of(key, value));
+    }
+
+    private static String getMeta(CapabilityDatabase db, String key) throws SQLException {
+        try (CapabilityRowCursor rows = db.query("SELECT value FROM meta WHERE key = ?", List.of(key))) {
+            return rows.next() ? rows.getString("value") : "";
         }
     }
 
-    private static String getMeta(Connection conn, String key) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("SELECT value FROM meta WHERE key = ?")) {
-            ps.setString(1, key);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getString(1) : "";
-            }
-        }
-    }
-
-    private static boolean tableExists(Connection conn, String name) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?"
+    private static boolean tableExists(CapabilityDatabase db, String name) throws SQLException {
+        try (CapabilityRowCursor rows = db.query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+            List.of(name)
         )) {
-            ps.setString(1, name);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
+            return rows.next();
         }
     }
 

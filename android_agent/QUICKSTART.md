@@ -148,15 +148,19 @@ App 内 **模型配置** 与聊天页 **模型详情** 会显示当前包装配�
 - 把 `onNavigate` 对接到正式 `NavController`
 - 增加敏感信息保护（正式环境建议走服务端代理，避免 API Key 下发到客户端）
 
-### 未捕获崩溃日志（adb）
+### 未捕获崩溃日志（App 内 + adb）
 
-`CrashReporter` 会写入应用私有目录：`files/last_crash_report.txt`，并在 `files/crash-reports/` 下留一份带时间戳的归档。Debug 包可用 `run-as` 读出（无需 root）：
+- **下次启动**：若存在上次 Java 崩溃/启动失败记录，会先进入**纯 View 崩溃页**（可复制、清除、仍要进入）。
+- **落盘**：`files/last_crash_report.txt` + `files/crash-reports/crash-*.txt`；Debug 包还会 Toast 提示已写入。
+- **电脑拉取**（推荐）：
 
 ```bash
+cd android_agent && ./pull-crash-report.sh
+# 或手动：
 adb exec-out run-as com.agent1.android cat files/last_crash_report.txt
-# 或列出归档
-adb shell run-as com.agent1.android ls files/crash-reports
 ```
+
+若为 **JNI/native 闪退**（无 Java 栈），请同时：`adb logcat -d | tail -300` 搜索 `FATAL` / `DEBUG`.
 
 若需紧急退出应用（需 adb 已连接设备）：
 

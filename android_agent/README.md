@@ -32,7 +32,7 @@ Gradle 工程位于 `android_agent/` 根目录（与 `app/`、`gradlew` 同级�
    - Demo 内通过本仓库 **`java-agent-core`** 制品（`java_agent` 工程中 core 与 CLI 拆分后的运行时核心）在设备上做多轮对话与工具调用，与桌面 Java CLI 及 `doc/基础能力/` 生产力内核同一演进方向。  
 
 5. **崩溃与诊断**  
-   - `CrashReporter` 持久化上次崩溃信息；若存在历史崩溃，启动条会提示并可跳转到 Qwen 页查看报告，便于联调 LLM 与 UI 解析。  
+   - `CrashReporter` 持久化上次崩溃信息；**下次冷启动**会先展示纯 View **崩溃门**（可复制/清除），也可用 `./pull-crash-report.sh` 从 adb 拉取 `files/last_crash_report.txt`。  
 
 6. **工程与脚本**  
    - 含 Gradle Wrapper、`run.sh` 等，便于在本目录执行构建/安装（脚本行为以仓库内最新说明为准）。  
