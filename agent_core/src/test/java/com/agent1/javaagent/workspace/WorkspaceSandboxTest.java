@@ -2,7 +2,10 @@ package com.agent1.javaagent.workspace;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.agent1.javaagent.agent.AgentHomeBootstrap;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,19 +25,37 @@ class WorkspaceSandboxTest {
 
     @Test
     void resolveRelativePathUnderRoot() {
-        Path resolved = sandbox.resolve("artifacts/out.txt");
+        Path resolved = sandbox.resolveWrite("artifacts/out.txt");
         assertEquals(sandbox.getRoot().resolve("artifacts/out.txt").normalize(), resolved);
         assertEquals("artifacts/out.txt", sandbox.relativize(resolved));
     }
 
     @Test
+    void resolveReadAgentDocPath() throws Exception {
+        Path agentRoot = temp.resolve("agentRoot");
+        AgentHomeBootstrap.ensure(agentRoot);
+        WorkspaceSandbox withAgent = new WorkspaceSandbox(temp.resolve("ws"), agentRoot);
+        Path doc = withAgent.resolveRead("docs/system/directories.md");
+        assertTrue(Files.isRegularFile(doc));
+        assertEquals("docs/system/directories.md", withAgent.displayPath(doc));
+    }
+
+    @Test
+    void writeRejectsAgentDocs() {
+        Path agentRoot = temp.resolve("agentRoot2");
+        AgentHomeBootstrap.ensure(agentRoot);
+        WorkspaceSandbox withAgent = new WorkspaceSandbox(temp.resolve("ws2"), agentRoot);
+        assertThrows(SecurityException.class, () -> withAgent.resolveWrite("docs/system/hack.md"));
+    }
+
+    @Test
     void parentSegmentEscapeRejected() {
-        assertThrows(SecurityException.class, () -> sandbox.resolve("../outside.txt"));
+        assertThrows(SecurityException.class, () -> sandbox.resolveWrite("../outside.txt"));
     }
 
     @Test
     void absolutePathRejected() {
-        assertThrows(SecurityException.class, () -> sandbox.resolve("/etc/passwd"));
+        assertThrows(SecurityException.class, () -> sandbox.resolveWrite("/etc/passwd"));
     }
 
     @Test

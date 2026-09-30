@@ -39,7 +39,7 @@ public final class DocxInspectTool implements AgentTool {
 
     @Override
     public String description() {
-        return "Inspect a workspace .docx: textView or listBlocks via docx.js readDocx. See read_agent_doc docs/system/office-docx.md.";
+        return "Inspect a workspace .docx: textView or listBlocks via docx.js readDocx. See read_file docs/system/office-docx.md.";
     }
 
     @Override

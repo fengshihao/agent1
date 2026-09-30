@@ -21,7 +21,8 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String WORK_MODE_FILES = """
         工作方式：读和改文件时使用工作区文件工具（read_file、write_file、edit_file、list_dir）。
-        读 agentRoot 下系统文档用 read_agent_doc；查看 shared/catalog 摘要用 list_catalog（只读，不可 write_file 写入）。
+        读 agentRoot 系统文档：read_file / list_dir / grep / glob，路径用 docs/system/... 或 docs/capabilities/...（只读，不可 write_file/edit_file 写入）。
+        查看 shared/catalog 摘要用 list_catalog（只读，不可 write_file 写入）。
         """.trim();
 
     static final String WORK_MODE_SCRIPT = """
@@ -38,7 +39,7 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String TOOL_STRATEGY = """
         工具策略：大段内容写入工作区文件，不要在回复里重复粘贴全文。
-        除 trivial 读写外，先 capability_search 查能力索引，再 read_agent_doc 或 skill(read) 读细节。
+        除 trivial 读写外，先 capability_search 查能力索引，再 read_file（或 grep/glob 定位）或 skill(read) 读细节。
         缺少关键信息时调用 ask_user 发起结构化提问并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。
         用户未确认前不要编造事实；用户下一条消息将开启新的 Run。
         """.trim();
@@ -53,7 +54,7 @@ public final class ProductivitySystemPromptBuilder {
         Word（.docx）：优先专用工具 docx_markdown_to_word、docx_inspect、docx_read_grep_edit、docx_raw_edit。
         Markdown 转 Word 时用标准 `#` 标题即可（内置 H1/H2/H3 字号层次）；**不要在 Markdown 里插入 HTML 改字号**（解析器不支持）。微调样式用 docx_inspect / readDocx 的 textView、setBlockStyle，或 docx_markdown_to_word 的 default_style / heading_styles。
         工作区 orchestrator（execute_script 的 file 模式）：入口如 jobs/run.js，对 catalog 标准库用 `import … from './docx.js'`（Weizhi 会先 workspace 再 catalog 回退）；本地 `./helper.js` 仍在 workspace。勿 import agentRoot 外路径；勿用 bare `import 'xxx'`（易与 catalog 叶子名冲突，除文档指定的官方库外）。
-        具体函数签名、grep/样式/raw 校验等 **不要猜**——用 read_agent_doc 阅读 docs/system/office-docx.md（较长时可 offset/limit 分段读）。
+        具体函数签名、样式/raw 校验等 **不要猜**——用 read_file 阅读 docs/system/office-docx.md（较长时分段 offset/limit；可用 grep/glob 在 docs/system 内查找）。
         生成或修改 docx 后，在回复里用 Markdown 链接写出 workspace 相对路径，例如 [报告](out/report.docx)，便于用户在 App 内点开；图片仍用 ![](path.png)。
         """.trim();
 

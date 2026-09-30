@@ -3,7 +3,7 @@
 ## 文件工具
 
 - **read_file / write_file / edit_file / list_dir**：仅当前会话 **workspace**。
-- **read_agent_doc / list_catalog**：只读 **agentRoot** 下 docs 与 catalog 摘要。
+- **read_file / grep / glob / list_dir**（路径 `docs/system/...`）与 **list_catalog**：只读 **agentRoot** 下 docs 与 catalog 摘要。
 
 ## execute_script
 

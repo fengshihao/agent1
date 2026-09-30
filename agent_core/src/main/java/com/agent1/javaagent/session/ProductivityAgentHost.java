@@ -40,7 +40,8 @@ import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import com.agent1.javaagent.tool.agent.ProductivitySkillTool;
 import com.agent1.javaagent.tool.office.DocxOfficeTools;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
-import com.agent1.javaagent.tool.agent.ReadAgentDocTool;
+import com.agent1.javaagent.tool.workspace.GlobTool;
+import com.agent1.javaagent.tool.workspace.GrepTool;
 import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
@@ -50,7 +51,9 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import com.agent1.javaagent.llm.openai.OpenAiCompatibleClient;
 
@@ -466,20 +469,21 @@ public final class ProductivityAgentHost implements Closeable {
                 sessionEnvironmentSupplement
             ));
         runtime.setTools(buildTools(sessionId, workspace));
-        runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace));
+        runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace, agentRoot));
         AgentCoachConfig coachConfig = AgentCoachConfig.load(agentRoot);
         productivityCoach = coachConfig.enabled() ? coachConfig.toCoach() : null;
         runtime.setProductivityCoach(productivityCoach);
     }
 
     private List<AgentTool> buildTools(String sessionId, Path workspace) {
-        WorkspaceSandbox sandbox = new WorkspaceSandbox(workspace);
+        WorkspaceSandbox sandbox = new WorkspaceSandbox(workspace, agentRoot);
         List<AgentTool> tools = new ArrayList<>();
         tools.add(new ReadFileTool(sandbox));
         tools.add(new WriteFileTool(sandbox));
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));
-        tools.add(new ReadAgentDocTool(agentRoot));
+        tools.add(new GrepTool(sandbox));
+        tools.add(new GlobTool(sandbox));
         tools.add(new ListCatalogTool(agentRoot));
         tools.add(new CatalogSyncStatusTool(agentRoot));
         tools.add(new CatalogInstallTool(agentRoot));
@@ -492,7 +496,16 @@ public final class ProductivityAgentHost implements Closeable {
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);
             if (extra != null && !extra.isEmpty()) {
-                tools.addAll(extra);
+                Set<String> names = new HashSet<>();
+                for (AgentTool t : tools) {
+                    names.add(t.name());
+                }
+                for (AgentTool t : extra) {
+                    if (!names.add(t.name())) {
+                        continue;
+                    }
+                    tools.add(t);
+                }
             }
         }
         if (scriptEngineFactory != null) {

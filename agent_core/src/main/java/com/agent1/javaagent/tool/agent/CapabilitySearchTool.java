@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** 检索 agentRoot SQLite 能力索引（FTS5）；细节仍 read_agent_doc / skill。 */
+/** 检索 agentRoot SQLite 能力索引（FTS5）；细节仍 read_file / skill。 */
 public final class CapabilitySearchTool implements AgentTool {
 
     public static final String TOOL_NAME = "capability_search";
@@ -91,7 +91,7 @@ public final class CapabilitySearchTool implements AgentTool {
 
         if (hits.isEmpty()) {
             return ToolExecutionResult.text(
-                "未找到匹配「" + query + "」的能力条目。可换关键词、放宽 kinds，或 read_agent_doc 读 docs/system。"
+                "未找到匹配「" + query + "」的能力条目。可换关键词、放宽 kinds，或用 read_file/grep 读 docs/system。"
             );
         }
 

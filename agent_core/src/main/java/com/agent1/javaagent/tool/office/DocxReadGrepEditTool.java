@@ -40,7 +40,7 @@ public final class DocxReadGrepEditTool implements AgentTool {
     @Override
     public String description() {
         return "Grep/replace in workspace docx then save. Params: docx_path, pattern, output_path; "
-            + "replace_with or block_index+replace_in_block. API: read_agent_doc docs/system/office-docx.md.";
+            + "replace_with or block_index+replace_in_block. API: read_file docs/system/office-docx.md.";
     }
 
     @Override

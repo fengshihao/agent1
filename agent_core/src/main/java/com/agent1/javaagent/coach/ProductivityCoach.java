@@ -54,7 +54,7 @@ public final class ProductivityCoach {
         if (text != null && text.contains(OUTSIDE_MARKER)) {
             hookId = "path.outside_attempt";
             advice =
-                "仅当前会话 workspace 可写。读 shared/docs 用 read_agent_doc / list_catalog；"
+                "仅当前会话 workspace 可写。读 docs 用 read_file/grep（docs/system/...）；catalog 摘要 list_catalog；"
                     + "改 shared 用 promote_request / catalog_install，勿 write_file 越界。";
         } else if ("write_file".equals(toolName) && !isError && parameters != null
             && !parameters.path("path").asText("").replace('\\', '/').contains("staging/")) {

@@ -129,7 +129,9 @@ class ProductivityAgentHostTest {
         try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
             host.createSession();
             host.runUserMessage("ping");
-            assertTrue(toolNames.get().contains("read_agent_doc"));
+            assertTrue(toolNames.get().contains("grep"));
+            assertTrue(toolNames.get().contains("glob"));
+            assertFalse(toolNames.get().contains("read_agent_doc"));
             assertTrue(toolNames.get().contains("list_catalog"));
             assertTrue(toolNames.get().contains("promote_request"));
             assertTrue(toolNames.get().contains("catalog_install"));
@@ -178,7 +180,7 @@ class ProductivityAgentHostTest {
         };
         MutableScriptToolBridge bridge = new MutableScriptToolBridge();
         WorkspaceToolProvider extra = sandbox -> List.of(new DelegatingAgentTool(
-            "grep",
+            "extra_search",
             "search",
             null,
             (params, token) -> "hit"
@@ -197,11 +199,13 @@ class ProductivityAgentHostTest {
             host.createSession();
             host.runUserMessage("ping");
             assertTrue(toolNames.get().contains("grep"));
+            assertTrue(toolNames.get().contains("extra_search"));
             assertTrue(toolNames.get().contains("execute_script"));
             assertTrue(bridge.exposedNames().contains("grep"));
+            assertTrue(bridge.exposedNames().contains("extra_search"));
             assertTrue(bridge.exposedNames().contains("read_file"));
             assertFalse(bridge.exposedNames().contains("execute_script"));
-            assertEquals("hit", bridge.call("grep", java.util.Map.of()));
+            assertEquals("hit", bridge.call("extra_search", java.util.Map.of()));
             assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("$tools"));
         }
     }

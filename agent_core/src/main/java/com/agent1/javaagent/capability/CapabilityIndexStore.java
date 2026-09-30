@@ -20,8 +20,8 @@ import java.util.regex.Pattern;
  */
 public final class CapabilityIndexStore {
 
-    /** v3：seed 去掉已在系统提示中的外层 agent_tool（execute_script 等）。 */
-    public static final int SCHEMA_VERSION = 3;
+    /** v4：doc 条目 entry 改为 read_file 路径；read_agent_doc 已合并进工作区工具。 */
+    public static final int SCHEMA_VERSION = 4;
 
     /**
      * FTS5 bm25 列权（仅 indexed 列，顺序与 {@code capability_fts} 一致：title, summary, tags, entry）。

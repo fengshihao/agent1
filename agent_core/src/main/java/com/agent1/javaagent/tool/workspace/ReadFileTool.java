@@ -33,7 +33,10 @@ public final class ReadFileTool implements AgentTool {
 
     @Override
     public String description() {
-        return "Read a text file from session workspace with optional line range.";
+        return """
+            Read a text file from session workspace or read-only agent docs \
+            (docs/system/... or docs/capabilities/...) with optional line range.
+            """.trim();
     }
 
     @Override
@@ -45,7 +48,10 @@ public final class ReadFileTool implements AgentTool {
             "path",
             MAPPER.createObjectNode()
                 .put("type", "string")
-                .put("description", "File path relative to session workspace.")
+                .put(
+                    "description",
+                    "Workspace-relative path, or docs/system/... / docs/capabilities/... under agentRoot."
+                )
         );
         properties.set(
             "offset",
@@ -90,10 +96,10 @@ public final class ReadFileTool implements AgentTool {
         final Path resolvedPath;
         final String displayPath;
         try {
-            resolvedPath = sandbox.resolve(rawPath);
-            displayPath = sandbox.relativize(resolvedPath);
+            resolvedPath = sandbox.resolveRead(rawPath);
+            displayPath = sandbox.displayPath(resolvedPath);
         } catch (SecurityException e) {
-            return ToolExecutionResult.text("错误：路径超出工作区范围: " + rawPath);
+            return ToolExecutionResult.text("错误：" + e.getMessage());
         }
 
         if (!Files.exists(resolvedPath)) {

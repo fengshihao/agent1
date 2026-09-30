@@ -30,7 +30,7 @@ public final class ListDirTool implements AgentTool {
 
     @Override
     public String description() {
-        return "List entries in a session workspace directory.";
+        return "List a workspace directory or read-only agent docs directory (docs/system/...).";
     }
 
     @Override
@@ -42,7 +42,10 @@ public final class ListDirTool implements AgentTool {
             "path",
             MAPPER.createObjectNode()
                 .put("type", "string")
-                .put("description", "Directory path relative to session workspace. Default is \".\".")
+                .put(
+                    "description",
+                    "Workspace path or docs/system|capabilities path. Default is \".\" (workspace)."
+                )
         );
         schema.set("properties", properties);
         return schema;
@@ -67,10 +70,10 @@ public final class ListDirTool implements AgentTool {
         final Path resolvedPath;
         final String displayPath;
         try {
-            resolvedPath = sandbox.resolve(rawPath);
-            displayPath = sandbox.relativize(resolvedPath);
+            resolvedPath = sandbox.resolveRead(rawPath);
+            displayPath = sandbox.displayPath(resolvedPath);
         } catch (SecurityException e) {
-            return ToolExecutionResult.text("错误：路径超出工作区范围: " + rawPath);
+            return ToolExecutionResult.text("错误：" + e.getMessage());
         }
 
         if (!Files.exists(resolvedPath)) {

@@ -40,7 +40,7 @@ public final class DocxRawEditTool implements AgentTool {
     @Override
     public String description() {
         return "Low-level OOXML edit: unpack docx, replace search in word/document.xml, validate, pack. "
-            + "See read_agent_doc docs/system/office-docx.md.";
+            + "See read_file docs/system/office-docx.md.";
     }
 
     @Override

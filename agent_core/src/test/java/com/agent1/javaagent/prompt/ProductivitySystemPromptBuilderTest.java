@@ -107,7 +107,8 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), temp.resolve("ar"), true, false, true);
         assertTrue(prompt.contains("docx_markdown_to_word"));
-        assertTrue(prompt.contains("read_agent_doc"));
+        assertTrue(prompt.contains("read_file"));
+        assertTrue(prompt.contains("docs/system"));
         assertTrue(prompt.contains("office-docx.md"));
         assertTrue(prompt.contains("HTML"));
     }
