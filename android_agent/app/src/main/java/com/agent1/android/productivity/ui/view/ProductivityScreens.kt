@@ -22,12 +22,18 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -46,6 +52,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,9 +71,11 @@ import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
+import com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.SessionListViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -444,14 +453,20 @@ private fun ChatComposer(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
-            OutlinedButton(
+            IconButton(
                 onClick = onPickFiles,
                 enabled = pickFilesEnabled,
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.height(40.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp),
+                modifier = Modifier.size(40.dp),
             ) {
-                Text("文件")
+                Icon(
+                    Icons.Default.AttachFile,
+                    contentDescription = "选择文件",
+                    tint = if (pickFilesEnabled) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    },
+                )
             }
             OutlinedTextField(
                 value = value,
@@ -469,26 +484,29 @@ private fun ChatComposer(
                 ),
             )
             AnimatedVisibility(visible = isRunning) {
-                OutlinedButton(
+                IconButton(
                     onClick = onStop,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.height(40.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ),
+                    modifier = Modifier.size(40.dp),
                 ) {
-                    Text("中断")
+                    Icon(
+                        Icons.Default.Stop,
+                        contentDescription = "中断",
+                        tint = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
             Button(
                 onClick = onSend,
                 enabled = canSend && !isRunning,
                 shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.height(40.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp),
+                modifier = Modifier.size(40.dp),
+                contentPadding = PaddingValues(0.dp),
             ) {
-                Text("发送")
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = "发送",
+                    modifier = Modifier.size(20.dp),
+                )
             }
         }
     }
@@ -592,17 +610,39 @@ private fun ChatMessageList(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    var stickToBottom by rememberSaveable(state.sessionId) { mutableStateOf(true) }
+
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val layout = listState.layoutInfo
+            val total = layout.totalItemsCount
+            if (total == 0) {
+                true
+            } else {
+                val lastVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: 0
+                lastVisible >= total - 2
+            }
+        }.distinctUntilChanged().collect { atBottom ->
+            stickToBottom = atBottom
+        }
+    }
+
     LaunchedEffect(
         state.lines.size,
-        state.toolTrail.size,
+        state.runTimeline.size,
         state.streamingText.length,
         state.streamingReasoning.length,
         state.isRunning,
-        state.runActivityLabel,
     ) {
-        if (!state.isRunning && state.streamingText.isEmpty() && state.streamingReasoning.isEmpty()) {
-            return@LaunchedEffect
+        if (!stickToBottom) return@LaunchedEffect
+        val total = listState.layoutInfo.totalItemsCount
+        if (total > 0) {
+            listState.animateScrollToItem(total - 1)
         }
+    }
+
+    LaunchedEffect(state.isLoadingTranscript) {
+        if (state.isLoadingTranscript || !stickToBottom) return@LaunchedEffect
         val total = listState.layoutInfo.totalItemsCount
         if (total > 0) {
             listState.scrollToItem(total - 1)
@@ -630,8 +670,7 @@ private fun ChatMessageList(
         items(
             count = state.lines.size,
             key = { index ->
-                val line = state.lines[index]
-                "$index-${line.role}-${line.isTool}-${line.content.hashCode()}"
+                state.lines[index].stableKey.ifBlank { "line-$index" }
             },
         ) { index ->
             val line = state.lines[index]
@@ -642,43 +681,71 @@ private fun ChatMessageList(
                 line = line,
                 workspacePath = state.workspacePath,
                 markdown = useMarkdown,
+                reasoningStateKey = line.stableKey.ifBlank { "line-$index" },
                 onPickFiles = onPickFiles,
                 pickFilesEnabled = pickFilesEnabled,
             )
         }
-        if (state.toolTrail.isNotEmpty()) {
-            item {
-                ToolTrailBubble(state.toolTrail)
+        items(
+            items = state.runTimeline,
+            key = { it.id },
+        ) { item ->
+            when (item) {
+                is ChatRunTimelineItem.AssistantPart -> {
+                    MessageBubble(
+                        line = ChatLine(
+                            role = "assistant",
+                            content = item.content,
+                            reasoning = item.reasoning,
+                            stableKey = item.id,
+                        ),
+                        workspacePath = state.workspacePath,
+                        markdown = ChatTranscriptFormatting.shouldRenderAsMarkdown(item.content),
+                        reasoningStateKey = item.id,
+                        onPickFiles = onPickFiles,
+                        pickFilesEnabled = false,
+                    )
+                }
+                is ChatRunTimelineItem.ToolPart -> {
+                    LiveToolBubble(item)
+                }
             }
         }
-        if (
-            state.isRunning &&
-            state.streamingText.isEmpty() &&
-            state.streamingReasoning.isEmpty() &&
-            state.toolTrail.isEmpty()
-        ) {
-            item {
+        if (shouldShowAssistantPending(state)) {
+            item(key = "assistant-pending") {
                 AssistantPendingBubble(
                     label = state.runActivityLabel ?: "等待助手…",
                 )
             }
         }
         if (state.streamingText.isNotEmpty() || state.streamingReasoning.isNotEmpty()) {
-            item {
+            item(key = "assistant-streaming") {
                 MessageBubble(
                     line = ChatLine(
                         role = "assistant",
                         content = state.streamingText + if (state.streamingText.isNotEmpty()) "▌" else "",
                         reasoning = state.streamingReasoning +
                             if (state.streamingReasoning.isNotEmpty() && state.streamingText.isEmpty()) "▌" else "",
+                        stableKey = "assistant-streaming",
                     ),
                     workspacePath = state.workspacePath,
                     markdown = false,
+                    reasoningStateKey = "assistant-streaming-${state.sessionId}",
                     onPickFiles = onPickFiles,
                     pickFilesEnabled = false,
                 )
             }
         }
+    }
+}
+
+private fun shouldShowAssistantPending(state: ChatUiState): Boolean {
+    if (!state.isRunning) return false
+    if (state.streamingText.isNotEmpty() || state.streamingReasoning.isNotEmpty()) return false
+    if (state.runTimeline.isEmpty()) return true
+    return when (val last = state.runTimeline.last()) {
+        is ChatRunTimelineItem.AssistantPart -> false
+        is ChatRunTimelineItem.ToolPart -> last.finished
     }
 }
 
@@ -709,7 +776,7 @@ private fun AssistantPendingBubble(label: String) {
 }
 
 @Composable
-private fun ToolTrailBubble(trail: List<String>) {
+private fun LiveToolBubble(tool: ChatRunTimelineItem.ToolPart) {
     val bubbles = chatBubbleColors()
     BubbleShell(
         alignEnd = false,
@@ -717,13 +784,47 @@ private fun ToolTrailBubble(trail: List<String>) {
         background = bubbles.systemBackground,
         borderColor = bubbles.systemBorder,
     ) {
-        trail.forEach { line ->
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                line,
-                modifier = Modifier.padding(vertical = 2.dp),
-                style = MaterialTheme.typography.bodySmall,
+                "🔧 ${tool.toolName}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (tool.argsPreview.isNotBlank() && !tool.finished) {
+                Text(
+                    tool.argsPreview,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (!tool.finished) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                    )
+                }
+                Text(
+                    tool.statusLine,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = when {
+                        tool.isError -> MaterialTheme.colorScheme.error
+                        tool.finished -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+            tool.progressLines.forEach { line ->
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -733,6 +834,7 @@ private fun MessageBubble(
     line: ChatLine,
     workspacePath: String,
     markdown: Boolean,
+    reasoningStateKey: String,
     onPickFiles: () -> Unit,
     pickFilesEnabled: Boolean,
 ) {
@@ -793,7 +895,10 @@ private fun MessageBubble(
                 borderColor = bubbles.assistantBorder,
             ) {
                 if (line.reasoning.isNotBlank()) {
-                    CollapsibleReasoningBlock(line.reasoning)
+                    CollapsibleReasoningBlock(
+                        reasoning = line.reasoning,
+                        stateKey = reasoningStateKey,
+                    )
                 }
                 if (line.content.isNotBlank()) {
                     if (markdown) {
@@ -833,8 +938,11 @@ private fun MessageBubble(
 }
 
 @Composable
-private fun CollapsibleReasoningBlock(reasoning: String) {
-    var expanded by rememberSaveable(reasoning) { mutableStateOf(false) }
+private fun CollapsibleReasoningBlock(
+    reasoning: String,
+    stateKey: String,
+) {
+    var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val trimmed = reasoning.trim()
     if (trimmed.isEmpty()) return
     val title = if (expanded) {

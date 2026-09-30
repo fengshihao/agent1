@@ -78,14 +78,17 @@ class ChatViewModel(
                 val messages = gateway.loadTranscript(sessionId)
                 val ws = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
                 val accessible = gateway.listAccessibleFilePaths(sessionId)
-                Pair(messages.map { it.toChatLine(ws) }, accessible)
+                Pair(
+                    messages.withIndex().map { (index, msg) -> msg.toChatLine(ws, index) },
+                    accessible,
+                )
             }
             _state.value = _state.value.copy(
                 lines = built.first,
                 accessibleFilePaths = built.second,
                 streamingText = "",
                 streamingReasoning = "",
-                toolTrail = emptyList(),
+                runTimeline = emptyList(),
                 isLoadingTranscript = false,
                 workspacePath = wsPath,
                 transcriptLoadError = null,
@@ -116,7 +119,7 @@ class ChatViewModel(
             isRunning = true,
             streamingText = "",
             streamingReasoning = "",
-            toolTrail = emptyList(),
+            runTimeline = emptyList(),
             runActivityLabel = "正在连接模型…",
             lines = _state.value.lines + ChatLine(role = "user", content = trimmed),
         )
@@ -242,6 +245,51 @@ class ChatViewModel(
         }
     }
 
+    /** 工具开始前将当前流式助手气泡写入时间线，保证与工具调用交错、按时间展示。 */
+    private fun flushStreamingIntoTimeline() {
+        publishStreamNow()
+        val content = _state.value.streamingText
+        val reasoning = _state.value.streamingReasoning
+        if (content.isEmpty() && reasoning.isEmpty()) {
+            resetStreamBuffers()
+            return
+        }
+        val segment = ChatRunTimelineItem.AssistantPart(
+            id = "live-asst-${System.nanoTime()}",
+            content = content,
+            reasoning = reasoning,
+        )
+        resetStreamBuffers()
+        _state.value = _state.value.copy(
+            runTimeline = _state.value.runTimeline + segment,
+            streamingText = "",
+            streamingReasoning = "",
+        )
+    }
+
+    private fun updateToolTimeline(
+        toolCallId: String,
+        statusLine: String? = null,
+        appendProgress: String? = null,
+        finished: Boolean = false,
+        isError: Boolean = false,
+    ): List<ChatRunTimelineItem> {
+        val timeline = _state.value.runTimeline
+        if (timeline.isEmpty()) return timeline
+        val index = timeline.indexOfLast {
+            it is ChatRunTimelineItem.ToolPart && it.toolCallId == toolCallId
+        }
+        if (index < 0) return timeline
+        val current = timeline[index] as ChatRunTimelineItem.ToolPart
+        val updated = current.copy(
+            statusLine = statusLine ?: current.statusLine,
+            progressLines = appendProgress?.let { current.progressLines + it } ?: current.progressLines,
+            finished = finished || current.finished,
+            isError = isError || current.isError,
+        )
+        return timeline.toMutableList().also { it[index] = updated }
+    }
+
     private fun onAgentEvent(event: AgentEvent) {
         when (event.type) {
             AgentEventType.MESSAGE_UPDATE, AgentEventType.REASONING_UPDATE -> Unit
@@ -258,31 +306,67 @@ class ChatViewModel(
             }
             AgentEventType.TOOL_EXECUTION_START -> {
                 val payload = event.payload as EventPayloads.ToolExecutionStart
-                val name = payload.toolCall.name
+                flushStreamingIntoTimeline()
+                val call = payload.toolCall
+                val name = call.name
+                val argsPreview = call.argumentsJson.trim().take(220)
+                val segment = ChatRunTimelineItem.ToolPart(
+                    id = "tool-${call.id}",
+                    toolCallId = call.id,
+                    toolName = name,
+                    argsPreview = argsPreview,
+                    statusLine = "正在调用 $name…",
+                )
                 _state.value = _state.value.copy(
                     runActivityLabel = "调用工具 · $name",
-                    toolTrail = _state.value.toolTrail + "▶ $name",
+                    runTimeline = _state.value.runTimeline + segment,
                 )
             }
             AgentEventType.TOOL_EXECUTION_UPDATE -> {
                 val payload = event.payload as EventPayloads.ToolExecutionUpdatePayload
                 val snippet = payload.update.text?.trim()?.take(100).orEmpty()
                 if (snippet.isNotEmpty()) {
-                    _state.value = _state.value.copy(runActivityLabel = "工具执行 · ${snippet.replace('\n', ' ')}")
+                    val line = snippet.replace('\n', ' ')
+                    _state.value = _state.value.copy(
+                        runActivityLabel = "工具执行 · $line",
+                        runTimeline = updateToolTimeline(
+                            toolCallId = payload.toolCallId,
+                            statusLine = "执行中 · $line",
+                            appendProgress = line,
+                        ),
+                    )
                 }
             }
             AgentEventType.TOOL_EXECUTION_END -> {
                 val payload = event.payload as EventPayloads.ToolExecutionEnd
-                val preview = payload.result?.text?.take(120) ?: ""
+                val preview = if (payload.isError) {
+                    payload.errorMessage?.trim()?.take(120)
+                        ?: payload.result?.text?.trim()?.take(120)
+                        ?: "失败"
+                } else {
+                    payload.result?.text?.trim()?.take(120)?.replace('\n', ' ').orEmpty()
+                }
+                val status = if (payload.isError) {
+                    "失败 · ${preview.replace('\n', ' ')}"
+                } else if (preview.isNotEmpty()) {
+                    "完成 · $preview"
+                } else {
+                    "完成"
+                }
                 _state.value = _state.value.copy(
                     runActivityLabel = if (
                         _state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()
                     ) {
-                        "工具已完成"
+                        if (payload.isError) "工具失败" else "工具已完成"
                     } else {
                         null
                     },
-                    toolTrail = _state.value.toolTrail + "✓ ${preview.replace('\n', ' ')}",
+                    runTimeline = updateToolTimeline(
+                        toolCallId = payload.toolCallId,
+                        statusLine = status,
+                        finished = true,
+                        isError = payload.isError,
+                    ),
                 )
             }
             AgentEventType.TURN_END -> {
@@ -298,12 +382,14 @@ class ChatViewModel(
         }
     }
 
-    private fun AgentMessage.toChatLine(workspaceRoot: java.nio.file.Path?): ChatLine {
+    private fun AgentMessage.toChatLine(workspaceRoot: java.nio.file.Path?, index: Int): ChatLine {
+        val stableKey = "transcript-$index-$role"
         val tool = AgentMessage.ROLE_TOOL_RESULT == role
         if (tool) {
             val display = ChatTranscriptFormatting.formatToolResult(content, workspaceRoot)
             return ChatLine(
                 role = role,
+                stableKey = stableKey,
                 content = display.summary,
                 reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
                 isTool = true,
@@ -321,6 +407,7 @@ class ChatViewModel(
         }
         return ChatLine(
             role = role,
+            stableKey = stableKey,
             content = ChatTranscriptFormatting.truncateForUiDisplay(display),
             reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
             isTool = false,
