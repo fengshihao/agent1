@@ -31,6 +31,12 @@ Java core sources are in `agent_core/src/main/java`; CLI sources are in `java_ag
 
 Root helper scripts (Chinese comments in headers): `./agent1`, `./run-java-agent`, `./run-java-agent-gradle`, `./publish-java-agent-core.sh`, `./build-android-agent.sh`, `./check-android-agent-layering.sh`, `./check-android-agent-static.sh`, `./check-java-agent-static.sh`, `./check-agent1-quality.sh`, `./scripts/ci-local.sh`（本地对齐 GitHub CI；`fast` / `full`）。
 
+### Cloud Agent（Cursor 云代理）
+
+- **不要在 Cloud VM 里跑 Gradle / Android assemble**（磁盘小，`~/.gradle` 易满）。编译与单测以 **GitHub Actions** 为准：`.github/workflows/ci.yml`（`java-test`、`quality-static`、`android-assemble-debug`）。
+- 改代码后 **push/更新 PR 并确认 CI 全绿**。
+- 云环境仅跑轻量校验：`./scripts/cloud-agent-verify.sh`（无 Gradle）。详见 `doc/cloud-agent.md` 与 `.cursor/environment.json`。
+
 ### Android
 
 ```bash

@@ -5,7 +5,7 @@
 ## 开发环境
 
 - **JDK 17**（Temurin 或等价发行版）
-- **Gradle**：使用仓库内 wrapper（`gradle -p java_agent …`）
+- **Gradle**：使用仓库内 wrapper（`gradle -p java_agent …`）；**Cursor Cloud Agent 会话内不要跑 Gradle**，改完 push 后看 GitHub CI（见 `doc/cloud-agent.md`）。
 - Android 贡献需 Android SDK 与 adb（见 `android_agent/QUICKSTART.md`）
 
 ```bash
