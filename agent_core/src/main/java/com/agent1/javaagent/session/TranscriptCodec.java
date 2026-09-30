@@ -2,6 +2,7 @@ package com.agent1.javaagent.session;
 
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.ToolCall;
+import com.agent1.javaagent.model.ToolCallIds;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -59,8 +60,9 @@ final class TranscriptCodec {
             List<ToolCall> toolCalls = new ArrayList<>();
             if (root.has("toolCalls") && root.get("toolCalls").isArray()) {
                 for (JsonNode n : root.get("toolCalls")) {
+                    String rawId = n.hasNonNull("id") ? n.get("id").asText() : null;
                     toolCalls.add(new ToolCall(
-                        n.path("id").asText(""),
+                        ToolCallIds.normalize(rawId),
                         n.path("name").asText(""),
                         n.path("argumentsJson").asText("{}")
                     ));

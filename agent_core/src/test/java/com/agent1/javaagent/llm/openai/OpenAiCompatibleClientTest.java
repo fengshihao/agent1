@@ -112,6 +112,46 @@ class OpenAiCompatibleClientTest {
     }
 
     @Test
+    void streamChat_assignsUniqueIdsWhenApiSendsNullToolCallIds() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            String sseBody = ""
+                + "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":null,\"type\":\"function\",\"function\":{\"name\":\"read_file\",\"arguments\":\"{}\"}}]}}]}\n\n"
+                + "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":1,\"id\":null,\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"arguments\":\"{}\"}}]}}]}\n\n"
+                + "data: [DONE]\n\n";
+            server.enqueue(
+                new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody(sseBody)
+            );
+            server.start();
+
+            OpenAiCompatibleClient client = new OpenAiCompatibleClient(
+                new OpenAiCompatibleConfig(
+                    "test-key",
+                    server.url("/v1").toString(),
+                    Duration.ofSeconds(5),
+                    0.2
+                )
+            );
+
+            AssistantResponse response = client.streamChat(
+                new ChatRequest("gpt-4o-mini", List.of(AgentMessage.user("go"))),
+                List.of(),
+                delta -> { },
+                new CancellationToken()
+            );
+
+            assertEquals(2, response.getToolCalls().size());
+            assertFalse(response.getToolCalls().get(0).getId().equals("null"));
+            assertFalse(response.getToolCalls().get(1).getId().equals("null"));
+            assertFalse(
+                response.getToolCalls().get(0).getId().equals(response.getToolCalls().get(1).getId())
+            );
+        }
+    }
+
+    @Test
     void streamChat_parsesReasoningContent() throws Exception {
         try (MockWebServer server = new MockWebServer()) {
             String sseBody = ""
