@@ -8,19 +8,28 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,7 +60,13 @@ fun ModelSettingsScreen(
         AgentTopBar(
             title = "模型配置",
             subtitle = "Key / Base URL / 模型均保存在本机",
-            leading = { TopBarIconButton(label = "←", onClick = onBack) },
+            leading = {
+                TopBarIconButton(
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "返回",
+                    onClick = onBack,
+                )
+            },
             actions = {},
         )
         AgentHairline()
@@ -114,32 +129,41 @@ fun ModelSettingsScreen(
                     PasswordVisualTransformation()
                 },
                 trailingIcon = {
-                    TextButton(onClick = { revealKey = !revealKey }) {
-                        Text(if (revealKey) "隐藏" else "显示")
+                    IconButton(onClick = { revealKey = !revealKey }, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            if (revealKey) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                            contentDescription = if (revealKey) "隐藏" else "显示",
+                            modifier = Modifier.size(18.dp),
+                        )
                     }
                 },
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedButton(
+                Text(
+                    "选择模型（${state.remoteModels.size} 项）",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                IconButton(
                     onClick = viewModel::fetchRemoteModels,
                     enabled = !state.isFetchingModels,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.size(36.dp),
                 ) {
                     if (state.isFetchingModels) {
-                        CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.padding(end = 8.dp))
+                        CircularProgressIndicator(strokeWidth = 1.5.dp, modifier = Modifier.size(16.dp))
+                    } else {
+                        Icon(
+                            Icons.Filled.CloudDownload,
+                            contentDescription = "从网络拉取模型",
+                            modifier = Modifier.size(18.dp),
+                        )
                     }
-                    Text("从网络拉取模型")
                 }
             }
-
-            Text(
-                "选择模型（${state.remoteModels.size} 项）",
-                style = MaterialTheme.typography.titleSmall,
-            )
 
             LazyColumn(
                 modifier = Modifier
@@ -166,8 +190,24 @@ fun ModelSettingsScreen(
                 singleLine = true,
             )
 
-            TextButton(onClick = viewModel::toggleAdvanced) {
-                Text(if (state.showAdvanced) "收起高级参数" else "展开高级参数")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = viewModel::toggleAdvanced),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "高级参数",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Icon(
+                    if (state.showAdvanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = if (state.showAdvanced) "收起高级参数" else "展开高级参数",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             if (state.showAdvanced) {
@@ -199,17 +239,34 @@ fun ModelSettingsScreen(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Button(
+                IconButton(
+                    onClick = viewModel::resetToBuildDefaults,
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Restore,
+                        contentDescription = "恢复编译默认",
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                IconButton(
                     onClick = viewModel::save,
                     enabled = !state.isSaving,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.size(36.dp),
                 ) {
-                    Text(if (state.isSaving) "保存中…" else "保存并生效")
-                }
-                OutlinedButton(onClick = viewModel::resetToBuildDefaults) {
-                    Text("恢复编译默认")
+                    if (state.isSaving) {
+                        CircularProgressIndicator(strokeWidth = 1.5.dp, modifier = Modifier.size(16.dp))
+                    } else {
+                        Icon(
+                            Icons.Filled.Save,
+                            contentDescription = "保存并生效",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
 

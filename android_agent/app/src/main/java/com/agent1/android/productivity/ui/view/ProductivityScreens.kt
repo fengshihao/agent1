@@ -23,9 +23,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,13 +46,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -111,19 +121,23 @@ fun SessionListScreen(
             subtitle = if (state.sessions.isEmpty()) "从这里开始一条对话" else "${state.sessions.size} 条对话",
             leading = null,
             actions = {
-                TopBarIconButton(label = "模型", onClick = onOpenSettings)
                 TopBarIconButton(
-                    label = if (state.exportInProgress) "…" else "导出",
+                    icon = Icons.Filled.Tune,
+                    contentDescription = "模型",
+                    onClick = onOpenSettings,
+                )
+                TopBarIconButton(
+                    icon = Icons.Filled.IosShare,
+                    contentDescription = "导出",
                     onClick = { viewModel.exportDiagnostics(context) },
                     enabled = !state.exportInProgress,
+                    busy = state.exportInProgress,
                 )
-                Button(
+                TopBarIconButton(
+                    icon = Icons.Filled.Add,
+                    contentDescription = "新建",
                     onClick = { viewModel.createSession(onCreated = onOpenSession) },
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    Text("新建")
-                }
+                )
             },
         )
         AgentHairline()
@@ -209,22 +223,34 @@ fun ChatScreen(
                         title = state.title.ifBlank { "AI 助手" },
                         subtitle = null,
                         leading = {
-                            TopBarIconButton(label = "←", onClick = onBack)
+                            TopBarIconButton(
+                                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "返回",
+                                onClick = onBack,
+                            )
                         },
                         actions = {
                             TopBarIconButton(
-                                label = if (state.exportInProgress) "…" else "简报",
+                                icon = Icons.Filled.ContentCopy,
+                                contentDescription = "简报",
                                 onClick = { viewModel.exportBriefTranscript(context) },
                                 enabled = !state.exportInProgress,
+                                busy = state.exportInProgress,
                             )
                             TopBarIconButton(
-                                label = if (state.exportInProgress) "…" else "诊断",
+                                icon = Icons.Filled.BugReport,
+                                contentDescription = "诊断",
                                 onClick = { viewModel.exportDiagnostics(context) },
                                 enabled = !state.exportInProgress,
                             )
-                            TopBarIconButton(label = "模型", onClick = onOpenSettings)
                             TopBarIconButton(
-                                label = "规格",
+                                icon = Icons.Filled.Tune,
+                                contentDescription = "模型",
+                                onClick = onOpenSettings,
+                            )
+                            TopBarIconButton(
+                                icon = Icons.Filled.Info,
+                                contentDescription = "规格",
                                 onClick = { viewModel.toggleModelPanel() },
                             )
                         },
@@ -342,7 +368,6 @@ internal fun AgentTopBar(
                 Text(
                     title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -367,21 +392,34 @@ internal fun AgentTopBar(
 
 @Composable
 internal fun TopBarIconButton(
-    label: String,
+    icon: ImageVector,
+    contentDescription: String,
     onClick: () -> Unit,
     enabled: Boolean = true,
+    busy: Boolean = false,
 ) {
-    TextButton(
+    IconButton(
         onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.height(40.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp),
+        enabled = enabled && !busy,
+        modifier = Modifier.size(36.dp),
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (busy) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(14.dp),
+                strokeWidth = 1.5.dp,
+            )
+        } else {
+            Icon(
+                icon,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(18.dp),
+                tint = if (enabled) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                },
+            )
+        }
     }
 }
 
@@ -471,7 +509,7 @@ private fun ChatComposer(
             IconButton(
                 onClick = onPickFiles,
                 enabled = pickFilesEnabled,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(36.dp),
             ) {
                 Icon(
                     Icons.Filled.AttachFile,
@@ -501,7 +539,7 @@ private fun ChatComposer(
             AnimatedVisibility(visible = isRunning) {
                 IconButton(
                     onClick = onStop,
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(36.dp),
                 ) {
                     Icon(
                         Icons.Filled.Stop,
@@ -514,13 +552,13 @@ private fun ChatComposer(
                 onClick = onSend,
                 enabled = canSend && !isRunning,
                 shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(36.dp),
                 contentPadding = PaddingValues(0.dp),
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.Send,
                     contentDescription = "发送",
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
@@ -609,8 +647,14 @@ private fun SessionCard(
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.outline,
                 )
-                TextButton(onClick = onOpen) { Text("打开") }
-                TextButton(onClick = onDelete) { Text("删除") }
+                IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        Icons.Filled.DeleteOutline,
+                        contentDescription = "删除",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -929,13 +973,19 @@ private fun MessageBubble(
                     )
                 }
                 if (line.requestUserPickFiles) {
-                    OutlinedButton(
+                    IconButton(
                         onClick = onPickFiles,
                         enabled = pickFilesEnabled,
-                        modifier = Modifier.padding(top = 8.dp),
-                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .size(32.dp),
                     ) {
-                        Text("选择文件")
+                        Icon(
+                            Icons.Filled.AttachFile,
+                            contentDescription = "选择文件",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 }
             }
@@ -1045,10 +1095,15 @@ private fun RuntimeConfigOverlay(
             ) {
                 Text(
                     "模型与运行时",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall,
                 )
-                TextButton(onClick = onDismiss) { Text("关闭") }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = "关闭",
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
             ModelAndRuntimePanel(summary, catalog, configError)
         }
@@ -1111,10 +1166,11 @@ private fun RuntimeSummaryStrip(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Text(
-                    if (expanded) "收起" else "详情",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelLarge,
+                Icon(
+                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = if (expanded) "收起" else "详情",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (expanded) {

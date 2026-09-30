@@ -1,17 +1,18 @@
 package com.agent1.android.productivity.ui.view
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,23 +40,23 @@ fun WorkspaceFileAttachments(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                TextButton(
-                    onClick = { WorkspaceFileActions.openWorkspaceFile(context, root, relative) },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(
-                        text = relative,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 2,
-                    )
-                }
+                Text(
+                    text = relative,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { WorkspaceFileActions.openWorkspaceFile(context, root, relative) },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 2,
+                )
                 IconButton(
                     onClick = { WorkspaceFileActions.shareWorkspaceFile(context, root, relative) },
+                    modifier = Modifier.size(32.dp),
                 ) {
                     Icon(
                         Icons.Default.Share,
                         contentDescription = "分享",
+                        modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.primary,
                     )
                 }

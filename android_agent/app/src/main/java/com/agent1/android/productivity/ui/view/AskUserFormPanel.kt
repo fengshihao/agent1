@@ -1,20 +1,25 @@
 package com.agent1.android.productivity.ui.view
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -125,15 +130,32 @@ fun AskUserFormPanel(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Button(
-                onClick = onSubmit,
-                enabled = enabled,
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-                shape = RoundedCornerShape(10.dp),
+                    .padding(top = 4.dp)
+                    .size(32.dp)
+                    .align(Alignment.End)
+                    .clip(CircleShape)
+                    .background(
+                        if (enabled) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                        },
+                    )
+                    .clickable(enabled = enabled, onClick = onSubmit),
+                contentAlignment = Alignment.Center,
             ) {
-                Text("提交回答")
+                Icon(
+                    Icons.Filled.Check,
+                    contentDescription = "提交回答",
+                    modifier = Modifier.size(16.dp),
+                    tint = if (enabled) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    },
+                )
             }
         }
     }
