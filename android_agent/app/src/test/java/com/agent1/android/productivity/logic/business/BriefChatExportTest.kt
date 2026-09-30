@@ -22,6 +22,31 @@ class BriefChatExportTest {
     }
 
     @Test
+    fun format_leadsWithLatestToolFailureForDebug() {
+        val messages = listOf(
+            AgentMessage.user("写个文件"),
+            AgentMessage.assistant(
+                "",
+                "先看目录",
+                listOf(ToolCall("t9", "write_file", """{"path":"a.txt"}""")),
+            ),
+            AgentMessage.toolResult("t9", "denied: read only", true),
+        )
+        val text = BriefChatExport.format(
+            messages,
+            "调试",
+            BriefChatExport.Context(sessionId = "s1", modelLabel = "qwen", configError = "no key"),
+        )
+        assertTrue(text.contains("异常摘要"))
+        assertTrue(text.contains("write_file"))
+        assertTrue(text.contains("t9"))
+        assertTrue(text.contains("denied: read only"))
+        assertTrue(text.contains("思考：先看目录"))
+        assertTrue(text.contains("configError: no key"))
+        assertTrue(text.indexOf("异常摘要") < text.indexOf("**用户**"))
+    }
+
+    @Test
     fun format_includesToolErrors() {
         val messages = listOf(
             AgentMessage.toolResult("t1", """{"ok":false,"resultPreview":"timeout"}""", true),

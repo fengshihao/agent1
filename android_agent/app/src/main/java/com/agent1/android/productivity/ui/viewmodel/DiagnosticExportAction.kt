@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import com.agent1.android.BuildConfig
 import com.agent1.android.productivity.logic.business.BriefChatExport.Context as BriefContext
 import androidx.core.content.FileProvider
@@ -65,23 +66,33 @@ internal fun ViewModel.launchBriefChatExport(
                 val app = activity.applicationContext
                 val gateway = ProductivityGatewayProvider.get(app)
                 val messages = gateway.loadTranscript(sessionId)
-                val modelLabel = gateway.configurationSummary().modelId
+                val summary = gateway.configurationSummary()
                 BriefChatExport.format(
                     messages,
                     sessionTitle,
                     BriefContext(
                         sessionId = sessionId,
-                        modelLabel = modelLabel,
-                        appVersion = BuildConfig.VERSION_NAME,
+                        modelLabel = summary.modelId,
+                        appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                        deviceLabel = "${Build.MANUFACTURER} ${Build.MODEL} Android ${Build.VERSION.RELEASE}",
+                        limits = "context=${summary.maxContextTurns} " +
+                            "turns=${summary.maxTurnsPerRun} tools=${summary.maxToolCallsPerRun}",
+                        configError = gateway.configurationError().orEmpty(),
                     ),
                 )
             }
         }
         text.fold(
             onSuccess = { body ->
-                copyBriefToClipboard(activity, body)
+                val copied = copyBriefToClipboard(activity, body)
                 onBusy(false)
-                onMessage("简报已复制到剪贴板，可直接粘贴到 Cursor")
+                onMessage(
+                    if (copied) {
+                        "简报已复制到剪贴板，直接粘贴给调试 AI"
+                    } else {
+                        "无法写入剪贴板"
+                    },
+                )
             },
             onFailure = { error ->
                 onBusy(false)
@@ -91,19 +102,10 @@ internal fun ViewModel.launchBriefChatExport(
     }
 }
 
-private fun copyBriefToClipboard(context: Context, text: String) {
-    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
+private fun copyBriefToClipboard(context: Context, text: String): Boolean {
+    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return false
     clipboard.setPrimaryClip(ClipData.newPlainText("agent1_brief", text))
-}
-
-internal fun briefChatShareIntent(context: Context, text: String, sessionTitle: String): Intent {
-    val subject = sessionTitle.ifBlank { "聊天简报" }
-    val send = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, text)
-        putExtra(Intent.EXTRA_SUBJECT, "agent1 $subject")
-    }
-    return Intent.createChooser(send, "分享聊天简报")
+    return true
 }
 
 internal fun diagnosticShareIntent(context: Context, zip: File): Intent {
