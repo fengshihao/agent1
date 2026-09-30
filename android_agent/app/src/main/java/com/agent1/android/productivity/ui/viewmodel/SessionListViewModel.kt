@@ -63,10 +63,27 @@ class SessionListViewModel(
         }
     }
 
-    fun deleteSession(sessionId: String) {
+    @Suppress("TooGenericExceptionCaught")
+    fun deleteSession(sessionId: String, onFinished: (List<SessionMeta>) -> Unit = {}) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { gateway.deleteSession(sessionId) }
-            refresh()
+            val current = _state.value
+            try {
+                val sessions = withContext(Dispatchers.IO) {
+                    gateway.deleteSession(sessionId)
+                    gateway.listSessions()
+                }
+                _state.value = current.copy(
+                    sessions = sessions,
+                    isLoading = false,
+                    startupError = null,
+                )
+                onFinished(sessions)
+            } catch (t: Exception) {
+                _state.value = current.copy(
+                    isLoading = false,
+                    startupError = t.message ?: t.javaClass.simpleName,
+                )
+            }
         }
     }
 
