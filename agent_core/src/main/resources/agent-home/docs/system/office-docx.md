@@ -1,7 +1,7 @@
 # office-docx.md — Weizhi docx.js / docx-raw.js（Agent1）
 
 > 用法见系统提示；**本文是 API 参考**，用 read_agent_doc 分段阅读。脚本位于 agentRoot/shared/catalog/scripts/docx.js。
-> Weizhi 真源：https://github.com/fengshihao/weizhi/blob/master/docs/office-js-api.md
+> Weizhi 真源：https://github.com/fengshihao/weizhi/blob/master/docs/office-js-api.md（weizhi#11 / PR #12：`headingStyles`、内置标题层次）
 
 路径：`assets/office/docx.js`。QuickJS **ES module**，无 npm。
 
@@ -54,8 +54,14 @@ markdownToDocx({
   outputPath: "out/report.docx",
   title: "可选封面标题",
   defaultStyle: { font: "宋体", sizePt: 12 },
+  // 可选；省略时使用内置层次：H1 22pt、H2 16pt、H3 14pt（加粗），并写入 word/styles.xml
+  headingStyles: { "1": { sizePt: 22, bold: true }, "2": { sizePt: 16, bold: true } },
 });
 ```
+
+`docx_markdown_to_word` 工具可选参数 `default_style`、`heading_styles`（JSON 对象，语义同上）。
+
+**不要**在 Markdown 源文件里插入 HTML 标签试图控制 Word 字号；解析器只支持下方表格中的 Markdown 子集。改 docx 样式请用 `readDocx` / `setBlockStyle` 或 `docx_inspect`。
 
 或先建模型再渲染：
 

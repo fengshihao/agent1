@@ -3,7 +3,6 @@ package com.agent1.javaagent.tool.office;
 import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.script.ScriptEngine;
-import com.agent1.javaagent.script.ScriptEngine;
 import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
@@ -43,6 +42,18 @@ final class DocxOfficeJsRunner {
             return MAPPER.writeValueAsString(value);
         } catch (Exception e) {
             return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        }
+    }
+
+    /** JSON object/array literal for embedding in generated JS (not a quoted string). */
+    static String jsonLiteral(com.fasterxml.jackson.databind.JsonNode node) {
+        if (node == null || node.isNull() || node.isMissingNode()) {
+            return "null";
+        }
+        try {
+            return MAPPER.writeValueAsString(node);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("invalid JSON for docx script: " + e.getMessage(), e);
         }
     }
 
