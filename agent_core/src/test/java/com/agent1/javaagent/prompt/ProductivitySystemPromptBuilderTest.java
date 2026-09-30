@@ -20,6 +20,23 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
+    void mentionsJsFirstAndCapabilitySearchWhenScriptEnabled() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), true);
+        assertTrue(prompt.contains("execute_script"));
+        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("编程智能体"));
+    }
+
+    @Test
+    void mentionsCapabilitySearchWithoutScriptEngine() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), false);
+        assertTrue(prompt.contains("capability_search"));
+        assertFalse(prompt.contains("编程智能体"));
+    }
+
+    @Test
     void omitsExecuteScriptWhenScriptToolNotRegistered() {
         Path workspace = temp.resolve("ws");
         String prompt = new ProductivitySystemPromptBuilder()

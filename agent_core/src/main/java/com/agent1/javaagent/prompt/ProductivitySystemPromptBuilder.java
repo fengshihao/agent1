@@ -32,10 +32,21 @@ public final class ProductivitySystemPromptBuilder {
         脚本里可以用 await $tools.工具名({...}) 调用当前已注册的工具（表达式结果即本轮返回值），不能调用 execute_script。
         """.trim();
 
+    static final String JS_FIRST = """
+        编程智能体：优先用 execute_script（workspace 内 file orchestrator）完成任务；平台能力（android.* / fs / host / catalog 脚本 / $tools）在脚本内调用，不要臆造外层 tool 名。
+        """.trim();
+
     static final String TOOL_STRATEGY = """
         工具策略：大段内容写入工作区文件，不要在回复里重复粘贴全文。
+        除 trivial 读写外，先 capability_search 查能力索引，再 read_agent_doc 或 skill(read) 读细节。
         缺少关键信息时调用 ask_user 发起结构化提问并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。
         用户未确认前不要编造事实；用户下一条消息将开启新的 Run。
+        """.trim();
+
+    static final String TOOL_STRATEGY_JS_TAIL = "然后写 workspace 内 JS orchestrator，用 execute_script（file 模式）执行。";
+
+    static final String CAPABILITY_MAP = """
+        能力大类（细节靠 capability_search + 文档）：沙箱 fs/path；平台 Caps（如 android.files/share，仅脚本内）；host.ensureNative/fetch；catalog 脚本（如 docx.js）；Skill 流程；MCP；$tools 桥（grep/webview 等）。
         """.trim();
 
     static final String WORK_MODE_OFFICE_DOCX = """
@@ -133,7 +144,14 @@ public final class ProductivitySystemPromptBuilder {
         sb.append("\n\n");
         sb.append(buildEnvironmentSection(workspaceRoot, agentRoot, environmentSupplement)).append("\n\n");
         sb.append(AGENT_BOUNDARIES).append("\n\n");
+        if (scriptToolRegistered) {
+            sb.append(JS_FIRST).append("\n\n");
+            sb.append(CAPABILITY_MAP).append("\n\n");
+        }
         sb.append(TOOL_STRATEGY);
+        if (scriptToolRegistered) {
+            sb.append("\n").append(TOOL_STRATEGY_JS_TAIL);
+        }
         if (!hostAppend.isEmpty()) {
             sb.append("\n\n").append(hostAppend);
         }
