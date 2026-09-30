@@ -25,10 +25,35 @@ data class SessionListUiState(
     val startupError: String? = null,
 )
 
+/** 单次 Run 内按时间顺序展示的片段（助手正文 / 工具调用）。 */
+sealed interface ChatRunTimelineItem {
+    val id: String
+
+    data class AssistantPart(
+        override val id: String,
+        val content: String,
+        val reasoning: String = "",
+    ) : ChatRunTimelineItem
+
+    data class ToolPart(
+        override val id: String,
+        val toolCallId: String,
+        val toolName: String,
+        val argsPreview: String = "",
+        /** 开始、执行中、结束（成功或失败）的单行状态。 */
+        val statusLine: String,
+        val progressLines: List<String> = emptyList(),
+        val finished: Boolean = false,
+        val isError: Boolean = false,
+    ) : ChatRunTimelineItem
+}
+
 data class ChatLine(
     val role: String,
     val content: String,
     val reasoning: String = "",
+    /** LazyColumn 稳定 key，避免刷新后滚动跳动。 */
+    val stableKey: String = "",
     val isTool: Boolean = false,
     /** 工作区内图片相对路径（工具结果或助手 Markdown 引用）。 */
     val workspaceImagePath: String? = null,
@@ -51,7 +76,7 @@ data class ChatUiState(
     val lines: List<ChatLine> = emptyList(),
     val streamingText: String = "",
     val streamingReasoning: String = "",
-    val toolTrail: List<String> = emptyList(),
+    val runTimeline: List<ChatRunTimelineItem> = emptyList(),
     /** 运行中、尚未有流式正文时的状态文案（思考、等模型、工具等） */
     val runActivityLabel: String? = null,
     val isRunning: Boolean = false,
