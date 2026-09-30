@@ -26,7 +26,7 @@ import java.util.concurrent.Future
  */
 class ProductivityAgentGateway(
     private val appContext: Context,
-    agentRoot: Path,
+    private val agentRoot: Path,
     config: AgentRuntimeConfig,
 ) : Closeable {
 
