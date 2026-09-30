@@ -120,8 +120,4 @@ public final class DocxMarkdownToWordTool implements AgentTool {
 
         return DocxOfficeJsRunner.run(sandbox, engineFactory, timeoutMs, agentRoot, js, cancellationToken);
     }
-
-    private static String jsonString(String value) {
-        return DocxOfficeJsRunner.jsonString(value);
-    }
 }

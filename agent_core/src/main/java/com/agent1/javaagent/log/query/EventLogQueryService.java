@@ -16,7 +16,8 @@ public final class EventLogQueryService {
         "run_completed",
         "run_failed",
         "run_cancelled",
-        "run_paused"
+        "run_paused",
+        "run_waiting_user"
     );
 
     private final EventLogReader reader;

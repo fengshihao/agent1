@@ -30,6 +30,7 @@ import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import com.agent1.javaagent.tool.script.ExecuteScriptTool;
 import com.agent1.javaagent.coach.AgentCoachConfig;
 import com.agent1.javaagent.coach.ProductivityCoach;
+import com.agent1.javaagent.tool.agent.AskUserTool;
 import com.agent1.javaagent.tool.agent.CatalogInstallTool;
 import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
 import com.agent1.javaagent.tool.agent.ListCatalogTool;
@@ -356,6 +357,9 @@ public final class ProductivityAgentHost implements Closeable {
         if (RunOutcome.isPaused(error)) {
             return RunState.PAUSED;
         }
+        if (RunOutcome.isWaitingUser(error)) {
+            return RunState.WAITING_USER;
+        }
         return RunState.FAILED;
     }
 
@@ -430,6 +434,7 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new ProductivitySkillTool(agentRoot, projectRoot));
         tools.add(new ListSessionsTool(sessionStore, this::getActiveSessionId));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
+        tools.add(new AskUserTool());
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);
             if (extra != null && !extra.isEmpty()) {

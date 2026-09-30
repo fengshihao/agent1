@@ -15,8 +15,13 @@ import com.agent1.javaagent.run.FileRunStore;
 import com.agent1.javaagent.run.RunState;
 import com.agent1.javaagent.script.FakeScriptEngineFactory;
 import com.agent1.javaagent.script.MutableScriptToolBridge;
+import com.agent1.javaagent.model.ToolCall;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.DelegatingAgentTool;
+import com.agent1.javaagent.tool.agent.AskUserTool;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -88,6 +93,31 @@ class ProductivityAgentHostTest {
     }
 
     @Test
+    void askUserEndsRunInWaitingUserState() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode params = mapper.createObjectNode();
+        ArrayNode questions = mapper.createArrayNode();
+        ObjectNode q = mapper.createObjectNode();
+        q.put("id", "origin");
+        q.put("prompt", "从哪出发？");
+        questions.add(q);
+        params.set("questions", questions);
+        String args = mapper.writeValueAsString(params);
+        ToolCall askCall = new ToolCall("a1", AskUserTool.TOOL_NAME, args);
+
+        LlmClient fake = (request, tools, streamListener, cancellationToken) ->
+            new AssistantResponse("", List.of(askCall));
+
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            host.createSession();
+            String runId = host.runUserMessage("广西三日游");
+            FileRunStore runs = new FileRunStore(new FileSessionStore(temp));
+            assertEquals(RunState.WAITING_USER, runs.read(host.getActiveSessionId(), runId).getState());
+        }
+    }
+
+    @Test
     void registersAgentDocAndCatalogTools() {
         java.util.concurrent.atomic.AtomicReference<List<String>> toolNames =
             new java.util.concurrent.atomic.AtomicReference<>();
@@ -106,6 +136,7 @@ class ProductivityAgentHostTest {
             assertTrue(toolNames.get().contains("catalog_sync_status"));
             assertTrue(toolNames.get().contains("list_sessions"));
             assertTrue(toolNames.get().contains("skill"));
+            assertTrue(toolNames.get().contains("ask_user"));
         }
     }
 

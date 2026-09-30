@@ -15,8 +15,10 @@ import com.agent1.javaagent.model.ToolCall;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolUpdateListener;
+import com.agent1.javaagent.tool.agent.AskUserTool;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -176,6 +178,43 @@ class AgentRuntimeTest {
                 .anyMatch(m -> AgentMessage.ROLE_ASSISTANT.equals(m.getRole())
                     && "进度摘要".equals(m.getContent()))
         );
+        runtime.close();
+    }
+
+    @Test
+    void askUserTool_shouldStopRunWithWaitingUserError() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode params = mapper.createObjectNode();
+        ArrayNode questions = mapper.createArrayNode();
+        ObjectNode q = mapper.createObjectNode();
+        q.put("id", "origin");
+        q.put("prompt", "出发地？");
+        questions.add(q);
+        params.set("questions", questions);
+        String args = mapper.writeValueAsString(params);
+
+        ToolCall askCall = new ToolCall("ask1", AskUserTool.TOOL_NAME, args);
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            if (!request.getMessages().isEmpty()
+                && request.getMessages().get(request.getMessages().size() - 1).getRole().equals("tool")) {
+                streamListener.onTextDelta("请补充信息");
+                return new AssistantResponse("请补充信息", List.of());
+            }
+            return new AssistantResponse("", List.of(askCall));
+        };
+
+        AgentRuntime runtime = new AgentRuntime(
+            AgentOptions.builder("test-model")
+                .tools(List.of(new AskUserTool()))
+                .maxTurnsPerRun(5)
+                .build(),
+            fake
+        );
+
+        runtime.prompt("规划广西").join();
+        runtime.waitForIdle();
+
+        assertTrue(RunOutcome.isWaitingUser(runtime.getStateSnapshot().getError()));
         runtime.close();
     }
 

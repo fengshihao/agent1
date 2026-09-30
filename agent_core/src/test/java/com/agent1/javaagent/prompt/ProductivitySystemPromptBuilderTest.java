@@ -13,6 +13,13 @@ class ProductivitySystemPromptBuilderTest {
     Path temp;
 
     @Test
+    void mentionsAskUserInToolStrategy() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), false);
+        assertTrue(prompt.contains("ask_user"));
+    }
+
+    @Test
     void omitsExecuteScriptWhenScriptToolNotRegistered() {
         Path workspace = temp.resolve("ws");
         String prompt = new ProductivitySystemPromptBuilder()

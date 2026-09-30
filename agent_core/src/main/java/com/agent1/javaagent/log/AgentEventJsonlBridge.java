@@ -7,6 +7,8 @@ import com.agent1.javaagent.event.AgentEventType;
 import com.agent1.javaagent.event.EventPayloads;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.run.RunState;
+import com.agent1.javaagent.tool.agent.AskUserTool;
+import com.fasterxml.jackson.databind.JsonNode;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -20,6 +22,7 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
     private volatile boolean runFailed;
     private volatile boolean deferRunTerminal;
     private final Map<String, Long> toolStartEpochMs = new ConcurrentHashMap<>();
+    private final Map<String, String> toolNameByCallId = new ConcurrentHashMap<>();
 
     public AgentEventJsonlBridge(RunLogContext context, EventJsonlWriter writer) {
         this.context = context;
@@ -61,6 +64,7 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
     private void onAgentStart(AgentStateSnapshot snapshot) {
         runFailed = false;
         toolStartEpochMs.clear();
+        toolNameByCallId.clear();
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("model", snapshot.getModel());
         fields.put("message_count", snapshot.getMessages().size());
@@ -93,6 +97,7 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
     private void onToolStart(EventPayloads.ToolExecutionStart payload) {
         var toolCall = payload.getToolCall();
         toolStartEpochMs.put(toolCall.getId(), System.currentTimeMillis());
+        toolNameByCallId.put(toolCall.getId(), toolCall.getName());
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("tool_name", toolCall.getName());
         fields.put("tool_args", toolCall.getArgumentsJson());
@@ -102,6 +107,7 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
 
     private void onToolEnd(EventPayloads.ToolExecutionEnd payload) {
         Long started = toolStartEpochMs.remove(payload.getToolCallId());
+        String toolName = toolNameByCallId.remove(payload.getToolCallId());
         long durationMs = started == null ? 0L : Math.max(0L, System.currentTimeMillis() - started);
         String resultText = payload.getResult() == null ? "" : payload.getResult().getText();
         Map<String, Object> fields = new LinkedHashMap<>();
@@ -113,6 +119,22 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
             fields.put("error_message", payload.getErrorMessage());
         }
         writer.write(context, "tool_result", fields);
+
+        if (!payload.isError()
+            && AskUserTool.TOOL_NAME.equals(toolName)
+            && payload.getResult() != null
+            && payload.getResult().stopRunWaitingUser()) {
+            writeUserInputRequested(payload.getResult().getDetails());
+        }
+    }
+
+    private void writeUserInputRequested(JsonNode details) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("status", "waiting_user");
+        if (details != null && !details.isNull()) {
+            fields.put("request", details);
+        }
+        writer.write(context, "user_input_requested", fields);
     }
 
     private void onAgentError(EventPayloads.AgentError payload) {
@@ -158,6 +180,15 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
                 fields.put("error", reason == null || reason.isBlank() ? "unknown" : reason);
                 fields.put("message_count", messageCount);
                 writer.write(context, "run_failed", fields);
+            }
+            case WAITING_USER -> {
+                Map<String, Object> fields = new LinkedHashMap<>();
+                fields.put("status", "waiting_user");
+                if (reason != null && !reason.isBlank()) {
+                    fields.put("reason", reason);
+                }
+                fields.put("message_count", messageCount);
+                writer.write(context, "run_waiting_user", fields);
             }
             default -> {
             }
