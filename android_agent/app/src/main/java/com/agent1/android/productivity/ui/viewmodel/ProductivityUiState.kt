@@ -12,6 +12,9 @@ data class SessionListUiState(
     val isLoading: Boolean = false,
     val exportInProgress: Boolean = false,
     val exportMessage: String? = null,
+    /** 本会话用户已导入、可供 AI read_file 的路径。 */
+    val accessibleFilePaths: List<String> = emptyList(),
+    val fileImportMessage: String? = null,
 )
 
 data class ChatLine(
@@ -23,6 +26,8 @@ data class ChatLine(
     val workspaceImagePath: String? = null,
     val imageWarning: String? = null,
     val workspaceFilePaths: List<String> = emptyList(),
+    /** 助手消息含 [需要用户选文件] 等标记时，展示「选择文件」按钮。 */
+    val requestUserPickFiles: Boolean = false,
 )
 
 data class ChatUiState(

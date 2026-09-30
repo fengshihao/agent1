@@ -38,6 +38,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -165,6 +167,14 @@ fun ChatScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var input by rememberSaveable { mutableStateOf("") }
+    val pickFilesLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris ->
+        viewModel.onUserPickedFiles(uris)
+    }
+    val launchPickFiles = {
+        pickFilesLauncher.launch(arrayOf("*/*"))
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -220,6 +230,14 @@ fun ChatScreen(
                     if (!state.transcriptLoadError.isNullOrBlank()) {
                         ConfigErrorBanner("对话加载失败：${state.transcriptLoadError}")
                     }
+                    if (!state.fileImportMessage.isNullOrBlank()) {
+                        Text(
+                            state.fileImportMessage.orEmpty(),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             },
             bottomBar = {
@@ -236,12 +254,18 @@ fun ChatScreen(
                         )
                         AgentHairline()
                     }
+                    if (state.accessibleFilePaths.isNotEmpty()) {
+                        AccessibleFilesStrip(paths = state.accessibleFilePaths)
+                        AgentHairline()
+                    }
                     ChatComposer(
                         value = input,
                         onValueChange = { input = it },
                         isRunning = state.isRunning,
                         canSend = state.configError == null && input.isNotBlank() && !state.isRunning,
                         enabled = state.configError == null,
+                        onPickFiles = launchPickFiles,
+                        pickFilesEnabled = state.configError == null && !state.isRunning,
                         onSend = {
                             viewModel.sendMessage(input)
                             input = ""
@@ -253,6 +277,8 @@ fun ChatScreen(
         ) { innerPadding ->
             ChatMessageList(
                 state = state,
+                onPickFiles = launchPickFiles,
+                pickFilesEnabled = state.configError == null && !state.isRunning,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
@@ -372,12 +398,36 @@ private fun RunActivityStrip(
 }
 
 @Composable
+private fun AccessibleFilesStrip(paths: List<String>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text(
+            "已选文件（本会话）",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            paths.joinToString(" · "),
+            modifier = Modifier.padding(top = 2.dp),
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
 private fun ChatComposer(
     value: String,
     onValueChange: (String) -> Unit,
     isRunning: Boolean,
     canSend: Boolean,
     enabled: Boolean,
+    onPickFiles: () -> Unit,
+    pickFilesEnabled: Boolean,
     onSend: () -> Unit,
     onStop: () -> Unit,
 ) {
@@ -392,6 +442,15 @@ private fun ChatComposer(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
+            OutlinedButton(
+                onClick = onPickFiles,
+                enabled = pickFilesEnabled,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.height(40.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp),
+            ) {
+                Text("文件")
+            }
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
@@ -524,7 +583,12 @@ private fun SessionCard(
 }
 
 @Composable
-private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
+private fun ChatMessageList(
+    state: ChatUiState,
+    onPickFiles: () -> Unit,
+    pickFilesEnabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val listState = rememberLazyListState()
     LaunchedEffect(
         state.lines.size,
@@ -572,7 +636,13 @@ private fun ChatMessageList(state: ChatUiState, modifier: Modifier = Modifier) {
             val useMarkdown = !line.isTool &&
                 line.role != "user" &&
                 ChatTranscriptFormatting.shouldRenderAsMarkdown(line.content)
-            MessageBubble(line, workspacePath = state.workspacePath, markdown = useMarkdown)
+            MessageBubble(
+                line = line,
+                workspacePath = state.workspacePath,
+                markdown = useMarkdown,
+                onPickFiles = onPickFiles,
+                pickFilesEnabled = pickFilesEnabled,
+            )
         }
         if (state.toolTrail.isNotEmpty()) {
             item {
@@ -659,6 +729,8 @@ private fun MessageBubble(
     line: ChatLine,
     workspacePath: String,
     markdown: Boolean,
+    onPickFiles: () -> Unit,
+    pickFilesEnabled: Boolean,
 ) {
     val bubbles = chatBubbleColors()
     val isUser = line.role == "user" && !line.isTool
@@ -740,6 +812,16 @@ private fun MessageBubble(
                         excludePaths = emptySet(),
                         modifier = Modifier.padding(top = 6.dp),
                     )
+                }
+                if (line.requestUserPickFiles) {
+                    OutlinedButton(
+                        onClick = onPickFiles,
+                        enabled = pickFilesEnabled,
+                        modifier = Modifier.padding(top = 8.dp),
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        Text("选择文件")
+                    }
                 }
             }
         }

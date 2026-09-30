@@ -98,6 +98,24 @@ public final class ProductivitySystemPromptBuilder {
         boolean scriptHostTools,
         boolean officeDocxReady
     ) {
+        return buildMainPrompt(
+            workspaceRoot,
+            agentRoot,
+            scriptToolRegistered,
+            scriptHostTools,
+            officeDocxReady,
+            ""
+        );
+    }
+
+    public String buildMainPrompt(
+        Path workspaceRoot,
+        Path agentRoot,
+        boolean scriptToolRegistered,
+        boolean scriptHostTools,
+        boolean officeDocxReady,
+        String environmentSupplement
+    ) {
         StringBuilder sb = new StringBuilder();
         sb.append(IDENTITY).append("\n\n");
         sb.append(WORK_MODE_FILES);
@@ -111,7 +129,7 @@ public final class ProductivitySystemPromptBuilder {
             }
         }
         sb.append("\n\n");
-        sb.append(buildEnvironmentSection(workspaceRoot, agentRoot)).append("\n\n");
+        sb.append(buildEnvironmentSection(workspaceRoot, agentRoot, environmentSupplement)).append("\n\n");
         sb.append(AGENT_BOUNDARIES).append("\n\n");
         sb.append(TOOL_STRATEGY);
         if (!hostAppend.isEmpty()) {
@@ -129,6 +147,10 @@ public final class ProductivitySystemPromptBuilder {
     }
 
     static String buildEnvironmentSection(Path workspaceRoot, Path agentRoot) {
+        return buildEnvironmentSection(workspaceRoot, agentRoot, "");
+    }
+
+    static String buildEnvironmentSection(Path workspaceRoot, Path agentRoot, String environmentSupplement) {
         Path normalized = workspaceRoot.toAbsolutePath().normalize();
         String date = LocalDate.now(ZoneId.systemDefault()).toString();
         String osName = System.getProperty("os.name", "unknown");
@@ -136,13 +158,16 @@ public final class ProductivitySystemPromptBuilder {
             ? ""
             : "- agentRoot：" + agentRoot.toAbsolutePath().normalize() + "\n";
         String catalogLine = agentRoot == null ? "" : catalogPendingSummary(agentRoot);
+        String extra = environmentSupplement == null || environmentSupplement.isBlank()
+            ? ""
+            : environmentSupplement.trim() + "\n";
         return """
             环境：
             %s- 工作区（唯一可写）：%s
             - 日期：%s
             - 平台：%s
-            %s
-            """.formatted(rootLine, normalized, date, osName, catalogLine).trim();
+            %s%s
+            """.formatted(rootLine, normalized, date, osName, catalogLine, extra).trim();
     }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
