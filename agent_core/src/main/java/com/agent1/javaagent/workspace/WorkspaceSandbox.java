@@ -96,13 +96,35 @@ public final class WorkspaceSandbox {
     }
 
     private Path resolveWorkspace(String relativePath) {
-        Path input = Path.of(relativePath.trim());
+        String normalized = normalizeWorkspaceRelative(relativePath);
+        Path input = Path.of(normalized);
         if (input.isAbsolute()) {
             throw new SecurityException("absolute path not allowed: " + relativePath);
         }
         Path resolved = root.resolve(input).normalize();
         ensureContainedInWorkspace(resolved);
         return resolved;
+    }
+
+    /**
+     * 模型常把「工作区根」误写成路径前缀 {@code workspace/}（环境摘要里目录名也是 workspace），
+     * 统一剥掉冗余前缀，避免 workspace/workspace/... 嵌套。
+     */
+    static String normalizeWorkspaceRelative(String relativePath) {
+        if (relativePath == null || relativePath.isBlank()) {
+            throw new SecurityException("path is empty");
+        }
+        String p = relativePath.trim().replace('\\', '/');
+        while (p.startsWith("./")) {
+            p = p.substring(2);
+        }
+        while (p.startsWith("workspace/")) {
+            p = p.substring("workspace/".length());
+        }
+        if (p.isEmpty()) {
+            throw new SecurityException("path is empty");
+        }
+        return p;
     }
 
     private static String normalizeRelative(String relativePath) {

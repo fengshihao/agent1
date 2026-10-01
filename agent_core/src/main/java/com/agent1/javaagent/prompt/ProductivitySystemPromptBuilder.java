@@ -21,9 +21,16 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String WORK_MODE_FILES = """
         工作方式：读和改文件时使用工作区文件工具（read_file、write_file、edit_file、list_dir）。
+        工具 path 参数相对「当前会话 workspace 根目录」，不要再加 workspace/ 前缀（写 dog.svg 而非 workspace/dog.svg）。
         从公开 http(s) 链接读取网页标题和正文用 read_url（不访问内网）。配置了 TAVILY_API_KEY 时，read_url 先用 Tavily 抽同一个 URL，失败再本地抓取。
         读 agentRoot 系统文档：read_file / list_dir / grep / glob，路径用 docs/system/... 或 docs/capabilities/...（只读，不可 write_file/edit_file 写入）。
         查看 shared/catalog 摘要用 list_catalog（只读，不可 write_file 写入）。
+        """.trim();
+
+    static final String WORK_MODE_WEBVIEW = """
+        双运行时：需要 DOM、canvas、SVG 栅格化、排版预览用 webview_exec；纯计算、文件编排、$tools 用 execute_script（QuickJS，无 document/window，无 Node fs/require）。
+        webview_exec 读工作区文件用 input_path（脚本内全局 input 为 Uint8Array），不要用 fetch('相对路径')。异步逻辑用顶层 return (async () => { ... })()。
+        保存图片时 return 纯 PNG/JPEG Base64（例如 canvas.toDataURL('image/png').split(',')[1]），或省略 output_path 让运行时自动落盘 tmp/webview_exec/*.b64。
         """.trim();
 
     static final String WORK_MODE_WEB_SEARCH = """
@@ -154,6 +161,7 @@ public final class ProductivitySystemPromptBuilder {
             sb.append("\n").append(WORK_MODE_SCRIPT);
             if (scriptHostTools) {
                 sb.append("\n").append(WORK_MODE_SCRIPT_HOST_TOOLS);
+                sb.append("\n").append(WORK_MODE_WEBVIEW);
             }
             if (officeDocxReady) {
                 sb.append("\n").append(WORK_MODE_OFFICE_DOCX);

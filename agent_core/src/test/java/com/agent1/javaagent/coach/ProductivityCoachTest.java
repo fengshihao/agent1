@@ -101,6 +101,36 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void webviewAsyncSyntaxCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ToolExecutionResult in = ToolExecutionResult.text(
+            "{\"ok\":false,\"error\":\"SyntaxError: await is only valid in async functions\"}"
+        );
+        ToolExecutionResult out = coach.maybeAugment("webview_exec", MAPPER.createObjectNode(), in, true);
+        assertTrue(out.getText().contains("[coach] webview.async_syntax"));
+    }
+
+    @Test
+    void webviewTinyOutputCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ToolExecutionResult in = ToolExecutionResult.text("已生成图片 · workspace/dog.png · 4 字节 · 90 ms");
+        ToolExecutionResult out = coach.maybeAugment("webview_exec", MAPPER.createObjectNode(), in, false);
+        assertTrue(out.getText().contains("[coach] webview.tiny_output"));
+    }
+
+    @Test
+    void executeScriptSvgFileCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("file", "dog.svg");
+        ToolExecutionResult fail = ToolExecutionResult.text(
+            "{\"ok\":false,\"message\":\"SyntaxError: unexpected token in expression: '<'\"}"
+        );
+        ToolExecutionResult out = coach.maybeAugment("execute_script", params, fail, false);
+        assertTrue(out.getText().contains("[coach] script.wrong_file_type"));
+    }
+
+    @Test
     void fileModeScriptSkipsInlineCoach() {
         ProductivityCoach coach = new ProductivityCoach();
         ObjectNode params = MAPPER.createObjectNode();

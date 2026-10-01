@@ -4,11 +4,16 @@ import com.agent1.javaagent.script.ScriptEvalFrame;
 import com.agent1.javaagent.script.ScriptFailureFormatter;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** 方案 A：在 tool result 末尾追加 {@code [coach]} 提示（H1 + script.fail_repeat）。 */
 public final class ProductivityCoach {
 
     private static final String OUTSIDE_MARKER = "路径超出工作区范围";
+    private static final Pattern WEBVIEW_OUTPUT_BYTES =
+        Pattern.compile("·\\s*(\\d+)\\s*字节");
+    private static final int WEBVIEW_TINY_IMAGE_BYTES = 256;
 
     private final int largeWriteBytes;
     private final int inlineLongLines;
@@ -80,11 +85,30 @@ public final class ProductivityCoach {
                 advice =
                     "staging 已有内容；确认 SKILL.md 或脚本就绪后调用 promote_request 沉淀到 shared/local。";
             }
+        } else if ("webview_exec".equals(toolName) && text != null) {
+            if (text.contains("await is only valid in async")) {
+                hookId = "webview.async_syntax";
+                advice =
+                    "webview_exec 的 code 需顶层 return 表达式；异步用 return (async () => { ... })()。"
+                        + "读工作区文件用 input_path，不要用 fetch('相对路径')。";
+            } else if (looksLikeTinyWebViewImage(text)) {
+                hookId = "webview.tiny_output";
+                advice =
+                    "输出文件过小，PNG 可能无效。SVG→PNG：write_file 写 .svg 后 webview_exec 传 input_path；"
+                        + "img.onload 后 canvas 导出并 return 纯 Base64（split data URL 逗号后），"
+                        + "或省略 output_path 使用自动 tmp/webview_exec/*.b64。";
+            }
         } else if ("execute_script".equals(toolName) && parameters != null) {
             String file = parameters.path("file").asText("").trim();
             String code = parameters.path("code").asText("");
             if (ScriptFailureFormatter.looksLikeFailureJson(text) || isScriptFailureLegacy(text)) {
-                if (CatalogMissingNativeHints.looksLikeMissingNative(text)) {
+                if (!file.isEmpty() && looksLikeNonScriptDataFile(file) && text != null
+                    && text.contains("unexpected token")) {
+                    hookId = "script.wrong_file_type";
+                    advice =
+                        "execute_script 只能运行 .js 脚本，不能把 SVG/图片当 file 执行。"
+                            + "读数据用 read_file；SVG 转 PNG 用 webview_exec + input_path。";
+                } else if (CatalogMissingNativeHints.looksLikeMissingNative(text)) {
                     String plugin = CatalogMissingNativeHints.resolvePluginName(code, text);
                     hookId = "catalog.missing_native";
                     advice = CatalogMissingNativeHints.adviceFor(plugin);
@@ -163,5 +187,38 @@ public final class ProductivityCoach {
             }
         }
         return lines;
+    }
+
+    private static boolean looksLikeTinyWebViewImage(String text) {
+        String lower = text.toLowerCase();
+        if (!lower.contains("png") && !lower.contains(".b64") && !lower.contains("jpg")
+            && !lower.contains("jpeg") && !lower.contains("webp")) {
+            return false;
+        }
+        Matcher matcher = WEBVIEW_OUTPUT_BYTES.matcher(text);
+        if (!matcher.find()) {
+            return false;
+        }
+        try {
+            int bytes = Integer.parseInt(matcher.group(1));
+            return bytes > 0 && bytes < WEBVIEW_TINY_IMAGE_BYTES;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    private static boolean looksLikeNonScriptDataFile(String file) {
+        String normalized = file.trim().replace('\\', '/').toLowerCase();
+        return normalized.endsWith(".svg")
+            || normalized.endsWith(".png")
+            || normalized.endsWith(".jpg")
+            || normalized.endsWith(".jpeg")
+            || normalized.endsWith(".webp")
+            || normalized.endsWith(".gif")
+            || normalized.endsWith(".md")
+            || normalized.endsWith(".txt")
+            || normalized.endsWith(".json")
+            || normalized.endsWith(".xml")
+            || normalized.endsWith(".html");
     }
 }

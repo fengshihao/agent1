@@ -37,6 +37,16 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(temp.resolve("ws"), null, true, true);
         assertTrue(prompt.contains("$mcp.<server>.<tool>"));
         assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("webview_exec"));
+        assertTrue(prompt.contains("input_path"));
+        assertFalse(prompt.contains("workspace/dog.svg"));
+    }
+
+    @Test
+    void warnsAgainstWorkspacePathPrefix() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), false);
+        assertTrue(prompt.contains("不要再加 workspace/ 前缀"));
     }
 
     @Test

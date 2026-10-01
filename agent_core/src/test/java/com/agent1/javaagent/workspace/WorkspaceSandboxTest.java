@@ -65,4 +65,11 @@ class WorkspaceSandboxTest {
         Path sibling = temp.resolve("foobar").resolve("secret.txt");
         assertThrows(SecurityException.class, () -> tight.relativize(sibling));
     }
+
+    @Test
+    void stripsRedundantWorkspacePrefix() {
+        Path resolved = sandbox.resolveWrite("workspace/artifacts/dog.svg");
+        assertEquals(sandbox.getRoot().resolve("artifacts/dog.svg").normalize(), resolved);
+        assertEquals("artifacts/dog.svg", sandbox.relativize(resolved));
+    }
 }
