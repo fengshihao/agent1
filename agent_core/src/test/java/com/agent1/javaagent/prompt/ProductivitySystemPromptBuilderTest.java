@@ -85,11 +85,13 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
         assertTrue(prompt.contains("skill-creator"));
+        assertFalse(prompt.contains("skill(action=read"));
+        assertFalse(prompt.contains("skill(action=list"));
         assertTrue(prompt.contains("workspace/staging/skills/<name>/SKILL.md"));
         assertTrue(prompt.contains("promote_request"));
         assertTrue(prompt.contains("name"));
         assertTrue(prompt.contains("description"));
-        assertTrue(prompt.contains("capability_search 只查框架没写的细节"));
+        assertTrue(prompt.contains("查阅 Skill 用 capability_search"));
         assertTrue(prompt.contains("doc_path"));
     }
 

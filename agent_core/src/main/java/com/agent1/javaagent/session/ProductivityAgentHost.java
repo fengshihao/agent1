@@ -37,7 +37,6 @@ import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
 import com.agent1.javaagent.tool.agent.ListCatalogTool;
 import com.agent1.javaagent.tool.agent.ListSessionsTool;
 import com.agent1.javaagent.catalog.OfficeCatalogScripts;
-import com.agent1.javaagent.tool.agent.ProductivitySkillTool;
 import com.agent1.javaagent.tool.office.DocxOfficeTools;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
 import com.agent1.javaagent.log.AgentDataPaths;
@@ -484,11 +483,10 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new CatalogSyncStatusTool(agentRoot));
         tools.add(new CatalogInstallTool(agentRoot));
         tools.add(new PromoteRequestTool(agentRoot, workspace));
-        tools.add(new ProductivitySkillTool(agentRoot, projectRoot));
         tools.add(new ListSessionsTool(sessionStore, this::getActiveSessionId));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         tools.add(new AskUserTool());
-        tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform));
+        tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform, projectRoot));
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);
             if (extra != null && !extra.isEmpty()) {

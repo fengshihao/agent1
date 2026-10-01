@@ -12,8 +12,8 @@ description: 用户要新建、改写或沉淀一条 Skill 时使用。写出 SK
 1. 确认三件事：技能名、何时触发、步骤。缺任何一件时用 `ask_user`，不要先写文件。
 2. 技能名只用小写字母、数字和短横线，例如 `travel-planner`。目录名与 `name` 相同。
 3. 用 `write_file` 写入 `workspace/staging/skills/<name>/SKILL.md`。
-4. 调用 `promote_request`。成功后用 `skill(action=read, skill_name=<name>)` 核对正文。
-5. 改已有技能：先 `skill(read)` 读出现有正文，再把新版本写到同名 staging 目录并再次 `promote_request`（同名覆盖 `shared/local`）。
+4. 调用 `promote_request`。成功后 `capability_search` 技能名，结果里的正文就是晋升后的内容。
+5. 改已有技能：先 `capability_search` 读出现有正文，再把新版本写到同名 staging 目录并再次 `promote_request`（同名覆盖 `shared/local`）。
 
 不要 `write_file` 到 `shared/` 或 `docs/`。不要把密钥、token 写进文件。
 

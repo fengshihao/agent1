@@ -115,7 +115,7 @@ public final class CapabilityIndexStore {
         return searchLike(dbPath, query, kinds, normalizedPlatform, effectiveLimit);
     }
 
-    static List<String> queryTerms(String query) {
+    public static List<String> queryTerms(String query) {
         if (query == null || query.isBlank()) {
             return List.of();
         }

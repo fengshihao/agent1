@@ -39,8 +39,8 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String TOOL_STRATEGY = """
         工具策略：大段内容写入工作区文件，不要在回复里重复粘贴全文。
-        工作框架已覆盖的路径、权限、Skill 创建与晋升、catalog 安装：直接做。capability_search 只查框架没写的细节（平台 API、Caps、catalog 脚本、办公文档等）。
-        检索命中后只 read_file 该条 doc_path，用这两步定位；不要为了找框架文档去空搜、glob SKILL.md 或通读 docs/system。
+        工作框架已覆盖的路径、权限和晋升步骤直接执行。查阅 Skill 用 capability_search：命中 skill 时正文已经附在结果里。
+        平台 API、Caps、catalog 脚本、办公文档等：capability_search 后再 read_file 该条 doc_path。不要为了找框架文档去空搜或通读 docs/system。
         缺少关键信息时调用 ask_user 发起结构化提问并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。
         用户未确认前不要编造事实；用户下一条消息将开启新的 Run。
         """.trim();
@@ -62,8 +62,8 @@ public final class ProductivitySystemPromptBuilder {
     static final String AGENT_BOUNDARIES = """
         工作框架（路径、权限、Skill 与 catalog 已写明，直接执行或直接回答）：
         - 可写范围只有当前会话 workspace。shared/、docs/system、docs/capabilities 只读，禁止 write_file 写入。
-        - 使用已有 Skill：skill(action=list|read)，合并内置 bundled、project、shared/catalog/skills、shared/local/skills。
-        - 创建 Skill：先 skill(action=read, skill_name=skill-creator)。按该内置技能写 workspace/staging/skills/<name>/SKILL.md（YAML frontmatter 至少含 name 与 description，name 与目录名一致），再 promote_request 到 shared/local/skills/<name>/。不要把密钥写进文件。
+        - 查阅 Skill：capability_search。内置、project、shared/catalog、shared/local 里名称或描述对上的技能会直接带上正文。没有 list/read。
+        - 创建 Skill：capability_search「skill-creator」，按返回正文写 workspace/staging/skills/<name>/SKILL.md（YAML frontmatter 至少含 name 与 description，name 与目录名一致），再 promote_request 到 shared/local/skills/<name>/。不要把密钥写进文件。
         - 创建可复用脚本：workspace/staging/scripts/<name>.js，可选同名 .meta.json，同样 promote_request 到 shared/local/scripts/。
         - 安装云端资源：catalog_sync_status 查看 pending，catalog_install（或 sync apply）装入 shared/catalog/。不要手拷 SO 或脚本到 catalog。
         """.trim();
