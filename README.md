@@ -25,7 +25,7 @@
 ### 生产力路径（`--productivity`，推荐新功能在此演进）
 
 - **会话**：`FileSessionStore`（`meta.json`、`transcript.jsonl`、`workspace/`）
-- **工作区工具**：`read_file` / `write_file` / `edit_file` / `list_dir`（沙箱内）
+- **工作区工具**：`read_file` / `write_file` / `edit_file` / `list_dir`（沙箱内）；`read_url` 读取公开网页正文
 - **上下文**：轮次裁剪、`chat_history` 关键词检索
 - **事件**：默认 `~/files/agent/logs/events.jsonl`（可通过 `AGENT1_AGENT_ROOT` 等调整）
 - **配置**：`AgentRuntimeConfig` + 环境变量加载

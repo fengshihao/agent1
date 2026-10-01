@@ -36,6 +36,7 @@ class ProductivityToolCapabilitiesTest {
     void withoutWeizhiClasspathStillListsWorkspaceTools() {
         String summary = ProductivityToolCapabilities.summaryForCli(false);
         assertTrue(summary.contains("chat_history") || summary.contains("read_file"));
+        assertTrue(summary.contains("read_url"));
         if (!ProductivityToolCapabilities.weizhiToolsOnClasspath()) {
             assertFalse(summary.contains("execute_script"));
         }

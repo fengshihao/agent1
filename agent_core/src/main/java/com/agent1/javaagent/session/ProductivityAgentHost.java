@@ -21,6 +21,7 @@ import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ChatHistoryTool;
 import com.agent1.javaagent.tool.workspace.EditFileTool;
 import com.agent1.javaagent.tool.workspace.ListDirTool;
+import com.agent1.javaagent.tool.web.ReadUrlTool;
 import com.agent1.javaagent.tool.workspace.ReadFileTool;
 import com.agent1.javaagent.script.AgentToolsScriptBridge;
 import com.agent1.javaagent.script.MutableScriptToolBridge;
@@ -477,6 +478,7 @@ public final class ProductivityAgentHost implements Closeable {
         WorkspaceSandbox sandbox = new WorkspaceSandbox(workspace, agentRoot);
         List<AgentTool> tools = new ArrayList<>();
         tools.add(new ReadFileTool(sandbox));
+        tools.add(new ReadUrlTool());
         tools.add(new WriteFileTool(sandbox));
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));

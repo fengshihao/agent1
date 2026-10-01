@@ -198,8 +198,10 @@ class ProductivityAgentHostTest {
             host.runUserMessage("ping");
             assertTrue(toolNames.get().contains("extra_search"));
             assertTrue(toolNames.get().contains("execute_script"));
+            assertTrue(toolNames.get().contains("read_url"));
             assertTrue(bridge.exposedNames().contains("extra_search"));
             assertTrue(bridge.exposedNames().contains("read_file"));
+            assertTrue(bridge.exposedNames().contains("read_url"));
             assertFalse(bridge.exposedNames().contains("execute_script"));
             assertEquals("hit", bridge.call("extra_search", java.util.Map.of()));
             assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("$tools"));

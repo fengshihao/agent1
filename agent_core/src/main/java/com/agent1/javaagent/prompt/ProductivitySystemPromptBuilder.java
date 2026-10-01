@@ -21,6 +21,7 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String WORK_MODE_FILES = """
         工作方式：读和改文件时使用工作区文件工具（read_file、write_file、edit_file、list_dir）。
+        从公开 http(s) 链接读取网页标题和正文用 read_url（不访问内网）。
         读 agentRoot 系统文档：read_file / list_dir / grep / glob，路径用 docs/system/... 或 docs/capabilities/...（只读，不可 write_file/edit_file 写入）。
         查看 shared/catalog 摘要用 list_catalog（只读，不可 write_file 写入）。
         """.trim();

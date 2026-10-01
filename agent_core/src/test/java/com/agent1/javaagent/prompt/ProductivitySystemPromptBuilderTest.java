@@ -44,6 +44,7 @@ class ProductivitySystemPromptBuilderTest {
 
         assertFalse(prompt.contains("execute_script"));
         assertTrue(prompt.contains("read_file"));
+        assertTrue(prompt.contains("read_url"));
     }
 
     @Test
