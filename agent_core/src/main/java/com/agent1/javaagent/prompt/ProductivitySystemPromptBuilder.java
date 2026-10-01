@@ -36,6 +36,7 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String WORK_MODE_SCRIPT_HOST_TOOLS = """
         脚本里可以用 await $tools.工具名({...}) 调用当前已注册的工具（表达式结果即本轮返回值），不能调用 execute_script。
+        MCP 接口不出现在外层工具参数里。capability_search 命中后，在脚本里 await $mcp.<server>.<tool>({...})。
         """.trim();
 
     static final String JS_FIRST = """

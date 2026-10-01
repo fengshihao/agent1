@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 
 /**
  * agentRoot 下 SQLite 能力索引（FTS5 + 权重）。
- * Phase A：bundled seed 导入；catalog/skill/MCP 扫描见 Phase B。
+ * Phase A：bundled seed 导入。MCP 条目由 {@code McpCapabilitySync} 按 kind 替换，不进模型工具参数。
  */
 public final class CapabilityIndexStore {
 
@@ -86,6 +86,29 @@ public final class CapabilityIndexStore {
             setMeta(db, "source", "bundled-seed");
         } catch (SQLException e) {
             throw new IllegalStateException("build capability index failed: " + dbPath, e);
+        }
+    }
+
+    /**
+     * 删掉某一 kind 的旧行再写入新行。种子里的其他 kind 保留。
+     * 调用方在 MCP 配置变化或缓存仍有效时刷新 {@code mcp} 条目。
+     */
+    public static void replaceKind(Path agentRoot, String kind, List<CapabilityRecord> records) {
+        if (kind == null || kind.isBlank()) {
+            throw new IllegalArgumentException("kind required");
+        }
+        ensure(agentRoot);
+        Path dbPath = CapabilityDatabasePaths.databaseFile(agentRoot);
+        try (CapabilityDatabase db = open(dbPath)) {
+            db.execute("DELETE FROM capability WHERE kind = ?", List.of(kind));
+            if (tableExists(db, "capability_fts")) {
+                db.execute("DELETE FROM capability_fts WHERE kind = ?", List.of(kind));
+            }
+            if (records != null && !records.isEmpty()) {
+                insertAll(db, records);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("replace capability kind failed: " + kind, e);
         }
     }
 

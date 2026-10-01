@@ -32,6 +32,14 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
+    void mentionsMcpCallFormWhenScriptHostToolsEnabled() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), null, true, true);
+        assertTrue(prompt.contains("$mcp.<server>.<tool>"));
+        assertTrue(prompt.contains("capability_search"));
+    }
+
+    @Test
     void mentionsJsFirstAndCapabilitySearchWhenScriptEnabled() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);

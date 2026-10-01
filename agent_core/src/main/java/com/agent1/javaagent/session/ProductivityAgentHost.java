@@ -11,6 +11,7 @@ import com.agent1.javaagent.llm.LlmClient;
 import com.agent1.javaagent.log.AgentEventJsonlBridge;
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
 import com.agent1.javaagent.log.AgentDataPaths;
+import com.agent1.javaagent.mcp.McpCapabilitySync;
 import com.agent1.javaagent.log.RunLogContext;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.prompt.ProductivitySystemPromptBuilder;
@@ -41,7 +42,6 @@ import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import com.agent1.javaagent.tool.office.DocxOfficeTools;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
 import com.agent1.javaagent.tool.web.WebSearchTool;
-import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import java.io.Closeable;
@@ -50,6 +50,8 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -60,6 +62,8 @@ import com.agent1.javaagent.llm.openai.OpenAiCompatibleClient;
  * 生产力助手宿主：多会话、Run 落盘、工作区工具与 transcript 同步（01 + 02 MVP）。
  */
 public final class ProductivityAgentHost implements Closeable {
+
+    private static final Logger LOG = Logger.getLogger(ProductivityAgentHost.class.getName());
 
     private final Path agentRoot;
     private final Path projectRoot;
@@ -475,6 +479,16 @@ public final class ProductivityAgentHost implements Closeable {
         AgentCoachConfig coachConfig = AgentCoachConfig.load(agentRoot);
         productivityCoach = coachConfig.enabled() ? coachConfig.toCoach() : null;
         runtime.setProductivityCoach(productivityCoach);
+        refreshMcpIndex();
+    }
+
+    /** 配置了 MCP 时，把工具名写入 capability_search。缓存有效则不访问网络。 */
+    private void refreshMcpIndex() {
+        try {
+            McpCapabilitySync.ensureIndexed(agentRoot);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "mcp capability index skipped", e);
+        }
     }
 
     private List<AgentTool> buildTools(String sessionId, Path workspace) {

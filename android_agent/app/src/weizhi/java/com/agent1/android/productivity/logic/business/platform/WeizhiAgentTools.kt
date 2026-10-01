@@ -5,6 +5,7 @@ import com.agent1.javaagent.tool.AgentTool
 import com.agent1.javaagent.tool.WorkspaceToolProvider
 import com.agent1.javaagent.weizhi.WeizhiSandboxFactory
 import com.agent1.javaagent.weizhi.WeizhiToolkitAdapters
+import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.javaagent.workspace.WorkspaceSandbox
 import com.weizhi.agent.mcp.McpAgentExtension
 import com.weizhi.agent.skill.AssetSkillRepository
@@ -42,7 +43,7 @@ class WeizhiAgentTools(
             ),
         )
         WebViewAgentExtension(appContext).register(toolkit, weizhiSandbox)
-        McpAgentExtension(appContext.filesDir.toPath()).register(toolkit, weizhiSandbox)
+        McpAgentExtension(SessionWorkspacePaths.agentRoot(appContext)).register(toolkit, weizhiSandbox)
         return WeizhiToolkitAdapters.toAgentTools(toolkit)
     }
 }
