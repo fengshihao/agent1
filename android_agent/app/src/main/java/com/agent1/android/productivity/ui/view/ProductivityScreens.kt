@@ -273,7 +273,7 @@ private fun ColumnScope.SessionDrawer(
 ) {
     val sessions = state.sessions.sortedByDescending { it.updatedAt }
     Text(
-            "墨笺",
+            "搭档",
         modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
         style = MaterialTheme.typography.titleMedium,
     )
