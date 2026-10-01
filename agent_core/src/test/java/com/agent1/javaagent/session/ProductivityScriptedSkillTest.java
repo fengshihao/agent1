@@ -16,7 +16,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** UC-09：promote 后 skill(action=read) 可读 local（Scripted）。 */
+/** UC-09：promote 后 capability_search 直接带上 local skill 正文。 */
 class ProductivityScriptedSkillTest {
 
     @Test
@@ -29,11 +29,7 @@ class ProductivityScriptedSkillTest {
         ScriptedLlmClient llm = ScriptedLlmClient.builder()
             .whenUserMessageContains(
                 "scripted-skill-uc09",
-                ScriptedResponses.toolCall("skill", "{\"action\":\"list\"}")
-            )
-            .whenToolResultContains(
-                "uc09-skill",
-                ScriptedResponses.toolCall("skill", "{\"action\":\"read\",\"skill_name\":\"uc09-skill\"}")
+                ScriptedResponses.toolCall("capability_search", "{\"query\":\"uc09-skill\"}")
             )
             .whenToolResultContains("UC09 body", ScriptedResponses.text("skill 已读"))
             .build();

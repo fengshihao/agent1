@@ -56,6 +56,7 @@ class ProductivitySystemPromptBuilderTest {
 
         assertFalse(prompt.contains("execute_script"));
         assertTrue(prompt.contains("read_file"));
+        assertTrue(prompt.contains("read_url"));
     }
 
     @Test
@@ -90,6 +91,21 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(workspace, agentRoot, false, false);
         assertTrue(prompt.contains("catalog pending"));
+    }
+
+    @Test
+    void frameworkStatesHowToCreateSkillWithoutSearching() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), false);
+        assertTrue(prompt.contains("skill-creator"));
+        assertFalse(prompt.contains("skill(action=read"));
+        assertFalse(prompt.contains("skill(action=list"));
+        assertTrue(prompt.contains("workspace/staging/skills/<name>/SKILL.md"));
+        assertTrue(prompt.contains("promote_request"));
+        assertTrue(prompt.contains("name"));
+        assertTrue(prompt.contains("description"));
+        assertTrue(prompt.contains("查阅 Skill 用 capability_search"));
+        assertTrue(prompt.contains("doc_path"));
     }
 
     @Test

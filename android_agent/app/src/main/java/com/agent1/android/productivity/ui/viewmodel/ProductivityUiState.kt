@@ -18,7 +18,7 @@ data class SessionListUiState(
     val configSummary: RuntimeConfigSummary? = null,
     val catalogModels: List<QwenModelInfo> = emptyList(),
     val configError: String? = null,
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true,
     val exportInProgress: Boolean = false,
     val exportMessage: String? = null,
     /** Agent 宿主初始化失败（Weizhi/SQLite 等）；详情见 last_crash_report.txt */

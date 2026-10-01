@@ -89,7 +89,7 @@ DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
 ## 生产力助手 · Agent 工具（Weizhi / WebView 可选）
 
-聊天助手默认装配 **工作区五件套**：`read_file` / `write_file` / `edit_file` / `list_dir` / `chat_history`（见 `ProductivityAgentHost`）。
+聊天助手默认装配 **工作区读写**、`chat_history` 和 **`read_url`**（公开网页正文）：`read_file` / `write_file` / `edit_file` / `list_dir` / `chat_history` / `read_url`（见 `ProductivityAgentHost`）。
 
 **WebView、MCP、Weizhi 脚本与 grep/glob/zip/bash 等** 在代码里已写好（`app/src/weizhi/`、`WeizhiAgentTools`），但 **只有编译时联编 weizhi 源码或导入 Maven 预编译** 才会打进 APK（`BuildConfig.WEIZHI_INTEGRATED=true`）。
 

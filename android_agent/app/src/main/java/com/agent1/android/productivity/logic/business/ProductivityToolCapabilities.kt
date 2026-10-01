@@ -10,13 +10,13 @@ object ProductivityToolCapabilities {
 
     /** 设置页 / 聊天详情里展示的一行摘要。 */
     fun summaryForUi(): String = if (weizhiIntegrated) {
-        "工作区读写 + chat_history + web_search + execute_script（Weizhi）；Word：docx_markdown_to_word 等；扩展：grep / glob / zip / bash / WebView / MCP"
+        "工作区读写 + chat_history + read_url + web_search + execute_script（Weizhi）；Word：docx_markdown_to_word 等；扩展：grep / glob / zip / bash / WebView / MCP"
     } else {
-        "工作区：read_file · write_file · edit_file · list_dir · chat_history · web_search（本包未编入 Weizhi，无脚本 / WebView / MCP）"
+        "工作区：read_file · write_file · edit_file · list_dir · chat_history · read_url · web_search（本包未编入 Weizhi，无脚本 / WebView / MCP）"
     }
 
     fun detailBullets(): List<String> = buildList {
-        add("read_file · write_file · edit_file · list_dir · chat_history · web_search")
+        add("read_file · write_file · edit_file · list_dir · chat_history · read_url · web_search")
         add("web_search：Tavily（在模型配置中填写 Web Search Key 后生效）")
         if (weizhiIntegrated) {
             add("execute_script（Weizhi 脚本，\$tools 桥接）")

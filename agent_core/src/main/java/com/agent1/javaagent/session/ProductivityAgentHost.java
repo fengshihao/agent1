@@ -21,6 +21,7 @@ import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ChatHistoryTool;
 import com.agent1.javaagent.tool.workspace.EditFileTool;
 import com.agent1.javaagent.tool.workspace.ListDirTool;
+import com.agent1.javaagent.tool.web.ReadUrlTool;
 import com.agent1.javaagent.tool.workspace.ReadFileTool;
 import com.agent1.javaagent.script.AgentToolsScriptBridge;
 import com.agent1.javaagent.script.MutableScriptToolBridge;
@@ -37,7 +38,6 @@ import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
 import com.agent1.javaagent.tool.agent.ListCatalogTool;
 import com.agent1.javaagent.tool.agent.ListSessionsTool;
 import com.agent1.javaagent.catalog.OfficeCatalogScripts;
-import com.agent1.javaagent.tool.agent.ProductivitySkillTool;
 import com.agent1.javaagent.tool.office.DocxOfficeTools;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
 import com.agent1.javaagent.tool.web.WebSearchTool;
@@ -481,6 +481,7 @@ public final class ProductivityAgentHost implements Closeable {
         WorkspaceSandbox sandbox = new WorkspaceSandbox(workspace, agentRoot);
         List<AgentTool> tools = new ArrayList<>();
         tools.add(new ReadFileTool(sandbox));
+        tools.add(new ReadUrlTool());
         tools.add(new WriteFileTool(sandbox));
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));
@@ -488,11 +489,10 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new CatalogSyncStatusTool(agentRoot));
         tools.add(new CatalogInstallTool(agentRoot));
         tools.add(new PromoteRequestTool(agentRoot, workspace));
-        tools.add(new ProductivitySkillTool(agentRoot, projectRoot));
         tools.add(new ListSessionsTool(sessionStore, this::getActiveSessionId));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         tools.add(new AskUserTool());
-        tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform));
+        tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform, projectRoot));
         if (runtimeConfig.isWebSearchConfigured()) {
             tools.add(new WebSearchTool(
                 runtimeConfig.getWebSearchApiKey(),

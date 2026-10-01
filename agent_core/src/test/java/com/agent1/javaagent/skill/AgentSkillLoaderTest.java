@@ -23,9 +23,10 @@ class AgentSkillLoaderTest {
 
         AgentSkillLoader loader = new AgentSkillLoader();
         AgentSkillLoader.SkillLoadResult merged = loader.loadMerged(agentRoot, projectRoot);
-        assertEquals(1, merged.skills().size());
-        assertTrue(merged.skills().get(0).content().contains("from local"));
-        assertEquals("local", merged.skills().get(0).sourceLabel());
+        AgentSkill demo = find(merged, "demo");
+        assertTrue(demo.content().contains("from local"));
+        assertEquals("local", demo.sourceLabel());
+        assertEquals("bundled", find(merged, "skill-creator").sourceLabel());
     }
 
     @Test
@@ -44,13 +45,38 @@ class AgentSkillLoaderTest {
 
         AgentSkillLoader loader = new AgentSkillLoader();
         AgentSkillLoader.SkillLoadResult merged = loader.loadMerged(agentRoot, projectRoot);
-        assertEquals(1, merged.skills().size());
-        assertTrue(merged.skills().get(0).content().contains("from local"));
+        assertTrue(find(merged, "shared-name").content().contains("from local"));
 
         Files.delete(localSkill.resolve("SKILL.md"));
         Files.delete(localSkill);
         merged = loader.loadMerged(agentRoot, projectRoot);
-        assertTrue(merged.skills().get(0).content().contains("from catalog"));
-        assertEquals("catalog", merged.skills().get(0).sourceLabel());
+        AgentSkill catalog = find(merged, "shared-name");
+        assertTrue(catalog.content().contains("from catalog"));
+        assertEquals("catalog", catalog.sourceLabel());
+    }
+
+    @Test
+    void bundledSkillCreatorLoadsWithoutInstall(@TempDir Path agentRoot, @TempDir Path projectRoot) throws Exception {
+        AgentSkillLoader.SkillLoadResult bundled = new AgentSkillLoader().loadBundled();
+        assertTrue(bundled.warnings().isEmpty());
+        AgentSkill creator = find(bundled, "skill-creator");
+        assertEquals("bundled", creator.sourceLabel());
+        assertTrue(creator.description().contains("Skill"));
+        assertTrue(creator.content().contains("promote_request"));
+        assertTrue(creator.content().contains("staging/skills"));
+
+        Path local = agentRoot.resolve("shared/local/skills/skill-creator");
+        Files.createDirectories(local);
+        PathIo.writeString(local.resolve("SKILL.md"), "---\nname: skill-creator\n---\nlocal override\n");
+        AgentSkill overridden = find(new AgentSkillLoader().loadMerged(agentRoot, projectRoot), "skill-creator");
+        assertEquals("local", overridden.sourceLabel());
+        assertTrue(overridden.content().contains("local override"));
+    }
+
+    private static AgentSkill find(AgentSkillLoader.SkillLoadResult result, String name) {
+        return result.skills().stream()
+            .filter(skill -> name.equals(skill.name()))
+            .findFirst()
+            .orElseThrow();
     }
 }

@@ -135,7 +135,7 @@ class ProductivityAgentHostTest {
             assertTrue(toolNames.get().contains("catalog_install"));
             assertTrue(toolNames.get().contains("catalog_sync_status"));
             assertTrue(toolNames.get().contains("list_sessions"));
-            assertTrue(toolNames.get().contains("skill"));
+            assertFalse(toolNames.get().contains("skill"));
             assertTrue(toolNames.get().contains("ask_user"));
             assertTrue(toolNames.get().contains("capability_search"));
             assertFalse(toolNames.get().contains("web_search"));
@@ -220,8 +220,10 @@ class ProductivityAgentHostTest {
             host.runUserMessage("ping");
             assertTrue(toolNames.get().contains("extra_search"));
             assertTrue(toolNames.get().contains("execute_script"));
+            assertTrue(toolNames.get().contains("read_url"));
             assertTrue(bridge.exposedNames().contains("extra_search"));
             assertTrue(bridge.exposedNames().contains("read_file"));
+            assertTrue(bridge.exposedNames().contains("read_url"));
             assertFalse(bridge.exposedNames().contains("execute_script"));
             assertEquals("hit", bridge.call("extra_search", java.util.Map.of()));
             assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("$tools"));

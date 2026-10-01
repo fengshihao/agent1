@@ -9,7 +9,7 @@
 | 维度 | 桌面生产力 CLI（`./agent1`） | Android 生产力 App | 差距摘要 |
 |------|------------------------------|--------------------|----------|
 | 运行时内核 | `java-agent-core` → `ProductivityAgentHost` | 同左（Maven / 本地发布） | **已对齐** |
-| Weizhi 扩展工具 | 需 classpath 含 weizhi（`../weizhi` 或 `AGENT1_WEIZHI_REPO`） | 需 `WEIZHI_INTEGRATED=true`（联编 weizhi 或 `weizhi-prebuilt`） | **条件对齐**；默认未编 weizhi 时两侧都只有工作区五件套 + 自进化只读工具 |
+| Weizhi 扩展工具 | 需 classpath 含 weizhi（`../weizhi` 或 `AGENT1_WEIZHI_REPO`） | 需 `WEIZHI_INTEGRATED=true`（联编 weizhi 或 `weizhi-prebuilt`） | **条件对齐**；默认未编 weizhi 时两侧都有工作区读写、`chat_history`、`read_url` 和自进化只读工具 |
 | 交互形态 | 终端 REPL + 子命令 | Jetpack Compose 会话列表 / 聊天 / 模型设置 | CLI 偏脚本化运维；Android 偏可视化 |
 | 数据目录 `agentRoot` | `AgentDataPaths.agentRoot()`（`AGENT1_AGENT_ROOT`，默认 `~/files/agent`；`./agent1 --help` 文案写 `.agent1`，以代码为准） | `filesDir/agent1` | **路径不同**，布局一致（sessions / logs） |
 | 事件 JSONL | `agentRoot/logs/events.jsonl` | 同布局 | **已对齐**；CLI 有查询子命令，App 无内置查询 UI |
@@ -22,6 +22,7 @@
 | 工具名 | 能力 | CLI | Android | 备注 |
 |--------|------|:---:|:-------:|------|
 | `read_file` | 读当前 Session workspace | ✅ | ✅ | `WorkspaceSandbox` |
+| `read_url` | 读取公开 http(s) 页面标题与正文 | ✅ | ✅ | 有 `TAVILY_API_KEY` 时先 Tavily Extract，失败再本地抽正文；拒绝本机与内网地址 |
 | `write_file` | 写 workspace | ✅ | ✅ | |
 | `edit_file` | 补丁式编辑 | ✅ | ✅ | |
 | `list_dir` | 列目录 | ✅ | ✅ | |
