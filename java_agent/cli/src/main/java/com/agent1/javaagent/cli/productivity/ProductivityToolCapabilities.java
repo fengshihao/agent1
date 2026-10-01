@@ -21,20 +21,20 @@ public final class ProductivityToolCapabilities {
 
     public static String summaryForCli(boolean weizhiScriptEnabled) {
         if (!weizhiToolsOnClasspath()) {
-            return "工作区：read_file · write_file · edit_file · list_dir · chat_history（未编入 Weizhi，无脚本 / MCP）";
+            return "工作区：read_file · write_file · edit_file · list_dir · chat_history · read_url（未编入 Weizhi，无脚本 / MCP）";
         }
         String webview = desktopWebViewLabel();
         if (weizhiScriptEnabled) {
-            return "工作区读写 + chat_history + execute_script（Weizhi）；扩展：grep / glob / zip / bash / load_skill / MCP / "
+            return "工作区读写 + chat_history + read_url + execute_script（Weizhi）；扩展：grep / glob / zip / bash / load_skill / MCP / "
                 + webview;
         }
-        return "工作区读写 + chat_history；扩展：grep / glob / zip / bash / load_skill / MCP / "
+        return "工作区读写 + chat_history + read_url；扩展：grep / glob / zip / bash / load_skill / MCP / "
             + webview + "（Weizhi 脚本未启用）";
     }
 
     public static List<String> detailBullets(boolean weizhiScriptEnabled) {
         List<String> lines = new ArrayList<>();
-        lines.add("read_file · write_file · edit_file · list_dir · chat_history");
+        lines.add("read_file · write_file · edit_file · list_dir · chat_history · read_url");
         if (!weizhiToolsOnClasspath()) {
             lines.add("未检测到 weizhi 源码 — 构建需 ./weizhi 或 AGENT1_WEIZHI_REPO");
             return lines;
