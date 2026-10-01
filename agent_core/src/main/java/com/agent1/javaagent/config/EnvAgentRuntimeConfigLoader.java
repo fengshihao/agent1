@@ -38,6 +38,12 @@ public final class EnvAgentRuntimeConfigLoader {
             firstNonBlank(prop(overrides, "maxTurnsPerRun"), env("AGENT1_MAX_TURNS_PER_RUN"))));
         b.maxToolCallsPerRun(parseIntOrZero(
             firstNonBlank(prop(overrides, "maxToolCallsPerRun"), env("AGENT1_MAX_TOOL_CALLS_PER_RUN"))));
+        b.webSearchApiKey(firstNonBlank(
+            prop(overrides, "webSearchApiKey"),
+            env("TAVILY_API_KEY")));
+        b.webSearchBaseUrl(firstNonBlank(
+            prop(overrides, "webSearchBaseUrl"),
+            env("TAVILY_BASE_URL")));
         return b.build();
     }
 

@@ -33,5 +33,19 @@ class AgentRuntimeConfigTest {
         assertEquals("custom-model", c.getModel());
         assertTrue(c.isModelConfigured());
         assertNull(c.configurationError());
+        assertFalse(c.isWebSearchConfigured());
+    }
+
+    @Test
+    void propertiesConfigureTavilyWebSearch() {
+        Properties p = new Properties();
+        p.setProperty("apiKey", "sk-test");
+        p.setProperty("webSearchApiKey", "tvly-test");
+        p.setProperty("webSearchBaseUrl", "https://search.example");
+        AgentRuntimeConfig c = AgentRuntimeConfig.fromProperties(p);
+        assertTrue(c.isWebSearchConfigured());
+        assertEquals("tvly-test", c.getWebSearchApiKey());
+        assertEquals("https://search.example", c.getWebSearchBaseUrl());
+        assertTrue(com.agent1.javaagent.modelcatalog.RuntimeConfigSummary.from(c).isWebSearchConfigured());
     }
 }

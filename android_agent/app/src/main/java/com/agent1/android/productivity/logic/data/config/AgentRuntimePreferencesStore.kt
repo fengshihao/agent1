@@ -25,6 +25,8 @@ class AgentRuntimePreferencesStore(context: Context) {
             maxTurnsPerRun = prefs.getInt(KEY_MAX_TURNS_PER_RUN, 0),
             maxToolCallsPerRun = prefs.getInt(KEY_MAX_TOOL_CALLS_PER_RUN, 0),
             savedInApp = prefs.getBoolean(KEY_SAVED_IN_APP, false),
+            webSearchApiKey = prefs.getString(KEY_WEB_SEARCH_API_KEY, "").orEmpty(),
+            webSearchBaseUrl = prefs.getString(KEY_WEB_SEARCH_BASE_URL, "").orEmpty(),
         )
     }
 
@@ -39,6 +41,8 @@ class AgentRuntimePreferencesStore(context: Context) {
             .putInt(KEY_MAX_TURNS_PER_RUN, preferences.maxTurnsPerRun)
             .putInt(KEY_MAX_TOOL_CALLS_PER_RUN, preferences.maxToolCallsPerRun)
             .putBoolean(KEY_SAVED_IN_APP, true)
+            .putString(KEY_WEB_SEARCH_API_KEY, preferences.webSearchApiKey.trim())
+            .putString(KEY_WEB_SEARCH_BASE_URL, preferences.webSearchBaseUrl.trim())
             .apply()
     }
 
@@ -57,6 +61,8 @@ class AgentRuntimePreferencesStore(context: Context) {
         private const val KEY_MAX_TURNS_PER_RUN = "max_turns_per_run"
         private const val KEY_MAX_TOOL_CALLS_PER_RUN = "max_tool_calls_per_run"
         private const val KEY_SAVED_IN_APP = "saved_in_app"
+        private const val KEY_WEB_SEARCH_API_KEY = "web_search_api_key"
+        private const val KEY_WEB_SEARCH_BASE_URL = "web_search_base_url"
         private const val TAG = "AgentRuntimePrefs"
 
         @Suppress("TooGenericExceptionCaught")

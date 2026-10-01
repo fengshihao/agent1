@@ -138,6 +138,28 @@ class ProductivityAgentHostTest {
             assertTrue(toolNames.get().contains("skill"));
             assertTrue(toolNames.get().contains("ask_user"));
             assertTrue(toolNames.get().contains("capability_search"));
+            assertFalse(toolNames.get().contains("web_search"));
+            assertFalse(host.runtime().getStateSnapshot().getSystemPrompt().contains("web_search"));
+        }
+    }
+
+    @Test
+    void registersWebSearchWhenTavilyKeyPresent() {
+        java.util.concurrent.atomic.AtomicReference<List<String>> toolNames =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            toolNames.set(tools.stream().map(AgentTool::name).collect(Collectors.toList()));
+            return new AssistantResponse("x", List.of());
+        };
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder()
+            .apiKey("test-key")
+            .webSearchApiKey("tvly-test")
+            .build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            host.createSession();
+            host.runUserMessage("ping");
+            assertTrue(toolNames.get().contains("web_search"));
+            assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("web_search"));
         }
     }
 

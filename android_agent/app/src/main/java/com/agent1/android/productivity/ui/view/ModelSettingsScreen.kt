@@ -48,6 +48,7 @@ fun ModelSettingsScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var revealKey by remember { mutableStateOf(false) }
+    var revealWebSearchKey by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -57,7 +58,7 @@ fun ModelSettingsScreen(
     ) {
         AgentTopBar(
             title = "模型配置",
-            subtitle = "Key / Base URL / 模型均保存在本机",
+            subtitle = "模型与 Web Search 的 Key 均保存在本机",
             leading = {
                 TopBarIconButton(
                     icon = Icons.Filled.ArrowBack,
@@ -188,6 +189,44 @@ fun ModelSettingsScreen(
                 singleLine = true,
             )
 
+            Text("Web Search", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Tavily 免费搜索。填写 Key 后，助手可调用 web_search。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = state.webSearchApiKey,
+                onValueChange = viewModel::onWebSearchApiKeyChange,
+                label = { Text("Tavily API Key") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = if (revealWebSearchKey) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+                trailingIcon = {
+                    IconButton(
+                        onClick = { revealWebSearchKey = !revealWebSearchKey },
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            if (revealWebSearchKey) AgentIcons.VisibilityOff else AgentIcons.Visibility,
+                            contentDescription = if (revealWebSearchKey) "隐藏 Web Search Key" else "显示 Web Search Key",
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                },
+            )
+            OutlinedTextField(
+                value = state.webSearchBaseUrl,
+                onValueChange = viewModel::onWebSearchBaseUrlChange,
+                label = { Text("Tavily Base URL") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -282,12 +321,16 @@ fun ModelSettingsScreen(
                             "Key：${if (summary.isApiKeyConfigured) "已配置" else "未配置"}",
                             style = MaterialTheme.typography.bodySmall,
                         )
+                        Text(
+                            "Web Search：${if (summary.isWebSearchConfigured) "已配置" else "未配置"}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
                 }
             }
 
             Text(
-                "说明：配置仅存在本机加密存储，不会上传到 Git。远程拉取模型需有效 Key 与可访问的 Base URL。",
+                "说明：模型 Key 与 Tavily Key 仅存在本机加密存储，不会上传到 Git。远程拉取模型需有效 Key 与可访问的 Base URL。未填 Tavily Key 时不注册 web_search。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

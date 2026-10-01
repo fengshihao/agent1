@@ -25,6 +25,10 @@ public final class ProductivitySystemPromptBuilder {
         查看 shared/catalog 摘要用 list_catalog（只读，不可 write_file 写入）。
         """.trim();
 
+    static final String WORK_MODE_WEB_SEARCH = """
+        需要公开网页上的最新信息时使用 web_search（Tavily）。不要编造检索结果；引用时保留标题和链接。
+        """.trim();
+
     static final String WORK_MODE_SCRIPT = """
         需要运行的多步处理交给 execute_script 脚本接口。
         """.trim();
@@ -78,9 +82,15 @@ public final class ProductivitySystemPromptBuilder {
         """.trim();
 
     private String hostAppend = "";
+    private boolean webSearchEnabled;
 
     public ProductivitySystemPromptBuilder hostAppend(String hostAppend) {
         this.hostAppend = hostAppend != null ? hostAppend.trim() : "";
+        return this;
+    }
+
+    public ProductivitySystemPromptBuilder webSearch(boolean enabled) {
+        this.webSearchEnabled = enabled;
         return this;
     }
 
@@ -133,6 +143,9 @@ public final class ProductivitySystemPromptBuilder {
         StringBuilder sb = new StringBuilder();
         sb.append(IDENTITY).append("\n\n");
         sb.append(WORK_MODE_FILES);
+        if (webSearchEnabled) {
+            sb.append("\n").append(WORK_MODE_WEB_SEARCH);
+        }
         if (scriptToolRegistered) {
             sb.append("\n").append(WORK_MODE_SCRIPT);
             if (scriptHostTools) {

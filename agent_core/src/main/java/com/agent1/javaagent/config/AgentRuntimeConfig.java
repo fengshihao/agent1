@@ -18,6 +18,8 @@ public final class AgentRuntimeConfig {
     private final int maxContextMessages;
     private final int maxTurnsPerRun;
     private final int maxToolCallsPerRun;
+    private final String webSearchApiKey;
+    private final String webSearchBaseUrl;
 
     private AgentRuntimeConfig(Builder builder) {
         this.apiKey = builder.apiKey == null ? "" : builder.apiKey.trim();
@@ -29,6 +31,9 @@ public final class AgentRuntimeConfig {
             builder.maxTurnsPerRun, AgentRuntimeDefaults.DEFAULT_MAX_TURNS_PER_RUN);
         this.maxToolCallsPerRun = positiveOrDefault(
             builder.maxToolCallsPerRun, AgentRuntimeDefaults.DEFAULT_MAX_TOOL_CALLS_PER_RUN);
+        this.webSearchApiKey = builder.webSearchApiKey == null ? "" : builder.webSearchApiKey.trim();
+        this.webSearchBaseUrl = blankToDefault(
+            builder.webSearchBaseUrl, AgentRuntimeDefaults.DEFAULT_TAVILY_BASE_URL);
     }
 
     public static Builder builder() {
@@ -73,6 +78,19 @@ public final class AgentRuntimeConfig {
 
     public int getMaxToolCallsPerRun() {
         return maxToolCallsPerRun;
+    }
+
+    public String getWebSearchApiKey() {
+        return webSearchApiKey;
+    }
+
+    public String getWebSearchBaseUrl() {
+        return webSearchBaseUrl;
+    }
+
+    /** 已填写 Tavily Key 时注册 {@code web_search}。 */
+    public boolean isWebSearchConfigured() {
+        return !webSearchApiKey.isEmpty();
     }
 
     /** 是否具备发起模型请求的条件。 */
@@ -120,6 +138,8 @@ public final class AgentRuntimeConfig {
         private int maxContextMessages;
         private int maxTurnsPerRun;
         private int maxToolCallsPerRun;
+        private String webSearchApiKey = "";
+        private String webSearchBaseUrl;
 
         public Builder apiKey(String apiKey) {
             this.apiKey = apiKey;
@@ -156,6 +176,16 @@ public final class AgentRuntimeConfig {
             return this;
         }
 
+        public Builder webSearchApiKey(String webSearchApiKey) {
+            this.webSearchApiKey = webSearchApiKey;
+            return this;
+        }
+
+        public Builder webSearchBaseUrl(String webSearchBaseUrl) {
+            this.webSearchBaseUrl = webSearchBaseUrl;
+            return this;
+        }
+
         public AgentRuntimeConfig build() {
             return new AgentRuntimeConfig(this);
         }
@@ -175,12 +205,22 @@ public final class AgentRuntimeConfig {
             && maxToolCallsPerRun == that.maxToolCallsPerRun
             && Objects.equals(apiKey, that.apiKey)
             && Objects.equals(baseUrl, that.baseUrl)
-            && Objects.equals(model, that.model);
+            && Objects.equals(model, that.model)
+            && Objects.equals(webSearchApiKey, that.webSearchApiKey)
+            && Objects.equals(webSearchBaseUrl, that.webSearchBaseUrl);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(
-            apiKey, baseUrl, model, maxContextTurns, maxContextMessages, maxTurnsPerRun, maxToolCallsPerRun);
+            apiKey,
+            baseUrl,
+            model,
+            maxContextTurns,
+            maxContextMessages,
+            maxTurnsPerRun,
+            maxToolCallsPerRun,
+            webSearchApiKey,
+            webSearchBaseUrl);
     }
 }

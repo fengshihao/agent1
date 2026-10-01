@@ -25,6 +25,7 @@ public final class ProductivityModelsCommand {
         out.println("model=" + summary.getModelId());
         out.println("base_url=" + summary.getBaseUrl());
         out.println("api_key=" + (summary.isApiKeyConfigured() ? "configured" : "missing"));
+        out.println("web_search=" + (summary.isWebSearchConfigured() ? "configured" : "missing"));
         out.println(
             "limits: context_turns=" + summary.getMaxContextTurns()
                 + " max_turns_per_run=" + summary.getMaxTurnsPerRun()

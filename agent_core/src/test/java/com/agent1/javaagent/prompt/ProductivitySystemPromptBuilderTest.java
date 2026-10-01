@@ -13,6 +13,18 @@ class ProductivitySystemPromptBuilderTest {
     Path temp;
 
     @Test
+    void mentionsWebSearchOnlyWhenEnabled() {
+        String off = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), false);
+        assertFalse(off.contains("web_search"));
+        String on = new ProductivitySystemPromptBuilder()
+            .webSearch(true)
+            .buildMainPrompt(temp.resolve("ws"), false);
+        assertTrue(on.contains("web_search"));
+        assertTrue(on.contains("Tavily"));
+    }
+
+    @Test
     void mentionsAskUserInToolStrategy() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);

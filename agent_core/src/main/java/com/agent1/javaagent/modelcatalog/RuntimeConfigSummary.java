@@ -16,6 +16,7 @@ public final class RuntimeConfigSummary {
     private final int maxContextMessages;
     private final int maxTurnsPerRun;
     private final int maxToolCallsPerRun;
+    private final boolean webSearchConfigured;
     private final Optional<QwenModelInfo> catalogMatch;
 
     private RuntimeConfigSummary(
@@ -27,6 +28,7 @@ public final class RuntimeConfigSummary {
         int maxContextMessages,
         int maxTurnsPerRun,
         int maxToolCallsPerRun,
+        boolean webSearchConfigured,
         Optional<QwenModelInfo> catalogMatch
     ) {
         this.modelId = modelId;
@@ -37,6 +39,7 @@ public final class RuntimeConfigSummary {
         this.maxContextMessages = maxContextMessages;
         this.maxTurnsPerRun = maxTurnsPerRun;
         this.maxToolCallsPerRun = maxToolCallsPerRun;
+        this.webSearchConfigured = webSearchConfigured;
         this.catalogMatch = catalogMatch;
     }
 
@@ -55,6 +58,7 @@ public final class RuntimeConfigSummary {
             config.getMaxContextMessages(),
             config.getMaxTurnsPerRun(),
             config.getMaxToolCallsPerRun(),
+            config.isWebSearchConfigured(),
             QwenModelCatalog.findByModelId(model)
         );
     }
@@ -89,6 +93,10 @@ public final class RuntimeConfigSummary {
 
     public int getMaxToolCallsPerRun() {
         return maxToolCallsPerRun;
+    }
+
+    public boolean isWebSearchConfigured() {
+        return webSearchConfigured;
     }
 
     public Optional<QwenModelInfo> getCatalogMatch() {
