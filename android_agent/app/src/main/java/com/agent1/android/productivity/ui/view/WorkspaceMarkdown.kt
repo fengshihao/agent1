@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import coil.compose.rememberAsyncImagePainter
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
@@ -22,13 +23,15 @@ fun WorkspaceMarkdown(
     modifier: Modifier = Modifier,
 ) {
     val root = workspaceAbsolutePath
-    val transformer = remember(root) {
+    val context = LocalContext.current
+    val imageLoader = remember(context) { workspaceImageLoader(context) }
+    val transformer = remember(root, imageLoader) {
         object : ImageTransformer {
             @Composable
             override fun transform(link: String): ImageData? {
                 if (root.isBlank()) return null
                 val file = SessionWorkspacePaths.resolveFile(Paths.get(root), link) ?: return null
-                val painter = rememberAsyncImagePainter(model = file)
+                val painter = rememberAsyncImagePainter(model = file, imageLoader = imageLoader)
                 return ImageData(painter = painter)
             }
         }

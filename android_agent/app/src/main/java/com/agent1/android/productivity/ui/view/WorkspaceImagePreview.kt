@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
@@ -36,6 +38,8 @@ fun WorkspaceImagePreview(
         )
         return
     }
+    val context = LocalContext.current
+    val imageLoader = remember(context) { workspaceImageLoader(context) }
     val file = SessionWorkspacePaths.resolveFile(Paths.get(workspaceAbsolutePath), workspaceRelativePath)
     if (file == null) {
         Text(
@@ -48,6 +52,7 @@ fun WorkspaceImagePreview(
     }
     AsyncImage(
         model = file,
+        imageLoader = imageLoader,
         contentDescription = workspaceRelativePath,
         modifier = modifier
             .fillMaxWidth()

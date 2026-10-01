@@ -9,8 +9,4 @@ public final class WebViewTaskAccess {
     public static long timeoutMs(WebViewTask task) {
         return task.timeoutMs;
     }
-
-    public static String outputRel(WebViewTask task) {
-        return task.outputRel;
-    }
 }
