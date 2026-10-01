@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -272,7 +273,7 @@ private fun ColumnScope.SessionDrawer(
 ) {
     val sessions = state.sessions.sortedByDescending { it.updatedAt }
     Text(
-        "对话",
+            "墨笺",
         modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
         style = MaterialTheme.typography.titleMedium,
     )
@@ -981,10 +982,10 @@ private fun ChatMessageList(
                 pickFilesEnabled = pickFilesEnabled,
             )
         }
-        items(
+        itemsIndexed(
             items = state.runTimeline,
-            key = { it.id },
-        ) { item ->
+            key = { index, item -> "$index:${item.id}" },
+        ) { _, item ->
             when (item) {
                 is ChatRunTimelineItem.AssistantPart -> {
                     MessageBubble(

@@ -377,22 +377,19 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 for (JsonNode callDelta : toolCalls) {
                     int index = callDelta.path("index").asInt(0);
                     PartialToolCall partial = acc.toolCallByIndex.computeIfAbsent(index, key -> new PartialToolCall());
-                    if (callDelta.has("id")) {
-                        String id = callDelta.get("id").asText();
-                        if (id != null && !id.isBlank()) {
-                            partial.id = id;
-                        }
+                    String id = usableText(callDelta.get("id"));
+                    if (id != null) {
+                        partial.id = id;
                     }
                     JsonNode function = callDelta.get("function");
                     if (function != null) {
-                        if (function.has("name")) {
-                            String name = function.get("name").asText();
-                            if (name != null && !name.isBlank()) {
-                                partial.name = name;
-                            }
+                        String name = usableText(function.get("name"));
+                        if (name != null) {
+                            partial.name = name;
                         }
-                        if (function.has("arguments")) {
-                            partial.arguments.append(function.get("arguments").asText(""));
+                        JsonNode arguments = function.get("arguments");
+                        if (arguments != null && arguments.isTextual()) {
+                            partial.arguments.append(arguments.asText(""));
                         }
                     }
                     streamListener.onToolCallDelta(partial.toToolCall());
@@ -469,6 +466,21 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 .collect(Collectors.toList());
             return new AssistantResponse(text.toString(), reasoning.toString(), toolCalls, finishReason, usage);
         }
+    }
+
+    /**
+     * Jackson {@code NullNode.asText()} returns the word {@code "null"}. Streaming deltas often send
+     * {@code "id": null} after the first chunk; treating that as an id collapses every call to {@code tool-null}.
+     */
+    private static String usableText(JsonNode node) {
+        if (node == null || node.isNull() || node.isMissingNode() || !node.isTextual()) {
+            return null;
+        }
+        String value = node.asText("");
+        if (value.isBlank() || "null".equalsIgnoreCase(value)) {
+            return null;
+        }
+        return value;
     }
 
     private static final class PartialToolCall {

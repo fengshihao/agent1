@@ -279,6 +279,14 @@ class ChatViewModel(
         )
     }
 
+    /** 列表 key 必须唯一。模型若反复给出空 id 或字面量 null，不能都落到 tool-null。 */
+    private fun uniqueTimelineId(rawId: String?): String {
+        val usable = rawId?.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+        val base = if (usable != null) "call-$usable" else "call-${System.nanoTime()}"
+        val taken = _state.value.runTimeline.any { it.id == base }
+        return if (taken) "$base-${System.nanoTime()}" else base
+    }
+
     private fun updateToolTimeline(
         toolCallId: String,
         statusLine: String? = null,
@@ -322,7 +330,7 @@ class ChatViewModel(
                 val call = payload.toolCall
                 val name = call.name
                 val segment = ChatRunTimelineItem.ToolPart(
-                    id = "tool-${call.id}",
+                    id = uniqueTimelineId(call.id),
                     toolCallId = call.id,
                     toolName = name,
                     argsPreview = call.argumentsJson.trim().take(220),

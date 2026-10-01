@@ -112,6 +112,48 @@ class OpenAiCompatibleClientTest {
     }
 
     @Test
+    void streamChat_nullIdDeltaDoesNotCollapseToolCalls() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            String sseBody = ""
+                + "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_a\",\"function\":{\"name\":\"read_file\",\"arguments\":\"\"}}]}}]}\n\n"
+                + "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":1,\"id\":\"call_b\",\"function\":{\"name\":\"list_dir\",\"arguments\":\"\"}}]}}]}\n\n"
+                + "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":null,\"function\":{\"arguments\":\"{\\\"path\\\":\\\"a\\\"}\"}}]}}]}\n\n"
+                + "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":1,\"id\":null,\"function\":{\"name\":null,\"arguments\":\"{}\"}}]}}]}\n\n"
+                + "data: [DONE]\n\n";
+            server.enqueue(
+                new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody(sseBody)
+            );
+            server.start();
+
+            OpenAiCompatibleClient client = new OpenAiCompatibleClient(
+                new OpenAiCompatibleConfig(
+                    "test-key",
+                    server.url("/v1").toString(),
+                    Duration.ofSeconds(5),
+                    0.2
+                )
+            );
+            AssistantResponse response = client.streamChat(
+                new ChatRequest("gpt-4o-mini", List.of(AgentMessage.user("hello"))),
+                List.of(),
+                delta -> { },
+                new CancellationToken()
+            );
+
+            assertEquals(2, response.getToolCalls().size());
+            assertEquals("call_a", response.getToolCalls().get(0).getId());
+            assertEquals("read_file", response.getToolCalls().get(0).getName());
+            assertEquals("{\"path\":\"a\"}", response.getToolCalls().get(0).getArgumentsJson());
+            assertEquals("call_b", response.getToolCalls().get(1).getId());
+            assertEquals("list_dir", response.getToolCalls().get(1).getName());
+            assertEquals("{}", response.getToolCalls().get(1).getArgumentsJson());
+        }
+    }
+
+    @Test
     void streamChat_parsesReasoningContent() throws Exception {
         try (MockWebServer server = new MockWebServer()) {
             String sseBody = ""

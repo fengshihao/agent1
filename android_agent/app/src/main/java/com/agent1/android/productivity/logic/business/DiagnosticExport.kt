@@ -66,7 +66,7 @@ object DiagnosticExport {
     }
 
     private fun readme(): String = """
-        生产力助手诊断包（手机一键导出）
+        墨笺诊断包（手机一键导出）
         把整个 zip 发给负责诊断的 Agent 即可，不必解压后再挑文件。
 
         agent1/sessions/<sessionId>/transcript.jsonl  聊天记录
