@@ -19,6 +19,11 @@ public final class CapabilityIndexStore {
     public static final int SCHEMA_VERSION = 4;
 
     /**
+     * 种子内容代次。修改 {@code search-index.seed.jsonl} 时递增，已有 capabilities.db 会在下次检索前重建。
+     */
+    public static final int SEED_REVISION = 2;
+
+    /**
      * FTS5 bm25 列权（仅 indexed 列，顺序与 {@code capability_fts} 一致：title, summary, tags, entry）。
      * title（名称）最高，tags 次之，summary/entry 正文最低。
      */
@@ -77,6 +82,7 @@ public final class CapabilityIndexStore {
             createSchema(db);
             insertAll(db, records);
             setMeta(db, "schema_version", Integer.toString(SCHEMA_VERSION));
+            setMeta(db, "seed_revision", Integer.toString(SEED_REVISION));
             setMeta(db, "source", "bundled-seed");
         } catch (SQLException e) {
             throw new IllegalStateException("build capability index failed: " + dbPath, e);
@@ -133,7 +139,11 @@ public final class CapabilityIndexStore {
                 return true;
             }
             String version = getMeta(db, "schema_version");
-            return !Integer.toString(SCHEMA_VERSION).equals(version);
+            if (!Integer.toString(SCHEMA_VERSION).equals(version)) {
+                return true;
+            }
+            String seedRevision = getMeta(db, "seed_revision");
+            return !Integer.toString(SEED_REVISION).equals(seedRevision);
         } catch (SQLException e) {
             return true;
         }

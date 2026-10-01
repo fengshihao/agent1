@@ -81,6 +81,18 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
+    void frameworkStatesHowToCreateSkillWithoutSearching() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), false);
+        assertTrue(prompt.contains("workspace/staging/skills/<name>/SKILL.md"));
+        assertTrue(prompt.contains("promote_request"));
+        assertTrue(prompt.contains("name"));
+        assertTrue(prompt.contains("description"));
+        assertTrue(prompt.contains("capability_search 只查框架没写的细节"));
+        assertTrue(prompt.contains("doc_path"));
+    }
+
+    @Test
     void includesAgentBoundariesAndAgentRoot() throws Exception {
         Path workspace = temp.resolve("ws");
         Path agentRoot = temp.resolve("agentRoot");

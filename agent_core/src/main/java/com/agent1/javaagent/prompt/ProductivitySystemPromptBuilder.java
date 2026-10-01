@@ -39,7 +39,8 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String TOOL_STRATEGY = """
         工具策略：大段内容写入工作区文件，不要在回复里重复粘贴全文。
-        除 trivial 读写外，先 capability_search 查能力索引，再 read_file（或 grep/glob 定位）或 skill(read) 读细节。
+        工作框架已覆盖的路径、权限、Skill 创建与晋升、catalog 安装：直接做。capability_search 只查框架没写的细节（平台 API、Caps、catalog 脚本、办公文档等）。
+        检索命中后只 read_file 该条 doc_path，用这两步定位；不要为了找框架文档去空搜、glob SKILL.md 或通读 docs/system。
         缺少关键信息时调用 ask_user 发起结构化提问并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。
         用户未确认前不要编造事实；用户下一条消息将开启新的 Run。
         """.trim();
@@ -59,11 +60,12 @@ public final class ProductivitySystemPromptBuilder {
         """.trim();
 
     static final String AGENT_BOUNDARIES = """
-        权限与 catalog：
-        - 文件工具（read/write/edit/list）仅对当前会话 workspace 路径可写；shared/、docs/ 只读，禁止 write_file 写入。
-        - 沉淀到 shared/local 用 promote_request；从云端安装资源用 catalog_install（或 sync apply），勿手拷贝 SO/脚本到 catalog。
-        - 已安装/晋升的 Skill 用 skill(action=list|read) 读取（合并 project、catalog、local）。
-        - 环境细则见 agentRoot 下 docs/system/（如 directories.md、catalog-install.md）。
+        工作框架（路径、权限、Skill 与 catalog 已写明，直接执行或直接回答）：
+        - 可写范围只有当前会话 workspace。shared/、docs/system、docs/capabilities 只读，禁止 write_file 写入。
+        - 使用已有 Skill：skill(action=list|read)，合并 project、shared/catalog/skills、shared/local/skills。列表为空表示尚未安装或晋升。
+        - 创建 Skill：write_file 写入 workspace/staging/skills/<name>/SKILL.md，再 promote_request（可选 note）晋升到 shared/local/skills/<name>/。SKILL.md 以 YAML frontmatter 开头，至少包含 name 与 description（name 与目录名一致），其后写步骤。不要把密钥写进文件。
+        - 创建可复用脚本：workspace/staging/scripts/<name>.js，可选同名 .meta.json，同样 promote_request 到 shared/local/scripts/。
+        - 安装云端资源：catalog_sync_status 查看 pending，catalog_install（或 sync apply）装入 shared/catalog/。不要手拷 SO 或脚本到 catalog。
         """.trim();
 
     static final String EXPLORE_SUBAGENT = """
