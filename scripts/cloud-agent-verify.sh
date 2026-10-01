@@ -19,8 +19,9 @@ export AGENT1_SKIP_GRADLE=1
 bash "${REPO_ROOT}/check-android-agent-layering.sh"
 python3 "${REPO_ROOT}/android_agent/scripts/check_android_main_thread_gateway.py" --self-test
 python3 "${REPO_ROOT}/android_agent/scripts/check_android_main_thread_gateway.py"
+bash "${REPO_ROOT}/scripts/check-android-files-api.sh"
 
 echo ""
-echo "==> 通过：Android 分层 + 主线程 Gateway（Python）"
+echo "==> 通过：Android 分层 + 主线程 Gateway + Files API"
 echo "==> 未运行：Java PMD/SpotBugs、Detekt、:core:test、assembleDebug（由 CI 负责）"
 echo "==> 推送后检查 PR CI：java-test | quality-static | android-assemble-debug"

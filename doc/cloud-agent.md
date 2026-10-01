@@ -20,7 +20,7 @@ Cloud Agent 虚拟机磁盘约 **7GB**，不适合在会话内跑 Android Gradle
 ./scripts/cloud-agent-verify.sh
 ```
 
-仅执行 Python 分层与主线程 Gateway 检查；不下载依赖、不写 Gradle 缓存。
+仅执行 Python 分层、主线程 Gateway，以及 `Files.readString`/`writeString` 检查；不下载依赖、不写 Gradle 缓存。
 
 ## 本机完整复现 CI
 
