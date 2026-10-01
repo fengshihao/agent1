@@ -32,6 +32,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -103,6 +105,8 @@ fun ProductivityHome(
     sessionListViewModel: SessionListViewModel,
     onOpenSettings: () -> Unit,
     onOpenMcp: () -> Unit,
+    onOpenCapabilities: () -> Unit,
+    onOpenSystemPrompt: (String) -> Unit,
 ) {
     val listState by sessionListViewModel.state.collectAsState()
     val context = LocalContext.current
@@ -203,6 +207,14 @@ fun ProductivityHome(
                         closeDrawer()
                         onOpenMcp()
                     },
+                    onOpenCapabilities = {
+                        closeDrawer()
+                        onOpenCapabilities()
+                    },
+                    onOpenSystemPrompt = {
+                        closeDrawer()
+                        onOpenSystemPrompt(activeSessionId)
+                    },
                     onExportDiagnostics = { sessionListViewModel.exportDiagnostics(context) },
                 )
             }
@@ -230,6 +242,8 @@ fun ProductivityHome(
                 },
                 onNewChat = { newChat() },
                 onOpenSettings = onOpenSettings,
+                onOpenCapabilities = onOpenCapabilities,
+                onOpenSystemPrompt = { onOpenSystemPrompt(sessionId) },
             )
         }
     }
@@ -243,6 +257,8 @@ private fun ChatPane(
     onOpenDrawer: () -> Unit,
     onNewChat: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenCapabilities: () -> Unit,
+    onOpenSystemPrompt: () -> Unit,
 ) {
     val viewModel: ChatViewModel = viewModel(
         key = "chat-$sessionId",
@@ -254,6 +270,8 @@ private fun ChatPane(
         onOpenDrawer = onOpenDrawer,
         onNewChat = onNewChat,
         onOpenSettings = onOpenSettings,
+        onOpenCapabilities = onOpenCapabilities,
+        onOpenSystemPrompt = onOpenSystemPrompt,
     )
 }
 
@@ -275,6 +293,8 @@ private fun ColumnScope.SessionDrawer(
     onDeleteSession: (SessionMeta) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenMcp: () -> Unit,
+    onOpenCapabilities: () -> Unit,
+    onOpenSystemPrompt: () -> Unit,
     onExportDiagnostics: () -> Unit,
 ) {
     val sessions = state.sessions.sortedByDescending { it.updatedAt }
@@ -372,6 +392,16 @@ private fun ColumnScope.SessionDrawer(
         label = "MCP",
         icon = Icons.Filled.Add,
         onClick = onOpenMcp,
+    )
+    DrawerTextButton(
+        label = "能力检索",
+        icon = Icons.Filled.Search,
+        onClick = onOpenCapabilities,
+    )
+    DrawerTextButton(
+        label = "系统提示词",
+        icon = Icons.Filled.Info,
+        onClick = onOpenSystemPrompt,
     )
     DrawerTextButton(
         label = if (state.exportInProgress) "正在打包…" else "诊断包",
@@ -533,6 +563,8 @@ fun ChatScreen(
     onOpenDrawer: () -> Unit,
     onNewChat: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenCapabilities: () -> Unit,
+    onOpenSystemPrompt: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
@@ -614,6 +646,20 @@ fun ChatScreen(
                                         onClick = {
                                             moreMenu = false
                                             onOpenSettings()
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("能力检索") },
+                                        onClick = {
+                                            moreMenu = false
+                                            onOpenCapabilities()
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("系统提示词") },
+                                        onClick = {
+                                            moreMenu = false
+                                            onOpenSystemPrompt()
                                         },
                                     )
                                 }
