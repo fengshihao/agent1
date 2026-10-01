@@ -84,6 +84,20 @@ final class WebViewSpillResult {
         return new WebViewSpillResult(type, jsonText, utf8(jsonText), unserializable, null);
     }
 
+    /**
+     * 图片 Base64 文本（PNG / JPEG / GIF / WebP 的常见开头）。只看前缀，不解码。
+     */
+    static boolean isImageBase64(String text) {
+        if (text == null) {
+            return false;
+        }
+        String trimmed = text.trim();
+        return trimmed.startsWith("iVBORw0KGgo")
+            || trimmed.startsWith("/9j/")
+            || trimmed.startsWith("R0lGOD")
+            || trimmed.startsWith("UklGR");
+    }
+
     private static WebViewSpillResult error(String message) {
         return new WebViewSpillResult(null, "", null, false, message);
     }

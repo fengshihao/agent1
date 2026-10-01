@@ -57,4 +57,50 @@ class CdpWebViewCanvasDrawTest {
         assertTrue(png.length > 32);
         assertTrue(png[0] == (byte) 0x89 && png[1] == 'P');
     }
+
+    @Test
+    void webviewExecDrawsPngAutoSpillWithoutOutputPath(@TempDir Path workspace) throws Exception {
+        Assumptions.assumeTrue(CdpWebViewRuntime.isAvailable(), "需要本机 Chromium（CDP）");
+
+        String repoEnv = System.getenv("AGENT1_WEIZHI_REPO");
+        Path weizhiRepo = repoEnv != null && !repoEnv.isBlank()
+            ? Path.of(repoEnv.trim())
+            : Path.of(".").toAbsolutePath().normalize().resolve("weizhi");
+        Assumptions.assumeTrue(Files.isDirectory(weizhiRepo.resolve("android")), "需要 weizhi 仓库");
+
+        com.weizhi.agent.sandbox.WorkspaceSandbox sandbox =
+            new com.weizhi.agent.sandbox.WorkspaceSandbox(workspace);
+        CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(weizhiRepo);
+
+        String code = """
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#00aa00';
+            ctx.fillRect(0, 0, 64, 64);
+            return canvas.toDataURL('image/png').split(',')[1];
+            """;
+
+        String receipt = WebViewExecSupport.execute(
+            runtime,
+            sandbox,
+            code,
+            null,
+            null,
+            null,
+            "90000"
+        );
+        assertTrue(receipt.contains("\"ok\":true"), receipt);
+        assertTrue(receipt.contains("tmp/webview_exec/wv-"), receipt);
+        assertTrue(receipt.contains(WebViewExecSupport.SPILL_PREVIEW), receipt);
+
+        Path spill = Files.list(workspace.resolve("tmp/webview_exec"))
+            .filter(p -> p.getFileName().toString().endsWith(".b64"))
+            .findFirst()
+            .orElseThrow();
+        byte[] png = Base64.getDecoder().decode(Files.readString(spill).trim());
+        assertTrue(png.length > 32);
+        assertTrue(png[0] == (byte) 0x89 && png[1] == 'P');
+    }
 }

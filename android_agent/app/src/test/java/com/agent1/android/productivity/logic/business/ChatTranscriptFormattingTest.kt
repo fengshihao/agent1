@@ -65,6 +65,16 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
+    fun formatToolResult_webviewAutoSpillB64IsImagePreview() {
+        val raw = """
+            {"ok":true,"outputPath":"tmp/webview_exec/wv-1-1.b64","outputBytes":100,"resultType":"string","elapsedMs":12}
+        """.trimIndent()
+        val display = ChatTranscriptFormatting.formatToolResult(raw, null)
+        assertEquals("tmp/webview_exec/wv-1-1.b64", display.workspaceImagePath)
+        assertTrue(display.summary.contains("已生成图片"))
+    }
+
+    @Test
     fun workspaceImageBytes_decodesBase64PngAndRejectsNullText() {
         val dir = Files.createTempDirectory("webview-img")
         val base64 = dir.resolve("puppy.png").toFile()

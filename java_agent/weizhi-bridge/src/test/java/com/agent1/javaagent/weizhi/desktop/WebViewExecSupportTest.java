@@ -10,7 +10,6 @@ import com.google.gson.JsonParser;
 import com.weizhi.agent.sandbox.WorkspaceSandbox;
 import com.weizhi.agent.tool.Tool;
 import com.weizhi.agent.tool.ToolParam;
-import com.weizhi.agent.web.WebViewTask;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -20,6 +19,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class WebViewExecSupportTest {
+
+    private static final String TINY_PNG_B64 =
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
     @Test
     void nullReturnWithOutputPathDoesNotWriteFile(@TempDir Path workspace) throws Exception {
@@ -43,30 +45,74 @@ class WebViewExecSupportTest {
     }
 
     @Test
-    void stringNullIsSpillableAndTypedString(@TempDir Path workspace) throws Exception {
+    void nullWithoutOutputPathIsError(@TempDir Path workspace) {
+        String json = render(workspace, null, "{\"result\":null}");
+        JsonObject receipt = JsonParser.parseString(json).getAsJsonObject();
+        assertFalse(receipt.get("ok").getAsBoolean());
+        assertTrue(receipt.get("error").getAsString().contains("没有可落盘的返回值"));
+    }
+
+    @Test
+    void stringNullWithExplicitPathStillSpills(@TempDir Path workspace) throws Exception {
         String json = render(workspace, "out.png", "{\"result\":\"null\"}");
         JsonObject receipt = JsonParser.parseString(json).getAsJsonObject();
         assertTrue(receipt.get("ok").getAsBoolean());
         assertEquals("string", receipt.get("resultType").getAsString());
-        assertEquals("null", receipt.get("resultPreview").getAsString());
+        assertEquals(WebViewExecSupport.SPILL_PREVIEW, receipt.get("resultPreview").getAsString());
         assertEquals(4, receipt.get("outputBytes").getAsInt());
         assertEquals("null", Files.readString(workspace.resolve("out.png")));
     }
 
     @Test
-    void nullWithoutOutputPathIsOkWithResultTypeNull(@TempDir Path workspace) {
-        String json = render(workspace, null, "{\"result\":null}");
+    void stringNullWithoutOutputPathStaysInline(@TempDir Path workspace) {
+        String json = render(workspace, null, "{\"result\":\"null\"}");
         JsonObject receipt = JsonParser.parseString(json).getAsJsonObject();
         assertTrue(receipt.get("ok").getAsBoolean());
-        assertEquals("null", receipt.get("resultType").getAsString());
+        assertEquals("string", receipt.get("resultType").getAsString());
         assertEquals("null", receipt.get("resultPreview").getAsString());
         assertFalse(receipt.has("outputPath"));
     }
 
     @Test
-    void falsyValuesStillSpill(@TempDir Path workspace) throws Exception {
+    void imageBase64AutoSpillsToTmpWebviewExec(@TempDir Path workspace) throws Exception {
+        String json = render(workspace, null, "{\"result\":\"" + TINY_PNG_B64 + "\"}");
+        JsonObject receipt = JsonParser.parseString(json).getAsJsonObject();
+        assertTrue(receipt.get("ok").getAsBoolean());
+        assertEquals("string", receipt.get("resultType").getAsString());
+        assertEquals(WebViewExecSupport.SPILL_PREVIEW, receipt.get("resultPreview").getAsString());
+        String rel = receipt.get("outputPath").getAsString();
+        assertTrue(rel.startsWith("tmp/webview_exec/wv-"));
+        assertTrue(rel.endsWith(".b64"));
+        assertEquals(TINY_PNG_B64, Files.readString(workspace.resolve(rel)));
+    }
+
+    @Test
+    void largeStringAutoSpillsWithoutOutputPath(@TempDir Path workspace) throws Exception {
+        int spillAt = WebViewExecSupport.AUTO_SPILL_BYTES;
+        String big = "x".repeat(spillAt + 1);
+        String json = render(workspace, null, "{\"result\":\"" + big + "\"}");
+        JsonObject receipt = JsonParser.parseString(json).getAsJsonObject();
+        assertTrue(receipt.get("ok").getAsBoolean());
+        assertEquals(WebViewExecSupport.SPILL_PREVIEW, receipt.get("resultPreview").getAsString());
+        String rel = receipt.get("outputPath").getAsString();
+        assertTrue(rel.startsWith("tmp/webview_exec/"));
+        assertEquals(big, Files.readString(workspace.resolve(rel)));
+    }
+
+    @Test
+    void smallNonImageStaysInline(@TempDir Path workspace) {
+        String json = render(workspace, null, "{\"result\":\"hello\"}");
+        JsonObject receipt = JsonParser.parseString(json).getAsJsonObject();
+        assertTrue(receipt.get("ok").getAsBoolean());
+        assertEquals("hello", receipt.get("resultPreview").getAsString());
+        assertFalse(receipt.has("outputPath"));
+    }
+
+    @Test
+    void falsyValuesSpillWhenOutputPathGiven(@TempDir Path workspace) throws Exception {
         JsonObject zero = JsonParser.parseString(render(workspace, "n.txt", "{\"result\":0}")).getAsJsonObject();
         assertEquals("number", zero.get("resultType").getAsString());
+        assertEquals(WebViewExecSupport.SPILL_PREVIEW, zero.get("resultPreview").getAsString());
         assertEquals("0", Files.readString(workspace.resolve("n.txt")));
 
         JsonObject no = JsonParser.parseString(render(workspace, "b.txt", "{\"result\":false}")).getAsJsonObject();
@@ -91,7 +137,15 @@ class WebViewExecSupportTest {
     }
 
     @Test
-    void toolDescriptionStatesUtf8TextContract() throws Exception {
+    void isImageBase64DetectsCommonPrefixes() {
+        assertTrue(WebViewSpillResult.isImageBase64(TINY_PNG_B64));
+        assertTrue(WebViewSpillResult.isImageBase64("/9j/abc"));
+        assertFalse(WebViewSpillResult.isImageBase64("null"));
+        assertFalse(WebViewSpillResult.isImageBase64("hello"));
+    }
+
+    @Test
+    void toolDescriptionStatesAutoSpillAndResultType() throws Exception {
         Method method = DesktopWebViewExecTool.class.getMethod(
             "webviewExec",
             String.class,
@@ -104,17 +158,16 @@ class WebViewExecSupportTest {
         assertTrue(description.contains("UTF-8"));
         assertTrue(description.contains("resultType"));
         assertTrue(description.contains("不会把文本 null 写入文件"));
+        assertTrue(description.contains("tmp/webview_exec"));
 
         ToolParam output = method.getParameters()[3].getAnnotation(ToolParam.class);
         assertEquals("output_path", output.name());
-        assertTrue(output.description().contains("UTF-8"));
+        assertTrue(output.description().contains("可选"));
         assertTrue(output.description().contains("Base64"));
-        assertTrue(output.description().contains("不会写入文本 null"));
     }
 
     private static String render(Path workspace, String outputRel, String payload) {
         WorkspaceSandbox sandbox = new WorkspaceSandbox(workspace);
-        WebViewTask task = new WebViewTask("return 1;", null, null, outputRel, 1000L);
         CdpWebViewRuntime.WebViewRuntimeOutcome outcome = new CdpWebViewRuntime.WebViewRuntimeOutcome(
             true,
             payload,
@@ -122,6 +175,7 @@ class WebViewExecSupportTest {
             List.of(),
             12L
         );
-        return WebViewExecSupport.renderOk(task, sandbox, outcome);
+        String explicit = outputRel != null && !outputRel.isEmpty() ? outputRel : null;
+        return WebViewExecSupport.renderOk(sandbox, outcome, explicit);
     }
 }

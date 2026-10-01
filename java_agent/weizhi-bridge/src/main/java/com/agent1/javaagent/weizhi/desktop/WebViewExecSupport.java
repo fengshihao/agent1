@@ -5,11 +5,9 @@ import com.google.gson.Gson;
 import com.weizhi.agent.sandbox.WorkspaceSandbox;
 import com.weizhi.agent.web.BridgeCodec;
 import com.weizhi.agent.web.WebViewTask;
-import com.weizhi.agent.web.WebViewTaskAccess;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -17,20 +15,26 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
-/** webview_exec 入参准备与回执 JSON。落盘语义对齐 Android {@code WebViewExecTool}。 */
+/** webview_exec 入参准备与回执 JSON。落盘语义对齐 Android {@code WebViewExecTool}（weizhi#18）。 */
 public final class WebViewExecSupport {
+
+    /** 非图片结果超过此字节数自动落盘（与 bridge 内联上限一致）。 */
+    static final int AUTO_SPILL_BYTES = BridgeCodec.INLINE_LIMIT;
+    /** 落盘后的回执预览：不含结果正文。 */
+    static final String SPILL_PREVIEW = "完整结果已写入 outputPath";
 
     private static final Gson GSON = new Gson();
     private static final OkHttpClient HTTP = new OkHttpClient.Builder()
         .callTimeout(180, TimeUnit.SECONDS)
         .readTimeout(150, TimeUnit.SECONDS)
         .build();
-    private static final int PREVIEW_CHARS = 1024;
+    private static final AtomicInteger SPILL_SEQ = new AtomicInteger();
 
     private WebViewExecSupport() {
     }
@@ -57,10 +61,17 @@ public final class WebViewExecSupport {
             }
         }
         timeout = WebViewTask.clampTimeout(timeout);
-        boolean needSandbox = (inputPath != null && !inputPath.trim().isEmpty())
-            || (outputPath != null && !outputPath.trim().isEmpty());
+        String outputRel = outputPath != null ? outputPath.trim() : "";
+        boolean needSandbox = (inputPath != null && !inputPath.trim().isEmpty()) || !outputRel.isEmpty();
         if (needSandbox && sandbox == null) {
             return errJson("宿主未配置 workspace 沙箱,input_path/output_path 不可用。");
+        }
+        if (!outputRel.isEmpty()) {
+            try {
+                sandbox.resolveWrite(outputRel);
+            } catch (SecurityException e) {
+                return errJson("output_path 非法: " + e.getMessage());
+            }
         }
 
         String wasmB64 = null;
@@ -81,37 +92,31 @@ public final class WebViewExecSupport {
             inputB64 = Base64.getEncoder().encodeToString(bytes);
         }
 
-        String outputRel = outputPath != null ? outputPath.trim() : "";
-        if (!outputRel.isEmpty()) {
-            try {
-                sandbox.resolveWrite(outputRel);
-            } catch (SecurityException e) {
-                return errJson("output_path 非法: " + e.getMessage());
-            }
-        }
-
-        WebViewTask task = new WebViewTask(code, inputB64, wasmB64,
-            outputRel.isEmpty() ? null : outputRel, timeout);
+        WebViewTask task = new WebViewTask(code, inputB64, wasmB64, timeout);
         CdpWebViewRuntime.WebViewRuntimeOutcome outcome = runtime.execute(task);
         if (!outcome.ok()) {
             return errJson(outcome.error());
         }
-        return renderOk(task, sandbox, outcome);
+        return renderOk(sandbox, outcome, outputRel.isEmpty() ? null : outputRel);
     }
 
     static String renderOk(
-        WebViewTask task,
         WorkspaceSandbox sandbox,
-        CdpWebViewRuntime.WebViewRuntimeOutcome o
+        CdpWebViewRuntime.WebViewRuntimeOutcome o,
+        String outputRel
     ) {
         WebViewSpillResult parsed = WebViewSpillResult.parse(o.payloadJson());
         if (parsed.parseError != null) {
             return errJson("结果解析失败: " + parsed.parseError);
         }
-        String outputRel = WebViewTaskAccess.outputRel(task);
-        byte[] spill = parsed.spillUtf8;
-        if (outputRel != null && spill == null) {
-            return nullSpillError();
+        if (parsed.spillUtf8 == null) {
+            return errJson("没有可落盘的返回值:脚本返回了 null 或 undefined。不会写入文件。");
+        }
+        boolean explicit = outputRel != null && !outputRel.isEmpty();
+        boolean image = "string".equals(parsed.resultType) && WebViewSpillResult.isImageBase64(parsed.text);
+        boolean spill = explicit || image || parsed.spillUtf8.length > AUTO_SPILL_BYTES;
+        if (spill && sandbox == null) {
+            return errJson("结果需要写入工作区文件,但宿主未配置 workspace 沙箱。");
         }
 
         Map<String, Object> receipt = new LinkedHashMap<>();
@@ -120,28 +125,22 @@ public final class WebViewExecSupport {
         if (parsed.unserializable) {
             receipt.put("note", "结果不可 JSON 序列化,已降级为字符串形态");
         }
-        if (outputRel != null) {
-            if (spill == null) {
-                return nullSpillError();
-            }
+        if (spill) {
             try {
-                Path path = sandbox.resolveWrite(outputRel);
+                String rel = explicit ? outputRel : allocateSpillRel(sandbox);
+                Path path = sandbox.resolveWrite(rel);
                 if (path.getParent() != null) {
                     Files.createDirectories(path.getParent());
                 }
-                Files.write(path, spill);
-                receipt.put("outputPath", outputRel);
-                receipt.put("outputBytes", spill.length);
+                Files.write(path, parsed.spillUtf8);
+                receipt.put("outputPath", rel);
+                receipt.put("outputBytes", parsed.spillUtf8.length);
             } catch (IOException | SecurityException e) {
-                return errJson("任务执行成功但结果落盘失败(" + outputRel + "): "
-                    + e.getMessage() + "。结果预览: " + preview(parsed.text));
+                return errJson("结果写入失败: " + e.getMessage());
             }
-        } else if (parsed.text.length() > BridgeCodec.INLINE_LIMIT) {
-            receipt.put("hint", "结果 " + parsed.text.length() + " 字符未保存:未提供 output_path,"
-                + "请带 output_path 重跑获取完整结果。");
         }
         receipt.put("resultType", parsed.resultType);
-        receipt.put("resultPreview", preview(parsed.text));
+        receipt.put("resultPreview", spill ? SPILL_PREVIEW : parsed.text);
         List<String> console = o.console();
         if (console != null && !console.isEmpty()) {
             receipt.put("console", console);
@@ -149,16 +148,15 @@ public final class WebViewExecSupport {
         return GSON.toJson(receipt);
     }
 
-    private static String nullSpillError() {
-        return errJson("没有可落盘的返回值:脚本返回了 null 或 undefined。"
-            + "output_path 写入的是返回值的 UTF-8 文本,不会把文本 null 写入文件。"
-            + "请在 code 中 return 要保存的内容;若是图片,return Base64 字符串"
-            + "(文件内容就是这段 Base64,不会按扩展名解码成二进制)。");
-    }
-
-    private static String preview(String s) {
-        return s.length() <= PREVIEW_CHARS ? s : s.substring(0, PREVIEW_CHARS)
-            + "...(截断,共 " + s.length() + " 字符)";
+    private static String allocateSpillRel(WorkspaceSandbox sandbox) throws IOException {
+        for (int n = 0; n < 8; n++) {
+            String rel = "tmp/webview_exec/wv-" + System.currentTimeMillis()
+                + "-" + SPILL_SEQ.incrementAndGet() + ".b64";
+            if (!Files.exists(sandbox.resolveWrite(rel))) {
+                return rel;
+            }
+        }
+        throw new IOException("无法分配 tmp/webview_exec/*.b64");
     }
 
     public static String errJson(String msg) {

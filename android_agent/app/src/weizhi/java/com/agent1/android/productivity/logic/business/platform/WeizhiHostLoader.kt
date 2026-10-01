@@ -29,10 +29,11 @@ object WeizhiHostLoader {
             ),
             600_000L,
             """
-            图像与 WebView：webview_exec 的 output_path 写入的是脚本 return 值的 UTF-8 文本，不是按扩展名生成的二进制图片。
-            要保存图，必须 return 纯 Base64，例如 return canvas.toDataURL('image/png').split(',')[1]；文件内容就是这段 Base64。
-            成功回执含 resultType。返回 null 或 undefined 且带了 output_path 时 ok 为 false，文件不会写成文本 null，不要告诉用户已经画好。
-            仅当 ok 为 true 且 outputPath 指向 png/jpg 时，在最终回复里用 Markdown 引用工作区相对路径，例如 ![小猫](cat.png)，
+            图像与 WebView：webview_exec 写入的是脚本 return 值的 UTF-8 文本，不是按扩展名生成的二进制图片。
+            要保存图，return 纯 Base64，例如 return canvas.toDataURL('image/png').split(',')[1]。
+            output_path 可选：省略时图片 Base64 会自动落盘到 tmp/webview_exec/*.b64；也可自行指定路径（扩展名 .png 时内容仍是 Base64 文本）。
+            成功回执含 resultType 与 outputPath（落盘时 resultPreview 仅为占位说明）。返回 null 或 undefined 时 ok 为 false，不要告诉用户已经画好。
+            仅当 ok 为 true 时，在最终回复里用 Markdown 引用回执 outputPath（png/jpg 或 tmp/webview_exec/*.b64），例如 ![小猫](tmp/webview_exec/wv-123-1.b64)，
             不要粘贴工具 JSON、base64 或 resultPreview。工具执行后若尚未给出带 ![](...) 的总结，应再调用一轮完成说明。
 
             Word（.docx）：简单转换用 docx_markdown_to_word（`#` 标题自带字号层次）；勿在 Markdown 里插 HTML 改样式。

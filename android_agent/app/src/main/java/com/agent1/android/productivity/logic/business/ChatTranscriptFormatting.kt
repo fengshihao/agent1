@@ -111,8 +111,11 @@ object ChatTranscriptFormatting {
     }
 
     private fun isImagePath(path: String): Boolean {
+        val normalized = path.replace('\\', '/')
         val ext = path.substringAfterLast('.', "").lowercase()
-        return ext in imageExt
+        if (ext in imageExt) return true
+        // webview_exec 自动落盘：tmp/webview_exec/*.b64（UTF-8 纯 Base64，见 WorkspaceImageBytes）
+        return ext == "b64" && normalized.contains("tmp/webview_exec/")
     }
 
     fun truncateForUiDisplay(text: String, maxChars: Int = UI_BUBBLE_MAX_CHARS): String {
