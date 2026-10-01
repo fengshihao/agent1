@@ -102,6 +102,7 @@ import java.util.Locale
 fun ProductivityHome(
     sessionListViewModel: SessionListViewModel,
     onOpenSettings: () -> Unit,
+    onOpenMcp: () -> Unit,
 ) {
     val listState by sessionListViewModel.state.collectAsState()
     val context = LocalContext.current
@@ -198,6 +199,10 @@ fun ProductivityHome(
                         closeDrawer()
                         onOpenSettings()
                     },
+                    onOpenMcp = {
+                        closeDrawer()
+                        onOpenMcp()
+                    },
                     onExportDiagnostics = { sessionListViewModel.exportDiagnostics(context) },
                 )
             }
@@ -269,6 +274,7 @@ private fun ColumnScope.SessionDrawer(
     onOpenSession: (SessionMeta) -> Unit,
     onDeleteSession: (SessionMeta) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenMcp: () -> Unit,
     onExportDiagnostics: () -> Unit,
 ) {
     val sessions = state.sessions.sortedByDescending { it.updatedAt }
@@ -361,6 +367,11 @@ private fun ColumnScope.SessionDrawer(
         label = "模型设置",
         icon = Icons.Filled.Settings,
         onClick = onOpenSettings,
+    )
+    DrawerTextButton(
+        label = "MCP",
+        icon = Icons.Filled.Add,
+        onClick = onOpenMcp,
     )
     DrawerTextButton(
         label = if (state.exportInProgress) "正在打包…" else "诊断包",

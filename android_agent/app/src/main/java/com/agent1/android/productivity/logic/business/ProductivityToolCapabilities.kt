@@ -22,7 +22,7 @@ object ProductivityToolCapabilities {
             add("execute_script（Weizhi 脚本，\$tools 桥接）")
             add("docx_markdown_to_word · docx_inspect · docx_read_grep_edit · docx_raw_edit")
             add("grep · glob · zip · bash · load_skill")
-            add("WebView 工具 · MCP 扩展")
+            add("WebView 工具 · MCP（侧栏配置 HTTP，脚本里 \$mcp.名称.工具）")
         } else {
             add("未检测到 weizhi 源码或 weizhi-prebuilt/maven — WEIZHI_INTEGRATED=false")
         }

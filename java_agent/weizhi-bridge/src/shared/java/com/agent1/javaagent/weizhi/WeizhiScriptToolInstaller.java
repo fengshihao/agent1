@@ -100,7 +100,10 @@ public final class WeizhiScriptToolInstaller {
     public record EvalStep(String filename, String source) {
     }
 
-    /** 与 {@code ScriptToolsBridge} prelude 一致，供顶层 {@code return await $tools...} 使用。 */
+    /**
+     * {@code $tools} 与微智 prelude 一致。{@code $mcp.<server>.<tool>} 在这里转成
+     * {@code $tools.mcp_call_tool}，不把每个远端 API 注册成模型工具。
+     */
     private static String preludeStatic() {
         return "(function(){\n"
             + "globalThis.$tools = new Proxy({}, {\n"
@@ -112,6 +115,20 @@ public final class WeizhiScriptToolInstaller {
             + "      if (r && r.error) throw new Error(r.error);\n"
             + "      return (r && r.result !== undefined) ? r.result : r;\n"
             + "    };\n"
+            + "  }\n"
+            + "});\n"
+            + "globalThis.$mcp = new Proxy({}, {\n"
+            + "  get: function(_, server) {\n"
+            + "    return new Proxy({}, {\n"
+            + "      get: function(_, tool) {\n"
+            + "        return async function(input) {\n"
+            + "          return await globalThis.$tools.mcp_call_tool({\n"
+            + "            tool: \"mcp__\" + String(server) + \"__\" + String(tool),\n"
+            + "            args_json: JSON.stringify(input || {})\n"
+            + "          });\n"
+            + "        };\n"
+            + "      }\n"
+            + "    });\n"
             + "  }\n"
             + "});\n"
             + "})();";

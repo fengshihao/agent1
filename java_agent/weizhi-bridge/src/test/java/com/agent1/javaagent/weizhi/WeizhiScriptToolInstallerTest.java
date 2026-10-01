@@ -36,9 +36,13 @@ class WeizhiScriptToolInstallerTest {
     void concatenatedPreludeWouldHideImportFromModuleDetection() {
         String wrapped = WeizhiScriptToolInstaller.wrap(MODULE, bridge("read_file"));
         String[] lines = wrapped.split("\n", -1);
-        assertEquals(WeizhiScriptToolInstaller.TOOLS_PRELUDE_LINE_COUNT, 13);
-        assertEquals("import { markdownToDocx } from './docx.js';", lines[13]);
-        assertEquals('{', lines[13].charAt(7));
+        int preludeLines = WeizhiScriptToolInstaller.TOOLS_PRELUDE_LINE_COUNT;
+        assertTrue(preludeLines > 13);
+        assertTrue(wrapped.contains("globalThis.$mcp"));
+        assertTrue(wrapped.contains("mcp_call_tool"));
+        assertTrue(wrapped.contains("mcp__"));
+        assertEquals("import { markdownToDocx } from './docx.js';", lines[preludeLines]);
+        assertEquals('{', lines[preludeLines].charAt(7));
     }
 
     @Test
