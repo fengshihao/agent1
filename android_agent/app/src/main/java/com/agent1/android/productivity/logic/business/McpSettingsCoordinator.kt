@@ -22,7 +22,7 @@ class McpSettingsCoordinator(context: Context) {
         return try {
             val sync = McpCapabilitySync.ensureIndexed(agentRoot, HttpMcpToolLister(), true)
             McpSaveResult(sync.toolCount(), sync.warnings())
-        } catch (error: RuntimeException) {
+        } catch (error: IllegalStateException) {
             McpSaveResult(0, listOf(error.message ?: "索引 MCP 工具失败"))
         }
     }

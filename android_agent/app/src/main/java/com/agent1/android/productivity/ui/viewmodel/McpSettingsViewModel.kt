@@ -77,7 +77,9 @@ class McpSettingsViewModel(
                 try {
                     val saved = coordinator.save(servers)
                     Result.success(saved to coordinator.load())
-                } catch (error: RuntimeException) {
+                } catch (error: IllegalArgumentException) {
+                    Result.failure(error)
+                } catch (error: IllegalStateException) {
                     Result.failure(error)
                 }
             }
