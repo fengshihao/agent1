@@ -11,6 +11,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 /** Tavily {@code POST /search}。密钥只放在 Authorization 头，不写入结果文本。 */
 public final class TavilyWebSearchClient {
@@ -65,7 +66,8 @@ public final class TavilyWebSearchClient {
             .post(RequestBody.create(MAPPER.writeValueAsBytes(body), JSON))
             .build();
         try (Response response = httpClient.newCall(request).execute()) {
-            String raw = response.body() == null ? "" : response.body().string();
+            ResponseBody responseBody = response.body();
+            String raw = responseBody == null ? "" : responseBody.string();
             if (!response.isSuccessful()) {
                 throw new IOException("Tavily HTTP " + response.code() + ": " + clip(raw, 280));
             }
