@@ -6,7 +6,6 @@ import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
 import com.agent1.android.productivity.logic.business.ModelSettingsForm
 import com.agent1.android.productivity.logic.business.PROVIDER_CUSTOM
-import com.agent1.android.productivity.logic.business.PROVIDER_ZHIPU_CODING
 import com.agent1.android.productivity.logic.business.ProviderOption
 import com.agent1.android.productivity.logic.business.RemoteModelOption
 import com.agent1.android.productivity.logic.business.providerOptions
@@ -28,6 +27,8 @@ data class ModelSettingsUiState(
     val maxContextMessages: String = "",
     val maxTurnsPerRun: String = "",
     val maxToolCallsPerRun: String = "",
+    val webSearchApiKey: String = "",
+    val webSearchBaseUrl: String = "",
     val remoteModels: List<RemoteModelOption> = emptyList(),
     val showAdvanced: Boolean = false,
     val isFetchingModels: Boolean = false,
@@ -51,11 +52,7 @@ class ModelSettingsViewModel(
 
     fun loadFromStore() {
         val form = coordinator.readForm()
-        val bundled = if (form.providerId == PROVIDER_ZHIPU_CODING) {
-            coordinator.zhipuBundledModels()
-        } else {
-            coordinator.bundledModels()
-        }
+        val bundled = coordinator.bundledModelsFor(form.providerId)
         _state.value = _state.value.copy(
             providerId = form.providerId,
             baseUrl = form.baseUrl,
@@ -69,6 +66,8 @@ class ModelSettingsViewModel(
             },
             maxTurnsPerRun = form.maxTurnsPerRun.toString(),
             maxToolCallsPerRun = form.maxToolCallsPerRun.toString(),
+            webSearchApiKey = form.webSearchApiKey,
+            webSearchBaseUrl = form.webSearchBaseUrl,
             remoteModels = bundled,
             configError = coordinator.configurationError(),
             effectiveSummary = coordinator.configurationSummary(),
@@ -84,11 +83,7 @@ class ModelSettingsViewModel(
         } else {
             _state.value.modelId
         }
-        val remoteModels = if (preset.id == PROVIDER_ZHIPU_CODING) {
-            coordinator.zhipuBundledModels()
-        } else {
-            coordinator.bundledModels()
-        }
+        val remoteModels = coordinator.bundledModelsFor(preset.id)
         _state.value = _state.value.copy(
             providerId = preset.id,
             baseUrl = if (preset.id == PROVIDER_CUSTOM) {
@@ -131,6 +126,14 @@ class ModelSettingsViewModel(
 
     fun onMaxToolCallsPerRunChange(value: String) {
         _state.value = _state.value.copy(maxToolCallsPerRun = value.filter { it.isDigit() })
+    }
+
+    fun onWebSearchApiKeyChange(value: String) {
+        _state.value = _state.value.copy(webSearchApiKey = value)
+    }
+
+    fun onWebSearchBaseUrlChange(value: String) {
+        _state.value = _state.value.copy(webSearchBaseUrl = value)
     }
 
     fun toggleAdvanced() {
@@ -186,6 +189,8 @@ class ModelSettingsViewModel(
                 maxToolCallsPerRun = current.maxToolCallsPerRun.toIntOrNull()
                     ?: coordinator.readForm().maxToolCallsPerRun,
                 savedInApp = true,
+                webSearchApiKey = current.webSearchApiKey.trim(),
+                webSearchBaseUrl = current.webSearchBaseUrl.trim(),
             )
             val err = withContext(Dispatchers.IO) { coordinator.saveAndReload(form) }
             _state.value = _state.value.copy(

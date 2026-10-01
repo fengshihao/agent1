@@ -33,6 +33,14 @@ object AgentRuntimePreferencesMerge {
         if (prefs.maxToolCallsPerRun > 0) {
             props.setProperty("maxToolCallsPerRun", prefs.maxToolCallsPerRun.toString())
         }
+        val webSearchApiKey = prefs.webSearchApiKey.trim()
+        if (webSearchApiKey.isNotEmpty()) {
+            props.setProperty("webSearchApiKey", webSearchApiKey)
+            val webSearchBaseUrl = prefs.webSearchBaseUrl.trim().ifBlank {
+                AgentRuntimeDefaults.DEFAULT_TAVILY_BASE_URL
+            }
+            props.setProperty("webSearchBaseUrl", webSearchBaseUrl)
+        }
         return props
     }
 

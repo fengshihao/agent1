@@ -21,20 +21,22 @@ public final class ProductivityToolCapabilities {
 
     public static String summaryForCli(boolean weizhiScriptEnabled) {
         if (!weizhiToolsOnClasspath()) {
-            return "工作区：read_file · write_file · edit_file · list_dir · chat_history · read_url（未编入 Weizhi，无脚本 / MCP）";
+            return "工作区：read_file · write_file · edit_file · list_dir · chat_history · read_url · web_search"
+                + "（未编入 Weizhi，无脚本 / MCP）";
         }
         String webview = desktopWebViewLabel();
         if (weizhiScriptEnabled) {
-            return "工作区读写 + chat_history + read_url + execute_script（Weizhi）；扩展：grep / glob / zip / bash / load_skill / MCP / "
-                + webview;
+            return "工作区读写 + chat_history + read_url + web_search + execute_script（Weizhi）；扩展：grep / glob / zip / bash / "
+                + "load_skill / MCP / " + webview;
         }
-        return "工作区读写 + chat_history + read_url；扩展：grep / glob / zip / bash / load_skill / MCP / "
+        return "工作区读写 + chat_history + read_url + web_search；扩展：grep / glob / zip / bash / load_skill / MCP / "
             + webview + "（Weizhi 脚本未启用）";
     }
 
     public static List<String> detailBullets(boolean weizhiScriptEnabled) {
         List<String> lines = new ArrayList<>();
-        lines.add("read_file · write_file · edit_file · list_dir · chat_history · read_url");
+        lines.add("read_file · write_file · edit_file · list_dir · chat_history · read_url · web_search");
+        lines.add("web_search：Tavily（环境变量 TAVILY_API_KEY，或 App 模型配置里的 Web Search Key）");
         if (!weizhiToolsOnClasspath()) {
             lines.add("未检测到 weizhi 源码 — 构建需 ./weizhi 或 AGENT1_WEIZHI_REPO");
             return lines;

@@ -40,6 +40,7 @@ import com.agent1.javaagent.tool.agent.ListSessionsTool;
 import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import com.agent1.javaagent.tool.office.DocxOfficeTools;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
+import com.agent1.javaagent.tool.web.WebSearchTool;
 import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
@@ -72,6 +73,7 @@ public final class ProductivityAgentHost implements Closeable {
     private final WorkspaceToolProvider extraTools;
     /** capability_search 检索时按 Host 平台过滤（android / desktop），不由模型传参。 */
     private final String capabilitySearchPlatform;
+    private final AgentRuntimeConfig runtimeConfig;
     private volatile String sessionEnvironmentSupplement = "";
     private ProductivityCoach productivityCoach;
     private String activeSessionId;
@@ -146,6 +148,7 @@ public final class ProductivityAgentHost implements Closeable {
         this.scriptToolBridge = scriptToolBridge;
         this.extraTools = extraTools;
         this.capabilitySearchPlatform = normalizeCapabilitySearchPlatform(capabilitySearchPlatform);
+        this.runtimeConfig = config;
         this.runtime = new AgentRuntime(
             config.toAgentOptionsBuilder("").tools(List.of()).build(),
             llmClient
@@ -458,6 +461,7 @@ public final class ProductivityAgentHost implements Closeable {
         boolean scriptTool = scriptEngineFactory != null;
         runtime.setSystemPrompt(new ProductivitySystemPromptBuilder()
             .hostAppend(scriptPromptAppend)
+            .webSearch(runtimeConfig.isWebSearchConfigured())
             .buildMainPrompt(
                 workspace,
                 agentRoot,
@@ -489,6 +493,12 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         tools.add(new AskUserTool());
         tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform, projectRoot));
+        if (runtimeConfig.isWebSearchConfigured()) {
+            tools.add(new WebSearchTool(
+                runtimeConfig.getWebSearchApiKey(),
+                runtimeConfig.getWebSearchBaseUrl()
+            ));
+        }
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);
             if (extra != null && !extra.isEmpty()) {

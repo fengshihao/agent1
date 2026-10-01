@@ -12,4 +12,6 @@ data class AgentRuntimePreferences(
     val maxToolCallsPerRun: Int = 0,
     /** 为 true 时表示用户已在 App 内保存过，BuildConfig 仅作缺省回填。 */
     val savedInApp: Boolean = false,
+    val webSearchApiKey: String = "",
+    val webSearchBaseUrl: String = "",
 )

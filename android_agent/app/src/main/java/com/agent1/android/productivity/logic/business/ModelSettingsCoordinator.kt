@@ -2,6 +2,7 @@ package com.agent1.android.productivity.logic.business
 
 import android.content.Context
 import com.agent1.javaagent.config.AgentRuntimeConfig
+import com.agent1.javaagent.config.AgentRuntimeDefaults
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.android.productivity.logic.data.AndroidAgentRuntimeConfig
 import com.agent1.android.productivity.logic.data.config.AgentRuntimePreferences
@@ -39,6 +40,8 @@ class ModelSettingsCoordinator(context: Context) {
                 effective.maxToolCallsPerRun
             },
             savedInApp = prefs.savedInApp,
+            webSearchApiKey = prefs.webSearchApiKey,
+            webSearchBaseUrl = prefs.webSearchBaseUrl.ifBlank { AgentRuntimeDefaults.DEFAULT_TAVILY_BASE_URL },
         )
     }
 
@@ -53,9 +56,11 @@ class ModelSettingsCoordinator(context: Context) {
         return catalogService.fetchRemoteModelOptions(baseUrl, apiKey)
     }
 
-    fun bundledModels(): List<RemoteModelOption> = catalogService.bundledFallback()
-
-    fun zhipuBundledModels(): List<RemoteModelOption> = catalogService.zhipuCodingFallback()
+    fun bundledModelsFor(providerId: String): List<RemoteModelOption> = when (providerId) {
+        PROVIDER_ZHIPU_CODING -> catalogService.zhipuCodingFallback()
+        PROVIDER_DEEPSEEK -> catalogService.deepseekFallback()
+        else -> catalogService.bundledFallback()
+    }
 
     fun saveAndReload(form: ModelSettingsForm): String? {
         val prefs = AgentRuntimePreferences(
@@ -68,6 +73,10 @@ class ModelSettingsCoordinator(context: Context) {
             maxTurnsPerRun = form.maxTurnsPerRun,
             maxToolCallsPerRun = form.maxToolCallsPerRun,
             savedInApp = true,
+            webSearchApiKey = form.webSearchApiKey.trim(),
+            webSearchBaseUrl = form.webSearchBaseUrl.trim().ifBlank {
+                AgentRuntimeDefaults.DEFAULT_TAVILY_BASE_URL
+            },
         )
         store.save(prefs)
         ProductivityGatewayProvider.reload(appContext)

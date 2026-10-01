@@ -19,6 +19,20 @@ class ModelCatalogService(
         return QwenModelCatalog.primaryModels().map { info -> fromCatalog(info) }
     }
 
+    /** DeepSeek OpenAI 兼容常用模型（远程列表失败或未拉取时的本地候选）。 */
+    fun deepseekFallback(): List<RemoteModelOption> = listOf(
+        RemoteModelOption(
+            modelId = "deepseek-flash",
+            title = "DeepSeek Flash",
+            subtitle = "V4.1 Flash · 推荐",
+        ),
+        RemoteModelOption(
+            modelId = "deepseek-v4-pro",
+            title = "DeepSeek V4 Pro",
+            subtitle = "更强推理",
+        ),
+    )
+
     /** 智谱 Coding Plan 常用模型（远程列表失败或未拉取时的本地候选）。 */
     fun zhipuCodingFallback(): List<RemoteModelOption> = listOf(
         RemoteModelOption(

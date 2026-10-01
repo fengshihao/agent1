@@ -20,20 +20,31 @@ data class ModelSettingsForm(
     val maxTurnsPerRun: Int = AgentRuntimeDefaults.DEFAULT_MAX_TURNS_PER_RUN,
     val maxToolCallsPerRun: Int = AgentRuntimeDefaults.DEFAULT_MAX_TOOL_CALLS_PER_RUN,
     val savedInApp: Boolean = false,
+    val webSearchApiKey: String = "",
+    val webSearchBaseUrl: String = AgentRuntimeDefaults.DEFAULT_TAVILY_BASE_URL,
 )
 
 const val PROVIDER_DASHSCOPE = "dashscope"
+const val PROVIDER_DEEPSEEK = "deepseek"
 const val PROVIDER_ZHIPU_CODING = "zhipu_coding"
 const val PROVIDER_OPENAI = "openai"
 const val PROVIDER_CUSTOM = "custom"
 
 const val DEFAULT_DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+const val DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+const val DEFAULT_DEEPSEEK_MODEL = "deepseek-flash"
 const val DEFAULT_ZHIPU_CODING_BASE_URL = "https://open.bigmodel.cn/api/coding/paas/v4"
 const val DEFAULT_ZHIPU_CODING_MODEL = "glm-5.3"
 const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 
 fun providerOptions(): List<ProviderOption> = listOf(
     ProviderOption(PROVIDER_DASHSCOPE, "阿里云 DashScope（OpenAI 兼容）", DEFAULT_DASHSCOPE_BASE_URL),
+    ProviderOption(
+        PROVIDER_DEEPSEEK,
+        "DeepSeek",
+        DEFAULT_DEEPSEEK_BASE_URL,
+        DEFAULT_DEEPSEEK_MODEL,
+    ),
     ProviderOption(
         PROVIDER_ZHIPU_CODING,
         "智谱 GLM Coding Plan",

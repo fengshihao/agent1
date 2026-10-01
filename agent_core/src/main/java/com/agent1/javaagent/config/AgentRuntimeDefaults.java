@@ -5,6 +5,8 @@ public final class AgentRuntimeDefaults {
 
     public static final String DEFAULT_MODEL = "qwen3.7-flash";
     public static final String DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+    /** Tavily Search API 根地址（请求发往 {@code {base}/search}）。 */
+    public static final String DEFAULT_TAVILY_BASE_URL = "https://api.tavily.com";
     public static final int DEFAULT_MAX_CONTEXT_TURNS = 6;
     public static final int DEFAULT_MAX_TURNS_PER_RUN = 12;
     public static final int DEFAULT_MAX_TOOL_CALLS_PER_RUN = 24;
