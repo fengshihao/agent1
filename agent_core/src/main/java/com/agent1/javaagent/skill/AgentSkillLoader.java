@@ -2,6 +2,8 @@ package com.agent1.javaagent.skill;
 
 import com.agent1.javaagent.util.PathIo;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -13,6 +15,11 @@ import java.util.Map;
 import java.util.Objects;
 
 public final class AgentSkillLoader {
+
+    /** 随 core 发布、不经过 promote 的技能。local / catalog / project 同名条目覆盖它。 */
+    private static final String[] BUNDLED_SKILL_RESOURCES = {
+        "/agent-home/skills/skill-creator/SKILL.md"
+    };
 
     public SkillLoadResult loadFromProjectRoot(Path projectRoot) {
         Path skillsRoot = projectRoot.resolve(".claude").resolve("skills");
@@ -43,10 +50,11 @@ public final class AgentSkillLoader {
         return new SkillLoadResult(skills, warnings);
     }
 
-    /** 合并加载：project → catalog → local（后者覆盖同名，阶段 6.4 / 7.1）。 */
+    /** 合并加载：bundled → project → catalog → local（后者覆盖同名）。 */
     public SkillLoadResult loadMerged(Path agentRoot, Path projectRoot) {
         Map<String, AgentSkill> byName = new LinkedHashMap<>();
         List<String> warnings = new ArrayList<>();
+        mergeInto(byName, warnings, loadBundled());
         mergeInto(byName, warnings, loadFromProjectRoot(projectRoot));
         if (agentRoot != null) {
             Path root = agentRoot.toAbsolutePath().normalize();
@@ -73,6 +81,55 @@ public final class AgentSkillLoader {
         for (AgentSkill skill : batch.skills()) {
             byName.put(skill.name(), skill);
         }
+    }
+
+    /** 从 classpath 读取内置 SKILL.md。 */
+    public SkillLoadResult loadBundled() {
+        List<AgentSkill> skills = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
+        for (String resource : BUNDLED_SKILL_RESOURCES) {
+            try {
+                String raw = readBundledResource(resource);
+                String fallback = fallbackNameFromResource(resource);
+                ParsedSkill parsed = parseSkill(raw, fallback);
+                skills.add(
+                    new AgentSkill(
+                        parsed.name(),
+                        parsed.description(),
+                        parsed.content(),
+                        Path.of("bundled", fallback, "SKILL.md"),
+                        "bundled",
+                        parsed.frontmatter()
+                    )
+                );
+            } catch (IOException | RuntimeException e) {
+                warnings.add("解析内置 skill 失败(" + resource + "): " + e.getMessage());
+            }
+        }
+        return new SkillLoadResult(skills, warnings);
+    }
+
+    private static String readBundledResource(String resource) throws IOException {
+        try (InputStream in = AgentSkillLoader.class.getResourceAsStream(resource)) {
+            if (in == null) {
+                throw new IOException("missing bundled skill: " + resource);
+            }
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private static String fallbackNameFromResource(String resource) {
+        String marker = "/skills/";
+        int start = resource.indexOf(marker);
+        if (start < 0) {
+            return "skill";
+        }
+        String rest = resource.substring(start + marker.length());
+        int slash = rest.indexOf('/');
+        if (slash <= 0) {
+            return "skill";
+        }
+        return rest.substring(0, slash);
     }
 
     private void loadSingleSkill(
