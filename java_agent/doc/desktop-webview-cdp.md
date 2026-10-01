@@ -33,7 +33,11 @@ gradle -p java_agent :weizhi-bridge:test --tests CdpWebViewCanvasDrawTest
 | 桥接 | `@JavascriptInterface NativeBridge` | `Runtime.addBinding` + 内存队列兜底 |
 | 引导页 | `loadDataWithBaseURL` | 临时 `file://` HTML |
 
-工具参数、回执 JSON、落盘语义与 Android 一致。
+工具参数、回执 JSON、落盘语义与 Android `WebViewExecTool` 一致（对齐 weizhi #16）：
+
+- `output_path` 写入的是脚本返回值的 UTF-8 文本。`return` 纯 Base64 时，文件内容就是这段 Base64，不是按扩展名生成的二进制 PNG。
+- 成功回执含 `resultType`（`null`、`string`、`number`、`boolean`、`object`、`array`）。字符串 `"null"` 与 JSON `null` 靠 `resultType` 区分。
+- 脚本返回 `null` 或 `undefined` 且提供了 `output_path` 时，回执 `ok: false`，不会把 4 个字符的文本 `null` 写入文件。
 
 ## Mock LLM 端到端
 

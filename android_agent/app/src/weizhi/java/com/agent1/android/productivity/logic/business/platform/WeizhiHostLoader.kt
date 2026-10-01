@@ -29,8 +29,10 @@ object WeizhiHostLoader {
             ),
             600_000L,
             """
-            图像与 WebView：当 webview_exec 等工具返回 outputPath 指向 png/jpg 等图片时，
-            你必须在面向用户的最终回复里用 Markdown 引用工作区相对路径，例如 ![小猫](cat.png)，
+            图像与 WebView：webview_exec 的 output_path 写入的是脚本 return 值的 UTF-8 文本，不是按扩展名生成的二进制图片。
+            要保存图，必须 return 纯 Base64，例如 return canvas.toDataURL('image/png').split(',')[1]；文件内容就是这段 Base64。
+            成功回执含 resultType。返回 null 或 undefined 且带了 output_path 时 ok 为 false，文件不会写成文本 null，不要告诉用户已经画好。
+            仅当 ok 为 true 且 outputPath 指向 png/jpg 时，在最终回复里用 Markdown 引用工作区相对路径，例如 ![小猫](cat.png)，
             不要粘贴工具 JSON、base64 或 resultPreview。工具执行后若尚未给出带 ![](...) 的总结，应再调用一轮完成说明。
 
             Word（.docx）：简单转换用 docx_markdown_to_word（`#` 标题自带字号层次）；勿在 Markdown 里插 HTML 改样式。

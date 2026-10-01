@@ -38,14 +38,20 @@ object ChatTranscriptFormatting {
     }
 
     private fun formatToolJson(json: JSONObject, workspaceRoot: Path?): ToolResultDisplay {
+        val ok = json.optBoolean("ok", true)
+        if (!ok) {
+            val error = json.optString("error", "").trim()
+            return ToolResultDisplay(summary = truncatePlain(if (error.isNotEmpty()) error else json.toString()))
+        }
         val outputPath = json.optString("outputPath", "").trim()
         if (outputPath.isNotEmpty() && isImagePath(outputPath)) {
             val bytes = json.optLong("outputBytes", -1L).takeIf { it >= 0 }
-            val ok = json.optBoolean("ok", true)
             val elapsed = json.optLong("elapsedMs", -1L).takeIf { it >= 0 }
+            val resultType = json.optString("resultType", "").trim()
             val parts = buildList {
-                add(if (ok) "已生成图片" else "图片工具返回异常")
+                add("已生成图片")
                 add(outputPath)
+                if (resultType.isNotEmpty()) add(resultType)
                 bytes?.let { add("${it} 字节") }
                 elapsed?.let { add("${it} ms") }
             }
@@ -58,9 +64,8 @@ object ChatTranscriptFormatting {
             )
         }
         if (outputPath.isNotEmpty() && isAttachmentPath(outputPath)) {
-            val ok = json.optBoolean("ok", true)
             val parts = buildList {
-                add(if (ok) "已生成文件" else "文件工具返回异常")
+                add("已生成文件")
                 add(outputPath)
             }
             return ToolResultDisplay(
@@ -90,7 +95,15 @@ object ChatTranscriptFormatting {
             return "文件不存在或大小为 0"
         }
         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(file.absolutePath, opts)
+        if (WorkspaceImageBytes.isBase64ImageText(file)) {
+            val decoded = WorkspaceImageBytes.decodeBase64Payload(file)
+            if (decoded == null) {
+                return "无法解码为有效图片（可能空白或损坏）"
+            }
+            BitmapFactory.decodeByteArray(decoded, 0, decoded.size, opts)
+        } else {
+            BitmapFactory.decodeFile(file.absolutePath, opts)
+        }
         if (opts.outWidth <= 0 || opts.outHeight <= 0) {
             return "无法解码为有效图片（可能空白或损坏）"
         }

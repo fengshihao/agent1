@@ -2,8 +2,6 @@ package com.agent1.javaagent.weizhi.desktop;
 
 import com.agent1.javaagent.weizhi.desktop.cdp.CdpWebViewRuntime;
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.weizhi.agent.sandbox.WorkspaceSandbox;
 import com.weizhi.agent.web.BridgeCodec;
 import com.weizhi.agent.web.WebViewTask;
@@ -24,7 +22,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
-/** webview_exec 入参准备与回执 JSON（桌面 CDP / Android WebView 共用逻辑）。 */
+/** webview_exec 入参准备与回执 JSON。落盘语义对齐 Android {@code WebViewExecTool}。 */
 public final class WebViewExecSupport {
 
     private static final Gson GSON = new Gson();
@@ -101,62 +99,61 @@ public final class WebViewExecSupport {
         return renderOk(task, sandbox, outcome);
     }
 
-    private static String renderOk(
+    static String renderOk(
         WebViewTask task,
         WorkspaceSandbox sandbox,
         CdpWebViewRuntime.WebViewRuntimeOutcome o
     ) {
-        Object result = null;
-        boolean unserializable = false;
-        try {
-            JsonObject payload = JsonParser.parseString(o.payloadJson()).getAsJsonObject();
-            if (payload.has("result") && !payload.get("result").isJsonNull()) {
-                result = payload.get("result");
-            }
-            unserializable = payload.has("unserializable") && payload.get("unserializable").getAsBoolean();
-        } catch (Exception e) {
-            return errJson("结果解析失败: " + e.getMessage());
-        }
-        String resultText = result == null ? "null"
-            : (result instanceof com.google.gson.JsonPrimitive
-                && ((com.google.gson.JsonPrimitive) result).isString()
-                ? ((com.google.gson.JsonPrimitive) result).getAsString()
-                : GSON.toJson(result));
-
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("ok", true);
-        m.put("elapsedMs", o.elapsedMs());
-        if (unserializable) {
-            m.put("note", "结果不可 JSON 序列化,已降级为字符串形态");
+        WebViewSpillResult parsed = WebViewSpillResult.parse(o.payloadJson());
+        if (parsed.parseError != null) {
+            return errJson("结果解析失败: " + parsed.parseError);
         }
         String outputRel = WebViewTaskAccess.outputRel(task);
+        byte[] spill = parsed.spillUtf8;
+        if (outputRel != null && spill == null) {
+            return nullSpillError();
+        }
+
+        Map<String, Object> receipt = new LinkedHashMap<>();
+        receipt.put("ok", true);
+        receipt.put("elapsedMs", o.elapsedMs());
+        if (parsed.unserializable) {
+            receipt.put("note", "结果不可 JSON 序列化,已降级为字符串形态");
+        }
         if (outputRel != null) {
+            if (spill == null) {
+                return nullSpillError();
+            }
             try {
-                Path p = sandbox.resolveWrite(outputRel);
-                if (p.getParent() != null) {
-                    Files.createDirectories(p.getParent());
+                Path path = sandbox.resolveWrite(outputRel);
+                if (path.getParent() != null) {
+                    Files.createDirectories(path.getParent());
                 }
-                byte[] bytes = result instanceof com.google.gson.JsonPrimitive
-                    && ((com.google.gson.JsonPrimitive) result).isString()
-                    ? resultText.getBytes(StandardCharsets.UTF_8)
-                    : GSON.toJson(result).getBytes(StandardCharsets.UTF_8);
-                Files.write(p, bytes);
-                m.put("outputPath", outputRel);
-                m.put("outputBytes", bytes.length);
+                Files.write(path, spill);
+                receipt.put("outputPath", outputRel);
+                receipt.put("outputBytes", spill.length);
             } catch (IOException | SecurityException e) {
                 return errJson("任务执行成功但结果落盘失败(" + outputRel + "): "
-                    + e.getMessage() + "。结果预览: " + preview(resultText));
+                    + e.getMessage() + "。结果预览: " + preview(parsed.text));
             }
-        } else if (resultText.length() > BridgeCodec.INLINE_LIMIT) {
-            m.put("hint", "结果 " + resultText.length() + " 字符未保存:未提供 output_path,"
+        } else if (parsed.text.length() > BridgeCodec.INLINE_LIMIT) {
+            receipt.put("hint", "结果 " + parsed.text.length() + " 字符未保存:未提供 output_path,"
                 + "请带 output_path 重跑获取完整结果。");
         }
-        m.put("resultPreview", preview(resultText));
+        receipt.put("resultType", parsed.resultType);
+        receipt.put("resultPreview", preview(parsed.text));
         List<String> console = o.console();
         if (console != null && !console.isEmpty()) {
-            m.put("console", console);
+            receipt.put("console", console);
         }
-        return GSON.toJson(m);
+        return GSON.toJson(receipt);
+    }
+
+    private static String nullSpillError() {
+        return errJson("没有可落盘的返回值:脚本返回了 null 或 undefined。"
+            + "output_path 写入的是返回值的 UTF-8 文本,不会把文本 null 写入文件。"
+            + "请在 code 中 return 要保存的内容;若是图片,return Base64 字符串"
+            + "(文件内容就是这段 Base64,不会按扩展名解码成二进制)。");
     }
 
     private static String preview(String s) {
