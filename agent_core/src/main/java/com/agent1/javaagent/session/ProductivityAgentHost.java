@@ -38,7 +38,9 @@ import com.agent1.javaagent.tool.agent.CatalogInstallTool;
 import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
 import com.agent1.javaagent.tool.agent.ListCatalogTool;
 import com.agent1.javaagent.tool.agent.ListSessionsTool;
+import com.agent1.javaagent.capability.CapabilitySearchView;
 import com.agent1.javaagent.catalog.OfficeCatalogScripts;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.agent1.javaagent.tool.office.DocxOfficeTools;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
 import com.agent1.javaagent.tool.web.WebSearchTool;
@@ -294,6 +296,37 @@ public final class ProductivityAgentHost implements Closeable {
 
     public AgentRuntime runtime() {
         return runtime;
+    }
+
+    /**
+     * 与模型调用 {@code capability_search} 相同的 query / kinds / limit 和正文。
+     * 进行中的 Run 不刷新 MCP 索引，避免和当轮写入抢同一份库。
+     */
+    public CapabilitySearchView.Result searchCapabilities(String query, List<String> kinds, int limit) {
+        if (!runtime.isRunning()) {
+            refreshMcpIndex();
+        }
+        return CapabilitySearchView.search(agentRoot, capabilitySearchPlatform, projectRoot, query, kinds, limit);
+    }
+
+    /** 当前会话已经装进 runtime 的系统提示词；未切换会话时为空。 */
+    public String activeSystemPrompt() {
+        return runtime.getStateSnapshot().getSystemPrompt();
+    }
+
+    /** 当前会话已注册工具的名称、说明和参数 schema，与发给模型的工具列表一致。 */
+    public List<RegisteredToolBrief> registeredTools() {
+        List<RegisteredToolBrief> out = new ArrayList<>();
+        for (AgentTool tool : runtime.getTools()) {
+            JsonNode schema = tool.parametersSchema();
+            String schemaText = schema == null || schema.isNull() ? "" : schema.toPrettyString();
+            String description = tool.description() == null ? "" : tool.description();
+            out.add(new RegisteredToolBrief(tool.name(), description, schemaText));
+        }
+        return List.copyOf(out);
+    }
+
+    public record RegisteredToolBrief(String name, String description, String parametersSchema) {
     }
 
     public boolean isRunInProgress() {

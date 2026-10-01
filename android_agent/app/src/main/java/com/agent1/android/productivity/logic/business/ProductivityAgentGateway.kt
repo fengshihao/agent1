@@ -6,6 +6,7 @@ import com.agent1.javaagent.config.AgentRuntimeConfig
 import com.agent1.javaagent.event.AgentEventListener
 import com.agent1.javaagent.model.AgentMessage
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
+import com.agent1.javaagent.capability.CapabilitySearchView
 import com.agent1.javaagent.session.ProductivityAgentHost
 import com.agent1.javaagent.session.SessionMeta
 import java.io.Closeable
@@ -72,6 +73,40 @@ class ProductivityAgentGateway(
     }
 
     fun getActiveSessionId(): String? = execute { ensureHost().activeSessionId }
+
+    /** 与模型 {@code capability_search} 同一参数和正文，并带上当前平台不可用、未启用 MCP。 */
+    fun searchCapabilities(
+        query: String,
+        kinds: List<String>,
+        limit: Int,
+    ): CapabilitySearchView.Result = execute {
+        ensureHost().searchCapabilities(query, kinds, limit)
+    }
+
+    /** 当前会话下一次 Run 会使用的系统提示词，以及已注册工具说明。 */
+    fun systemPromptSnapshot(sessionId: String): SystemPromptSnapshot = execute {
+        if (sessionId.isBlank()) {
+            throw IllegalArgumentException("先打开一个会话")
+        }
+        val agentHost = ensureHost()
+        if (agentHost.isRunInProgress) {
+            if (agentHost.activeSessionId != sessionId) {
+                throw IllegalStateException("当前有进行中的对话，结束后再查看系统提示词")
+            }
+        } else {
+            prepareSession(sessionId)
+        }
+        SystemPromptSnapshot(
+            prompt = agentHost.activeSystemPrompt(),
+            tools = agentHost.registeredTools().map { tool ->
+                RegisteredToolSnapshot(
+                    name = tool.name(),
+                    description = tool.description(),
+                    parametersSchema = tool.parametersSchema(),
+                )
+            },
+        )
+    }
 
     fun loadTranscript(sessionId: String): List<AgentMessage> = execute {
         prepareSession(sessionId)

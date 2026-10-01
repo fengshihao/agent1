@@ -101,6 +101,10 @@ public final class AgentRuntime implements Closeable {
         state.setTools(tools);
     }
 
+    public List<AgentTool> getTools() {
+        return state.getTools();
+    }
+
     public void replaceMessages(List<AgentMessage> messages) {
         state.replaceMessages(messages);
     }
