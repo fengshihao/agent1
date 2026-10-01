@@ -56,6 +56,33 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("execute_script"));
         assertTrue(prompt.contains("capability_search"));
         assertTrue(prompt.contains("编程智能体"));
+        assertTrue(prompt.contains("QuickJS"));
+        assertTrue(prompt.contains("webview_exec"));
+        assertTrue(prompt.contains("没有 document、window、DOM"));
+    }
+
+    @Test
+    void describesProductionFlowWithDirectAndJsPaths() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), true);
+        assertTrue(prompt.contains("生产流程"));
+        assertTrue(prompt.contains("直接生产"));
+        assertTrue(prompt.contains("编程生产"));
+        assertTrue(prompt.contains("jobs/run.js"));
+    }
+
+    @Test
+    void statesWhatIsForbiddenAndHowDirectoriesAreLaidOut() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), false);
+        assertTrue(prompt.contains("不能 npm"));
+        assertTrue(prompt.contains("node_modules"));
+        assertTrue(prompt.contains("sessions/<sessionId>/workspace/"));
+        assertTrue(prompt.contains("shared/catalog/"));
+        assertTrue(prompt.contains("docs/system/"));
+        assertTrue(prompt.contains("主要工具"));
+        assertFalse(prompt.contains("QuickJS"));
+        assertFalse(prompt.contains("Tavily"));
     }
 
     @Test
@@ -122,8 +149,9 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("promote_request"));
         assertTrue(prompt.contains("name"));
         assertTrue(prompt.contains("description"));
-        assertTrue(prompt.contains("查阅 Skill 用 capability_search"));
+        assertTrue(prompt.contains("capability_search"));
         assertTrue(prompt.contains("doc_path"));
+        assertTrue(prompt.contains("命中 skill"));
     }
 
     @Test

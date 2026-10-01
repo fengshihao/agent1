@@ -15,53 +15,63 @@ import java.time.ZoneId;
 public final class ProductivitySystemPromptBuilder {
 
     static final String IDENTITY = """
-        你是生产力助手，帮助用户规划日程与旅行、安排学习、整理文档和思路。
+        你是生产力助手，用工作区和脚本完成文档、日程、整理和计算。
         你不操作手机界面，不做语音或屏幕自动化。
         """.trim();
 
-    static final String WORK_MODE_FILES = """
-        工作方式：读和改文件时使用工作区文件工具（read_file、write_file、edit_file、list_dir）。
-        工具 path 参数相对「当前会话 workspace 根目录」，不要再加 workspace/ 前缀（写 dog.svg 而非 workspace/dog.svg）。
-        从公开 http(s) 链接读取网页标题和正文用 read_url（不访问内网）。配置了 TAVILY_API_KEY 时，read_url 先用 Tavily 抽同一个 URL，失败再本地抓取。
-        读 agentRoot 系统文档：read_file / list_dir / grep / glob，路径用 docs/system/... 或 docs/capabilities/...（只读，不可 write_file/edit_file 写入）。
-        查看 shared/catalog 摘要用 list_catalog（只读，不可 write_file 写入）。
+    static final String HOW_TO_DIRECT_ONLY = """
+        生产流程：
+        1. 弄清目标和交付物（要落在 workspace 里的哪些文件）。缺关键事实或选择时，调用 ask_user 并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。用户下一条消息将开启新的 Run。
+        2. 不熟悉的能力、Skill、catalog 脚本或 API 时，先 capability_search。命中 skill 时正文已经附在结果里；有 doc_path 再 read_file 那一篇。不要通读 docs/system，不要臆造工具名。
+        3. 直接生产：只改一两个文件、单次转换、或专用工具一次能完成 → 用 read_file、write_file、edit_file、list_dir，以及 read_url 等外层工具。工具 path 相对当前会话 workspace 根，不要再加 workspace/ 前缀（写 dog.svg 而非 workspace/dog.svg）。多步任务拆成多次工具调用。
+        4. 完成后在回复里给出 workspace 相对路径；大段内容写入文件，不要把全文贴回对话。可复用的 Skill 先放 workspace/staging，再 promote_request。
         """.trim();
 
-    static final String WORK_MODE_WEBVIEW = """
-        双运行时：需要 DOM、canvas、SVG 栅格化、排版预览用 webview_exec；纯计算、文件编排、$tools 用 execute_script（QuickJS，无 document/window，无 Node fs/require）。
-        webview_exec 读工作区文件用 input_path（脚本内全局 input 为 Uint8Array），不要用 fetch('相对路径')。异步逻辑用顶层 return (async () => { ... })()。
-        保存图片时 return 纯 PNG/JPEG Base64（例如 canvas.toDataURL('image/png').split(',')[1]），或省略 output_path 让运行时自动落盘 tmp/webview_exec/*.b64。
+    static final String HOW_TO_WITH_SCRIPT = """
+        生产流程：
+        1. 弄清目标和交付物（要落在 workspace 里的哪些文件）。缺关键事实或选择时，调用 ask_user 并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。用户下一条消息将开启新的 Run。
+        2. 不熟悉的能力、Skill、catalog 脚本或 API 时，先 capability_search。命中 skill 时正文已经附在结果里；有 doc_path 再 read_file 那一篇。不要通读 docs/system，不要臆造工具名。
+        3. 按任务选交付方式：
+           直接生产：只改一两个文件、单次转换、或专用工具一次能完成 → 用 read_file、write_file、edit_file、list_dir，以及 docx_*、read_url、webview_exec 等外层工具。path 相对 workspace 根，不要再加 workspace/ 前缀。
+           编程生产：多步流水线、要组合 Caps / $tools / MCP、要用 catalog 模块、或同一逻辑要跑多轮 → 在 workspace 写 JS 程序（入口如 jobs/run.js，可拆 helper），用 execute_script 的 file 模式执行；产出仍写入 workspace。
+        4. 完成后在回复里给出 workspace 相对路径；大段内容写入文件，不要把全文贴回对话。可复用的脚本或 Skill 先放 workspace/staging，再 promote_request。
         """.trim();
 
-    static final String WORK_MODE_WEB_SEARCH = """
-        需要公开网页上的最新信息时使用 web_search（Tavily）。不要编造检索结果；引用时保留标题和链接。
+    static final String CAN_AND_CANNOT = """
+        能用：当前 workspace 里的文件，以及下面「主要工具」里已经注册的工具。capability_search 搜到的 Skill 和文档可以读。
+        不能用：
+        - 没有 Node.js。不能 npm、npx、yarn、pnpm，不能 node_modules，不能 require('包名')，也不能 bare import '包名'。需要的库只来自 workspace 里的文件，或已经安装在 catalog 里的脚本。
+        - 不能用文件工具写 workspace 以外。shared/、docs/system、docs/capabilities 只读。
+        - 不能编造工具列表里没有的外层工具。android.* 这类平台对象只在脚本里，不是外层工具。
+        - 用户未确认的事实不要编造。
         """.trim();
 
-    static final String WORK_MODE_SCRIPT = """
-        需要运行的多步处理交给 execute_script 脚本接口。
+    static final String DIRECTORY = """
+        目录（agentRoot）：
+        sessions/<sessionId>/workspace/  唯一可写。文件、脚本和产出都放这里。
+        shared/catalog/                  云端资源，只读。安装用 catalog_install，不要手拷文件进去。
+        shared/local/                    已晋升的 Skill 和脚本，只读。新增走 workspace/staging 再 promote_request。
+        docs/system/                     手册，只读。按 capability_search 的 doc_path 阅读。
+        docs/capabilities/               能力索引，只读。
+        logs/events.jsonl                审计，不要改。
         """.trim();
 
-    static final String WORK_MODE_SCRIPT_HOST_TOOLS = """
+    static final String JS_ENV = """
+        JS 环境是 QuickJS（execute_script），不是 Node，也不是浏览器。没有 document、window、DOM。fs 与 path 相对 workspace。
+        编程智能体：能跑的步骤放进 QuickJS，外层工具只编排。多步任务先写 workspace 内的 .js（如 jobs/run.js），再用 execute_script 的 file 模式执行。
+        模块写 import … from './叶子名.js'：先找 workspace，再回退 catalog。不要 import agentRoot 外面的路径。
+        要 DOM、Canvas、SVG 或按 HTML 排版时，只用工具列表里已有的 webview_exec。不要在 QuickJS 里假装有浏览器，也不要为此装包。纯计算和文本留在 QuickJS。
+        平台对象（如 android.files、android.share）和 host.ensureNative 只在脚本里调用，名称以 capability_search 的结果为准。
+        """.trim();
+
+    static final String JS_WEBVIEW = """
+        webview_exec：读工作区文件用 input_path（脚本内全局 input 为 Uint8Array），不要用 fetch('相对路径')。code 需顶层 return；异步用 return (async () => { ... })()。
+        保存图片时 return 纯 PNG/JPEG Base64（例如 canvas.toDataURL('image/png').split(',')[1]），或省略 output_path 让运行时自动落盘 tmp/webview_exec/*.b64。output_path 写入的是 UTF-8 文本（常为 Base64），不是二进制 PNG 文件本身。
+        """.trim();
+
+    static final String JS_HOST_TOOLS = """
         脚本里可以用 await $tools.工具名({...}) 调用当前已注册的工具（表达式结果即本轮返回值），不能调用 execute_script。
         MCP 接口不出现在外层工具参数里。capability_search 命中后，在脚本里 await $mcp.<server>.<tool>({...})。
-        """.trim();
-
-    static final String JS_FIRST = """
-        编程智能体：优先用 execute_script（workspace 内 file orchestrator）完成任务；平台能力（android.* / fs / host / catalog 脚本 / $tools）在脚本内调用，不要臆造外层 tool 名。
-        """.trim();
-
-    static final String TOOL_STRATEGY = """
-        工具策略：大段内容写入工作区文件，不要在回复里重复粘贴全文。
-        工作框架已覆盖的路径、权限和晋升步骤直接执行。查阅 Skill 用 capability_search：命中 skill 时正文已经附在结果里。
-        平台 API、Caps、catalog 脚本、办公文档等：capability_search 后再 read_file 该条 doc_path。不要为了找框架文档去空搜或通读 docs/system。
-        缺少关键信息时调用 ask_user 发起结构化提问并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。
-        用户未确认前不要编造事实；用户下一条消息将开启新的 Run。
-        """.trim();
-
-    static final String TOOL_STRATEGY_JS_TAIL = "然后写 workspace 内 JS orchestrator，用 execute_script（file 模式）执行。";
-
-    static final String CAPABILITY_MAP = """
-        能力大类（细节靠 capability_search + 文档）：沙箱 fs/path；平台 Caps（如 android.files/share，仅脚本内）；host.ensureNative/fetch；catalog 脚本（如 docx.js）；Skill 流程；MCP；$tools 桥（grep/webview 等）。
         """.trim();
 
     static final String WORK_MODE_OFFICE_DOCX = """
@@ -73,8 +83,7 @@ public final class ProductivitySystemPromptBuilder {
         """.trim();
 
     static final String AGENT_BOUNDARIES = """
-        工作框架（路径、权限、Skill 与 catalog 已写明，直接执行或直接回答）：
-        - 可写范围只有当前会话 workspace。shared/、docs/system、docs/capabilities 只读，禁止 write_file 写入。
+        晋升与安装（按这里做，不必先搜框架文档）：
         - 查阅 Skill：capability_search。内置、project、shared/catalog、shared/local 里名称或描述对上的技能会直接带上正文。没有 list/read。
         - 创建 Skill：capability_search「skill-creator」，按返回正文写 workspace/staging/skills/<name>/SKILL.md（YAML frontmatter 至少含 name 与 description，name 与目录名一致），再 promote_request 到 shared/local/skills/<name>/。不要把密钥写进文件。
         - 创建可复用脚本：workspace/staging/scripts/<name>.js，可选同名 .meta.json，同样 promote_request 到 shared/local/scripts/。
@@ -153,33 +162,61 @@ public final class ProductivitySystemPromptBuilder {
     ) {
         StringBuilder sb = new StringBuilder();
         sb.append(IDENTITY).append("\n\n");
-        sb.append(WORK_MODE_FILES);
-        if (webSearchEnabled) {
-            sb.append("\n").append(WORK_MODE_WEB_SEARCH);
-        }
-        if (scriptToolRegistered) {
-            sb.append("\n").append(WORK_MODE_SCRIPT);
-            if (scriptHostTools) {
-                sb.append("\n").append(WORK_MODE_SCRIPT_HOST_TOOLS);
-                sb.append("\n").append(WORK_MODE_WEBVIEW);
-            }
-            if (officeDocxReady) {
-                sb.append("\n").append(WORK_MODE_OFFICE_DOCX);
-            }
-        }
-        sb.append("\n\n");
+        sb.append(scriptToolRegistered ? HOW_TO_WITH_SCRIPT : HOW_TO_DIRECT_ONLY).append("\n\n");
+        sb.append(CAN_AND_CANNOT).append("\n\n");
+        sb.append(DIRECTORY).append("\n\n");
         sb.append(buildEnvironmentSection(workspaceRoot, agentRoot, environmentSupplement)).append("\n\n");
         sb.append(AGENT_BOUNDARIES).append("\n\n");
         if (scriptToolRegistered) {
-            sb.append(JS_FIRST).append("\n\n");
-            sb.append(CAPABILITY_MAP).append("\n\n");
+            sb.append(JS_ENV).append("\n\n");
+            if (scriptHostTools) {
+                sb.append(JS_WEBVIEW).append("\n\n");
+                sb.append(JS_HOST_TOOLS).append("\n\n");
+            }
+            if (officeDocxReady) {
+                sb.append(WORK_MODE_OFFICE_DOCX).append("\n\n");
+            }
         }
-        sb.append(TOOL_STRATEGY);
-        if (scriptToolRegistered) {
-            sb.append("\n").append(TOOL_STRATEGY_JS_TAIL);
-        }
+        sb.append(toolIndex(webSearchEnabled, scriptToolRegistered, scriptHostTools, officeDocxReady));
         if (!hostAppend.isEmpty()) {
             sb.append("\n\n").append(hostAppend);
+        }
+        return sb.toString().trim();
+    }
+
+    private static String toolIndex(
+        boolean webSearchEnabled,
+        boolean scriptToolRegistered,
+        boolean scriptHostTools,
+        boolean officeDocxReady
+    ) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("主要工具：\n");
+        sb.append("- read_file、write_file、edit_file、list_dir：工作区文件。docs/system 与 docs/capabilities 只读。\n");
+        sb.append("- read_url：公开 http(s) 的标题和正文，不访问内网。");
+        if (webSearchEnabled) {
+            sb.append("配置了 TAVILY_API_KEY 时先用 Tavily 抽同一个 URL，失败再本地抓取。");
+        }
+        sb.append('\n');
+        if (webSearchEnabled) {
+            sb.append("- web_search：公开网页上的最新信息（Tavily）。不要编造检索结果；引用时保留标题和链接。\n");
+        }
+        sb.append("- grep、glob：若已注册，在 workspace 或 docs/system 里查找。\n");
+        sb.append("- list_catalog：shared/catalog 摘要，只读。\n");
+        sb.append("- catalog_sync_status、catalog_install：查看并安装云端资源。\n");
+        sb.append("- promote_request：把 staging 里的 Skill 或脚本晋升到 shared/local/。\n");
+        sb.append("- capability_search：查 Skill、MCP、Caps、catalog 脚本和文档指针。\n");
+        sb.append("- ask_user：缺少关键信息时提问并暂停。\n");
+        sb.append("- chat_history、list_sessions：当前对话历史和会话列表。\n");
+        if (scriptToolRegistered) {
+            sb.append("- execute_script：在 workspace 里跑 QuickJS。优先 file，不要贴大段 inline code。\n");
+        }
+        if (scriptHostTools) {
+            sb.append("- webview_exec：DOM/canvas/SVG 渲染；读 workspace 文件用 input_path。\n");
+            sb.append("- 脚本内 $tools.工具名：调用已注册工具。$mcp.<server>.<tool>：调用检索到的 MCP。\n");
+        }
+        if (officeDocxReady && scriptToolRegistered) {
+            sb.append("- docx_markdown_to_word、docx_inspect、docx_read_grep_edit、docx_raw_edit：Word。\n");
         }
         return sb.toString().trim();
     }
