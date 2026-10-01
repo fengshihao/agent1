@@ -101,6 +101,18 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void webviewNullReturnCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ToolExecutionResult in = ToolExecutionResult.text(
+            "{\"ok\":false,\"error\":\"没有可落盘的返回值:脚本返回了 null 或 undefined。不会写入文件。\"}"
+        );
+        ToolExecutionResult out = coach.maybeAugment("webview_exec", MAPPER.createObjectNode(), in, true);
+        assertTrue(out.getText().contains("[coach] webview.null_return"));
+        assertTrue(out.getText().contains("return (async () =>"));
+        assertTrue(out.getText().contains("没有可落盘的返回值"));
+    }
+
+    @Test
     void webviewAsyncSyntaxCoach() {
         ProductivityCoach coach = new ProductivityCoach();
         ToolExecutionResult in = ToolExecutionResult.text(

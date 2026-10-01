@@ -65,7 +65,7 @@ public final class ProductivitySystemPromptBuilder {
         """.trim();
 
     static final String JS_WEBVIEW = """
-        webview_exec：读工作区文件用 input_path（脚本内全局 input 为 Uint8Array），不要用 fetch('相对路径')。code 需顶层 return；异步用 return (async () => { ... })()。
+        webview_exec：读工作区文件用 input_path（脚本内全局 input 为 Uint8Array），不要用 fetch('相对路径')。code 被包进函数执行，只有顶层 return 的值会落盘，运行时会等待这个 return 出来的 Promise。写成 return (async () => { ... })()。只写 (async () => {})()，或把 return 放在 img.onload 里，完成值是 undefined，会报没有可落盘的返回值。
         保存图片时 return 纯 PNG/JPEG Base64（例如 canvas.toDataURL('image/png').split(',')[1]），或省略 output_path 让运行时自动落盘 tmp/webview_exec/*.b64。output_path 写入的是 UTF-8 文本（常为 Base64），不是二进制 PNG 文件本身。
         """.trim();
 
