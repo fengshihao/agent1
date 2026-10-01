@@ -15,11 +15,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +27,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -237,33 +237,24 @@ fun ModelSettingsScreen(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(
-                    onClick = viewModel::resetToBuildDefaults,
-                    modifier = Modifier.size(36.dp),
-                ) {
-                    Icon(
-                        Icons.Filled.Build,
-                        contentDescription = "恢复编译默认",
-                        modifier = Modifier.size(18.dp),
-                    )
+                TextButton(onClick = viewModel::resetToBuildDefaults) {
+                    Text("恢复默认")
                 }
-                IconButton(
+                Button(
                     onClick = viewModel::save,
                     enabled = !state.isSaving,
-                    modifier = Modifier.size(36.dp),
                 ) {
                     if (state.isSaving) {
-                        CircularProgressIndicator(strokeWidth = 1.5.dp, modifier = Modifier.size(16.dp))
-                    } else {
-                        Icon(
-                            Icons.Filled.Check,
-                            contentDescription = "保存并生效",
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary,
+                        CircularProgressIndicator(
+                            strokeWidth = 1.5.dp,
+                            modifier = Modifier.size(16.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
                         )
+                    } else {
+                        Text("保存")
                     }
                 }
             }
