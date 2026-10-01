@@ -52,6 +52,16 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
+    void describesProductionFlowWithDirectAndJsPaths() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), true);
+        assertTrue(prompt.contains("生产流程"));
+        assertTrue(prompt.contains("直接生产"));
+        assertTrue(prompt.contains("编程生产"));
+        assertTrue(prompt.contains("jobs/run.js"));
+    }
+
+    @Test
     void statesWhatIsForbiddenAndHowDirectoriesAreLaidOut() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
@@ -129,8 +139,9 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("promote_request"));
         assertTrue(prompt.contains("name"));
         assertTrue(prompt.contains("description"));
-        assertTrue(prompt.contains("查阅 Skill 用 capability_search"));
+        assertTrue(prompt.contains("capability_search"));
         assertTrue(prompt.contains("doc_path"));
+        assertTrue(prompt.contains("命中 skill"));
     }
 
     @Test

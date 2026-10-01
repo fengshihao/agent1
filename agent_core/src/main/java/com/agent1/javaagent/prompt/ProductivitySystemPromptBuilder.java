@@ -19,12 +19,22 @@ public final class ProductivitySystemPromptBuilder {
         你不操作手机界面，不做语音或屏幕自动化。
         """.trim();
 
-    static final String HOW_TO = """
-        怎么做：
-        1. 只改少量文件时，直接用 read_file、write_file、edit_file、list_dir。路径相对当前 workspace。
-        2. 不确定有没有某能力时，先 capability_search。查阅 Skill 用 capability_search：命中 skill 时正文已经附在结果里。有 doc_path 再 read_file 那一篇。不要通读 docs/system，不要臆造工具名。
-        3. 缺关键事实或选择时，调用 ask_user 发起结构化提问并暂停 Run。不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。用户下一条消息将开启新的 Run。
-        4. 大段内容写入工作区文件。回复里给出 workspace 相对路径，不要把全文贴回对话。
+    static final String HOW_TO_DIRECT_ONLY = """
+        生产流程：
+        1. 弄清目标和交付物（要落在 workspace 里的哪些文件）。缺关键事实或选择时，调用 ask_user 并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。用户下一条消息将开启新的 Run。
+        2. 不熟悉的能力、Skill、catalog 脚本或 API 时，先 capability_search。命中 skill 时正文已经附在结果里；有 doc_path 再 read_file 那一篇。不要通读 docs/system，不要臆造工具名。
+        3. 直接生产：只改一两个文件、单次转换、或专用工具一次能完成 → 用 read_file、write_file、edit_file、list_dir，以及 read_url 等外层工具（路径相对 workspace）。多步任务拆成多次工具调用。
+        4. 完成后在回复里给出 workspace 相对路径；大段内容写入文件，不要把全文贴回对话。可复用的 Skill 先放 workspace/staging，再 promote_request。
+        """.trim();
+
+    static final String HOW_TO_WITH_SCRIPT = """
+        生产流程：
+        1. 弄清目标和交付物（要落在 workspace 里的哪些文件）。缺关键事实或选择时，调用 ask_user 并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。用户下一条消息将开启新的 Run。
+        2. 不熟悉的能力、Skill、catalog 脚本或 API 时，先 capability_search。命中 skill 时正文已经附在结果里；有 doc_path 再 read_file 那一篇。不要通读 docs/system，不要臆造工具名。
+        3. 按任务选交付方式：
+           直接生产：只改一两个文件、单次转换、或专用工具一次能完成 → 用 read_file、write_file、edit_file、list_dir，以及 docx_*、read_url、webview_exec 等外层工具（路径相对 workspace）。
+           编程生产：多步流水线、要组合 Caps / $tools / MCP、要用 catalog 模块、或同一逻辑要跑多轮 → 在 workspace 写 JS 程序（入口如 jobs/run.js，可拆 helper），用 execute_script 的 file 模式执行；产出仍写入 workspace。
+        4. 完成后在回复里给出 workspace 相对路径；大段内容写入文件，不要把全文贴回对话。可复用的脚本或 Skill 先放 workspace/staging，再 promote_request。
         """.trim();
 
     static final String CAN_AND_CANNOT = """
@@ -147,7 +157,7 @@ public final class ProductivitySystemPromptBuilder {
     ) {
         StringBuilder sb = new StringBuilder();
         sb.append(IDENTITY).append("\n\n");
-        sb.append(HOW_TO).append("\n\n");
+        sb.append(scriptToolRegistered ? HOW_TO_WITH_SCRIPT : HOW_TO_DIRECT_ONLY).append("\n\n");
         sb.append(CAN_AND_CANNOT).append("\n\n");
         sb.append(DIRECTORY).append("\n\n");
         sb.append(buildEnvironmentSection(workspaceRoot, agentRoot, environmentSupplement)).append("\n\n");
