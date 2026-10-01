@@ -1,12 +1,12 @@
 package com.agent1.javaagent.mcp;
 
+import com.agent1.javaagent.util.PathIo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -232,7 +232,7 @@ public final class McpServersFile {
             return "";
         }
         try {
-            return Files.readString(file, StandardCharsets.UTF_8).trim();
+            return PathIo.readString(file).trim();
         } catch (IOException e) {
             return "";
         }
@@ -242,13 +242,14 @@ public final class McpServersFile {
         return name.replaceAll("[^a-zA-Z0-9_-]", "_");
     }
 
+    /** API 26–33 没有 {@code Files.writeString}，desugar 也不覆盖，必须走 {@link PathIo}。 */
     private static void atomicWrite(Path target, String content) throws IOException {
         Path parent = target.getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
         Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
-        Files.writeString(tmp, content, StandardCharsets.UTF_8);
+        PathIo.writeString(tmp, content);
         Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
     }
 }
