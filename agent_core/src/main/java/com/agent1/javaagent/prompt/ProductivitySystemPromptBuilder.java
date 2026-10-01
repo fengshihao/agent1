@@ -23,7 +23,7 @@ public final class ProductivitySystemPromptBuilder {
         生产流程：
         1. 弄清目标和交付物（要落在 workspace 里的哪些文件）。缺关键事实或选择时，调用 ask_user 并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。用户下一条消息将开启新的 Run。
         2. 不熟悉的能力、Skill、catalog 脚本或 API 时，先 capability_search。命中 skill 时正文已经附在结果里；有 doc_path 再 read_file 那一篇。不要通读 docs/system，不要臆造工具名。
-        3. 直接生产：只改一两个文件、单次转换、或专用工具一次能完成 → 用 read_file、write_file、edit_file、list_dir，以及 read_url 等外层工具（路径相对 workspace）。多步任务拆成多次工具调用。
+        3. 直接生产：只改一两个文件、单次转换、或专用工具一次能完成 → 用 read_file、write_file、edit_file、list_dir，以及 read_url 等外层工具。工具 path 相对当前会话 workspace 根，不要再加 workspace/ 前缀（写 dog.svg 而非 workspace/dog.svg）。多步任务拆成多次工具调用。
         4. 完成后在回复里给出 workspace 相对路径；大段内容写入文件，不要把全文贴回对话。可复用的 Skill 先放 workspace/staging，再 promote_request。
         """.trim();
 
@@ -32,7 +32,7 @@ public final class ProductivitySystemPromptBuilder {
         1. 弄清目标和交付物（要落在 workspace 里的哪些文件）。缺关键事实或选择时，调用 ask_user 并暂停 Run；不要用长段正文代替 ask_user，也不要在 ask_user 同一轮继续调用其他工具或先写完整交付物。用户下一条消息将开启新的 Run。
         2. 不熟悉的能力、Skill、catalog 脚本或 API 时，先 capability_search。命中 skill 时正文已经附在结果里；有 doc_path 再 read_file 那一篇。不要通读 docs/system，不要臆造工具名。
         3. 按任务选交付方式：
-           直接生产：只改一两个文件、单次转换、或专用工具一次能完成 → 用 read_file、write_file、edit_file、list_dir，以及 docx_*、read_url、webview_exec 等外层工具（路径相对 workspace）。
+           直接生产：只改一两个文件、单次转换、或专用工具一次能完成 → 用 read_file、write_file、edit_file、list_dir，以及 docx_*、read_url、webview_exec 等外层工具。path 相对 workspace 根，不要再加 workspace/ 前缀。
            编程生产：多步流水线、要组合 Caps / $tools / MCP、要用 catalog 模块、或同一逻辑要跑多轮 → 在 workspace 写 JS 程序（入口如 jobs/run.js，可拆 helper），用 execute_script 的 file 模式执行；产出仍写入 workspace。
         4. 完成后在回复里给出 workspace 相对路径；大段内容写入文件，不要把全文贴回对话。可复用的脚本或 Skill 先放 workspace/staging，再 promote_request。
         """.trim();
@@ -62,6 +62,11 @@ public final class ProductivitySystemPromptBuilder {
         模块写 import … from './叶子名.js'：先找 workspace，再回退 catalog。不要 import agentRoot 外面的路径。
         要 DOM、Canvas、SVG 或按 HTML 排版时，只用工具列表里已有的 webview_exec。不要在 QuickJS 里假装有浏览器，也不要为此装包。纯计算和文本留在 QuickJS。
         平台对象（如 android.files、android.share）和 host.ensureNative 只在脚本里调用，名称以 capability_search 的结果为准。
+        """.trim();
+
+    static final String JS_WEBVIEW = """
+        webview_exec：读工作区文件用 input_path（脚本内全局 input 为 Uint8Array），不要用 fetch('相对路径')。code 需顶层 return；异步用 return (async () => { ... })()。
+        保存图片时 return 纯 PNG/JPEG Base64（例如 canvas.toDataURL('image/png').split(',')[1]），或省略 output_path 让运行时自动落盘 tmp/webview_exec/*.b64。output_path 写入的是 UTF-8 文本（常为 Base64），不是二进制 PNG 文件本身。
         """.trim();
 
     static final String JS_HOST_TOOLS = """
@@ -165,6 +170,7 @@ public final class ProductivitySystemPromptBuilder {
         if (scriptToolRegistered) {
             sb.append(JS_ENV).append("\n\n");
             if (scriptHostTools) {
+                sb.append(JS_WEBVIEW).append("\n\n");
                 sb.append(JS_HOST_TOOLS).append("\n\n");
             }
             if (officeDocxReady) {
@@ -206,6 +212,7 @@ public final class ProductivitySystemPromptBuilder {
             sb.append("- execute_script：在 workspace 里跑 QuickJS。优先 file，不要贴大段 inline code。\n");
         }
         if (scriptHostTools) {
+            sb.append("- webview_exec：DOM/canvas/SVG 渲染；读 workspace 文件用 input_path。\n");
             sb.append("- 脚本内 $tools.工具名：调用已注册工具。$mcp.<server>.<tool>：调用检索到的 MCP。\n");
         }
         if (officeDocxReady && scriptToolRegistered) {

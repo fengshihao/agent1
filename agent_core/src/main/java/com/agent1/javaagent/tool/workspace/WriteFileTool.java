@@ -42,7 +42,10 @@ public final class WriteFileTool implements AgentTool {
             "path",
             MAPPER.createObjectNode()
                 .put("type", "string")
-                .put("description", "File path relative to session workspace.")
+                .put(
+                    "description",
+                    "Path relative to session workspace root (e.g. dog.svg). Do not prefix with workspace/."
+                )
         );
         properties.set(
             "content",

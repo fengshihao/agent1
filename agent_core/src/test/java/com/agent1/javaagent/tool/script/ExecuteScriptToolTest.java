@@ -178,4 +178,16 @@ class ExecuteScriptToolTest {
             };
         }
     }
+
+    @Test
+    void rejectsNonJavaScriptFileExtension() throws Exception {
+        Files.writeString(workspaceA.resolve("dog.svg"), "<svg/>", StandardCharsets.UTF_8);
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("file", "dog.svg");
+
+        ToolExecutionResult result = tool.execute("c1", params, new CancellationToken(), u -> {});
+
+        assertTrue(result.getText().contains("webview_exec"));
+        assertFalse(factory.lastEvalWorkspace() != null);
+    }
 }

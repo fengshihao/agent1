@@ -111,6 +111,13 @@ public final class ExecuteScriptTool implements AgentTool {
             return ToolExecutionResult.text("错误：必须提供 code 或 file");
         }
 
+        if (hasFile && !looksLikeJavaScriptFile(file)) {
+            return ToolExecutionResult.text(
+                "错误：execute_script 的 file 必须是 workspace 内的 .js/.mjs/.cjs 脚本。"
+                    + " 读取 SVG/图片/数据文件请用 read_file；需要 DOM/canvas/SVG 栅格化请用 webview_exec（input_path 传入文件）。"
+            );
+        }
+
         final String source;
         if (hasFile) {
             final Path resolved;
@@ -207,6 +214,13 @@ public final class ExecuteScriptTool implements AgentTool {
         } catch (Exception ignored) {
             return false;
         }
+    }
+
+    private static boolean looksLikeJavaScriptFile(String file) {
+        String normalized = file.trim().replace('\\', '/').toLowerCase();
+        return normalized.endsWith(".js")
+            || normalized.endsWith(".mjs")
+            || normalized.endsWith(".cjs");
     }
 
     private static String buildArgsPrelude(JsonNode argsNode) {
