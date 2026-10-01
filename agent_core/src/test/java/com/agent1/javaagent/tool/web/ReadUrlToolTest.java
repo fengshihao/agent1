@@ -9,9 +9,11 @@ import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.charset.Charset;
+import com.agent1.javaagent.web.TavilyPageExtract;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import okio.Buffer;
 import org.junit.jupiter.api.Test;
 
@@ -47,6 +49,7 @@ class ReadUrlToolTest {
 
             String text = result.getText();
             assertTrue(text.contains("TITLE: 杭州周末"), text);
+            assertTrue(text.contains("SOURCE: local"), text);
             assertTrue(text.contains("花港观鱼"), text);
             assertFalse(text.contains("首页导航"), text);
             assertFalse(text.contains("版权所有"), text);
@@ -182,16 +185,97 @@ class ReadUrlToolTest {
             ).getText();
 
             assertTrue(text.contains("TITLE: (none)"), text);
+            assertTrue(text.contains("SOURCE: local"), text);
             assertTrue(text.contains("纯文本正文"), text);
         }
     }
 
+    @Test
+    void prefersTavilyExtractForTheSameUrl() throws Exception {
+        try (MockWebServer tavily = new MockWebServer(); MockWebServer page = new MockWebServer()) {
+            tavily.start();
+            page.start();
+            String pageUrl = page.url("/story").toString();
+            String markdown = "# 杭州周末\n\n周六早上从西湖出发，沿着苏堤走到花港观鱼，再坐船到湖心亭，风很轻。";
+            tavily.enqueue(json(tavilyResult(pageUrl, markdown)));
+            page.enqueue(html(ARTICLE.replace("花港观鱼", "本地正文不应出现")));
+            ReadUrlTool tool = tool(true, new TavilyPageExtract("tvly-test", tavily.url("/extract").toString()));
+
+            String text = tool.execute("c1", params(pageUrl, 0), new CancellationToken(), null).getText();
+
+            assertTrue(text.contains("SOURCE: tavily"), text);
+            assertTrue(text.contains("TITLE: 杭州周末"), text);
+            assertTrue(text.contains("花港观鱼"), text);
+            assertFalse(text.contains("本地正文不应出现"), text);
+            assertEquals(0, page.getRequestCount());
+            RecordedRequest request = tavily.takeRequest();
+            assertEquals("POST", request.getMethod());
+            assertEquals("/extract", request.getPath());
+            assertEquals("Bearer tvly-test", request.getHeader("Authorization"));
+            assertTrue(request.getBody().readUtf8().contains(pageUrl));
+        }
+    }
+
+    @Test
+    void fallsBackToLocalExtractWhenTavilyFails() throws Exception {
+        try (MockWebServer tavily = new MockWebServer(); MockWebServer page = new MockWebServer()) {
+            tavily.start();
+            page.start();
+            String pageUrl = page.url("/story").toString();
+            tavily.enqueue(new MockResponse().setResponseCode(500).setBody("upstream"));
+            page.enqueue(html(ARTICLE));
+            ReadUrlTool tool = tool(true, new TavilyPageExtract("tvly-test", tavily.url("/extract").toString()));
+
+            String text = tool.execute("c1", params(pageUrl, 0), new CancellationToken(), null).getText();
+
+            assertTrue(text.contains("SOURCE: local"), text);
+            assertTrue(text.contains("花港观鱼"), text);
+            assertEquals(1, tavily.getRequestCount());
+            assertEquals(1, page.getRequestCount());
+            assertTrue(tavily.takeRequest().getBody().readUtf8().contains(pageUrl));
+        }
+    }
+
+    @Test
+    void reportsBothFailuresWhenTavilyAndLocalFail() throws Exception {
+        try (MockWebServer tavily = new MockWebServer(); MockWebServer page = new MockWebServer()) {
+            tavily.start();
+            page.start();
+            String pageUrl = page.url("/missing").toString();
+            tavily.enqueue(json("{\"results\":[],\"failed_results\":[{\"url\":\"x\",\"error\":\"fail\"}]}"));
+            page.enqueue(new MockResponse().setResponseCode(404));
+            ReadUrlTool tool = tool(true, new TavilyPageExtract("tvly-test", tavily.url("/extract").toString()));
+
+            String text = tool.execute("c1", params(pageUrl, 0), new CancellationToken(), null).getText();
+
+            assertTrue(text.contains("Tavily 抽取失败"), text);
+            assertTrue(text.contains("HTTP 404"), text);
+        }
+    }
+
     private static ReadUrlTool tool(boolean allowLoopback) {
+        return tool(allowLoopback, TavilyPageExtract.disabled());
+    }
+
+    private static ReadUrlTool tool(boolean allowLoopback, TavilyPageExtract tavily) {
         OkHttpClient client = new OkHttpClient.Builder()
             .followRedirects(false)
             .followSslRedirects(false)
             .build();
-        return new ReadUrlTool(client, allowLoopback);
+        return new ReadUrlTool(client, allowLoopback, tavily);
+    }
+
+    private static MockResponse json(String body) {
+        return new MockResponse().setHeader("Content-Type", "application/json").setBody(body);
+    }
+
+    private static String tavilyResult(String url, String markdown) throws Exception {
+        ObjectNode item = MAPPER.createObjectNode();
+        item.put("url", url);
+        item.put("raw_content", markdown);
+        ObjectNode root = MAPPER.createObjectNode();
+        root.putArray("results").add(item);
+        return MAPPER.writeValueAsString(root);
     }
 
     private static MockResponse html(String body) {
