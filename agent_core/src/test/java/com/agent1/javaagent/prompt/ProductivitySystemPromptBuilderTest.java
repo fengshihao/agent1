@@ -84,6 +84,7 @@ class ProductivitySystemPromptBuilderTest {
     void frameworkStatesHowToCreateSkillWithoutSearching() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
+        assertTrue(prompt.contains("skill-creator"));
         assertTrue(prompt.contains("workspace/staging/skills/<name>/SKILL.md"));
         assertTrue(prompt.contains("promote_request"));
         assertTrue(prompt.contains("name"));

@@ -34,7 +34,8 @@ public final class ProductivitySkillTool implements AgentTool {
 
     @Override
     public String description() {
-        return "List or read merged skills (project .claude/skills, shared/catalog, shared/local).";
+        return "List or read merged skills (bundled skill-creator, project .claude/skills, shared/catalog, shared/local). "
+            + "To author a new skill, read skill-creator, then write staging and promote_request.";
     }
 
     @Override

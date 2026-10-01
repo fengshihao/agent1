@@ -2,6 +2,8 @@
 
 将 **workspace/staging/** 中整理好的 skill 或 script 沉淀到 **shared/local/**。
 
+创建 Skill 时先 `skill(action=read, skill_name=skill-creator)`，按内置元技能起草。
+
 ## 布局
 
 ```text

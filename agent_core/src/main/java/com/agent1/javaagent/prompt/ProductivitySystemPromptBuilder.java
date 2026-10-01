@@ -62,8 +62,8 @@ public final class ProductivitySystemPromptBuilder {
     static final String AGENT_BOUNDARIES = """
         工作框架（路径、权限、Skill 与 catalog 已写明，直接执行或直接回答）：
         - 可写范围只有当前会话 workspace。shared/、docs/system、docs/capabilities 只读，禁止 write_file 写入。
-        - 使用已有 Skill：skill(action=list|read)，合并 project、shared/catalog/skills、shared/local/skills。列表为空表示尚未安装或晋升。
-        - 创建 Skill：write_file 写入 workspace/staging/skills/<name>/SKILL.md，再 promote_request（可选 note）晋升到 shared/local/skills/<name>/。SKILL.md 以 YAML frontmatter 开头，至少包含 name 与 description（name 与目录名一致），其后写步骤。不要把密钥写进文件。
+        - 使用已有 Skill：skill(action=list|read)，合并内置 bundled、project、shared/catalog/skills、shared/local/skills。
+        - 创建 Skill：先 skill(action=read, skill_name=skill-creator)。按该内置技能写 workspace/staging/skills/<name>/SKILL.md（YAML frontmatter 至少含 name 与 description，name 与目录名一致），再 promote_request 到 shared/local/skills/<name>/。不要把密钥写进文件。
         - 创建可复用脚本：workspace/staging/scripts/<name>.js，可选同名 .meta.json，同样 promote_request 到 shared/local/scripts/。
         - 安装云端资源：catalog_sync_status 查看 pending，catalog_install（或 sync apply）装入 shared/catalog/。不要手拷 SO 或脚本到 catalog。
         """.trim();

@@ -69,6 +69,17 @@ class CapabilityIndexStoreTest {
     }
 
     @Test
+    void skillCreatorQueryHitsBundledSkillFirst() {
+        Path agentRoot = temp.resolve("agentRoot");
+        CapabilityIndexStore.ensure(agentRoot);
+
+        var hits = CapabilityIndexStore.search(agentRoot, "skill creator", List.of(), "android", 5);
+        assertFalse(hits.isEmpty());
+        assertEquals("skill.skill-creator", hits.get(0).id());
+        assertEquals("skill:skill-creator", hits.get(0).entry());
+    }
+
+    @Test
     void promoteSharedLocalQueryHitsPromotionDocFirst() {
         Path agentRoot = temp.resolve("agentRoot");
         CapabilityIndexStore.ensure(agentRoot);
