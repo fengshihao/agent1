@@ -22,7 +22,7 @@
 | 工具名 | 能力 | CLI | Android | 备注 |
 |--------|------|:---:|:-------:|------|
 | `read_file` | 读当前 Session workspace | ✅ | ✅ | `WorkspaceSandbox` |
-| `read_url` | 读取公开 http(s) 页面标题与正文 | ✅ | ✅ | 手写 HTML 抽正文；拒绝本机与内网地址 |
+| `read_url` | 读取公开 http(s) 页面标题与正文 | ✅ | ✅ | 有 `TAVILY_API_KEY` 时先 Tavily Extract，失败再本地抽正文；拒绝本机与内网地址 |
 | `write_file` | 写 workspace | ✅ | ✅ | |
 | `edit_file` | 补丁式编辑 | ✅ | ✅ | |
 | `list_dir` | 列目录 | ✅ | ✅ | |

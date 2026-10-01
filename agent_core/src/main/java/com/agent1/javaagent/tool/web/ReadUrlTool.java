@@ -6,19 +6,21 @@ import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolUpdateListener;
 import com.agent1.javaagent.web.HtmlArticleExtractor;
 import com.agent1.javaagent.web.PublicHttpUrl;
+import com.agent1.javaagent.web.TavilyPageExtract;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,8 +33,8 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 /**
- * 读取公开 http(s) 页面的标题和正文。抓取语义对齐微智 {@code fetch}（方法、超时、体积上限），
- * 正文用 {@link HtmlArticleExtractor} 从 HTML 里抽，而不是把原始响应交给模型。
+ * 读取公开 http(s) 页面的标题和正文。配置了 {@code TAVILY_API_KEY} 时，先用 Tavily Extract
+ * 抽同一个 URL；失败再在本地抓取，并用 {@link HtmlArticleExtractor} 抽正文。
  */
 public final class ReadUrlTool implements AgentTool {
     static final int MAX_BYTES = 1_500_000;
@@ -47,15 +49,21 @@ public final class ReadUrlTool implements AgentTool {
 
     private final OkHttpClient http;
     private final boolean allowLoopback;
+    private final TavilyPageExtract tavily;
 
     public ReadUrlTool() {
-        this(defaultClient(), false);
+        this(defaultClient(), false, TavilyPageExtract.fromEnvironment());
     }
 
-    /** {@code allowLoopback} 只给测试里的本地假服务器用。 */
+    /** {@code allowLoopback} 只给测试里的本地假服务器用。不调用 Tavily。 */
     public ReadUrlTool(OkHttpClient http, boolean allowLoopback) {
+        this(http, allowLoopback, TavilyPageExtract.disabled());
+    }
+
+    public ReadUrlTool(OkHttpClient http, boolean allowLoopback, TavilyPageExtract tavily) {
         this.http = http;
         this.allowLoopback = allowLoopback;
+        this.tavily = tavily == null ? TavilyPageExtract.disabled() : tavily;
     }
 
     @Override
@@ -67,7 +75,8 @@ public final class ReadUrlTool implements AgentTool {
     public String description() {
         return """
             Fetch a public http(s) URL and return the page title plus main article text. \
-            Strips scripts, navigation, and boilerplate. Does not run page JavaScript. \
+            When TAVILY_API_KEY is set, Tavily Extract runs first on that same URL; \
+            if it fails, a local fetch extracts the article instead. \
             Refuses loopback, private, and link-local hosts. For workspace files use read_file.
             """.trim();
     }
@@ -113,13 +122,38 @@ public final class ReadUrlTool implements AgentTool {
         if (cancellationToken != null && cancellationToken.isCancelled()) {
             return ToolExecutionResult.text("错误：执行已取消");
         }
+        boolean tavilyFailed = false;
         try {
-            Fetched fetched = fetch(rawUrl);
+            URI parsed = PublicHttpUrl.parse(rawUrl);
+            PublicHttpUrl.checkPublic(parsed, allowLoopback);
+            String pageUrl = parsed.toString();
+            if (tavily.enabled()) {
+                Optional<TavilyPageExtract.Extracted> remote = tavily.extract(http, pageUrl);
+                if (remote.isPresent()) {
+                    TavilyPageExtract.Extracted extracted = remote.get();
+                    return ToolExecutionResult.text(render(
+                        pageUrl,
+                        extracted.title(),
+                        extracted.text(),
+                        maxChars,
+                        "tavily"
+                    ));
+                }
+                tavilyFailed = true;
+            }
+            Fetched fetched = fetch(pageUrl);
             return ToolExecutionResult.text(format(fetched, maxChars));
         } catch (IllegalArgumentException e) {
-            return ToolExecutionResult.text("错误：" + e.getMessage());
+            String message = e.getMessage() == null ? "读取失败" : e.getMessage();
+            if (tavilyFailed) {
+                return ToolExecutionResult.text("错误：Tavily 抽取失败，本地读取也失败：" + message);
+            }
+            return ToolExecutionResult.text("错误：" + message);
         } catch (IOException e) {
             String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            if (tavilyFailed) {
+                return ToolExecutionResult.text("错误：Tavily 抽取失败，本地读取也失败：" + message);
+            }
             return ToolExecutionResult.text("错误：请求失败：" + message);
         }
     }
@@ -195,19 +229,25 @@ public final class ReadUrlTool implements AgentTool {
         if (text.isBlank()) {
             throw new IllegalArgumentException("未能抽出正文");
         }
+        return render(fetched.finalUrl, title, text, maxChars, "local");
+    }
+
+    private static String render(String url, String title, String text, int maxChars, String source) {
         boolean truncated = false;
-        if (text.length() > maxChars) {
-            int cut = text.lastIndexOf('\n', maxChars);
+        String body = text;
+        if (body.length() > maxChars) {
+            int cut = body.lastIndexOf('\n', maxChars);
             if (cut < maxChars / 2) {
                 cut = maxChars;
             }
-            text = text.substring(0, cut).trim();
+            body = body.substring(0, cut).trim();
             truncated = true;
         }
         StringBuilder out = new StringBuilder();
-        out.append("URL: ").append(fetched.finalUrl).append('\n');
-        out.append("TITLE: ").append(title.isBlank() ? "(none)" : title).append('\n');
-        out.append("CONTENT:\n").append(text);
+        out.append("URL: ").append(url).append('\n');
+        out.append("TITLE: ").append(title == null || title.isBlank() ? "(none)" : title).append('\n');
+        out.append("SOURCE: ").append(source).append('\n');
+        out.append("CONTENT:\n").append(body);
         if (truncated) {
             out.append("\n\n（已截断，可增大 max_chars）");
         }
