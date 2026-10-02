@@ -1217,23 +1217,22 @@ private fun MessageBubble(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "🔧 ${line.content}",
+                        "🔧",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    WorkspaceChatBody(
+                        content = line.content,
+                        workspaceAbsolutePath = workspacePath,
+                        markdown = false,
+                        workspaceFilePaths = line.workspaceFilePaths,
+                        textStyle = MaterialTheme.typography.bodyMedium,
                     )
                     line.workspaceImagePath?.let { path ->
                         WorkspaceImagePreview(
                             workspaceAbsolutePath = workspacePath,
                             workspaceRelativePath = path,
                             warning = line.imageWarning,
-                        )
-                    }
-                    if (line.workspaceFilePaths.isNotEmpty()) {
-                        WorkspaceFileAttachments(
-                            workspaceAbsolutePath = workspacePath,
-                            relativePaths = line.workspaceFilePaths,
-                            excludePaths = line.workspaceImagePath?.let { setOf(it) } ?: emptySet(),
-                            modifier = Modifier.padding(top = 4.dp),
                         )
                     }
                 }
@@ -1253,25 +1252,11 @@ private fun MessageBubble(
                     )
                 }
                 if (line.content.isNotBlank()) {
-                    if (markdown) {
-                        WorkspaceMarkdown(
-                            content = line.content,
-                            workspaceAbsolutePath = workspacePath,
-                        )
-                    } else {
-                        Text(
-                            line.content,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-                if (line.workspaceFilePaths.isNotEmpty()) {
-                    WorkspaceFileAttachments(
+                    WorkspaceChatBody(
+                        content = line.content,
                         workspaceAbsolutePath = workspacePath,
-                        relativePaths = line.workspaceFilePaths,
-                        excludePaths = emptySet(),
-                        modifier = Modifier.padding(top = 6.dp),
+                        markdown = markdown,
+                        workspaceFilePaths = line.workspaceFilePaths,
                     )
                 }
                 if (line.requestUserPickFiles) {

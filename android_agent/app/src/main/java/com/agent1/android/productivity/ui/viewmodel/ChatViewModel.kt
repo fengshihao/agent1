@@ -422,6 +422,7 @@ class ChatViewModel(
                 )
             }
             val display = ChatTranscriptFormatting.formatToolResult(content, workspaceRoot)
+            val toolFiles = ChatTranscriptFormatting.mergeWorkspaceFilePaths(display.summary, display.workspaceFilePaths)
             return listOf(
                 ChatLine(
                     role = role,
@@ -430,13 +431,13 @@ class ChatViewModel(
                     isTool = true,
                     workspaceImagePath = display.workspaceImagePath,
                     imageWarning = display.imageWarning,
-                    workspaceFilePaths = display.workspaceFilePaths,
+                    workspaceFilePaths = toolFiles,
                 ),
             )
         }
         val askCall = toolCalls.firstOrNull { it.name == AskUserFormatting.TOOL_NAME }
         val askRequest = askCall?.let { AskUserFormatting.parseRequestFromToolCall(it) }
-        val files = ChatTranscriptFormatting.extractMarkdownFileLinks(content)
+        val files = ChatTranscriptFormatting.mergeWorkspaceFilePaths(content, emptyList())
         val pick = role == AgentMessage.ROLE_ASSISTANT && UserFileRequestMarkers.containsRequest(content)
         val baseDisplay = if (pick) {
             UserFileRequestMarkers.stripForDisplay(content)

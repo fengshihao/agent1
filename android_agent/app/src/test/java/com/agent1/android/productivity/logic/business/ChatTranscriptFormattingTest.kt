@@ -35,6 +35,48 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
+    fun formatToolResult_plainWriteExtractsPath() {
+        val display = ChatTranscriptFormatting.formatToolResult("已写入: out/report.docx (120 chars)", null)
+        assertEquals(listOf("out/report.docx"), display.workspaceFilePaths)
+    }
+
+    @Test
+    fun extractPlainWorkspacePaths_findsBareDocx() {
+        val paths = ChatTranscriptFormatting.extractPlainWorkspacePaths("见 out/a.docx 与 notes.md")
+        assertEquals(listOf("out/a.docx", "notes.md"), paths)
+    }
+
+    @Test
+    fun mergeWorkspaceFilePaths_combinesSources() {
+        val merged = ChatTranscriptFormatting.mergeWorkspaceFilePaths(
+            "下载 [报告](out/a.docx) 或 out/b.pdf",
+            listOf("imports/c.csv"),
+        )
+        assertEquals(listOf("imports/c.csv", "out/a.docx", "out/b.pdf"), merged)
+    }
+
+    @Test
+    fun linkifyBareWorkspacePaths_wrapsUnlinkedPaths() {
+        val out = ChatTranscriptFormatting.linkifyBareWorkspacePaths(
+            "文件在 out/x.docx",
+            listOf("out/x.docx"),
+        )
+        assertEquals("文件在 [x.docx](out/x.docx)", out)
+    }
+
+    @Test
+    fun splitLinkifiedSegments_splitsAroundPath() {
+        val segments = ChatTranscriptFormatting.splitLinkifiedSegments(
+            "已生成 out/a.docx 完成",
+            listOf("out/a.docx"),
+        )
+        assertEquals(3, segments.size)
+        assertEquals("已生成 ", segments[0].text)
+        assertEquals("out/a.docx", segments[1].workspacePath)
+        assertEquals(" 完成", segments[2].text)
+    }
+
+    @Test
     fun extractMarkdownFileLinks_findsDocxLink() {
         val paths = ChatTranscriptFormatting.extractMarkdownFileLinks("见 [报告](out/a.docx) 和 ![图](x.png)")
         assertEquals(listOf("out/a.docx", "x.png"), paths)

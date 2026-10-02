@@ -28,7 +28,11 @@ object ChatTranscriptFormatting {
     fun formatToolResult(raw: String, workspaceRoot: Path?): ToolResultDisplay {
         val trimmed = raw.trim()
         if (!trimmed.startsWith("{")) {
-            return ToolResultDisplay(summary = truncatePlain(trimmed))
+            val paths = extractPlainWorkspacePaths(trimmed)
+            return ToolResultDisplay(
+                summary = truncatePlain(trimmed),
+                workspaceFilePaths = paths,
+            )
         }
         return try {
             formatToolJson(JSONObject(trimmed), workspaceRoot)
@@ -149,13 +153,80 @@ object ChatTranscriptFormatting {
         return regex.findAll(content)
             .map { it.groupValues[1].trim() }
             .filter { it.isNotEmpty() && !it.startsWith("http://") && !it.startsWith("https://") }
-            .filter { isAttachmentPath(it) || isImagePath(it) }
+            .filter { isWorkspaceFilePath(it) }
             .distinct()
             .toList()
     }
+
+    /** 从正文中的裸路径（如 `out/report.docx`、`已写入: notes.md`）提取工作区文件。 */
+    fun extractPlainWorkspacePaths(content: String): List<String> {
+        if (content.isBlank()) return emptyList()
+        val extAlternation = (attachmentExt + imageExt).distinct().joinToString("|")
+        val regex = Regex("""(?:\./)?[A-Za-z0-9][A-Za-z0-9._/-]*\.(?:$extAlternation)\b""")
+        return regex.findAll(content)
+            .map { it.value.removePrefix("./") }
+            .filter { path -> !path.contains("://") }
+            .filter { isWorkspaceFilePath(it) }
+            .distinct()
+            .toList()
+    }
+
+    /** 合并工具 JSON、Markdown 链接与正文裸路径，供 UI 展示可打开附件。 */
+    fun mergeWorkspaceFilePaths(content: String, extra: List<String>): List<String> {
+        return (extra + extractMarkdownFileLinks(content) + extractPlainWorkspacePaths(content))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+    }
+
+    /** 将尚未写成 Markdown 链接的工作区路径改为 `[文件名](path)`，便于渲染可点链接。 */
+    fun linkifyBareWorkspacePaths(content: String, paths: List<String>): String {
+        if (paths.isEmpty()) return content
+        var result = content
+        for (path in paths.distinct().sortedByDescending { it.length }) {
+            if (result.contains("($path)")) continue
+            val label = path.substringAfterLast('/').ifEmpty { path }
+            result = result.replace(path, "[$label]($path)")
+        }
+        return result
+    }
+
+    fun isWorkspaceFilePath(path: String): Boolean = isAttachmentPath(path) || isImagePath(path)
 
     private fun isAttachmentPath(path: String): Boolean {
         val ext = path.substringAfterLast('.', "").lowercase()
         return ext in attachmentExt
     }
+
+    /** 将正文按已知工作区路径拆成普通文本段与路径段（供聊天气泡内联链接）。 */
+    fun splitLinkifiedSegments(content: String, paths: List<String>): List<LinkifiedSegment> {
+        if (content.isEmpty()) return emptyList()
+        val sorted = paths.filter { it.isNotBlank() }.distinct().sortedByDescending { it.length }
+        if (sorted.isEmpty()) return listOf(LinkifiedSegment(text = content))
+        val out = mutableListOf<LinkifiedSegment>()
+        var index = 0
+        while (index < content.length) {
+            val matched = sorted.firstOrNull { path -> content.regionMatches(index, path, 0, path.length) }
+            if (matched != null) {
+                out.add(LinkifiedSegment(workspacePath = matched))
+                index += matched.length
+            } else {
+                val start = index
+                index++
+                while (index < content.length) {
+                    val hit = sorted.any { path -> content.regionMatches(index, path, 0, path.length) }
+                    if (hit) break
+                    index++
+                }
+                out.add(LinkifiedSegment(text = content.substring(start, index)))
+            }
+        }
+        return out
+    }
 }
+
+/** 聊天气泡内联路径片段。 */
+data class LinkifiedSegment(
+    val text: String = "",
+    val workspacePath: String? = null,
+)
