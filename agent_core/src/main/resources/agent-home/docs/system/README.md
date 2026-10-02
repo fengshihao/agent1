@@ -7,6 +7,7 @@
 - `catalog-install.md` — 从 CDN 清单按需 `sync apply` / `catalog_install`（含 native SO）
 - `tools-and-quickjs.md` — 文件工具、execute_script、QuickJS 与 Caps
 - `office-docx.md` — Word / docx 工具与脚本
+- `svg-raster.md` — SVG 转 PNG / JPG（`svgToImage`）
 - `events-audit.md` — `logs/events.jsonl` 审计事件
 - `trusted-sources.md` — catalog 只通过 sync / catalog_install 更新
 

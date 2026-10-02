@@ -52,6 +52,16 @@ class CapabilityIndexStoreTest {
     }
 
     @Test
+    void svgQueryHitsRasterScript() {
+        Path agentRoot = temp.resolve("agentRoot");
+        CapabilityIndexStore.ensure(agentRoot);
+
+        var hits = CapabilityIndexStore.search(agentRoot, "svg png", List.of(), "any", 5);
+        assertFalse(hits.isEmpty());
+        assertTrue(hits.stream().anyMatch(h -> "catalog_script.svg-raster".equals(h.id())));
+    }
+
+    @Test
     void createSkillQueryHitsPromotionDocFirst() {
         Path agentRoot = temp.resolve("agentRoot");
         CapabilityIndexStore.ensure(agentRoot);

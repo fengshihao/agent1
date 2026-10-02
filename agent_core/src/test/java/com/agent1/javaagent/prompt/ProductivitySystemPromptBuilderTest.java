@@ -39,6 +39,8 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("capability_search"));
         assertTrue(prompt.contains("webview_exec"));
         assertTrue(prompt.contains("input_path"));
+        assertTrue(prompt.contains("svgToImage"));
+        assertTrue(prompt.contains("svg-raster.js"));
         assertFalse(prompt.contains("workspace/dog.svg"));
     }
 

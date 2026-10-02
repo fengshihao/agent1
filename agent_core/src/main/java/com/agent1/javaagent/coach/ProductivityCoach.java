@@ -94,9 +94,9 @@ public final class ProductivityCoach {
             } else if (looksLikeTinyWebViewImage(text)) {
                 hookId = "webview.tiny_output";
                 advice =
-                    "输出文件过小，PNG 可能无效。SVG→PNG：write_file 写 .svg 后 webview_exec 传 input_path；"
-                        + "img.onload 后 canvas 导出并 return 纯 Base64（split data URL 逗号后），"
-                        + "或省略 output_path 使用自动 tmp/webview_exec/*.b64。";
+                    "输出文件过小，图片可能无效。SVG 转 PNG/JPG 用 execute_script："
+                        + " import { svgToImage } from './svg-raster.js'（svgPath、width、height、format）。"
+                        + " 不要手写 canvas。见 docs/system/svg-raster.md。";
             }
         } else if ("execute_script".equals(toolName) && parameters != null) {
             String file = parameters.path("file").asText("").trim();
@@ -107,7 +107,7 @@ public final class ProductivityCoach {
                     hookId = "script.wrong_file_type";
                     advice =
                         "execute_script 只能运行 .js 脚本，不能把 SVG/图片当 file 执行。"
-                            + "读数据用 read_file；SVG 转 PNG 用 webview_exec + input_path。";
+                            + "读数据用 read_file；SVG 转 PNG/JPG 用 import { svgToImage } from './svg-raster.js'。";
                 } else if (CatalogMissingNativeHints.looksLikeMissingNative(text)) {
                     String plugin = CatalogMissingNativeHints.resolvePluginName(code, text);
                     hookId = "catalog.missing_native";

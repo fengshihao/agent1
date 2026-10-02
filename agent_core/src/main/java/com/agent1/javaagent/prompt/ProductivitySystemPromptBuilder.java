@@ -60,13 +60,14 @@ public final class ProductivitySystemPromptBuilder {
         JS 环境是 QuickJS（execute_script），不是 Node，也不是浏览器。没有 document、window、DOM。fs 与 path 相对 workspace。
         编程智能体：能跑的步骤放进 QuickJS，外层工具只编排。多步任务先写 workspace 内的 .js（如 jobs/run.js），再用 execute_script 的 file 模式执行。
         模块写 import … from './叶子名.js'：先找 workspace，再回退 catalog。不要 import agentRoot 外面的路径。
-        要 DOM、Canvas、SVG 或按 HTML 排版时，只用工具列表里已有的 webview_exec。不要在 QuickJS 里假装有浏览器，也不要为此装包。纯计算和文本留在 QuickJS。
+        要 DOM、Canvas 或按 HTML 排版时，只用工具列表里已有的 webview_exec。不要在 QuickJS 里假装有浏览器，也不要为此装包。纯计算和文本留在 QuickJS。
         平台对象（如 android.files、android.share）和 host.ensureNative 只在脚本里调用，名称以 capability_search 的结果为准。
         """.trim();
 
     static final String JS_WEBVIEW = """
         webview_exec：读工作区文件用 input_path（脚本内全局 input 为 Uint8Array），不要用 fetch('相对路径')。code 需顶层 return；异步用 return (async () => { ... })()。
         保存图片时 return 纯 PNG/JPEG Base64（例如 canvas.toDataURL('image/png').split(',')[1]），或省略 output_path 让运行时自动落盘 tmp/webview_exec/*.b64。output_path 写入的是 UTF-8 文本（常为 Base64），不是二进制 PNG 文件本身。
+        SVG 转 PNG 或 JPG 不要手写 canvas：execute_script 的 file 脚本里 import { svgToImage } from './svg-raster.js'，传入 svgPath、width、height（高度也可写 length；正方形可只给 size）、format（png 或 jpg）。函数写出二进制图片。参数见 docs/system/svg-raster.md，或 capability_search「svg png」。
         """.trim();
 
     static final String JS_HOST_TOOLS = """
@@ -213,6 +214,7 @@ public final class ProductivitySystemPromptBuilder {
         }
         if (scriptHostTools) {
             sb.append("- webview_exec：DOM/canvas/SVG 渲染；读 workspace 文件用 input_path。\n");
+            sb.append("- SVG→PNG/JPG：execute_script 内 import { svgToImage } from './svg-raster.js'。\n");
             sb.append("- 脚本内 $tools.工具名：调用已注册工具。$mcp.<server>.<tool>：调用检索到的 MCP。\n");
         }
         if (officeDocxReady && scriptToolRegistered) {
