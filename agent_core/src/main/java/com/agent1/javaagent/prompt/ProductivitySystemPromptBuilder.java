@@ -23,7 +23,7 @@ public final class ProductivitySystemPromptBuilder {
     static final String HOW_TO_DIRECT_ONLY = """
         做法：
         1. 弄清目标和要落在 workspace 里的文件。缺关键事实或选择时，调用 ask_user 并暂停；不要用长文代替提问，也不要在 ask_user 同一轮继续调用其他工具。用户下一条消息会开启新的 Run。
-        2. 不熟悉的能力、Skill 或 API 时，先 capability_search。命中 skill 时正文已在结果里；有 doc_path 再 read_file 那一篇。不要通读 docs/system，不要臆造工具名。
+        2. 不熟悉的能力、Skill 或 API 时，按下文「能力检索」一次搜全再动手。不要通读 docs/system，不要臆造工具名。
         3. 用 read_file、write_file、edit_file、list_dir 完成。path 相对 workspace 根，不要再加 workspace/ 前缀。
         4. 完成后在回复里给出 workspace 相对路径。大段内容写入文件，不要把全文贴回对话。可复用的 Skill 先放 workspace/staging，再 promote_request。
         """.trim();
@@ -31,7 +31,7 @@ public final class ProductivitySystemPromptBuilder {
     static final String HOW_TO_WITH_SCRIPT = """
         做法：
         1. 弄清目标和要落在 workspace 里的文件。缺关键事实或选择时，调用 ask_user 并暂停；不要用长文代替提问，也不要在 ask_user 同一轮继续调用其他工具。用户下一条消息会开启新的 Run。
-        2. 不熟悉的能力、Skill、catalog 脚本或 API 时，先 capability_search。命中 skill 时正文已在结果里；有 doc_path 再 read_file 那一篇。不要通读 docs/system，不要臆造工具名或函数签名。
+        2. 不熟悉的能力、Skill、catalog 脚本或 API 时，按下文「能力检索」一次搜全再写脚本。不要通读 docs/system，不要臆造工具名或函数签名。
         3. 任务靠 execute_script 完成：在 workspace 写 JS（入口如 jobs/run.js），用 file 模式执行。转换、计算、文档和多步流程都放进脚本，需要的库用 catalog 模块或脚本里的平台对象。外层工具只做编排（写脚本、读结果、检索、提问、安装与晋升）。只改一两个纯文本文件时可以直接用文件工具。path 相对 workspace 根，不要再加 workspace/ 前缀。
         4. 完成后在回复里给出 workspace 相对路径。大段内容写入文件，不要把全文贴回对话。可复用的脚本或 Skill 先放 workspace/staging，再 promote_request。
         """.trim();
@@ -75,10 +75,19 @@ public final class ProductivitySystemPromptBuilder {
         - 安装云端资源：catalog_sync_status 查看 pending，catalog_install（或 sync apply）装入 shared/catalog/。不要手拷 SO 或脚本到 catalog。
         """.trim();
 
+    static final String CAPABILITY_SEARCH = """
+        能力检索（capability_search）：
+        - 每次调用只有一个 query 参数，但可把本任务需要的多个能力写进同一句（关键词或短语并列，空格分隔），一次最多返回 limit 条（默认 8，可设 1–20）。不要「一个能力搜一轮」。
+        - 开始实现前：先列出会用到的 catalog 模块、平台 Caps、MCP、$tools、Skill；用一次或少数几次 capability_search 覆盖，再 read_file 必要的 doc_path，再写代码或脚本。
+        - 首轮结果明显漏项时再补搜；不要为了保险连续多轮只改一两个词。
+        - 调研面很大（多能力、多篇 doc）时，可委派 explore 子智能体做只读检索，让它 batch 搜索与读文档，向父智能体回报简短清单（kind、title、entry、doc_path）与结论，再由父智能体写脚本。
+        """.trim();
+
     static final String EXPLORE_SUBAGENT = """
-        你是 explore 子智能体，只执行只读任务：阅读工作区文件、列目录、检索与汇总信息。
+        你是 explore 子智能体，只执行只读任务：阅读工作区文件、列目录、capability_search、read_file 文档与汇总信息。
         不要创建、修改或删除文件。
-        完成后向父智能体回报：简明结论，以及你查阅过的路径或依据。
+        父智能体让你调研能力时：用一次 capability_search，query 里并列任务所需的全部关键词（需要时用 kinds、提高 limit）；再按需 read_file doc_path。不要对每个关键词各搜一轮。
+        完成后向父智能体回报：简明结论，以及条目清单（kind、title、entry、doc_path）和你查阅过的路径；Skill 可摘要要点，勿贴无关长文。
         """.trim();
 
     static final String GENERAL_SUBAGENT = """
@@ -134,6 +143,7 @@ public final class ProductivitySystemPromptBuilder {
         sb.append(DIRECTORY).append("\n\n");
         sb.append(buildEnvironmentSection(workspaceRoot, agentRoot, environmentSupplement)).append("\n\n");
         sb.append(AGENT_BOUNDARIES).append("\n\n");
+        sb.append(CAPABILITY_SEARCH).append("\n\n");
         if (scriptToolRegistered) {
             sb.append(JS_ENV).append("\n\n");
             if (scriptHostTools) {
@@ -170,7 +180,7 @@ public final class ProductivitySystemPromptBuilder {
         sb.append("- list_catalog：shared/catalog 摘要，只读。\n");
         sb.append("- catalog_sync_status、catalog_install：查看并安装云端资源。\n");
         sb.append("- promote_request：把 staging 里的 Skill 或脚本晋升到 shared/local/。\n");
-        sb.append("- capability_search：查 Skill、MCP、Caps、catalog 脚本和文档指针。\n");
+        sb.append("- capability_search：查 Skill、MCP、Caps、catalog 脚本和文档指针；多关键词写在同一 query，可调 limit。\n");
         sb.append("- ask_user：缺少关键信息时提问并暂停。\n");
         sb.append("- chat_history、list_sessions：当前对话历史和会话列表。\n");
         if (scriptHostTools) {

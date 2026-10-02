@@ -152,8 +152,7 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("name"));
         assertTrue(prompt.contains("description"));
         assertTrue(prompt.contains("capability_search"));
-        assertTrue(prompt.contains("doc_path"));
-        assertTrue(prompt.contains("命中 skill"));
+        assertTrue(prompt.contains("会直接带上正文"));
     }
 
     @Test
@@ -195,6 +194,18 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder().buildExploreSubagentPrompt();
         assertFalse(prompt.contains("write_file"));
         assertTrue(prompt.contains("只读"));
+        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("不要对每个关键词各搜一轮"));
+    }
+
+    @Test
+    void mainPromptBatchCapabilitySearchGuidance() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), true);
+        assertTrue(prompt.contains("能力检索"));
+        assertTrue(prompt.contains("一个能力搜一轮"));
+        assertTrue(prompt.contains("limit"));
+        assertTrue(prompt.contains("explore"));
     }
 
     @Test

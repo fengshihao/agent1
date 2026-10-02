@@ -58,8 +58,10 @@ public final class CapabilitySearchTool implements AgentTool {
     @Override
     public String description() {
         return """
-            Search the local capability index (SQLite FTS).
-            Skill hits include the loaded SKILL.md body. Doc hits include doc_path for read_file.
+            Search the local capability index (SQLite FTS). One call takes one query string; \
+            include multiple keywords in that string (space-separated) to cover several capabilities at once. \
+            Optional limit 1-20 (default 8). Skill hits include the loaded SKILL.md body. \
+            Doc hits include doc_path for read_file.
             """.trim();
     }
 
@@ -69,7 +71,15 @@ public final class CapabilitySearchTool implements AgentTool {
         schema.put("type", "object");
         schema.set("required", MAPPER.createArrayNode().add("query"));
         ObjectNode properties = MAPPER.createObjectNode();
-        properties.set("query", MAPPER.createObjectNode().put("type", "string"));
+        properties.set(
+            "query",
+            MAPPER.createObjectNode()
+                .put("type", "string")
+                .put(
+                    "description",
+                    "Keywords for this task; put several capabilities in one string (space-separated), not one search per tool"
+                )
+        );
         properties.set(
             "kinds",
             MAPPER.createObjectNode()
