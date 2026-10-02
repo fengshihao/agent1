@@ -41,6 +41,8 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("input_path"));
         assertTrue(prompt.contains("svgToImage"));
         assertTrue(prompt.contains("svg-raster.js"));
+        assertTrue(prompt.contains("writeFile"));
+        assertTrue(prompt.contains("必须顶层 return"));
         assertFalse(prompt.contains("workspace/dog.svg"));
     }
 

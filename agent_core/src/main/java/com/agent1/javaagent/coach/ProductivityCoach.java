@@ -86,7 +86,14 @@ public final class ProductivityCoach {
                     "staging 已有内容；确认 SKILL.md 或脚本就绪后调用 promote_request 沉淀到 shared/local。";
             }
         } else if ("webview_exec".equals(toolName) && text != null) {
-            if (text.contains("await is only valid in async")) {
+            if (text.contains("没有可落盘的返回值")) {
+                hookId = "webview.null_return";
+                advice =
+                    "脚本被包进函数执行，只有顶层 return 的值会落盘；运行时会等待这个 return 出来的 Promise。"
+                        + "请写成 return (async () => { ...; return canvas.toDataURL('image/png').split(',')[1]; })()。"
+                        + "或者不 return，在这个 Promise 里 writeFile('route.png', base64)，宿主会把 Base64 解码成图片字节写入工作区。"
+                        + "不要只写 (async () => {})()，也不要把 return 放在 img.onload 里。";
+            } else if (text.contains("await is only valid in async")) {
                 hookId = "webview.async_syntax";
                 advice =
                     "webview_exec 的 code 需顶层 return 表达式；异步用 return (async () => { ... })()。"

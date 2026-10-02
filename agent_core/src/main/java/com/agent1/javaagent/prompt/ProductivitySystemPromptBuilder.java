@@ -65,8 +65,9 @@ public final class ProductivitySystemPromptBuilder {
         """.trim();
 
     static final String JS_WEBVIEW = """
-        webview_exec：读工作区文件用 input_path（脚本内全局 input 为 Uint8Array），不要用 fetch('相对路径')。code 需顶层 return；异步用 return (async () => { ... })()。
-        保存图片时 return 纯 PNG/JPEG Base64（例如 canvas.toDataURL('image/png').split(',')[1]），或省略 output_path 让运行时自动落盘 tmp/webview_exec/*.b64。output_path 写入的是 UTF-8 文本（常为 Base64），不是二进制 PNG 文件本身。
+        webview_exec：读工作区文件用 input_path（脚本内全局 input 为 Uint8Array），不要用 fetch('相对路径')。code 在函数里执行，必须顶层 return；异步写成 return (async () => { ... })()。只写 (async () => {})()，或把 return 放在 img.onload 里，完成值是 undefined，会报没有可落盘的返回值。
+        画图可以不 return：writeFile('route.png', canvas.toDataURL('image/png').split(',')[1])。宿主把纯 Base64 解码成图片字节写入工作区。writeFile 要放在脚本等待的 Promise 里。
+        若仍 return 纯 PNG/JPEG Base64，可省略 output_path，运行时落盘 tmp/webview_exec/*.b64（文件内容是 Base64 文本）。output_path 写入的也是 UTF-8 文本，不是二进制图片。
         SVG 转 PNG 或 JPG 不要手写 canvas：execute_script 的 file 脚本里 import { svgToImage } from './svg-raster.js'，传入 svgPath、width、height（高度也可写 length；正方形可只给 size）、format（png 或 jpg）。函数写出二进制图片。参数见 docs/system/svg-raster.md，或 capability_search「svg png」。
         """.trim();
 
@@ -213,7 +214,7 @@ public final class ProductivitySystemPromptBuilder {
             sb.append("- execute_script：在 workspace 里跑 QuickJS。优先 file，不要贴大段 inline code。\n");
         }
         if (scriptHostTools) {
-            sb.append("- webview_exec：DOM/canvas/SVG 渲染；读 workspace 文件用 input_path。\n");
+            sb.append("- webview_exec：DOM/canvas/SVG。code 必须顶层 return；或 writeFile(路径, Base64) 把图片写入工作区。\n");
             sb.append("- SVG→PNG/JPG：execute_script 内 import { svgToImage } from './svg-raster.js'。\n");
             sb.append("- 脚本内 $tools.工具名：调用已注册工具。$mcp.<server>.<tool>：调用检索到的 MCP。\n");
         }
