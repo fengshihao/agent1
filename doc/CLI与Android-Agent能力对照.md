@@ -40,7 +40,7 @@
 | `grep` / `glob` / `zip` | `WeizhiWorkspaceTools` | `WeizhiAgentTools` | 行为对齐 |
 | `bash` | 桌面 shell 环境 | 设备内 Weizhi bash 沙箱 | **运行环境不同**（权限、可用命令） |
 | `load_skill` | 仓库 `.claude/skills` + workspace `skills/` | `assets/agent_skills` + workspace `skills/` | **Skill 来源不同** |
-| `execute_script` | Weizhi QuickJS + `$tools` 桥 | 同左 | CLI 另可加载 `weizhi/docs/AGENT_SANDBOX_PROMPT.md` 追加提示 |
+| `execute_script` | Weizhi QuickJS + `$tools` 桥 | 同左 | 两侧系统提示都只要求用脚本完成任务；沙盒细则走 `capability_search` |
 | MCP | `McpAgentExtension(agentRoot)`，配置 `agentRoot/mcp_servers.json`；脚本 `$mcp.<server>.<tool>` | 同一 `agentRoot`（`filesDir/agent1`） | **已对齐** |
 | Web 渲染 / 脚本页 | `webview_exec`：**Headless Chromium + CDP**（`DesktopWebViewExecTool`） | `WebViewAgentExtension`：**系统 WebView** | **实现不同**；协议与 skill（如 `webview-canvas-draw`）尽量对齐 |
 | 脚本超时 | `AGENT1_SCRIPT_TIMEOUT_MS`（默认 600s） | 固定 `600_000` ms（`WeizhiHostLoader`） | Android **未暴露**超时配置 UI/env |

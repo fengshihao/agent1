@@ -38,11 +38,11 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("$mcp.<server>.<tool>"));
         assertTrue(prompt.contains("capability_search"));
         assertTrue(prompt.contains("webview_exec"));
-        assertTrue(prompt.contains("input_path"));
         assertTrue(prompt.contains("svgToImage"));
         assertTrue(prompt.contains("svg-raster.js"));
         assertTrue(prompt.contains("writeFile"));
-        assertTrue(prompt.contains("必须顶层 return"));
+        assertTrue(prompt.contains("顶层 return"));
+        assertFalse(prompt.contains("toDataURL"));
         assertFalse(prompt.contains("workspace/dog.svg"));
     }
 
@@ -59,20 +59,22 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(prompt.contains("execute_script"));
         assertTrue(prompt.contains("capability_search"));
-        assertTrue(prompt.contains("编程智能体"));
+        assertTrue(prompt.contains("jobs/run.js"));
         assertTrue(prompt.contains("QuickJS"));
-        assertTrue(prompt.contains("webview_exec"));
+        assertFalse(prompt.contains("webview_exec"));
         assertTrue(prompt.contains("没有 document、window、DOM"));
+        assertFalse(prompt.contains("docx_markdown_to_word"));
     }
 
     @Test
     void describesProductionFlowWithDirectAndJsPaths() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
-        assertTrue(prompt.contains("生产流程"));
-        assertTrue(prompt.contains("直接生产"));
-        assertTrue(prompt.contains("编程生产"));
+        assertTrue(prompt.contains("execute_script"));
         assertTrue(prompt.contains("jobs/run.js"));
+        assertFalse(prompt.contains("直接生产"));
+        assertFalse(prompt.contains("编程生产"));
+        assertFalse(prompt.contains("docx_"));
     }
 
     @Test
@@ -154,8 +156,7 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("name"));
         assertTrue(prompt.contains("description"));
         assertTrue(prompt.contains("capability_search"));
-        assertTrue(prompt.contains("doc_path"));
-        assertTrue(prompt.contains("命中 skill"));
+        assertTrue(prompt.contains("会直接带上正文"));
     }
 
     @Test
@@ -181,14 +182,15 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
-    void includesOfficeDocxHintWhenReady() {
+    void doesNotEmbedOfficeOrWebViewRecipes() {
         String prompt = new ProductivitySystemPromptBuilder()
-            .buildMainPrompt(temp.resolve("ws"), temp.resolve("ar"), true, false, true);
-        assertTrue(prompt.contains("docx_markdown_to_word"));
-        assertTrue(prompt.contains("read_file"));
-        assertTrue(prompt.contains("docs/system"));
-        assertTrue(prompt.contains("office-docx.md"));
-        assertTrue(prompt.contains("HTML"));
+            .buildMainPrompt(temp.resolve("ws"), temp.resolve("ar"), true, true, "");
+        assertFalse(prompt.contains("docx_markdown_to_word"));
+        assertFalse(prompt.contains("office-docx.md"));
+        assertFalse(prompt.contains("HTML"));
+        assertFalse(prompt.contains("toDataURL"));
+        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("execute_script"));
     }
 
     @Test
@@ -196,6 +198,18 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder().buildExploreSubagentPrompt();
         assertFalse(prompt.contains("write_file"));
         assertTrue(prompt.contains("只读"));
+        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("不要对每个关键词各搜一轮"));
+    }
+
+    @Test
+    void mainPromptBatchCapabilitySearchGuidance() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), true);
+        assertTrue(prompt.contains("能力检索"));
+        assertTrue(prompt.contains("一个能力搜一轮"));
+        assertTrue(prompt.contains("limit"));
+        assertTrue(prompt.contains("explore"));
     }
 
     @Test
@@ -204,7 +218,6 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(
                 temp.resolve("ws"),
                 temp.resolve("ar"),
-                false,
                 false,
                 false,
                 "- 本会话用户提供的可访问文件（read_file 相对路径）：\n  - imports/a.pdf"

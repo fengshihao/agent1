@@ -59,9 +59,9 @@ markdownToDocx({
 });
 ```
 
-`docx_markdown_to_word` 工具可选参数 `default_style`、`heading_styles`（JSON 对象，语义同上）。
+样式字段就是 `markdownToDocx` 的 `defaultStyle`、`headingStyles`。没有单独的外层 Word 工具。
 
-**不要**在 Markdown 源文件里插入 HTML 标签试图控制 Word 字号；解析器只支持下方表格中的 Markdown 子集。改 docx 样式请用 `readDocx` / `setBlockStyle` 或 `docx_inspect`。
+**不要**在 Markdown 源文件里插入 HTML 标签试图控制 Word 字号；解析器只支持下方表格中的 Markdown 子集。改样式用 `readDocx` 的 `textView` / `setBlockStyle`，或 `markdownToDocx` 的 `defaultStyle` / `headingStyles`。
 
 或先建模型再渲染：
 

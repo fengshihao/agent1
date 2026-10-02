@@ -74,31 +74,6 @@ public final class WeizhiHostSupport {
         return Optional.of(new WeizhiScriptEngineFactory(options, agentRoot));
     }
 
-    public static String loadSandboxPromptAppend(Path weizhiRepo) {
-        Path doc = weizhiRepo.resolve("docs/AGENT_SANDBOX_PROMPT.md");
-        if (!Files.isRegularFile(doc)) {
-            return "";
-        }
-        try {
-            String text = Files.readString(doc);
-            int marker = text.indexOf("## 系统提示（可复制）");
-            if (marker < 0) {
-                return text.trim();
-            }
-            int start = text.indexOf('\n', marker);
-            int end = text.indexOf("---", start);
-            if (end < 0) {
-                end = text.indexOf("## 宿主侧备注", start);
-            }
-            if (end < 0) {
-                end = text.length();
-            }
-            return text.substring(start, end).trim();
-        } catch (Exception e) {
-            return "";
-        }
-    }
-
     public static String platformLabel() {
         String os = System.getProperty("os.name", "unknown").toLowerCase(Locale.US);
         if (os.contains("mac")) {
