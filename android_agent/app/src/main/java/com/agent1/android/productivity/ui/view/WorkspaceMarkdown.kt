@@ -51,13 +51,15 @@ fun WorkspaceMarkdown(
                 val trimmed = uri.trim()
                 if (workspaceRoot != null &&
                     !trimmed.startsWith("http://") &&
-                    !trimmed.startsWith("https://") &&
-                    ChatTranscriptFormatting.isWorkspaceFilePath(trimmed)
+                    !trimmed.startsWith("https://")
                 ) {
-                    WorkspaceFileActions.openWorkspaceFile(context, workspaceRoot, trimmed)
-                } else {
-                    defaultUriHandler.openUri(uri)
+                    val normalized = SessionWorkspacePaths.normalizeWorkspaceRelativePath(trimmed)
+                    if (SessionWorkspacePaths.resolveFile(workspaceRoot, normalized) != null) {
+                        WorkspaceFileActions.openWorkspaceFile(context, workspaceRoot, normalized)
+                        return
+                    }
                 }
+                defaultUriHandler.openUri(trimmed)
             }
         }
     }

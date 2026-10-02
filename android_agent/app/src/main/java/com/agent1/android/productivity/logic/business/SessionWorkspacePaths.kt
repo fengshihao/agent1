@@ -18,6 +18,18 @@ object SessionWorkspacePaths {
             .resolve("workspace")
     }
 
+    /** 模型/工具常带 `workspace/` 或 `./` 前缀；解析与 UI 链接统一去掉。 */
+    fun normalizeWorkspaceRelativePath(raw: String): String {
+        var path = raw.trim().replace('\\', '/')
+        if (path.startsWith("file://")) return path
+        path = path.removePrefix("./")
+        while (path.startsWith("/")) {
+            path = path.removePrefix("/")
+        }
+        path = path.removePrefix("workspace/")
+        return path
+    }
+
     fun resolveFile(workspaceRoot: Path, link: String): File? {
         val raw = link.trim()
         if (raw.isBlank()) return null
@@ -27,7 +39,8 @@ object SessionWorkspacePaths {
             if (!abs.startsWith(root)) return null
             return abs.toFile().takeIf { it.isFile }
         }
-        val relative = raw.removePrefix("./").removePrefix("/")
+        val relative = normalizeWorkspaceRelativePath(raw)
+        if (relative.isBlank()) return null
         val candidate = workspaceRoot.resolve(relative).normalize()
         val root = workspaceRoot.toAbsolutePath().normalize()
         if (!candidate.startsWith(root)) return null

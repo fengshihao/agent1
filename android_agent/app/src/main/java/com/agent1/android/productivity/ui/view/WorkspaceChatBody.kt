@@ -38,7 +38,7 @@ fun WorkspaceChatBody(
                 WorkspaceFileAttachments(
                     workspaceAbsolutePath = workspaceAbsolutePath,
                     relativePaths = paths,
-                    showPathLabels = false,
+                    showPathLabels = true,
                 )
             }
         } else {

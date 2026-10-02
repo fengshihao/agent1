@@ -77,6 +77,15 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
+    fun mergeWorkspaceFilePaths_stripsWorkspacePrefixInMarkdown() {
+        val merged = ChatTranscriptFormatting.mergeWorkspaceFilePaths(
+            "见 [报告](workspace/out/a.docx)",
+            emptyList(),
+        )
+        assertEquals(listOf("out/a.docx"), merged)
+    }
+
+    @Test
     fun extractMarkdownFileLinks_findsDocxLink() {
         val paths = ChatTranscriptFormatting.extractMarkdownFileLinks("见 [报告](out/a.docx) 和 ![图](x.png)")
         assertEquals(listOf("out/a.docx", "x.png"), paths)

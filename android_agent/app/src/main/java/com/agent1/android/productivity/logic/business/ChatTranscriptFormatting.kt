@@ -47,7 +47,7 @@ object ChatTranscriptFormatting {
             val error = json.optString("error", "").trim()
             return ToolResultDisplay(summary = truncatePlain(if (error.isNotEmpty()) error else json.toString()))
         }
-        val outputPath = json.optString("outputPath", "").trim()
+        val outputPath = normalizeWorkspacePath(json.optString("outputPath", "").trim())
         if (outputPath.isNotEmpty() && isImagePath(outputPath)) {
             val bytes = json.optLong("outputBytes", -1L).takeIf { it >= 0 }
             val elapsed = json.optLong("elapsedMs", -1L).takeIf { it >= 0 }
@@ -77,7 +77,7 @@ object ChatTranscriptFormatting {
                 workspaceFilePaths = listOf(outputPath),
             )
         }
-        val pathField = json.optString("path", "").trim()
+        val pathField = normalizeWorkspacePath(json.optString("path", "").trim())
         if (pathField.isNotEmpty() && isAttachmentPath(pathField)) {
             return ToolResultDisplay(
                 summary = "输出: $pathField",
@@ -151,7 +151,7 @@ object ChatTranscriptFormatting {
     fun extractMarkdownFileLinks(content: String): List<String> {
         val regex = Regex("""(?<!!)\[[^\]]*]\(([^)]+)\)""")
         return regex.findAll(content)
-            .map { it.groupValues[1].trim() }
+            .map { normalizeWorkspacePath(it.groupValues[1].trim()) }
             .filter { it.isNotEmpty() && !it.startsWith("http://") && !it.startsWith("https://") }
             .filter { isWorkspaceFilePath(it) }
             .distinct()
@@ -161,10 +161,11 @@ object ChatTranscriptFormatting {
     /** 从正文中的裸路径（如 `out/report.docx`、`已写入: notes.md`）提取工作区文件。 */
     fun extractPlainWorkspacePaths(content: String): List<String> {
         if (content.isBlank()) return emptyList()
+        val scan = content.replace('`', ' ')
         val extAlternation = (attachmentExt + imageExt).distinct().joinToString("|")
-        val regex = Regex("""(?:\./)?[A-Za-z0-9][A-Za-z0-9._/-]*\.(?:$extAlternation)\b""")
-        return regex.findAll(content)
-            .map { it.value.removePrefix("./") }
+        val regex = Regex("""(?:\./|workspace/)?[A-Za-z0-9][A-Za-z0-9._/-]*\.(?:$extAlternation)\b""")
+        return regex.findAll(scan)
+            .map { normalizeWorkspacePath(it.value) }
             .filter { path -> !path.contains("://") }
             .filter { isWorkspaceFilePath(it) }
             .distinct()
@@ -174,19 +175,29 @@ object ChatTranscriptFormatting {
     /** 合并工具 JSON、Markdown 链接与正文裸路径，供 UI 展示可打开附件。 */
     fun mergeWorkspaceFilePaths(content: String, extra: List<String>): List<String> {
         return (extra + extractMarkdownFileLinks(content) + extractPlainWorkspacePaths(content))
-            .map { it.trim() }
+            .map { normalizeWorkspacePath(it) }
             .filter { it.isNotEmpty() }
             .distinct()
+            .toList()
     }
+
+    fun normalizeWorkspacePath(raw: String): String =
+        SessionWorkspacePaths.normalizeWorkspaceRelativePath(raw)
 
     /** 将尚未写成 Markdown 链接的工作区路径改为 `[文件名](path)`，便于渲染可点链接。 */
     fun linkifyBareWorkspacePaths(content: String, paths: List<String>): String {
         if (paths.isEmpty()) return content
         var result = content
-        for (path in paths.distinct().sortedByDescending { it.length }) {
+        val normalized = paths.map { normalizeWorkspacePath(it) }.distinct()
+        for (path in normalized.sortedByDescending { it.length }) {
             if (result.contains("($path)")) continue
             val label = path.substringAfterLast('/').ifEmpty { path }
-            result = result.replace(path, "[$label]($path)")
+            val variants = listOf(path, "./$path", "workspace/$path", "/$path").distinct()
+            for (variant in variants.sortedByDescending { it.length }) {
+                if (result.contains(variant) && !result.contains("($path)")) {
+                    result = result.replace(variant, "[$label]($path)")
+                }
+            }
         }
         return result
     }
@@ -201,20 +212,26 @@ object ChatTranscriptFormatting {
     /** 将正文按已知工作区路径拆成普通文本段与路径段（供聊天气泡内联链接）。 */
     fun splitLinkifiedSegments(content: String, paths: List<String>): List<LinkifiedSegment> {
         if (content.isEmpty()) return emptyList()
-        val sorted = paths.filter { it.isNotBlank() }.distinct().sortedByDescending { it.length }
-        if (sorted.isEmpty()) return listOf(LinkifiedSegment(text = content))
+        val normalized = paths.filter { it.isNotBlank() }.map { normalizeWorkspacePath(it) }.distinct()
+        val aliases = normalized.flatMap { path ->
+            listOf(path, "./$path", "workspace/$path")
+        }.distinct().sortedByDescending { it.length }
+        if (aliases.isEmpty()) return listOf(LinkifiedSegment(text = content))
         val out = mutableListOf<LinkifiedSegment>()
         var index = 0
         while (index < content.length) {
-            val matched = sorted.firstOrNull { path -> content.regionMatches(index, path, 0, path.length) }
-            if (matched != null) {
-                out.add(LinkifiedSegment(workspacePath = matched))
-                index += matched.length
+            val matchedAlias = aliases.firstOrNull { alias ->
+                content.regionMatches(index, alias, 0, alias.length)
+            }
+            if (matchedAlias != null) {
+                val canonical = normalizeWorkspacePath(matchedAlias)
+                out.add(LinkifiedSegment(workspacePath = canonical))
+                index += matchedAlias.length
             } else {
                 val start = index
                 index++
                 while (index < content.length) {
-                    val hit = sorted.any { path -> content.regionMatches(index, path, 0, path.length) }
+                    val hit = aliases.any { alias -> content.regionMatches(index, alias, 0, alias.length) }
                     if (hit) break
                     index++
                 }
