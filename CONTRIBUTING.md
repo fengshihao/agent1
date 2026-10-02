@@ -2,6 +2,8 @@
 
 感谢你愿意参与 `agent1` 的建设。
 
+**编码智能体（Cursor / Claude Code 等）**：优先读 [AGENTS.md](AGENTS.md)，并用 [docs/ai/START.md](docs/ai/START.md) 里的一句话准备环境。
+
 ## 开发环境
 
 - **JDK 17**（Temurin 或等价发行版）
@@ -15,7 +17,9 @@ gradle -p java_agent :core:test :cli:test
 ## 代码规范
 
 - 保持改动最小且聚焦
-- 新增行为要同步更新 README / `doc/基础能力/` 对应篇
+- **新增或修改 Java 行为须附带 JUnit 单测**，并跑 `gradle -p java_agent :core:test :cli:test`
+- PR 前跑 `./scripts/ci-local.sh fast`（动 Android 组装链时用 `full`）
+- 新增行为要同步更新 README / `doc/` 对应篇
 - 工具相关改动需考虑 **macOS 与 Ubuntu**（桌面官方支持平台）
 - 涉及模型调用链路的改动，需确认 JSONL 事件字段不回退
 
