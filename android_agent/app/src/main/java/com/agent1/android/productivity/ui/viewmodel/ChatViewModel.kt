@@ -83,7 +83,10 @@ class ChatViewModel(
                 val ws = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
                 val accessible = gateway.listAccessibleFilePaths(sessionId)
                 val pending = AskUserPendingDetector.detectPendingRequest(messages)
-                val lines = messages.flatMap { it.toChatLines(ws) }.mapIndexed { index, line ->
+                val lines = messages
+                    .filter { it.role != AgentMessage.ROLE_SYSTEM }
+                    .flatMap { it.toChatLines(ws) }
+                    .mapIndexed { index, line ->
                     line.copy(stableKey = "transcript-$index-${line.role}")
                 }
                 Triple(lines, accessible, pending)
@@ -451,7 +454,9 @@ class ChatViewModel(
             else -> baseDisplay
         }
         if (merged.isBlank() && askRequest == null) {
-            return emptyList()
+            if (reasoningContent.isBlank() && toolCalls.isEmpty()) {
+                return emptyList()
+            }
         }
         return listOf(
             ChatLine(

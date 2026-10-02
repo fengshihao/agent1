@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -1201,11 +1202,13 @@ private fun MessageBubble(
                 background = bubbles.userBackground,
                 borderColor = Color.Transparent,
             ) {
-                Text(
-                    line.content,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = bubbles.userContent,
-                )
+                SelectionContainer {
+                    Text(
+                        line.content,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = bubbles.userContent,
+                    )
+                }
             }
         }
         isTool -> {
@@ -1215,7 +1218,8 @@ private fun MessageBubble(
                 background = bubbles.systemBackground,
                 borderColor = bubbles.systemBorder,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SelectionContainer {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         "🔧",
                         style = MaterialTheme.typography.bodyMedium,
@@ -1235,6 +1239,7 @@ private fun MessageBubble(
                             warning = line.imageWarning,
                         )
                     }
+                    }
                 }
             }
         }
@@ -1245,6 +1250,8 @@ private fun MessageBubble(
                 background = bubbles.assistantBackground,
                 borderColor = bubbles.assistantBorder,
             ) {
+                SelectionContainer {
+                    Column {
                 if (line.reasoning.isNotBlank()) {
                     CollapsibleReasoningBlock(
                         reasoning = line.reasoning,
@@ -1273,6 +1280,8 @@ private fun MessageBubble(
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.primary,
                         )
+                    }
+                }
                     }
                 }
             }
