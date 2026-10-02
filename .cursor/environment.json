@@ -1,5 +1,5 @@
 {
-  "name": "agent1 (CI 编译，Cloud 不跑 Gradle)",
-  "install": "chmod +x scripts/cloud-agent-verify.sh check-android-agent-layering.sh check-android-agent-static.sh 2>/dev/null || true",
-  "start": "echo 'Build & test: GitHub Actions (.github/workflows/ci.yml). Cloud Agent: ./scripts/cloud-agent-verify.sh'"
+  "name": "agent1",
+  "install": "bash scripts/cloud-agent-install.sh",
+  "start": "bash scripts/cloud-agent-start.sh"
 }

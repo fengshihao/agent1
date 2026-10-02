@@ -33,8 +33,9 @@ android_agent/**/local.properties
 # sync-weizhi / settings.gradle.kts 从 weizhi 拷贝，勿提交
 /android_agent/weizhi-maven-publish.gradle
 
-# 本地 clone 的微智 weizhi 工程（./sync-weizhi.sh），勿提交
-/weizhi/
+# 本地 clone 的微智 weizhi 工程（./sync-weizhi.sh），勿提交。
+# 无尾斜杠，以便同时忽略指向 /weizhi 的符号链接。
+/weizhi
 
 # weizhi publish 后导入的 Maven 产物（./import-weizhi-prebuilt.sh）；示例配置可提交
 /android_agent/weizhi-prebuilt/maven/

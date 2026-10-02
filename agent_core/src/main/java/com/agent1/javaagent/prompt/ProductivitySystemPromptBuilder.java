@@ -186,6 +186,7 @@ public final class ProductivitySystemPromptBuilder {
         sb.append("- chat_history、list_sessions：当前对话历史和会话列表。\n");
         if (scriptHostTools) {
             sb.append("- webview_exec：DOM/canvas/SVG；code 须顶层 return，或用 writeFile 把 Base64 图写入工作区。细则见工具说明。\n");
+            sb.append("- SVG→PNG/JPG：execute_script 内 import { svgToImage } from './svg-raster.js'（见 svg-raster.md 或 capability_search）。\n");
             sb.append("- 脚本内 $tools.工具名：调用已注册工具。$mcp.<server>.<tool>：调用检索到的 MCP。\n");
         }
         return sb.toString().trim();

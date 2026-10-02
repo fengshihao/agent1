@@ -38,6 +38,8 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("$mcp.<server>.<tool>"));
         assertTrue(prompt.contains("capability_search"));
         assertTrue(prompt.contains("webview_exec"));
+        assertTrue(prompt.contains("svgToImage"));
+        assertTrue(prompt.contains("svg-raster.js"));
         assertTrue(prompt.contains("writeFile"));
         assertTrue(prompt.contains("顶层 return"));
         assertFalse(prompt.contains("toDataURL"));

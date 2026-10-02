@@ -187,7 +187,7 @@ class ExecuteScriptToolTest {
 
         ToolExecutionResult result = tool.execute("c1", params, new CancellationToken(), u -> {});
 
-        assertTrue(result.getText().contains("webview_exec"));
+        assertTrue(result.getText().contains("svgToImage"));
         assertFalse(factory.lastEvalWorkspace() != null);
     }
 }

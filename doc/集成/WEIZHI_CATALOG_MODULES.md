@@ -9,7 +9,7 @@ Weizhi [weizhi#10](https://github.com/fengshihao/weizhi/pull/10)（closes [weizh
 | 根 | 路径 |
 |----|------|
 | `setFsRoot` | 会话 workspace |
-| `setScriptFolder` | `agentRoot/shared/catalog/scripts`（bootstrap：`docx.js`、`docx-raw.js`、`docx-build.js`） |
+| `setScriptFolder` | `agentRoot/shared/catalog/scripts`（bootstrap：`docx.js`、`docx-raw.js`、`docx-build.js`、`svg-raster.js`） |
 
 - **`execute_script` file 模式**：`runJs(..., "jobs/run.js")`，脚本内 `import './docx.js'`（先 workspace，再 catalog）；`import './helper.js'` 仅 workspace。
 - **系统提示**：教 AI 用 `import … from "./docx.js"` 等同目录叶子名；**避免** bare `import 'xxx'`（除文档明确列出的官方库外），以免与 catalog 扁平命名冲突。
