@@ -26,10 +26,10 @@ public final class ProductivityToolCapabilities {
         }
         String webview = desktopWebViewLabel();
         if (weizhiScriptEnabled) {
-            return "工作区读写 + chat_history + read_url + web_search + execute_script（Weizhi）；扩展：grep / glob / zip / bash / "
+            return "工作区读写 + chat_history + read_url + web_search + execute_script（Weizhi）；扩展：grep / glob / "
                 + "load_skill / MCP / " + webview;
         }
-        return "工作区读写 + chat_history + read_url + web_search；扩展：grep / glob / zip / bash / load_skill / MCP / "
+        return "工作区读写 + chat_history + read_url + web_search；扩展：grep / glob / load_skill / MCP / "
             + webview + "（Weizhi 脚本未启用）";
     }
 
@@ -46,7 +46,7 @@ public final class ProductivityToolCapabilities {
         } else {
             lines.add("execute_script：未启用（构建 ../weizhi native 或设置 AGENT1_WEIZHI_REPO）");
         }
-        lines.add("grep · glob · zip · bash · load_skill");
+        lines.add("grep · glob · load_skill");
         lines.add("MCP：脚本 $mcp.<server>.<tool>，经 mcp_call_tool 转发（配置见 agentRoot/mcp_servers.json）");
         if (CdpWebViewRuntime.isAvailable()) {
             lines.add("webview_exec：Headless Chromium + CDP（与 Android bridge.js 同协议）");

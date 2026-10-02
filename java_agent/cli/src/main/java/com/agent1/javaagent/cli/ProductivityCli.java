@@ -111,9 +111,6 @@ public final class ProductivityCli {
             .scriptToolBridge(scriptTools);
         java.util.Optional<ScriptEngineFactory> scriptEngine =
             WeizhiHostSupport.tryCreateFactory(weizhiRepo, weizhiOptions, agentRoot);
-        String sandboxAppend = scriptEngine.isPresent()
-            ? WeizhiHostSupport.loadSandboxPromptAppend(weizhiRepo)
-            : "";
         ScriptToolBridge bridge = scriptEngine.isPresent() ? scriptTools : null;
 
         Path projectRoot = resolveProjectRoot(agentRoot);
@@ -122,7 +119,7 @@ public final class ProductivityCli {
             runtimeConfig,
             scriptEngine.orElse(null),
             WeizhiHostSupport.scriptTimeoutMs(),
-            sandboxAppend,
+            "",
             bridge,
             WeizhiWorkspaceTools.provider(agentRoot, projectRoot)
         );

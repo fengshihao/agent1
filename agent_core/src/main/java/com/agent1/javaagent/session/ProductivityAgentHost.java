@@ -39,9 +39,7 @@ import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
 import com.agent1.javaagent.tool.agent.ListCatalogTool;
 import com.agent1.javaagent.tool.agent.ListSessionsTool;
 import com.agent1.javaagent.capability.CapabilitySearchView;
-import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.agent1.javaagent.tool.office.DocxOfficeTools;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
 import com.agent1.javaagent.tool.web.WebSearchTool;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
@@ -504,7 +502,6 @@ public final class ProductivityAgentHost implements Closeable {
                 agentRoot,
                 scriptTool,
                 scriptToolBridge != null,
-                OfficeCatalogScripts.isOfficeReady(agentRoot),
                 sessionEnvironmentSupplement
             ));
         runtime.setTools(buildTools(sessionId, workspace));
@@ -563,10 +560,6 @@ public final class ProductivityAgentHost implements Closeable {
         }
         if (scriptEngineFactory != null) {
             tools.add(new ExecuteScriptTool(sandbox, scriptEngineFactory, executeScriptTimeoutMs, agentRoot));
-            if (OfficeCatalogScripts.isOfficeReady(agentRoot)) {
-                tools.addAll(DocxOfficeTools.create(
-                    sandbox, scriptEngineFactory, executeScriptTimeoutMs, agentRoot));
-            }
         }
         if (scriptToolBridge instanceof MutableScriptToolBridge mutable) {
             mutable.set(new AgentToolsScriptBridge(tools));

@@ -1,5 +1,6 @@
 package com.agent1.javaagent.weizhi;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.core.CancellationToken;
@@ -27,8 +28,9 @@ class WeizhiWorkspaceToolsTest {
             // 测试不收集进度。
         }).getText();
         assertTrue(text.contains("note.txt"));
-        assertTrue(tools.stream().anyMatch(tool -> "bash".equals(tool.name())));
-        assertTrue(tools.stream().anyMatch(tool -> "zip_extract".equals(tool.name())));
+        assertFalse(tools.stream().anyMatch(tool -> "bash".equals(tool.name())));
+        assertFalse(tools.stream().anyMatch(tool -> "zip_extract".equals(tool.name())));
+        assertFalse(tools.stream().anyMatch(tool -> "zip_create".equals(tool.name())));
         assertTrue(tools.stream().anyMatch(tool -> "load_skill_through_path".equals(tool.name())));
     }
 

@@ -6,7 +6,7 @@
 - `promotion.md` — 创建 Skill / 脚本并 `promote_request` 到 `shared/local`
 - `catalog-install.md` — 从 CDN 清单按需 `sync apply` / `catalog_install`（含 native SO）
 - `tools-and-quickjs.md` — 文件工具、execute_script、QuickJS 与 Caps
-- `office-docx.md` — Word / docx 工具与脚本
+- `office-docx.md` — Word / docx 脚本 API
 - `events-audit.md` — `logs/events.jsonl` 审计事件
 - `trusted-sources.md` — catalog 只通过 sync / catalog_install 更新
 

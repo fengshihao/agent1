@@ -13,7 +13,8 @@
 - inline 过长会触发 Coach **script.inline_long**。
 - **Catalog 脚本库（7.2）**：`shared/catalog/scripts` → `setScriptFolder`；见 Weizhi `MODULE_LOADING.md`。
 - **工作区 orchestrator（file 模式）**：`runJs` 使用 workspace 相对 filename（如 `jobs/run.js`）；`import './docx.js'` 先查 workspace 再 **回退 catalog**；`import './helper.js'` 仍在 workspace。Agent1 不再镜像 `.workspace-run/`。
-- **Word**：bootstrap `docx.js` / `docx-raw.js` / `docx-build.js`；优先 `docx_markdown_to_word`，或 orchestrator `import … from './docx.js'`。详见 `doc/集成/WEIZHI_DOCX.md`。
+- **Word**：在 `execute_script` 里 `import … from './docx.js'`（先 workspace，再 catalog）。API 见 `docs/system/office-docx.md`。没有外层 docx 工具。
+- **Zip**：`import zip from "zip"` 后 `zip.extractSync` / `zip.createSync`，或平台对象 `files.zipExtract` / `files.zipCreate`。没有外层 zip / bash 工具。
 - **Native**：`await host.ensureNative("插件名")`；缺插件时同一轮 `execute_script` 会尝试 catalog sync 并重试（见 catalog-install.md）。
 
 ## 进化与安装
