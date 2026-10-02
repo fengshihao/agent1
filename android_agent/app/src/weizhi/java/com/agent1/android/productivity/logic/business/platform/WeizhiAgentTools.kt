@@ -44,6 +44,6 @@ class WeizhiAgentTools(
         )
         WebViewAgentExtension(appContext).register(toolkit, weizhiSandbox)
         McpAgentExtension(SessionWorkspacePaths.agentRoot(appContext)).register(toolkit, weizhiSandbox)
-        return WeizhiToolkitAdapters.toAgentTools(toolkit)
+        return WeizhiToolkitAdapters.toAgentTools(toolkit, sandbox)
     }
 }
