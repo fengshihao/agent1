@@ -28,7 +28,6 @@
 | `list_dir` | 列目录 | ✅ | ✅ | |
 | `chat_history` | 读当前 Session  transcript | ✅ | ✅ | |
 | `read_agent_doc` | 只读 `agentRoot` 下 `docs/system`、`docs/capabilities` | ✅ | ✅ | 资源来自 core 内 `agent-home` |
-| `list_catalog` | catalog 摘要（按 kind 计数） | ✅ | ✅ | |
 | `catalog_sync_status` | 同步状态占位说明 | ✅ | ✅ | 指向未来 catalog sync |
 | `catalog_install` | 远程安装占位（stub） | ✅ | ✅ | 返回 stub 文案 |
 | `promote_request` | 晋升占位（stub） | ✅ | ✅ | 未实现真实晋升 |

@@ -130,7 +130,7 @@ class ProductivityAgentHostTest {
             host.createSession();
             host.runUserMessage("ping");
             assertFalse(toolNames.get().contains("read_agent_doc"));
-            assertTrue(toolNames.get().contains("list_catalog"));
+            assertFalse(toolNames.get().contains("list_catalog"));
             assertTrue(toolNames.get().contains("promote_request"));
             assertTrue(toolNames.get().contains("catalog_install"));
             assertTrue(toolNames.get().contains("catalog_sync_status"));

@@ -4,7 +4,7 @@
 
 - **read_file / write_file / edit_file / list_dir**：仅当前会话 **workspace**。
 - **read_url**：抓取公开 http(s) 页面，返回标题和正文。设置 `TAVILY_API_KEY` 时先用 Tavily Extract 抽同一个 URL，失败再本地抓取。不访问本机、私网或链路本地地址；工作区文件仍用 read_file。
-- **read_file / grep / glob / list_dir**（路径 `docs/system/...`）与 **list_catalog**：只读 **agentRoot** 下 docs 与 catalog 摘要。
+- **read_file / grep / glob / list_dir**（路径 `docs/system/...`）：只读 **agentRoot** 下 docs。
 
 ## execute_script
 
