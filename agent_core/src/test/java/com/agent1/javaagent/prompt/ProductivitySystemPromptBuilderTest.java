@@ -39,6 +39,8 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("capability_search"));
         assertTrue(prompt.contains("webview_exec"));
         assertTrue(prompt.contains("input_path"));
+        assertTrue(prompt.contains("writeFile"));
+        assertTrue(prompt.contains("必须顶层 return"));
         assertFalse(prompt.contains("workspace/dog.svg"));
     }
 

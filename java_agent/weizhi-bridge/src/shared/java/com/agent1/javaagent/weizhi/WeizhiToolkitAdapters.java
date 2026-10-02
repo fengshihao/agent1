@@ -3,6 +3,7 @@ package com.agent1.javaagent.weizhi;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.DelegatingAgentTool;
+import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,6 +23,10 @@ public final class WeizhiToolkitAdapters {
     }
 
     public static List<AgentTool> toAgentTools(AgentToolkit toolkit) {
+        return toAgentTools(toolkit, null);
+    }
+
+    public static List<AgentTool> toAgentTools(AgentToolkit toolkit, WorkspaceSandbox sandbox) {
         if (toolkit == null) {
             throw new IllegalArgumentException("toolkit required");
         }
@@ -35,9 +40,37 @@ public final class WeizhiToolkitAdapters {
             Object rawDescription = schema.get("description");
             String description = rawDescription == null ? "" : String.valueOf(rawDescription);
             JsonNode parameters = MAPPER.valueToTree(schema.get("input_schema"));
-            tools.add(new DelegatingAgentTool(name, description, parameters, (params, token) -> call(toolkit, name, params, token)));
+            if ("webview_exec".equals(name)) {
+                description = WebViewExecHost.augmentDescription(description);
+                parameters = WebViewExecHost.augmentParameters(parameters);
+            }
+            JsonNode schemaParameters = parameters;
+            tools.add(new DelegatingAgentTool(
+                name,
+                description,
+                schemaParameters,
+                (params, token) -> invoke(toolkit, name, params, token, sandbox)
+            ));
         }
         return List.copyOf(tools);
+    }
+
+    private static String invoke(
+        AgentToolkit toolkit,
+        String name,
+        JsonNode params,
+        CancellationToken token,
+        WorkspaceSandbox sandbox
+    ) {
+        JsonNode argsNode = params;
+        if ("webview_exec".equals(name)) {
+            argsNode = WebViewExecHost.rewriteArgs(params);
+        }
+        String raw = call(toolkit, name, argsNode, token);
+        if ("webview_exec".equals(name)) {
+            return WebViewExecHost.materialize(sandbox, raw);
+        }
+        return raw;
     }
 
     private static String call(

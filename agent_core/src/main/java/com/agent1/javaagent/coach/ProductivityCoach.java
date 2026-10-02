@@ -91,8 +91,8 @@ public final class ProductivityCoach {
                 advice =
                     "脚本被包进函数执行，只有顶层 return 的值会落盘；运行时会等待这个 return 出来的 Promise。"
                         + "请写成 return (async () => { ...; return canvas.toDataURL('image/png').split(',')[1]; })()。"
-                        + "不要只写 (async () => {})()，也不要把 return 放在 img.onload 里。"
-                        + "同步 SVG 则 return SVG 原文，output_path 用 .svg。";
+                        + "或者不 return，在这个 Promise 里 writeFile('route.png', base64)，宿主会把 Base64 解码成图片字节写入工作区。"
+                        + "不要只写 (async () => {})()，也不要把 return 放在 img.onload 里。";
             } else if (text.contains("await is only valid in async")) {
                 hookId = "webview.async_syntax";
                 advice =

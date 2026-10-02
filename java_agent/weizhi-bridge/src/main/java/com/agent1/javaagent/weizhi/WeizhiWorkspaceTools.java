@@ -65,7 +65,7 @@ public final class WeizhiWorkspaceTools {
             toolkit.registerTool(new DesktopWebViewExecTool(runtime, weizhiSandbox));
             toolkit.addJsExposed("webview_exec");
         }
-        return WeizhiToolkitAdapters.toAgentTools(toolkit);
+        return WeizhiToolkitAdapters.toAgentTools(toolkit, sandbox);
     }
 
     private static LoadSkillTool buildLoadSkillTool(Path workspaceRoot, Path projectRoot) {

@@ -29,11 +29,10 @@ object WeizhiHostLoader {
             ),
             600_000L,
             """
-            图像与 WebView：webview_exec 写入的是脚本 return 值的 UTF-8 文本，不是按扩展名生成的二进制图片。
-            code 被包进函数执行，只有顶层 return 的值会落盘，运行时会等待这个 return 出来的 Promise。
-            异步必须写成 return (async () => { ...; return base64; })()。只写 (async () => {})()，或在 img.onload 回调里 return，完成值是 undefined，ok 为 false。
-            要保存图，return 纯 Base64，例如 return canvas.toDataURL('image/png').split(',')[1]。
-            output_path 可选：省略时图片 Base64 会自动落盘到 tmp/webview_exec/*.b64；也可自行指定路径（扩展名 .png 时内容仍是 Base64 文本）。
+            图像与 WebView：code 在函数里执行，必须顶层 return；异步写成 return (async () => { ... })()。运行时会等待这个 return 出来的 Promise。
+            只写 (async () => {})()，或在 img.onload 回调里 return，完成值是 undefined，ok 为 false。
+            画图优先 writeFile('route.png', canvas.toDataURL('image/png').split(',')[1])，放在脚本等待的 Promise 里。宿主把 Base64 解码成图片字节写入工作区，回执 outputPath 就是这个 png。
+            若改为 return 纯 Base64，文件内容是 UTF-8 文本，不是二进制图片。output_path 可选：省略时落到 tmp/webview_exec/*.b64。
             成功回执含 resultType 与 outputPath（落盘时 resultPreview 仅为占位说明）。返回 null 或 undefined 时 ok 为 false，不要告诉用户已经画好。
             仅当 ok 为 true 时，在最终回复里用 Markdown 引用回执 outputPath（png/jpg 或 tmp/webview_exec/*.b64），例如 ![小猫](tmp/webview_exec/wv-123-1.b64)，
             不要粘贴工具 JSON、base64 或 resultPreview。工具执行后若尚未给出带 ![](...) 的总结，应再调用一轮完成说明。
