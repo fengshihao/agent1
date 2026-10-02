@@ -59,8 +59,19 @@ public final class ProductivityCoach {
         if (text != null && text.contains(OUTSIDE_MARKER)) {
             hookId = "path.outside_attempt";
             advice =
-                "仅当前会话 workspace 可写。读 docs 用 read_file/grep（docs/system/...）；catalog 摘要 list_catalog；"
+                "仅当前会话 workspace 可写。读 docs 用 read_file/grep（docs/system/...）；"
                     + "改 shared 用 promote_request / catalog_install，勿 write_file 越界。";
+        } else if ("capability_search".equals(toolName) && text != null) {
+            boolean empty = text.startsWith("未找到匹配");
+            int calls = runState.recordCapabilitySearch(empty);
+            if (calls > 2 || (empty && runState.capabilitySearchEmptyCalls() >= 2)) {
+                hookId = "capability.search_limit";
+                advice =
+                    "本任务已多次检索本地能力索引且仍无可用条目。请勿继续换关键词搜索、"
+                        + "不要尝试枚举 shared/catalog 或读取 workspace/.mcp 等运行时目录。"
+                        + "请改为在 workspace 用 read/write/edit 或 execute_script 自行实现；"
+                        + "若工作量过大或当前环境无法完成，向用户如实说明暂无内置方案，并给出替代做法或需用户配合的条件。";
+            }
         } else if ("write_file".equals(toolName) && !isError && parameters != null
             && !parameters.path("path").asText("").replace('\\', '/').contains("staging/")) {
             String content = parameters.path("content").asText("");

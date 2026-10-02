@@ -143,6 +143,29 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void capabilitySearchLimitCoachAfterThirdCall() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("query", "foo");
+        ToolExecutionResult hit = ToolExecutionResult.text("capability_search: 1 条\n- [doc] x");
+        coach.maybeAugment("capability_search", params, hit, false);
+        coach.maybeAugment("capability_search", params, hit, false);
+        ToolExecutionResult third = coach.maybeAugment("capability_search", params, hit, false);
+        assertTrue(third.getText().contains("[coach] capability.search_limit"));
+    }
+
+    @Test
+    void capabilitySearchLimitCoachAfterTwoEmpty() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("query", "foo");
+        ToolExecutionResult empty = ToolExecutionResult.text("未找到匹配「foo」的能力条目。");
+        coach.maybeAugment("capability_search", params, empty, false);
+        ToolExecutionResult second = coach.maybeAugment("capability_search", params, empty, false);
+        assertTrue(second.getText().contains("[coach] capability.search_limit"));
+    }
+
+    @Test
     void fileModeScriptSkipsInlineCoach() {
         ProductivityCoach coach = new ProductivityCoach();
         ObjectNode params = MAPPER.createObjectNode();

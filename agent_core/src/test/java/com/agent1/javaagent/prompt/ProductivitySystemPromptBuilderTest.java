@@ -156,7 +156,7 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("name"));
         assertTrue(prompt.contains("description"));
         assertTrue(prompt.contains("capability_search"));
-        assertTrue(prompt.contains("会直接带上正文"));
+        assertTrue(prompt.contains("会直接带上 SKILL 正文"));
     }
 
     @Test
@@ -207,7 +207,7 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(prompt.contains("能力检索"));
-        assertTrue(prompt.contains("一个能力搜一轮"));
+        assertTrue(prompt.contains("一个关键词搜一轮"));
         assertTrue(prompt.contains("limit"));
         assertTrue(prompt.contains("explore"));
     }

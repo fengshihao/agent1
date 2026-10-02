@@ -36,7 +36,6 @@ import com.agent1.javaagent.tool.agent.AskUserTool;
 import com.agent1.javaagent.tool.agent.CapabilitySearchTool;
 import com.agent1.javaagent.tool.agent.CatalogInstallTool;
 import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
-import com.agent1.javaagent.tool.agent.ListCatalogTool;
 import com.agent1.javaagent.tool.agent.ListSessionsTool;
 import com.agent1.javaagent.capability.CapabilitySearchView;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -529,7 +528,6 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new WriteFileTool(sandbox));
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));
-        tools.add(new ListCatalogTool(agentRoot));
         tools.add(new CatalogSyncStatusTool(agentRoot));
         tools.add(new CatalogInstallTool(agentRoot));
         tools.add(new PromoteRequestTool(agentRoot, workspace));

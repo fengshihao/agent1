@@ -117,7 +117,9 @@ public final class CapabilitySearchTool implements AgentTool {
 
         if (hits.isEmpty() && loadedSkills.isEmpty()) {
             return ToolExecutionResult.text(
-                "未找到匹配「" + query + "」的能力条目。可换关键词、放宽 kinds，或用 read_file/grep 读 docs/system。"
+                "未找到匹配「" + query + "」的能力条目。"
+                    + "同一任务不宜反复换词检索；无 doc_path 时不要通读 docs/system。"
+                    + "若无本地条目，请在 workspace 用文件工具或 execute_script 尝试实现，或向用户说明暂无内置方案。"
             );
         }
 
