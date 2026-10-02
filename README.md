@@ -5,14 +5,13 @@
 <h1 align="center">Agent1</h1>
 
 <p align="center">
-  <strong>一套 JVM 内核，桌面与手机同一套智能体。</strong><br />
-  <em>One JVM core. Same agent on desktop and phone.</em>
+  <strong>给 Android 与嵌入式宿主用的轻量编程智能体 · 生产力助手。</strong><br />
+  <em>A compact programming agent for Android and embedded JVM hosts.</em>
 </p>
 
 <p align="center">
-  面向生产的智能体参考实现：持久会话、工作区沙箱、工具循环、结构化 JSONL 审计。<br />
-  Java CLI（macOS / Ubuntu）与 Android 宿主共用 <code>agent_core</code>，UI 与配色对齐姊妹项目
-  <a href="https://github.com/fengshihao/molan">墨览 molan</a>（暖纸 / 墨夜 / 琥珀强调）。
+  可嵌入的 <code>java-agent-core</code>：会话、工作区沙箱、工具循环与 JSONL 审计。<br />
+  核心运行时约 <strong>3MB</strong> 量级，适合装进 App、车机、工控平板等资源受限设备，帮用户<strong>处理各类办公与自动化工作</strong>。
 </p>
 
 <p align="center">
@@ -26,7 +25,7 @@
 <p align="center">
   <img alt="Java 17" src="https://img.shields.io/badge/Java-17-blue.svg?style=for-the-badge&labelColor=1C1914" />
   <img alt="License MIT" src="https://img.shields.io/badge/License-MIT-7EB89A?style=for-the-badge&labelColor=1C1914" />
-  <img alt="Model" src="https://img.shields.io/badge/Model-Qwen3.7--flash-D4773B?style=for-the-badge&labelColor=1C1914" />
+  <img alt="Core ~3MB" src="https://img.shields.io/badge/Core-~3MB-D4773B?style=for-the-badge&labelColor=1C1914" />
 </p>
 
 ---
@@ -37,30 +36,90 @@
 
 | | |
 | --- | --- |
-| **可嵌入，而非绑死 UI** | 核心制品是 `java-agent-core`：ReAct、会话、工作区、事件落盘；宿主只接 LLM 与（可选）界面 |
-| **生产力路径优先** | `--productivity`：Session、`events.jsonl`、workspace 工具；经典 CLI 保留 bash / python / skill |
-| **可审计** | 模型请求、工具调用、用量写入 JSONL，便于回放、排障与后续「自进化」规划 |
-| **双端一致** | 桌面 `ProductivityCli` 与 Android `ProductivityAgentGateway` 同一演进方向 |
-| **面向 AI 贡献** | 复制 [docs/ai/START.md](docs/ai/START.md) 里的一句提示，让 Cursor / Claude Code / 其他编码智能体自行克隆、读契约、跑检查 |
+| **为嵌入而生** | 不是「只能在我们 App 里聊」的黑盒聊天；宿主接入 `ProductivityAgentHost` + LLM 即可拥有完整生产力循环 |
+| **极小内核** | `java-agent-core` 专注 ReAct、Session、workspace、事件落盘；整体约 **3MB** 量级，便于与业务 APK 同包分发 |
+| **编程型助手** | 主路径是写 **JavaScript**（QuickJS / `execute_script`）编排任务，而不是把几十种工具名塞进系统提示 |
+| **能干活** | 读写工作区、检索历史、拉网页、跑脚本、调 WebView、接 MCP、加载 Skill；面向真实文档/表格/流程类工作 |
+| **可进化** | Skill 沉淀、`capability_search` 按需发现能力、晋升到公共 catalog；Session 沙箱 + 审计日志支撑长期演进 |
+| **双端验证** | Android 是首要宿主；macOS / Ubuntu 上的 `./agent1` 用于联调、CI 与无屏环境 |
 
-> **Python CLI 已归档。** 历史代码只读见 [`archive/python-agent`](https://github.com/fengshihao/agent1/tree/archive/python-agent)；新功能请在 Java / Android 路径开发。
+桌面 **生产力 CLI**（`./agent1`）与 **Android 生产力 App** 共用同一内核，能力对照见 [doc/CLI与Android-Agent能力对照.md](doc/CLI与Android-Agent能力对照.md)。
 
-### 功能愿景（我们在往哪走）
+---
 
-1. **编程型智能体**：模型在 workspace 内写 JS orchestrator（Weizhi `execute_script`），通过 Caps / catalog 调用能力，而不是把全部工具塞进系统提示。
-2. **可嵌入 SDK**：三方集成面收敛到 `ProductivityAgentHost` + `LlmClient` +（可选）脚本引擎与扩展工具（详见 [doc/规划/Agent1-SDK愿景.md](doc/规划/Agent1-SDK愿景.md)）。
-3. **自进化与公共层**：Session 沙箱隔离；可复用产出经晋升 API 进入 `shared/`；能力检索代替提示词灌包（详见 [doc/规划/自进化Agent/README.md](doc/规划/自进化Agent/README.md)）。
-4. **与墨览同气质**：Android 生产力对话主题对齐 molan 纸本配色，降低「工具感」、拉长阅读与对话舒适度。
+## 产品愿景：嵌入式里的「会写脚本的同事」
 
-### 当前已落地（摘要）
+Agent1 要成为 **Android / 嵌入式 JVM 宿主** 里的默认 **生产力编程智能体**：
 
-| 模块 | 说明 |
+1. **用户说人话，助手写 JS**  
+   在 Session `workspace/` 里生成并迭代 **orchestrator 脚本**（`execute_script`），通过 Weizhi QuickJS 调用 `fs`、平台 **Caps**、catalog 脚本、以及白名单内的 `$tools` 桥。复杂任务拆成多步脚本，而不是一轮轮硬调零散 Java Tool。
+
+2. **工具少而精，细节靠检索**  
+   Java 层只保留工作区 I/O、脚本执行、用户澄清、文档只读等「内核工具」。具体怎么做 Word、grep、画图、调外部服务，先走 **`capability_search`（能力 / Ability 检索）** → `read_agent_doc` / Skill 正文，避免提示词爆炸。
+
+3. **Skill：可加载、可自创、可晋升**  
+   - **加载**：`load_skill` 从 workspace `skills/`、App `assets`（Android）或项目目录（桌面联编）拉取 SKILL.md 工作流。  
+   - **自创**：运行中在 workspace 沉淀可重复流程，经总结与 **`promote_request`**（及后续审查 API）进入 `shared/local/skills/`，供后续 Session 复用（自进化路线见 [doc/规划/自进化Agent/README.md](doc/规划/自进化Agent/README.md)）。
+
+4. **MCP：外接能力而不膨胀内核**  
+   通过 `agentRoot/mcp_servers.json` 配置 MCP Server；索引进入 `capability_search`（kind=mcp），脚本内用 **`$mcp.<server>.<tool>`** 调用，不把每个 MCP 工具都注册成 Java `@Tool`。
+
+5. **WebView：在设备上「看得见」的结果**  
+   - **Android**：系统 WebView + `webview_exec`，适合渲染脚本页、图表、表单总结等（见 `android_agent/doc/webview-draw-e2e.md`）。  
+   - **桌面联调**：Headless Chromium + CDP，协议与 Skill 尽量与 Android 对齐。
+
+6. **自进化数据面**  
+   Session 隔离的可写沙箱；可复用产出晋升到 **shared/**；`events.jsonl` 全链路审计；catalog 与云端资源同步（规划中）。目标：越用越懂你的流程，而不是每次从零科普工具列表。
+
+更完整的 SDK 集成面见 [doc/规划/Agent1-SDK愿景.md](doc/规划/Agent1-SDK愿景.md)。
+
+---
+
+## 依赖：微智 Weizhi（之谓）
+
+Agent1 的「能写 JS、能 grep、能接 MCP、能在 WebView 里出图」依赖独立开源项目 **[Weizhi / 之谓（常称微智）](https://github.com/fengshihao/weizhi)**。它是面向 **AI 编程智能体** 的端上运行时：**嵌入式 QuickJS** + 沙箱文件系统 + 可选 **Caps**（Android 文件、分享、提醒等 OS 能力）+ **`:agent-tools`** 模块（工作区 grep/glob/zip/bash、Skill、`run_js` / `execute_script`、MCP、WebView）。
+
+| | **Agent1（`java-agent-core`）** | **Weizhi** |
+| --- | --- | --- |
+| **定位** | 生产力 **编排层**：多轮 ReAct、Session、工作区 Java 工具、能力检索、JSONL 审计 | **执行层**：在设备里安全跑脚本、调工具、加载 Skill |
+| **LLM 可见** | 少量 Java Tool + `execute_script` 等入口 | 脚本内 `$tools.*`、`$mcp.*`、`fs`、catalog、`caps`（**不**把每个 Cap 注册成 Java Tool） |
+| **集成方式** | 发布 `java-agent-core` AAR/JAR | 源码联编或 Maven AAR；经 `java_agent/weizhi-bridge` 与 Android `WeizhiHostLoader` 接入 |
+
+**典型分工**：用户描述任务 → Agent1 在工作区改文件、检索 `capability_search`、必要时 `load_skill` → 用 **`execute_script`** 交给 Weizhi 跑 QuickJS orchestrator → 脚本里 `$tools.grep`、调 MCP、跑 office/catalog 脚本、`webview_exec` 出可视化结果 → 事件写回 Agent1 的 `events.jsonl`。
+
+### 在本仓库里怎么带上 Weizhi
+
+```bash
+./sync-weizhi.sh          # 默认 fengshihao/weizhi → ./weizhi；fork 可设 WEIZHI_GIT_URL
+cd android_agent && ./gradlew :app:assembleDebug   # CI 同样先 sync 再 assemble
+```
+
+- **无 weizhi 时**：仍可使用工作区读写、`read_url`、`chat_history` 等 **内核工具**（适合极简集成或先接 UI）。
+- **有 weizhi 时**：打开完整 **编程助手** 能力环（脚本 / MCP / WebView / grep…），App 内 `BuildConfig.WEIZHI_INTEGRATED=true`。
+- **无 NDK / 无源码**：可用 [`android_agent/weizhi-prebuilt`](android_agent/weizhi-prebuilt/README.md) 导入预编译 Maven（见 QUICKSTART）。
+
+Weizhi 自身文档：[README](https://github.com/fengshihao/weizhi) · [AI 集成指南](https://github.com/fengshihao/weizhi/blob/master/docs/INTEGRATION_FOR_AI.md) · Agent1 侧说明：[doc/集成/WEIZHI.md](doc/集成/WEIZHI.md)。
+
+---
+
+## 能力地图（摘要）
+
+### 内核工具（不依赖 Weizhi 亦有）
+
+`read_file` · `write_file` · `edit_file` · `list_dir` · `read_url` · `chat_history` · `read_agent_doc` · catalog / promote 相关占位与自进化只读工具等。
+
+### 集成 Weizhi 后的扩展环
+
+| 类别 | 说明 |
 |------|------|
-| **`agent_core`** | 运行时、OpenAI 兼容流式 LLM、工具循环、会话 / 工作区 / JSONL |
-| **`java_agent`** | Gradle + `JavaAgentCli` / `ProductivityCli`、fat-jar、单测 |
-| **`android_agent`** | Compose 动态 JSON UI、Qwen 生成界面、接 core 的多轮对话 Demo |
+| **JS / 脚本** | `execute_script`、QuickJS、`$tools` / `$mcp` 桥、workspace 内多文件工程 |
+| **检索** | `capability_search` — 按关键词查 Skill、文档、MCP 工具摘要等 |
+| **Skill** | `load_skill` + workspace / assets 下的 SKILL.md |
+| **MCP** | `mcp_servers.json` + 脚本内 MCP 调用 |
+| **WebView** | `webview_exec`（Android WebView / 桌面 Chromium） |
+| **工作区增强** | `grep` · `glob` · `zip` · 设备内 `bash`（平台差异见能力对照文档） |
 
-生产力路径能力：`read_file` / `write_file` / `edit_file` / `list_dir`、`read_url`、`chat_history`、轮次裁剪、`FileSessionStore` 等。经典路径：`RunBashTool`、`RunPythonTool`、`SkillTool` 等。
+Android 启用完整环：联编 `weizhi` 或使用 `weizhi-prebuilt`，见 [android_agent/QUICKSTART.md](android_agent/QUICKSTART.md)。
 
 ---
 
@@ -72,47 +131,42 @@
 export DASHSCOPE_API_KEY="your-key"   # 或 ALIBABA_API_KEY / OPENAI_API_KEY / QWEN_API_KEY
 ```
 
-### 运行
+### Android（推荐路径）
+
+```bash
+./publish-java-agent-core.sh      # 发布 java-agent-core 到本地 Maven
+./build-android-agent.sh          # 需 adb
+```
+
+在 App 内使用 **生产力助手** Tab：`ProductivityAgentHost` + 会话列表 / 流式聊天 / 模型设置（参考 `android_agent` 分层架构）。
+
+### 桌面联调（macOS / Ubuntu）
 
 ```bash
 ./agent1                  # 生产力助手 · 交互
 ./agent1 你好             # 单次提问
 ./agent1 models           # 模型与运行时参数
-./agent1 logs failed      # 查事件日志
-
-./run-java-agent "列出当前目录文件"           # 经典 CLI
-./run-java-agent-gradle "列出当前目录文件"    # 跳过 fat-jar，直接 Gradle
-```
-
-Android 与 core 发布：
-
-```bash
-./publish-java-agent-core.sh
-./build-android-agent.sh    # 需 adb，见 android_agent/QUICKSTART.md
+./agent1 tools            # 当前平台工具能力摘要
+./agent1 logs failed      # 查 events.jsonl
 ```
 
 ### 检查（与 CI 同源，PR 前必跑）
 
 ```bash
-gradle -p java_agent :core:test :cli:test   # Java 单元测试（必须有对应用例）
-./scripts/ci-local.sh fast                    # 日常：Java 静态 + java-test
-./scripts/ci-local.sh full                    # 含 Android assemble（需 ANDROID_HOME）
-./check-agent1-quality.sh                     # Java PMD/SpotBugs + Android 分层门禁
-./scripts/cloud-agent-verify.sh               # 无 Gradle 的轻量校验（Cloud Agent）
+gradle -p java_agent :core:test :cli:test
+./scripts/ci-local.sh fast
+./scripts/ci-local.sh full          # 含 Android assemble（需 ANDROID_HOME）
+./check-agent1-quality.sh
 ```
 
-GitHub Actions：[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — `java-test`、`quality-static`、`android-assemble-debug`。推送或更新 PR 后 **须全部通过**。
+GitHub Actions：[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — `java-test`、`quality-static`、`android-assemble-debug`。
 
 ---
 
 ## 用其他 AI 智能体一句话集成
 
-**给人看的两步：**
-
-1. 把 [docs/ai/START.md](docs/ai/START.md) 里的「准备环境」整段复制给 Cursor、Claude Code、Codex 等。
-2. 环境就绪后，用同文件里的「贡献一句」说明你要改什么；要求智能体按 [AGENTS.md](AGENTS.md) 与 [docs/ai/CHECKLIST.md](docs/ai/CHECKLIST.md) 改代码，并在开 PR 前跑通检查。
-
-**机器契约（优先于聊天口头约定）：** [AGENTS.md](AGENTS.md) · [docs/ai/PR_PLAYBOOK.md](docs/ai/PR_PLAYBOOK.md)
+1. 复制 [docs/ai/START.md](docs/ai/START.md) 的「准备环境」给 Cursor、Claude Code 等。
+2. 再用同文件的「贡献一句」说明改动范围；要求按 [AGENTS.md](AGENTS.md) 与 [docs/ai/CHECKLIST.md](docs/ai/CHECKLIST.md) 完成单测与 `ci-local.sh`。
 
 ---
 
@@ -120,29 +174,28 @@ GitHub Actions：[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — `jav
 
 ```text
 agent1/
-├── agent_core/              # JVM 核心库（发布 com.agent1:java-agent-core）
-├── java_agent/              # CLI + Gradle
-├── android_agent/           # Android Demo（图标与主题见 app/src/main/res）
-├── doc/                     # 规划、集成、Cloud Agent 约定
-├── docs/ai/                 # 给编码智能体的开工与清单
-├── scripts/ci-local.sh      # 本地对齐 CI
-├── agent1                   # 生产力 CLI 入口
-└── AGENTS.md                # 机器契约
+├── agent_core/              # java-agent-core（~3MB 量级运行时）
+├── java_agent/              # CLI + Gradle + weizhi-bridge
+├── android_agent/           # 嵌入式宿主参考 App（Compose + 生产力助手）
+├── doc/                     # 能力对照、集成、规划
+├── docs/ai/                 # 编码智能体开工文档
+└── AGENTS.md
 ```
 
 ```mermaid
-flowchart LR
-  subgraph Desktop["Java CLI（macOS / Ubuntu）"]
-    CLI[ProductivityCli / JavaAgentCli]
-    CLI --> Core[agent_core]
-  end
-  subgraph Mobile["android_agent"]
-    App[Compose + 动态 JSON]
-    App --> Core
-  end
-  Core --> LLM[Qwen / DashScope 等]
-  Core --> Tools[workspace / bash / skill / Weizhi 脚本…]
-  Core --> Events[events.jsonl]
+flowchart TB
+  Host[Android / 嵌入式 App]
+  Host --> Gateway[ProductivityAgentHost]
+  Gateway --> Core[java-agent-core]
+  Core --> LLM[OpenAI 兼容 LLM]
+  Core --> WS[Session workspace]
+  Core --> Search[capability_search]
+  Core --> Audit[events.jsonl]
+  Core --> Bridge[weizhi-bridge]
+  Bridge --> WZ[微智 Weizhi QuickJS]
+  WZ --> Tools[grep bash Skill MCP]
+  WZ --> Cap[Caps catalog 脚本]
+  WZ --> WV[WebView]
 ```
 
 ---
@@ -153,19 +206,18 @@ flowchart LR
 |------|------|
 | `DASHSCOPE_API_KEY` / `ALIBABA_API_KEY` / `OPENAI_API_KEY` | 模型 API Key |
 | `ALIBABA_BASE_URL` / `OPENAI_BASE_URL` | OpenAI 兼容基地址 |
-| `AGENT1_AGENT_ROOT` | 会话与日志数据根（生产力路径） |
-| `AGENT1_MAX_CONTEXT_TURNS` 等 | 见 `AgentRuntimeDefaults` |
+| `AGENT1_AGENT_ROOT` | 会话与日志数据根（桌面生产力路径） |
+| `AGENT1_SCRIPT_TIMEOUT_MS` 等 | 脚本与运行时限额，见 `AgentRuntimeDefaults` |
 
-经典 CLI 另有 `AGENT1_MAX_CONTEXT_MESSAGES`、`AGENT1_LOG_FILE` 等，见 [java_agent/README.md](java_agent/README.md)。
+Android 侧多为 App 内配置 + `filesDir/agent1`；详见 [java_agent/README.md](java_agent/README.md) 与能力对照文档。
 
 ---
 
 ## 贡献与质量门禁
 
-- 人类贡献：[CONTRIBUTING.md](CONTRIBUTING.md)
-- **新增或修改行为须附带自动化测试**（`:core:test` / `:cli:test`，Android 改 UI 或解析层时补 `src/test`）
-- **PR 前** `./scripts/ci-local.sh fast`（动 Android 构建链则 `full`）
-- Android 分层与包路径：遵守 [`.cursor/rules/android-layering.mdc`](.cursor/rules/android-layering.mdc)
+- [CONTRIBUTING.md](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md)
+- 行为变更须 **JUnit / Android 单测** + `./scripts/ci-local.sh fast`
+- Android 分层：[`.cursor/rules/android-layering.mdc`](.cursor/rules/android-layering.mdc)
 
 ## License
 
@@ -177,49 +229,34 @@ flowchart LR
 
 ## English
 
-### Why Agent1
+### What Agent1 is
 
-Agent1 is a **production-oriented JVM agent stack**: one shared **`agent_core`** for **Java CLI** on macOS/Ubuntu and **Android** hosts. It emphasizes durable sessions, sandboxed workspace tools, a tool-calling loop, and **JSONL audit logs**—not a monolithic chat app you cannot embed.
+Agent1 is a **compact, embeddable programming agent** for **Android and other JVM hosts**: ship ~**3MB**-class `java-agent-core`, wire your LLM, and get sessions, sandboxed workspaces, tool loops, and JSONL audit logs—a **productivity assistant** that can handle real work (files, scripts, web, MCP, skills), not just chat.
 
-**Vision (direction of travel):**
+### Weizhi (微智) dependency
 
-- Embeddable **programming agent** runtime (`ProductivityAgentHost`, published as `java-agent-core`)
-- Workspace-first tools and optional Weizhi JS orchestration instead of huge static tool lists in the system prompt
-- Longer-term **self-evolving** agent data model (session isolation, promotion to shared catalog)—see `doc/规划/`
-- Android productivity UI theming aligned with **[molan](https://github.com/fengshihao/molan)** (warm paper, ink night, amber accent)
+Full **scripting and tool-loop** capabilities come from **[Weizhi](https://github.com/fengshihao/weizhi)** (embedded QuickJS, sandbox, Caps, agent-tools: grep/bash/skills/MCP/WebView). **Agent1** owns ReAct, sessions, workspace Java tools, capability search, and JSONL audit; **Weizhi** runs JS and device bridges via `weizhi-bridge`. Run `./sync-weizhi.sh` before Android assemble or desktop builds that need the complete ring. Details: [doc/集成/WEIZHI.md](doc/集成/WEIZHI.md).
 
-**Python CLI is archived** on branch `archive/python-agent`; do not extend it on `master`.
+### How it works
+
+- **JavaScript-first**: orchestrate tasks with `execute_script` (Weizhi QuickJS) in the session workspace; call Caps, catalog scripts, `$tools`, and `$mcp.*` from JS.
+- **Discovery, not prompt bloat**: use **`capability_search`** to find skills, docs, and MCP tools; load workflows with **`load_skill`**; evolve skills into shared storage over time.
+- **WebView tools**: render script-driven pages on device (Android WebView; desktop Chromium for dev).
+- **MCP**: configure servers under `agentRoot`; invoke from scripts without registering every tool in Java.
+- **Self-evolution**: session sandboxes, promotion to shared catalog, full event trail—see `doc/规划/自进化Agent/`.
 
 ### Quick start
 
 ```bash
 export DASHSCOPE_API_KEY="your-key"
-./agent1 "hello"
+./publish-java-agent-core.sh && ./build-android-agent.sh
+./agent1 "hello"    # desktop productivity CLI for dev/CI
 gradle -p java_agent :core:test :cli:test
 ./scripts/ci-local.sh fast
 ```
 
-### Integrate another coding agent in one message
+### One-liner for other coding agents
 
-Copy the **environment bootstrap** block from [docs/ai/START.md](docs/ai/START.md) into Cursor, Claude Code, or any agent that can run shell commands. Then send the **contribution one-liner** from the same file. Machine contract: [AGENTS.md](AGENTS.md).
+See [docs/ai/START.md](docs/ai/START.md) and [AGENTS.md](AGENTS.md).
 
-### Quality gates (required before PR)
-
-| Check | Purpose |
-|-------|---------|
-| `gradle -p java_agent :core:test :cli:test` | Unit tests for changed Java behavior |
-| `./scripts/ci-local.sh fast` | Matches CI `java-test` + static subset |
-| `./check-agent1-quality.sh` | PMD, SpotBugs, Android layering |
-| GitHub Actions `ci.yml` | Must be green on the PR |
-
-New features **must** include automated tests where the repo already tests similar code; UI-only changes should add or update `android_agent` unit tests when touching parsers or view models.
-
-### Modules
-
-| Module | Role |
-|--------|------|
-| `agent_core` | Shared runtime library |
-| `java_agent` | CLI and Gradle build |
-| `android_agent` | Compose demo; **app icon** under `app/src/main/res/drawable/` (README uses the same artwork via `docs/assets/app-icon.svg`) |
-
-Further reading: [java_agent/README.md](java_agent/README.md), [android_agent/README.md](android_agent/README.md), [doc/cloud-agent.md](doc/cloud-agent.md).
+Further reading: [doc/CLI与Android-Agent能力对照.md](doc/CLI与Android-Agent能力对照.md), [android_agent/README.md](android_agent/README.md), [doc/cloud-agent.md](doc/cloud-agent.md).
