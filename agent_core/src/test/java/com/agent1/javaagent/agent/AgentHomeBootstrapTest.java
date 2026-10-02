@@ -32,6 +32,9 @@ class AgentHomeBootstrapTest {
         assertEquals(65_536, manifest.path("coach").path("triggers").path("fileLargeWriteBytes").asInt());
         assertTrue(Files.isRegularFile(root.resolve("docs/system/tools-and-quickjs.md")));
         assertTrue(Files.isRegularFile(root.resolve("docs/system/promotion.md")));
+        assertTrue(Files.isRegularFile(root.resolve("docs/system/svg-raster.md")));
+        assertTrue(Files.isRegularFile(root.resolve("shared/catalog/scripts/svg-raster.js")));
+        assertTrue(Files.readString(root.resolve("shared/catalog/scripts/svg-raster.js")).contains("svgToImage"));
     }
 
     @Test

@@ -114,7 +114,8 @@ public final class ExecuteScriptTool implements AgentTool {
         if (hasFile && !looksLikeJavaScriptFile(file)) {
             return ToolExecutionResult.text(
                 "错误：execute_script 的 file 必须是 workspace 内的 .js/.mjs/.cjs 脚本。"
-                    + " 读取 SVG/图片/数据文件请用 read_file；需要 DOM/canvas/SVG 栅格化请用 webview_exec（input_path 传入文件）。"
+                    + " 读取 SVG/图片/数据文件请用 read_file；SVG 转 PNG/JPG 请在 .js 里"
+                    + " import { svgToImage } from './svg-raster.js'（见 docs/system/svg-raster.md）。"
             );
         }
 

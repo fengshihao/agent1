@@ -21,7 +21,7 @@ public final class CapabilityIndexStore {
     /**
      * 种子内容代次。修改 {@code search-index.seed.jsonl} 时递增，已有 capabilities.db 会在下次检索前重建。
      */
-    public static final int SEED_REVISION = 3;
+    public static final int SEED_REVISION = 4;
 
     /**
      * FTS5 bm25 列权（仅 indexed 列，顺序与 {@code capability_fts} 一致：title, summary, tags, entry）。

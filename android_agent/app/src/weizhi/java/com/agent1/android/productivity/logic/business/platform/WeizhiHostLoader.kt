@@ -36,6 +36,7 @@ object WeizhiHostLoader {
             成功回执含 resultType 与 outputPath（落盘时 resultPreview 仅为占位说明）。返回 null 或 undefined 时 ok 为 false，不要告诉用户已经画好。
             仅当 ok 为 true 时，在最终回复里用 Markdown 引用回执 outputPath（png/jpg 或 tmp/webview_exec/*.b64），例如 ![小猫](tmp/webview_exec/wv-123-1.b64)，
             不要粘贴工具 JSON、base64 或 resultPreview。工具执行后若尚未给出带 ![](...) 的总结，应再调用一轮完成说明。
+            SVG 转 PNG 或 JPG：在 execute_script 的 file 脚本里 import { svgToImage } from './svg-raster.js'（svgPath、width、height 或 length、format 为 png 或 jpg）。它写出二进制图片，回复里用 ![](outputPath) 引用该路径，不要引用临时 .b64。
 
             Word（.docx）：简单转换用 docx_markdown_to_word（`#` 标题自带字号层次）；勿在 Markdown 里插 HTML 改样式。
             复杂流程在工作区写 orchestrator（file 模式，如 jobs/run.js），`import './docx.js'` 由 Weizhi 回退到 catalog（勿 cp）。勿 bash/read agentRoot 或 assets。
