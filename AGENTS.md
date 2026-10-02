@@ -4,11 +4,10 @@
 
 ## 项目是什么
 
-**Agent1** 是面向生产的 **JVM 智能体**工程：`agent_core` 提供 ReAct、会话、工作区、JSONL 审计；**Java CLI**（macOS / Ubuntu）与 **Android** 共用同一核心。姊妹项目 [墨览 molan](https://github.com/fengshihao/molan) 负责 Markdown 纸面阅读；本仓负责 **可嵌入的智能体运行时** 与双端 Demo。
+**Agent1** 是面向 **Android / 嵌入式 JVM 宿主** 的轻量 **编程型生产力智能体**：`java-agent-core`（约 3MB 量级）提供 ReAct、会话、工作区、JSONL 审计；主路径为 **JS 编排**（`execute_script`）、**能力检索**（`capability_search`）、Skill / MCP / WebView 扩展。`android_agent` 为参考宿主；macOS / Ubuntu 上 `./agent1` 用于联调与 CI。
 
-- **推荐产品路径**：`ProductivityCli` / `ProductivityAgentHost`（`--productivity`）
-- **经典路径**：`JavaAgentCli`（bash / python / skill）
-- **不再维护** `python_agent/`（仅 `archive/python-agent` 只读）
+- **推荐产品路径**：`ProductivityAgentHost` / `ProductivityCli`（`--productivity`）
+- **桌面经典 CLI**（`JavaAgentCli`）仅作开发辅助，新能力以生产力路径为准
 
 ## 默认允许改的路径
 
@@ -20,8 +19,6 @@
 | `doc/**`、`docs/**` | 人类文档与 AI 契约 |
 | `scripts/**`、`.github/**`、`.cursor/**` | CI、安装、规则 |
 | 根目录脚本与 `README.md`、`AGENTS.md`、`CONTRIBUTING.md` | 入口与契约 |
-
-勿在本仓恢复或扩展 `python_agent/`。
 
 ## 开工步骤（强制）
 
