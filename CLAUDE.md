@@ -33,9 +33,10 @@ Root helper scripts (Chinese comments in headers): `./agent1`, `./run-java-agent
 
 ### Cloud Agent（Cursor 云代理）
 
-- **不要在 Cloud VM 里跑 Gradle / Android assemble**（磁盘小，`~/.gradle` 易满）。编译与单测以 **GitHub Actions** 为准：`.github/workflows/ci.yml`（`java-test`、`quality-static`、`android-assemble-debug`）。
+- 环境安装 JDK 17、`/weizhi` 与 Gradle 依赖缓存（`scripts/cloud-agent-install.sh`）。Java 单测可在会话内跑：`./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test`。
+- **不要在 Cloud VM 里跑 Android assemble**（无 Android SDK / NDK）。Debug APK 与完整 CI 以 **GitHub Actions** 为准：`.github/workflows/ci.yml`（`java-test`、`quality-static`、`android-assemble-debug`）。
 - 改代码后 **push/更新 PR 并确认 CI 全绿**。
-- 云环境仅跑轻量校验：`./scripts/cloud-agent-verify.sh`（无 Gradle）。详见 `doc/cloud-agent.md` 与 `.cursor/environment.json`。
+- 轻量校验（无 Gradle）：`./scripts/cloud-agent-verify.sh`。详见 `doc/cloud-agent.md` 与 `.cursor/environment.json`。
 
 ### Android
 

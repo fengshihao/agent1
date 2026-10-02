@@ -1,10 +1,17 @@
 # Cloud Agent 开发约定
 
-Cloud Agent 虚拟机磁盘约 **7GB**，不适合在会话内跑 Android Gradle（`~/.gradle` 缓存易写满盘）。
+环境由 [`.cursor/environment.json`](../.cursor/environment.json) 安装：**JDK 17**、公开仓库 `fengshihao/weizhi`（检出到 `/weizhi`，并链接为仓库内 `weizhi`）、以及 `java_agent` 的 Gradle 依赖缓存。安装脚本是 `scripts/cloud-agent-install.sh`；每次启动用 `scripts/cloud-agent-start.sh` 确认 JDK 与 weizhi 已就绪。
 
-## 编译与测试：GitHub Actions
+## 编译与测试
 
-联编、单测、静态分析、Debug APK 以 **CI** 为准：[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+Java 单测与静态分析可在 Cloud Agent 内运行：
+
+```bash
+./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test
+./check-java-agent-static.sh
+```
+
+Android Debug APK、NDK 与完整 CI 仍以 **GitHub Actions** 为准：[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)。本环境不安装 Android SDK。
 
 | Job | 内容 |
 |-----|------|
@@ -31,4 +38,4 @@ Cloud Agent 虚拟机磁盘约 **7GB**，不适合在会话内跑 Android Gradle
 
 ## 环境配置
 
-仓库根 [`.cursor/environment.json`](../.cursor/environment.json) 的 `install` **不执行 Gradle**；若 Dashboard  Personal 环境里仍有重型 install，建议在环境设置里去掉 Android/Gradle 预编译，或重建 lean snapshot。
+仓库根 [`.cursor/environment.json`](../.cursor/environment.json) 的 `install` 会执行 `scripts/cloud-agent-install.sh`（JDK 17、`/weizhi`、`:core:compileJava` 与 `:cli:compileJava`）。不包含 Android SDK 或 `assembleDebug`。
