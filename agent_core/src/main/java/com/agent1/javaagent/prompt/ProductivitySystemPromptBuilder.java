@@ -177,6 +177,7 @@ public final class ProductivitySystemPromptBuilder {
             sb.append("- web_search：公开网页上的最新信息（Tavily）。不要编造检索结果；引用时保留标题和链接。\n");
         }
         sb.append("- grep、glob：若已注册，在 workspace 或 docs/system 里查找。\n");
+        sb.append("- bash、zip_extract、zip_create：若已注册（Weizhi），工作区沙箱内简单命令与压缩；多步编排仍写工作区 JS。\n");
         sb.append("- list_catalog：shared/catalog 摘要，只读。\n");
         sb.append("- catalog_sync_status、catalog_install：查看并安装云端资源。\n");
         sb.append("- promote_request：把 staging 里的 Skill 或脚本晋升到 shared/local/。\n");

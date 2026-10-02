@@ -13,13 +13,15 @@ import com.weizhi.agent.skill.CompositeSkillRepository
 import com.weizhi.agent.skill.FileSystemSkillRepository
 import com.weizhi.agent.skill.LoadSkillTool
 import com.weizhi.agent.tool.AgentToolkit
+import com.weizhi.agent.tool.builtin.BashTool
 import com.weizhi.agent.tool.builtin.GlobTool
 import com.weizhi.agent.tool.builtin.GrepTool
+import com.weizhi.agent.tool.builtin.ZipTools
 import com.weizhi.agent.web.WebViewAgentExtension
 
 /**
- * Android 侧 Weizhi 工具环：搜索、skill，以及 WebView / MCP。
- * 文件读写仍走 Agent1 工作区工具。压缩与 shell 放在 execute_script 里。
+ * Android 侧 Weizhi 工具环：搜索、压缩、bash、skill，以及 WebView / MCP。
+ * 文件读写仍走 Agent1 工作区工具。
  */
 class WeizhiAgentTools(
     private val appContext: Context,
@@ -30,6 +32,8 @@ class WeizhiAgentTools(
         val toolkit = AgentToolkit()
         toolkit.registerTool(GrepTool(weizhiSandbox))
         toolkit.registerTool(GlobTool(weizhiSandbox))
+        toolkit.registerTool(ZipTools(weizhiSandbox))
+        toolkit.registerTool(BashTool(weizhiSandbox))
         toolkit.registerTool(
             LoadSkillTool(
                 CompositeSkillRepository(

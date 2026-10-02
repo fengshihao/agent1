@@ -37,8 +37,8 @@
 
 | 工具 / 能力 | CLI 装配 | Android 装配 | 差异 |
 |-------------|----------|--------------|------|
-| `grep` / `glob` | `WeizhiWorkspaceTools` | `WeizhiAgentTools` | 行为对齐 |
-| zip / bash | 不注册为外层工具 | 同左 | 压缩与 shell 放在 `execute_script`（`import zip from "zip"`、fs） |
+| `grep` / `glob` / `zip` | `WeizhiWorkspaceTools` | `WeizhiAgentTools` | 行为对齐 |
+| `bash` | 桌面 shell 环境 | 设备内 Weizhi bash 沙箱 | **运行环境不同**（权限、可用命令） |
 | `load_skill` | 仓库 `.claude/skills` + workspace `skills/` | `assets/agent_skills` + workspace `skills/` | **Skill 来源不同** |
 | `execute_script` | Weizhi QuickJS + `$tools` 桥 | 同左 | 两侧系统提示都只要求用脚本完成任务；沙盒细则走 `capability_search` |
 | MCP | `McpAgentExtension(agentRoot)`，配置 `agentRoot/mcp_servers.json`；脚本 `$mcp.<server>.<tool>` | 同一 `agentRoot`（`filesDir/agent1`） | **已对齐** |
@@ -51,7 +51,7 @@
 |------|-----|---------|
 | 工具摘要 | `ProductivityToolCapabilities.summaryForCli(false)` | `ProductivityToolCapabilities.summaryForUi()`（`WEIZHI_INTEGRATED=false`） |
 | 可用工具 | 2.1 节表格 | 同左 |
-| 不可用 | grep/glob/load_skill/MCP/webview/execute_script | 同左 |
+| 不可用 | grep/glob/zip/bash/load_skill/MCP/webview/execute_script | 同左 |
 
 集成条件对照：
 

@@ -10,6 +10,7 @@ import com.weizhi.agent.skill.CompositeSkillRepository;
 import com.weizhi.agent.skill.FileSystemSkillRepository;
 import com.weizhi.agent.skill.LoadSkillTool;
 import com.weizhi.agent.tool.AgentToolkit;
+import com.weizhi.agent.tool.builtin.BashTool;
 import com.weizhi.agent.tool.builtin.GlobTool;
 import com.weizhi.agent.tool.builtin.GrepTool;
 import java.nio.file.Path;
@@ -17,8 +18,7 @@ import java.util.List;
 
 /**
  * 桌面生产力路径追加的 Weizhi 工具环。
- * 文件读写仍用 Agent1 的 read/write/edit/list；这里补搜索、skill、MCP 与桌面 CDP {@code webview_exec}。
- * 压缩和 shell 不注册为外层工具，放在 execute_script 里（{@code import zip from "zip"}、fs）。
+ * 文件读写仍用 Agent1 的 read/write/edit/list；这里补搜索、压缩、bash、skill、MCP 与桌面 CDP {@code webview_exec}。
  */
 public final class WeizhiWorkspaceTools {
 
@@ -54,6 +54,8 @@ public final class WeizhiWorkspaceTools {
         AgentToolkit toolkit = new AgentToolkit();
         toolkit.registerTool(new GrepTool(weizhiSandbox));
         toolkit.registerTool(new GlobTool(weizhiSandbox));
+        toolkit.registerTool(new com.weizhi.agent.tool.builtin.ZipTools(weizhiSandbox));
+        toolkit.registerTool(new BashTool(weizhiSandbox));
         toolkit.registerTool(buildLoadSkillTool(sandbox.getRoot(), projectRootForSkills));
         if (agentRootForMcp != null) {
             new McpAgentExtension(agentRootForMcp).register(toolkit, weizhiSandbox);
