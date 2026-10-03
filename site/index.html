@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agent1 — 嵌入式编程智能体 · 生产力助手</title>
+  <meta name="description" content="Agent1：给 Android 与嵌入式 JVM 宿主用的轻量编程智能体。java-agent-core + 微智 Weizhi 脚本环。" />
+  <meta property="og:title" content="Agent1" />
+  <meta property="og:description" content="轻量可嵌入的生产力编程助手，约 3MB 核心。" />
+  <meta property="og:image" content="https://fengshihao.github.io/agent1/assets/icon.png" />
+  <meta property="og:url" content="https://fengshihao.github.io/agent1/" />
+  <meta name="theme-color" content="#1C1914" />
+  <link rel="icon" type="image/png" href="./assets/favicon.png" />
+  <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
+  <style>
+    :root {
+      --bg: #1c1914;
+      --paper: #f4efe6;
+      --accent: #d4773b;
+      --muted: #a89f94;
+      --line: #3d3830;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(ellipse 120% 80% at 50% -20%, #2a2520 0%, var(--bg) 55%);
+      color: var(--paper);
+      line-height: 1.55;
+    }
+    .wrap { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; text-align: center; }
+    .icon {
+      width: 96px;
+      height: 96px;
+      border-radius: 22%;
+      box-shadow: 0 12px 40px rgba(0,0,0,.45);
+    }
+    h1 { font-size: clamp(2rem, 6vw, 2.75rem); font-weight: 700; margin: 1.25rem 0 .5rem; letter-spacing: -0.02em; }
+    .tagline { font-size: 1.125rem; color: var(--paper); margin: 0 0 .35rem; }
+    .tagline-en { font-size: .95rem; color: var(--muted); margin: 0 0 1.5rem; font-style: italic; }
+    .lede { color: var(--muted); font-size: 1rem; max-width: 36rem; margin: 0 auto 2rem; }
+    .cta-row { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: center; margin-bottom: 2.5rem; }
+    a.cta {
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: .65rem 1.15rem; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: .95rem;
+    }
+    .cta-primary { background: var(--accent); color: #1c1914; }
+    .cta-secondary { border: 1px solid var(--line); color: var(--paper); }
+    .cta-text { color: var(--muted); font-weight: 500; }
+    .cta:hover { filter: brightness(1.06); }
+    footer { font-size: .85rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 1.5rem; }
+    footer a { color: var(--accent); }
+    .lang { margin-bottom: 1rem; }
+    .lang button {
+      background: transparent; border: 1px solid var(--line); color: var(--muted);
+      padding: .25rem .6rem; border-radius: 6px; cursor: pointer; margin: 0 .15rem;
+    }
+    .lang button.active { border-color: var(--accent); color: var(--paper); }
+    [data-lang="en"] { display: none; }
+    html.lang-en [data-lang="zh"] { display: none; }
+    html.lang-en [data-lang="en"] { display: block; }
+    html.lang-en .tagline-en { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="lang" aria-label="Language">
+      <button type="button" id="btnZh" class="active">中文</button>
+      <button type="button" id="btnEn">EN</button>
+    </div>
+    <img class="icon" src="./assets/icon.png" width="96" height="96" alt="Agent1" />
+    <h1>Agent1</h1>
+    <p class="tagline" data-lang="zh">给 Android 与嵌入式宿主用的轻量编程智能体 · 生产力助手</p>
+    <p class="tagline" data-lang="en">A compact programming agent for Android and embedded JVM hosts</p>
+    <p class="tagline-en" data-lang="zh">One JVM core. Script with Weizhi. Ship in your app.</p>
+    <p class="lede" data-lang="zh">
+      可嵌入的 <code>java-agent-core</code>（约 3MB）+ 微智 Weizhi 脚本环：会话、工作区、JS 编排、MCP、Skill 与 WebView。
+    </p>
+    <p class="lede" data-lang="en">
+      Embeddable <code>java-agent-core</code> (~3MB) plus Weizhi for QuickJS, MCP, skills, and WebView on device.
+    </p>
+    <div class="cta-row">
+      <a class="cta cta-primary" href="https://github.com/fengshihao/agent1">GitHub 仓库</a>
+      <a class="cta cta-secondary" href="https://github.com/fengshihao/agent1/blob/master/README.md" data-lang="zh">阅读 README</a>
+      <a class="cta cta-secondary" href="https://github.com/fengshihao/agent1/blob/master/README.md" data-lang="en">Read README</a>
+      <a class="cta cta-text" href="https://github.com/fengshihao/agent1/blob/master/docs/ai/START.md" data-lang="zh">AI 一句话开工</a>
+      <a class="cta cta-text" href="https://github.com/fengshihao/agent1/blob/master/docs/ai/START.md" data-lang="en">One-line AI setup</a>
+    </div>
+    <footer>
+      <span data-lang="zh">图标与 Android App 启动图标一致 · </span>
+      <span data-lang="en">Icon matches the Android app launcher · </span>
+      <a href="https://github.com/fengshihao/agent1/blob/master/LICENSE">MIT</a>
+    </footer>
+  </div>
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var btnZh = document.getElementById("btnZh");
+      var btnEn = document.getElementById("btnEn");
+      function setLang(en) {
+        root.classList.toggle("lang-en", en);
+        btnZh.classList.toggle("active", !en);
+        btnEn.classList.toggle("active", en);
+        try { localStorage.setItem("agent1-lang", en ? "en" : "zh"); } catch (e) {}
+      }
+      btnZh.addEventListener("click", function () { setLang(false); });
+      btnEn.addEventListener("click", function () { setLang(true); });
+      try {
+        if (localStorage.getItem("agent1-lang") === "en") setLang(true);
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>

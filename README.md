@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/app-icon.svg" alt="Agent1" width="88" height="88" />
+  <img src="docs/assets/app-icon.png" alt="Agent1" width="88" height="88" />
 </p>
 
 <h1 align="center">Agent1</h1>
@@ -15,6 +15,7 @@
 </p>
 
 <p align="center">
+  <a href="https://fengshihao.github.io/agent1/">官网</a> ·
   <a href="#zh">中文</a> ·
   <a href="#en">English</a> ·
   <a href="CONTRIBUTING.md">贡献</a> ·
