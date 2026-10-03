@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--  android_agent/app/src/main/res/drawable/ic_launcher_*.xml › README / ‡cU: -->
+<!-- Same geometry as android_agent ic_launcher; run ./scripts/export-app-icon.sh for PNG -->
 <svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108" role="img" aria-label="Agent1">
   <rect width="108" height="108" fill="#1C1914"/>
   <circle cx="54" cy="54" r="30" fill="#F4EFE6"/>

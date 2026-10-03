@@ -4,8 +4,10 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "${REPO_ROOT}"
 
-python3 << 'PY'
+python3 << PY
 from pathlib import Path
+
+REPO_ROOT = Path("${REPO_ROOT}")
 
 try:
     from PIL import Image, ImageDraw
