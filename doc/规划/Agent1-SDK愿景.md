@@ -64,11 +64,14 @@ Weizhi 的 `android.*` 等 **不是** LLM 的 `@Tool` 列表项；仅在 **脚�
 
 ## 6. 发布与版本（待办）
 
-- [ ] 公开 **`com.agent1:java-agent-core`** 版本策略（与 `publish-java-agent-core.sh` 对齐）
-- [ ] **BOM 或可选模块**：`core` / `core+weizhi-bridge` / Android 示例 `ProductivityAgentGateway`
+> **规格对齐（2026-10-03）**：Android 三方主制品目标为 **单 AAR（含微智）**、**不含对话 UI**；详见 [TODO-统一SDK-AAR.md](./TODO-统一SDK-AAR.md)。
+
+- [ ] 主制品 **`com.agent1:agent1-android-sdk`**（android-library AAR：core + weizhi-bridge 装配 + Weizhi 传递依赖 / native）
+- [ ] 保留 **`java-agent-core` JAR** 供桌面与纯 Java 宿主；版本与 Android SDK 对齐
 - [ ] **agent-home 升级策略**：bootstrap `copyIfMissing` vs 版本迁移说明
-- [ ] 三方集成 Checklist（仅 Android / 桌面 / 双端）
-- [ ] 示例工程：最小 Activity + 一轮 `runUserMessage`（无 Compose 亦可）
+- [ ] 三方集成 Checklist + **无 UI** 最小 Activity 示例
+- [ ] 可选模块 **`agent1-ui-compose`**：Demo 聊天 UI，与 SDK 解耦
+- [ ] 体积基线：release + R8 + arm64，**含微智**，写入 README（目标叙事约 2MB，以实测为准）
 
 ## 7. 不在首版 SDK 承诺内
 
