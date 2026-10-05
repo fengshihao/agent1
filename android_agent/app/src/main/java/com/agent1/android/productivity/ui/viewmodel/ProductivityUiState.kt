@@ -21,11 +21,26 @@ data class RunTokenSummary(
 
     fun displayText(): String {
         val parts = mutableListOf(
-            "输入 ${inputTokens}",
-            "输出 ${outputTokens}",
+            "输入 ${formatCompactTokenCount(inputTokens)}",
+            "输出 ${formatCompactTokenCount(outputTokens)}",
         )
         cacheHitPercent?.let { parts.add("缓存命中 ${it}%") }
         return parts.joinToString(" · ")
+    }
+
+    companion object {
+        /** ≥1000 时显示为 2.2k 等简约形式。 */
+        fun formatCompactTokenCount(value: Long): String {
+            if (value < 1_000) return value.toString()
+            val scaled = kotlin.math.round(value / 100.0) / 10.0
+            val whole = scaled.toLong()
+            return if (scaled == whole.toDouble()) {
+                "${whole}k"
+            } else {
+                val tenths = kotlin.math.round(scaled * 10).toInt()
+                "${tenths / 10}.${tenths % 10}k"
+            }
+        }
     }
 }
 
