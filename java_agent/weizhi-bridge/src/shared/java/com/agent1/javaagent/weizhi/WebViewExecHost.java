@@ -23,20 +23,28 @@ public final class WebViewExecHost {
     static final String MARKER = "【webview_exec】";
     static final String ENVELOPE_KEY = "__webviewWrites";
 
-    /** 模型看到的工具说明。上游原文里叠过的失败案例不再拼接。 */
-    public static final String DESCRIPTION =
-        MARKER + " 在浏览器内核执行 JavaScript，用于 DOM、canvas、WebAssembly。普通计算用 execute_script。\n"
+    private static final String WEB_RUNTIME =
+        "code 跑在标准 Web 环境，只有浏览器 Web API（document、window、fetch 等）。"
+            + "不是 Node、不是 QuickJS，没有 fs/require。"
+            + "也可从 execute_script 里 await $tools.webview_exec({...}) 调用，与本工具相同。"
+            + "读工作区文件用 input_path（全局 input 是 Uint8Array）；写回用 writeFile(相对路径, 数据)。\n"
             + "code 在函数中执行，顶层 return 才是结果；异步写成 return (async () => { ... })()。"
-            + "写文件用 writeFile(相对路径, 数据)，放在这个 Promise 里："
             + "图片传纯 Base64 或 data URL（解码为字节），文本按 UTF-8 写入。\n"
-            + "全局 input 是 input_path 的 Uint8Array（未传为 null）；loadWasm() 加载 wasm_url；console.log 进入回执。\n"
             + "短文本在 resultPreview。直接 return 的图片或超过 64KB 的结果写入 tmp/webview_exec/<id>.b64"
             + "（output_path 可改），文件是返回值原文，回执只给路径和字节数。"
             + "返回 null 或 undefined 不写文件。timeout_ms 默认 60000，上限 600000。";
 
+    /** 模型看到的工具说明。上游原文里叠过的失败案例不再拼接。 */
+    public static final String DESCRIPTION =
+        MARKER + " 无头浏览器（本机 Chromium）。" + WEB_RUNTIME;
+
+    /** Android 侧：同一套协议，底层是系统 WebView。 */
+    public static final String DESCRIPTION_ANDROID =
+        MARKER + " Android 系统 WebView 的包装。" + WEB_RUNTIME;
+
     public static final String CODE_PARAM_DESCRIPTION =
         "在函数中执行。顶层 return 返回值；异步写成 return (async () => { ... })()。"
-            + "写工作区文件用 writeFile(相对路径, 数据)，放在该 Promise 内。";
+            + "标准 Web API，没有 Node 的 fs/require。写工作区文件用 writeFile(相对路径, 数据)，放在该 Promise 内。";
 
     public static final String OUTPUT_PATH_DESCRIPTION =
         "可选。覆盖默认路径 tmp/webview_exec/<id>.b64，内容是返回值的 UTF-8 文本。"
@@ -51,10 +59,15 @@ public final class WebViewExecHost {
     }
 
     public static String augmentDescription(String description) {
-        if (description != null && description.startsWith(MARKER)) {
+        return augmentDescription(description, false);
+    }
+
+    public static String augmentDescription(String description, boolean androidHost) {
+        String target = androidHost ? DESCRIPTION_ANDROID : DESCRIPTION;
+        if (description != null && description.equals(target)) {
             return description;
         }
-        return DESCRIPTION;
+        return target;
     }
 
     public static JsonNode augmentParameters(JsonNode parameters) {

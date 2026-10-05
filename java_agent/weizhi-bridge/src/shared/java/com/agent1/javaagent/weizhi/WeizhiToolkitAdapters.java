@@ -27,6 +27,14 @@ public final class WeizhiToolkitAdapters {
     }
 
     public static List<AgentTool> toAgentTools(AgentToolkit toolkit, WorkspaceSandbox sandbox) {
+        return toAgentTools(toolkit, sandbox, false);
+    }
+
+    public static List<AgentTool> toAgentTools(
+        AgentToolkit toolkit,
+        WorkspaceSandbox sandbox,
+        boolean androidHost
+    ) {
         if (toolkit == null) {
             throw new IllegalArgumentException("toolkit required");
         }
@@ -41,7 +49,7 @@ public final class WeizhiToolkitAdapters {
             String description = rawDescription == null ? "" : String.valueOf(rawDescription);
             JsonNode parameters = MAPPER.valueToTree(schema.get("input_schema"));
             if ("webview_exec".equals(name)) {
-                description = WebViewExecHost.augmentDescription(description);
+                description = WebViewExecHost.augmentDescription(description, androidHost);
                 parameters = WebViewExecHost.augmentParameters(parameters);
             }
             JsonNode schemaParameters = parameters;

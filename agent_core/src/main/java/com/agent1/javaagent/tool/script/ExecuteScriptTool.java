@@ -64,7 +64,7 @@ public final class ExecuteScriptTool implements AgentTool {
             code 与 file 二选一。短一次性脚本用 code；超过约 20 行或 1000 字符、或还要迭代修改时，先 write_file 再 file（如 jobs/run.js），后续用 edit_file 改，少占 token。按此原则自行判断。
             可以顶层 await。返回值是最后一条表达式，不要写顶层 return。
             MCP：await $mcp.服务器.工具({...})，名字来自 capability_search 的 entry。
-            外层工具：await $tools.工具名({...})，不能再调 execute_script。
+            外层工具：await $tools.工具名({...})。已注册时可用 $tools.webview_exec 进入浏览器环境（与外层同名工具相同）。不能再调 execute_script。
             """.trim();
     }
 

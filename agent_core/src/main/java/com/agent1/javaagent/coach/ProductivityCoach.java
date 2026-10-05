@@ -97,24 +97,28 @@ public final class ProductivityCoach {
                     "staging 已有内容；确认 SKILL.md 或脚本就绪后调用 promote_request 沉淀到 shared/local。";
             }
         } else if ("webview_exec".equals(toolName) && text != null) {
-            if (text.contains("没有可落盘的返回值")) {
+            if (looksLikeNonWebApiInWebView(text, parameters)) {
+                hookId = "webview.not_web_api";
+                advice =
+                    "webview_exec 是标准 WebView 控件，只支持 Web API（document、fetch、DOM 等），没有 Node 的 fs/require。"
+                        + "读工作区文件用 input_path（全局 input 是 Uint8Array）；写回用 writeFile。";
+            } else if (text.contains("没有可落盘的返回值")) {
                 hookId = "webview.null_return";
                 advice =
                     "脚本被包进函数执行，只有顶层 return 的值会落盘；运行时会等待这个 return 出来的 Promise。"
-                        + "请写成 return (async () => { ...; return canvas.toDataURL('image/png').split(',')[1]; })()。"
-                        + "或者不 return，在这个 Promise 里 writeFile('route.png', base64)，宿主会把 Base64 解码成图片字节写入工作区。"
+                        + "请写成 return (async () => { ...; return 结果; })()。"
+                        + "或者不 return，在这个 Promise 里 writeFile('out.png', data)，宿主会把 Base64 图片解码写入工作区。"
                         + "不要只写 (async () => {})()，也不要把 return 放在 img.onload 里。";
             } else if (text.contains("await is only valid in async")) {
                 hookId = "webview.async_syntax";
                 advice =
                     "webview_exec 的 code 需顶层 return 表达式；异步用 return (async () => { ... })()。"
-                        + "读工作区文件用 input_path，不要用 fetch('相对路径')。";
+                        + "读工作区文件用 input_path，不要用 fetch('相对路径')，也没有 Node 的 fs。";
             } else if (looksLikeTinyWebViewImage(text)) {
                 hookId = "webview.tiny_output";
                 advice =
-                    "输出文件过小，图片可能无效。SVG 转 PNG/JPG 用 execute_script："
-                        + " import { svgToImage } from './svg-raster.js'（svgPath、width、height、format）。"
-                        + " 不要手写 canvas。见 docs/system/svg-raster.md。";
+                    "输出文件过小，图片可能无效。这是标准 WebView，只支持 Web API。"
+                        + "同类转换可先 capability_search 看有没有现成脚本；读工作区文件用 input_path，不要用 Node 的 fs。";
             }
         } else if ("execute_script".equals(toolName) && parameters != null) {
             String file = parameters.path("file").asText("").trim();
@@ -232,6 +236,52 @@ public final class ProductivityCoach {
         } catch (NumberFormatException ignored) {
             return false;
         }
+    }
+
+    private static boolean looksLikeNonWebApiInWebView(String text, JsonNode parameters) {
+        String code = parameters == null ? "" : parameters.path("code").asText("");
+        return looksLikeNodeModuleError(text) || looksLikeNodeApiUsage(code);
+    }
+
+    private static boolean looksLikeNodeModuleError(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        String lower = text.toLowerCase();
+        return lower.contains("failed to resolve module specifier")
+            || lower.contains("cannot find module")
+            || lower.contains("require is not defined")
+            || lower.contains("module is not defined")
+            || lower.contains("process is not defined")
+            || lower.contains("buffer is not defined");
+    }
+
+    private static boolean looksLikeNodeApiUsage(String source) {
+        if (source == null || source.isBlank()) {
+            return false;
+        }
+        String lower = source.toLowerCase();
+        return lower.contains("import('fs'")
+            || lower.contains("import(\"fs\"")
+            || lower.contains("import('node:")
+            || lower.contains("import(\"node:")
+            || lower.contains("from 'fs'")
+            || lower.contains("from \"fs\"")
+            || lower.contains("from 'node:")
+            || lower.contains("from \"node:")
+            || lower.contains("require('fs'")
+            || lower.contains("require(\"fs\"")
+            || lower.contains("require('path'")
+            || lower.contains("require(\"path\"")
+            || lower.contains("require('child_process'")
+            || lower.contains("require(\"child_process\"")
+            || lower.contains("node:fs")
+            || lower.contains("fs.readfilesync")
+            || lower.contains("fs.writefilesync")
+            || lower.contains("fs.readfile(")
+            || lower.contains("process.cwd")
+            || lower.contains("process.env")
+            || lower.contains("buffer.from");
     }
 
     private static boolean looksLikeNonScriptDataFile(String file) {

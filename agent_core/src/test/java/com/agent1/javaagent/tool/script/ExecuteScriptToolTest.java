@@ -50,6 +50,7 @@ class ExecuteScriptToolTest {
         String description = tool.description();
         assertTrue(description.contains("20 行或 1000 字符"));
         assertTrue(description.contains("edit_file"));
+        assertTrue(description.contains("$tools.webview_exec"));
         assertFalse(description.contains("稳定行号"));
     }
 

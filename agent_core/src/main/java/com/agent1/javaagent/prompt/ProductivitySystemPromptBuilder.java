@@ -11,7 +11,7 @@ import java.time.ZoneId;
 
 /**
  * 生产力助手系统提示词：按固定层拼装主智能体与子智能体提示词（见 doc/基础能力/06）。
- * 任务主路径是 execute_script；外层工具只编排。功能细节走 capability_search，不写进提示词。
+ * 优先 execute_script；细节不写进提示词，编程前用 capability_search 发现 API 与现成脚本。
  */
 public final class ProductivitySystemPromptBuilder {
 
@@ -22,33 +22,37 @@ public final class ProductivitySystemPromptBuilder {
     static final String WORKFLOW_DIRECT = """
         ## 分工
         写文件：read_file、write_file、edit_file、glob。
-        感知能力：capability_search。
+        查已有能力：capability_search。
         辅助：bash、grep、read_url。
 
-        ## 步骤
-        1. 不确定有什么能力时，先 capability_search。一次调用里把任务相关的关键词都写进 query（空格分隔）；需要时用 kinds、limit（最多 20）。同一轮不要并行多次 capability_search；第一次结果不够用再单独搜第二次。不要对每个词各搜一轮。
-        2. 用文件工具改 workspace。路径相对工作区，不要再加 workspace/ 前缀。
-        3. 回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
+        ## 怎么做
+        动手改文件或调用不熟悉的能力前，用 capability_search 看有没有现成 API 或同类说明。
+        用文件工具改 workspace。路径相对工作区，不要再加 workspace/ 前缀。
+        回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
         """.trim();
 
     static final String WORKFLOW_WITH_SCRIPT = """
         ## 分工
+        优先用 execute_script 完成任务（QuickJS：编排、MCP、catalog 脚本、$tools）。
         写代码：read_file、write_file、edit_file、glob。
-        执行：execute_script。页面和画布用 webview_exec。
-        感知能力：capability_search（MCP、Skill、Caps、文档）。
+        查已有能力：capability_search（API、脚本、MCP、Skill、文档）。
         辅助：bash、grep、read_url。
 
-        ## 步骤
-        1. 不确定有什么能力时，先 capability_search。一次调用里把任务相关的关键词都写进 query（空格分隔）；需要时用 kinds、limit（最多 20）。同一轮不要并行多次 capability_search；第一次结果不够用再单独搜第二次。不要对每个词各搜一轮。
-        2. 执行脚本：短一次性逻辑可用 execute_script 的 code。超过约 20 行或 1000 字符、或之后还要改时，先 write_file 写成 .js 再用 file 执行；后续改动用 edit_file，少占 token。按此原则自行判断。路径相对工作区，不要再加 workspace/ 前缀。
-        3. execute_script 或 webview_exec。具体写法看工具说明；用错时按工具返回的提醒改，不要换着试。
-        4. 回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
+        ## 怎么做
+        动手写脚本或调用不熟悉的 API 前，用 capability_search 看有没有现成接口或同类脚本。一次 query 把相关词写全；需要时用 kinds、limit（最多 20）。同一轮不必并行多次搜。
+        短一次性逻辑可用 execute_script 的 code；超过约 20 行或 1000 字符、或之后还要改时，先 write_file 写成 .js 再用 file；后续 edit_file。路径相对工作区，不要加 workspace/ 前缀。
+        脚本里 await $tools.工具名({...}) 可调用已注册的外层工具（不能再调 execute_script）。具体写法看各工具说明；用错时按返回提醒改。
+        回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
+        """.trim();
+
+    static final String WEBVIEW_FROM_SCRIPT = """
+        webview_exec 已挂到 $tools：在 execute_script 里 await $tools.webview_exec({...}) 即可进入浏览器环境，与外层同名工具相同。
         """.trim();
 
     static final String EXPLORE_SUBAGENT = """
         你是 explore 子智能体，只执行只读任务：阅读工作区文件、列目录、capability_search、read_file 文档与汇总信息。
         不要创建、修改或删除文件。
-        父智能体让你调研能力时：用一次 capability_search，query 里并列任务所需的全部关键词（需要时用 kinds、提高 limit）；再按需 read_file doc_path。不要对每个关键词各搜一轮。
+        父智能体让你调研能力时：用 capability_search，query 里并列任务所需关键词；再按需 read_file doc_path。不必对每个关键词各搜一轮。
         完成后向父智能体回报：简明结论，以及条目清单（kind、title、entry、doc_path）和你查阅过的路径；Skill 可摘要要点，勿贴无关长文。
         """.trim();
 
@@ -101,10 +105,8 @@ public final class ProductivitySystemPromptBuilder {
         StringBuilder sb = new StringBuilder();
         sb.append(IDENTITY).append("\n\n");
         String workflow = scriptToolRegistered ? WORKFLOW_WITH_SCRIPT : WORKFLOW_DIRECT;
-        if (!scriptHostTools) {
-            workflow = workflow.replace("。页面和画布用 webview_exec。", "。")
-                .replace("execute_script 或 webview_exec 执行", "execute_script 执行")
-                .replace("execute_script 或 webview_exec。", "execute_script。");
+        if (scriptToolRegistered && scriptHostTools) {
+            workflow = workflow + "\n" + WEBVIEW_FROM_SCRIPT;
         }
         sb.append(workflow).append("\n\n");
         sb.append(buildEnvironmentSection(workspaceRoot, agentRoot, environmentSupplement));

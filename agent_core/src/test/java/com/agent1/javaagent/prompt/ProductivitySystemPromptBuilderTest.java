@@ -37,9 +37,12 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(temp.resolve("ws"), null, true, true);
         assertTrue(prompt.contains("capability_search"));
         assertTrue(prompt.contains("webview_exec"));
+        assertTrue(prompt.contains("$tools.webview_exec"));
         assertTrue(prompt.contains("execute_script"));
+        assertTrue(prompt.contains("优先用 execute_script"));
         assertFalse(prompt.contains("svgToImage"));
         assertFalse(prompt.contains("toDataURL"));
+        assertFalse(prompt.contains("页面和画布"));
         assertFalse(prompt.contains("workspace/dog.svg"));
     }
 
@@ -192,7 +195,7 @@ class ProductivitySystemPromptBuilderTest {
         assertFalse(prompt.contains("write_file"));
         assertTrue(prompt.contains("只读"));
         assertTrue(prompt.contains("capability_search"));
-        assertTrue(prompt.contains("不要对每个关键词各搜一轮"));
+        assertTrue(prompt.contains("不必对每个关键词各搜一轮"));
     }
 
     @Test
@@ -200,11 +203,13 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(prompt.contains("capability_search"));
-        assertTrue(prompt.contains("不要并行多次 capability_search"));
+        assertTrue(prompt.contains("现成接口或同类脚本"));
+        assertTrue(prompt.contains("不必并行多次"));
         assertTrue(prompt.contains("limit（最多 20）"));
         assertTrue(prompt.contains("execute_script 的 code"));
         assertTrue(prompt.contains("20 行或 1000 字符"));
         assertTrue(prompt.contains("edit_file"));
+        assertFalse(prompt.contains("不确定有什么能力时"));
         assertFalse(prompt.contains("稳定行号"));
     }
 

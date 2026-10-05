@@ -59,9 +59,10 @@ public final class CapabilitySearchTool implements AgentTool {
     @Override
     public String description() {
         return """
-            查本地能力。query 用空格分隔的关键词，把本任务相关的词一次写全；命中越多越靠前。
-            无翻页：只返回前 limit 条（默认 8，可设 1–20）。排不进前列就改 query、用 kinds 收窄，或提高 limit。
-            同一轮助手回复里不要并行多次本工具；仍不够再下一轮单独再搜。不要每个词单独搜一轮，也不要无意义堆同义词。
+            编程前用来找本地已有 API 和脚本（MCP、Skill、Caps、文档、catalog_script），避免重复实现。
+            query 用空格分隔关键词，一次写全；命中越多越靠前。
+            无翻页：只返回前 limit 条（默认 8，可设 1–20）。不够就改 query、用 kinds，或提高 limit。
+            同一轮不必并行多次；不够再下一轮再搜。
             kinds：mcp、skill、doc、builtin、catalog_script。前两条 MCP 命中带参数，其余只有名称和入口。命中 Skill 会直接带上正文。有 doc_path 再用 read_file。
             """.trim();
     }

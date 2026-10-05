@@ -15,6 +15,7 @@
 - **工作区 orchestrator（file 模式）**：`runJs` 使用 workspace 相对 filename（如 `jobs/run.js`）；`import './docx.js'` 先查 workspace 再 **回退 catalog**；`import './helper.js'` 仍在 workspace。Agent1 不再镜像 `.workspace-run/`。
 - **Word**：在 `execute_script` 里 `import … from './docx.js'`（先 workspace，再 catalog）。API 见 `docs/system/office-docx.md`。没有外层 docx 工具。
 - **Zip / bash**：集成 Weizhi 时有外层 `zip_extract`、`zip_create`、`bash`（沙箱内、命令白名单）。脚本内仍可用 `import zip from "zip"` 或平台 `files.zipExtract` / `files.zipCreate`。
+- **$tools.webview_exec**：脚本内 `await $tools.webview_exec({...})` 进入浏览器环境（桌面无头 Chromium / Android 系统 WebView），与外层同名工具相同。标准 Web API，没有 Node 的 fs。
 - **SVG → PNG/JPG**：bootstrap `svg-raster.js`。orchestrator `import { svgToImage } from './svg-raster.js'`，传入 `svgPath`、`width`、`height`（或 `length`）、`format`。写出二进制图片。详见 `docs/system/svg-raster.md`。
 - **Native**：`await host.ensureNative("插件名")`；缺插件时同一轮 `execute_script` 会尝试 catalog sync 并重试（见 catalog-install.md）。
 

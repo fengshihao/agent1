@@ -145,6 +145,41 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void webviewNodeFsErrorCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "const fs = await import('fs');");
+        ToolExecutionResult in = ToolExecutionResult.text(
+            "{\"ok\":false,\"error\":\"Failed to resolve module specifier 'fs'\\nTypeError: Failed to resolve module specifier 'fs'\"}"
+        );
+        ToolExecutionResult out = coach.maybeAugment("webview_exec", params, in, true);
+        assertTrue(out.getText().contains("[coach] webview.not_web_api"));
+        assertTrue(out.getText().contains("标准 WebView"));
+        assertTrue(out.getText().contains("Web API"));
+        assertTrue(out.getText().contains("没有 Node 的 fs"));
+    }
+
+    @Test
+    void webviewNodeFsInCodeCoachEvenIfErrorGeneric() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "fs.readFileSync('kite.svg', 'utf8')");
+        ToolExecutionResult in = ToolExecutionResult.text("{\"ok\":false,\"error\":\"TypeError: fs is not a function\"}");
+        ToolExecutionResult out = coach.maybeAugment("webview_exec", params, in, true);
+        assertTrue(out.getText().contains("[coach] webview.not_web_api"));
+    }
+
+    @Test
+    void webviewGenericErrorDoesNotTriggerNodeApiCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "return document.body.innerHTML;");
+        ToolExecutionResult in = ToolExecutionResult.text("{\"ok\":false,\"error\":\"TypeError: Cannot read properties of null\"}");
+        ToolExecutionResult out = coach.maybeAugment("webview_exec", params, in, true);
+        assertFalse(out.getText().contains("[coach] webview.not_web_api"));
+    }
+
+    @Test
     void executeScriptSvgFileCoach() {
         ProductivityCoach coach = new ProductivityCoach();
         ObjectNode params = MAPPER.createObjectNode();

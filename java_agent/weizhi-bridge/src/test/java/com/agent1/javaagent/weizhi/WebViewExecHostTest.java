@@ -30,9 +30,18 @@ class WebViewExecHostTest {
         String description = WebViewExecHost.augmentDescription("原说明");
         assertEquals(WebViewExecHost.DESCRIPTION, description);
         assertFalse(description.contains("原说明"));
+        assertTrue(description.contains("无头浏览器"));
+        assertTrue(description.contains("标准 Web"));
+        assertTrue(description.contains("没有 fs/require"));
+        assertTrue(description.contains("$tools.webview_exec"));
         assertTrue(description.contains("顶层 return"));
         assertTrue(description.contains("writeFile"));
+        assertFalse(description.contains("用于 DOM、canvas"));
         assertEquals(description, WebViewExecHost.augmentDescription(description));
+        String android = WebViewExecHost.augmentDescription("原说明", true);
+        assertEquals(WebViewExecHost.DESCRIPTION_ANDROID, android);
+        assertTrue(android.contains("系统 WebView 的包装"));
+        assertTrue(android.contains("标准 Web"));
 
         ObjectNode schema = MAPPER.createObjectNode();
         ObjectNode properties = schema.putObject("properties");
