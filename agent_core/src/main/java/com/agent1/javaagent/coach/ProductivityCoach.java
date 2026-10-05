@@ -130,7 +130,7 @@ public final class ProductivityCoach {
                     hookId = "script.no_top_return";
                     advice =
                         "execute_script 不要写顶层 return。顶层 await 可以，用最后一条表达式当返回值。"
-                            + "例如 const r = await $mcp.服务器.工具({...}); JSON.stringify(r)";
+                            + "例如 const r = await $mcp.服务器.工具({...}); r（$mcp 会解析 JSON 文本，不要 JSON.stringify）";
                 } else if (text != null && (text.contains("require is not defined")
                     || text.contains("require(") && text.contains("ReferenceError"))) {
                     hookId = "script.not_node";

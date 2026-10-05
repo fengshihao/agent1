@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.agent1.javaagent.weizhi.WebViewExecHost;
 import com.agent1.javaagent.weizhi.desktop.cdp.CdpWebViewRuntime;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -196,15 +197,14 @@ class WebViewExecSupportTest {
             String.class
         );
         String description = method.getAnnotation(Tool.class).description();
+        assertEquals(WebViewExecHost.DESCRIPTION, description);
         assertTrue(description.contains("tmp/webview_exec/"));
-        assertTrue(description.contains("不含 Base64"));
         assertTrue(description.contains("output_path"));
 
         ToolParam output = method.getParameters()[3].getAnnotation(ToolParam.class);
         assertEquals("output_path", output.name());
         assertFalse(output.required());
-        assertTrue(output.description().contains("可选"));
-        assertTrue(output.description().contains("UTF-8"));
+        assertEquals(WebViewExecHost.OUTPUT_PATH_DESCRIPTION, output.description());
     }
 
     private static void assertSpillsImage(Path workspace, String b64) throws Exception {

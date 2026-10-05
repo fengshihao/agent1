@@ -15,7 +15,7 @@ import java.util.Base64;
 import java.util.List;
 
 /**
- * 在 weizhi {@code webview_exec} 外包一层：工具说明在调用前就要求顶层 return，
+ * 在 weizhi {@code webview_exec} 外包一层：换成一份模型可见说明，
  * 并注入 {@code writeFile(path, data)}，把 Base64 图片解码后写入工作区沙箱。
  */
 public final class WebViewExecHost {
@@ -23,18 +23,24 @@ public final class WebViewExecHost {
     static final String MARKER = "【webview_exec】";
     static final String ENVELOPE_KEY = "__webviewWrites";
 
-    static final String CODE_PARAM_DESCRIPTION =
-        "在函数体里执行。要让宿主拿到结果，必须写顶层 return；异步写成 "
-            + "return (async () => { ... })()。只写 (async () => {})()，或把 return 放在 img.onload 里，"
-            + "完成值是 undefined，文件不会写入。"
-            + "也可以不 return 图片：writeFile('相对路径.png', canvas.toDataURL('image/png').split(',')[1])。"
-            + "writeFile 把纯 Base64（或 data URL）解码成图片字节，写入工作区沙箱。文本（如 SVG 原文）按 UTF-8 写入。"
-            + "writeFile 要放在脚本等待的 Promise 里面，等它完成后再结束。";
+    /** 模型看到的工具说明。上游原文里叠过的失败案例不再拼接。 */
+    public static final String DESCRIPTION =
+        MARKER + " 在浏览器内核执行 JavaScript，用于 DOM、canvas、WebAssembly。普通计算用 execute_script。\n"
+            + "code 在函数中执行，顶层 return 才是结果；异步写成 return (async () => { ... })()。"
+            + "写文件用 writeFile(相对路径, 数据)，放在这个 Promise 里："
+            + "图片传纯 Base64 或 data URL（解码为字节），文本按 UTF-8 写入。\n"
+            + "全局 input 是 input_path 的 Uint8Array（未传为 null）；loadWasm() 加载 wasm_url；console.log 进入回执。\n"
+            + "短文本在 resultPreview。直接 return 的图片或超过 64KB 的结果写入 tmp/webview_exec/<id>.b64"
+            + "（output_path 可改），文件是返回值原文，回执只给路径和字节数。"
+            + "返回 null 或 undefined 不写文件。timeout_ms 默认 60000，上限 600000。";
 
-    private static final String DESCRIPTION_PREFIX =
-        MARKER + " code 在函数里执行，必须顶层 return；异步用 return (async () => { ... })()。"
-            + "画图可以不 return，调用 writeFile(相对路径, 纯Base64) 把图片字节写入工作区沙箱。"
-            + "只写 (async () => {})() 会得到 null，不会落盘。\n";
+    public static final String CODE_PARAM_DESCRIPTION =
+        "在函数中执行。顶层 return 返回值；异步写成 return (async () => { ... })()。"
+            + "写工作区文件用 writeFile(相对路径, 数据)，放在该 Promise 内。";
+
+    public static final String OUTPUT_PATH_DESCRIPTION =
+        "可选。覆盖默认路径 tmp/webview_exec/<id>.b64，内容是返回值的 UTF-8 文本。"
+            + "不传时，图片或超过 64KB 的结果仍会自动落盘。";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int MAX_WRITE_BYTES = 20 * 1024 * 1024;
@@ -45,11 +51,10 @@ public final class WebViewExecHost {
     }
 
     public static String augmentDescription(String description) {
-        String body = description == null ? "" : description;
-        if (body.startsWith(MARKER)) {
-            return body;
+        if (description != null && description.startsWith(MARKER)) {
+            return description;
         }
-        return DESCRIPTION_PREFIX + body;
+        return DESCRIPTION;
     }
 
     public static JsonNode augmentParameters(JsonNode parameters) {
@@ -58,8 +63,13 @@ public final class WebViewExecHost {
         }
         ObjectNode copy = parameters.deepCopy();
         JsonNode properties = copy.get("properties");
-        if (properties != null && properties.isObject() && properties.get("code") instanceof ObjectNode code) {
-            code.put("description", CODE_PARAM_DESCRIPTION);
+        if (properties != null && properties.isObject()) {
+            if (properties.get("code") instanceof ObjectNode code) {
+                code.put("description", CODE_PARAM_DESCRIPTION);
+            }
+            if (properties.get("output_path") instanceof ObjectNode outputPath) {
+                outputPath.put("description", OUTPUT_PATH_DESCRIPTION);
+            }
         }
         return copy;
     }

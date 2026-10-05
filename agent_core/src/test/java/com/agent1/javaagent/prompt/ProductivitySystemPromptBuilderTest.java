@@ -200,7 +200,9 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(prompt.contains("capability_search"));
-        assertTrue(prompt.contains("两三个词"));
+        assertTrue(prompt.contains("不要并行多次 capability_search"));
+        assertTrue(prompt.contains("limit（最多 20）"));
+        assertTrue(prompt.contains("execute_script 的 code"));
     }
 
     @Test

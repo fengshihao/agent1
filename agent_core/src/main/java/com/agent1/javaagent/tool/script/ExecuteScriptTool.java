@@ -61,7 +61,7 @@ public final class ExecuteScriptTool implements AgentTool {
     public String description() {
         return """
             在 workspace 跑 QuickJS。不是 Node，不是浏览器，没有 document/window，不能 require。
-            优先 file（如 jobs/run.js），code 与 file 二选一。
+            code 与 file 二选一：简单几行（如单次 MCP）用 code；多步、复用或要稳定行号用 file（如 jobs/run.js）。
             可以顶层 await。返回值是最后一条表达式，不要写顶层 return。
             MCP：await $mcp.服务器.工具({...})，名字来自 capability_search 的 entry。
             外层工具：await $tools.工具名({...})，不能再调 execute_script。

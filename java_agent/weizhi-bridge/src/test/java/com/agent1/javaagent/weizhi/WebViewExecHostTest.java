@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.charset.StandardCharsets;
@@ -27,18 +28,24 @@ class WebViewExecHostTest {
     @Test
     void descriptionAndCodeParamLeadWithReturnAndWriteFile() {
         String description = WebViewExecHost.augmentDescription("原说明");
-        assertTrue(description.startsWith(WebViewExecHost.MARKER));
-        assertTrue(description.indexOf("必须顶层 return") < description.indexOf("原说明"));
+        assertEquals(WebViewExecHost.DESCRIPTION, description);
+        assertFalse(description.contains("原说明"));
+        assertTrue(description.contains("顶层 return"));
         assertTrue(description.contains("writeFile"));
         assertEquals(description, WebViewExecHost.augmentDescription(description));
 
         ObjectNode schema = MAPPER.createObjectNode();
         ObjectNode properties = schema.putObject("properties");
         properties.putObject("code").put("description", "旧说明");
-        String codeDescription = WebViewExecHost.augmentParameters(schema)
-            .path("properties").path("code").path("description").asText();
-        assertTrue(codeDescription.contains("必须写顶层 return"));
+        properties.putObject("output_path").put("description", "旧落盘说明");
+        JsonNode augmented = WebViewExecHost.augmentParameters(schema);
+        String codeDescription = augmented.path("properties").path("code").path("description").asText();
+        assertTrue(codeDescription.contains("顶层 return"));
         assertTrue(codeDescription.contains("writeFile"));
+        assertEquals(
+            WebViewExecHost.OUTPUT_PATH_DESCRIPTION,
+            augmented.path("properties").path("output_path").path("description").asText()
+        );
     }
 
     @Test

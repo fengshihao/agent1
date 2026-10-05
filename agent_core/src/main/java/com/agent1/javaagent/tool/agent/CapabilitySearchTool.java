@@ -59,10 +59,10 @@ public final class CapabilitySearchTool implements AgentTool {
     @Override
     public String description() {
         return """
-            查本地能力。query 用两三个词，命中越多越靠前。
-            不要把同义词堆进同一次查询，也不要每个词单独搜一轮。
-            kinds 用 mcp、skill、doc、builtin、catalog_script。limit 1–20，默认 8。
-            前两条 MCP 命中带参数，其余只有名称和入口。命中 Skill 会直接带上正文。有 doc_path 再用 read_file。
+            查本地能力。query 用空格分隔的关键词，把本任务相关的词一次写全；命中越多越靠前。
+            无翻页：只返回前 limit 条（默认 8，可设 1–20）。排不进前列就改 query、用 kinds 收窄，或提高 limit。
+            同一轮助手回复里不要并行多次本工具；仍不够再下一轮单独再搜。不要每个词单独搜一轮，也不要无意义堆同义词。
+            kinds：mcp、skill、doc、builtin、catalog_script。前两条 MCP 命中带参数，其余只有名称和入口。命中 Skill 会直接带上正文。有 doc_path 再用 read_file。
             """.trim();
     }
 
@@ -78,7 +78,7 @@ public final class CapabilitySearchTool implements AgentTool {
                 .put("type", "string")
                 .put(
                     "description",
-                    "两三个关键词，例如「地址 坐标」。不要堆同义词。"
+                    "本任务相关关键词，空格分隔，一次写全，例如「地理编码 地址 坐标」。"
                 )
         );
         properties.set(

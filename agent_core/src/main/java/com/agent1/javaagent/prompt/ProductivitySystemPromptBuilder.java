@@ -26,7 +26,7 @@ public final class ProductivitySystemPromptBuilder {
         辅助：bash、grep、read_url。
 
         ## 步骤
-        1. 不确定有什么能力时，先 capability_search。query 写两三个词，例如「地址 坐标」。
+        1. 不确定有什么能力时，先 capability_search。一次调用里把任务相关的关键词都写进 query（空格分隔）；需要时用 kinds、limit（最多 20）。同一轮不要并行多次 capability_search；第一次结果不够用再单独搜第二次。不要对每个词各搜一轮。
         2. 用文件工具改 workspace。路径相对工作区，不要再加 workspace/ 前缀。
         3. 回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
         """.trim();
@@ -39,9 +39,9 @@ public final class ProductivitySystemPromptBuilder {
         辅助：bash、grep、read_url。
 
         ## 步骤
-        1. 不确定有什么能力时，先 capability_search。query 写两三个词，例如「地址 坐标」。
-        2. 用文件工具把脚本写进 workspace。路径相对工作区，不要再加 workspace/ 前缀。
-        3. execute_script 或 webview_exec 执行。具体写法看工具说明；用错时按工具返回的提醒改，不要换着试。
+        1. 不确定有什么能力时，先 capability_search。一次调用里把任务相关的关键词都写进 query（空格分隔）；需要时用 kinds、limit（最多 20）。同一轮不要并行多次 capability_search；第一次结果不够用再单独搜第二次。不要对每个词各搜一轮。
+        2. 执行脚本：一次性、几行以内的简单逻辑（例如单次 $mcp 调用）可直接 execute_script 的 code，不必先 write_file。多步、要复用或要调试行号时，把 .js 写进 workspace 再用 file。路径相对工作区，不要再加 workspace/ 前缀。
+        3. execute_script 或 webview_exec。具体写法看工具说明；用错时按工具返回的提醒改，不要换着试。
         4. 回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
         """.trim();
 
@@ -103,7 +103,8 @@ public final class ProductivitySystemPromptBuilder {
         String workflow = scriptToolRegistered ? WORKFLOW_WITH_SCRIPT : WORKFLOW_DIRECT;
         if (!scriptHostTools) {
             workflow = workflow.replace("。页面和画布用 webview_exec。", "。")
-                .replace("execute_script 或 webview_exec 执行", "execute_script 执行");
+                .replace("execute_script 或 webview_exec 执行", "execute_script 执行")
+                .replace("execute_script 或 webview_exec。", "execute_script。");
         }
         sb.append(workflow).append("\n\n");
         sb.append(buildEnvironmentSection(workspaceRoot, agentRoot, environmentSupplement));

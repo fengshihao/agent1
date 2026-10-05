@@ -83,6 +83,8 @@ class WeizhiScriptToolInstallerTest {
         ).get(0).source();
         assertTrue(prelude.contains("https://example.com/mcp"));
         assertTrue(prelude.contains("\"demo\""));
+        assertTrue(prelude.contains("callTool(String(tool)"));
+        assertTrue(prelude.contains("JSON.parse(out)"));
     }
 
     private static ScriptToolBridge bridge(String name) {
