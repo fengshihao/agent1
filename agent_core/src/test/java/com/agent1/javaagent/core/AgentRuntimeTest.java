@@ -239,6 +239,21 @@ class AgentRuntimeTest {
     }
 
     @Test
+    void prompt_llmFailure_persistsAssistantErrorMessage() {
+        LlmClient failing = (request, tools, streamListener, cancellationToken) -> {
+            throw new IllegalStateException("DashScope error [AllocationQuota.FreeTierOnly]: quota");
+        };
+        AgentRuntime runtime = new AgentRuntime(AgentOptions.builder("deepseek-v4-flash").build(), failing);
+        runtime.prompt("hi").join();
+        runtime.waitForIdle();
+        AgentStateSnapshot snapshot = runtime.getStateSnapshot();
+        assertEquals(2, snapshot.getMessages().size());
+        assertEquals(AgentMessage.ROLE_ASSISTANT, snapshot.getMessages().get(1).getRole());
+        assertTrue(snapshot.getMessages().get(1).getContent().contains("AllocationQuota.FreeTierOnly"));
+        runtime.close();
+    }
+
+    @Test
     void prompt_shouldEmitUsageWhenModelReturnsTokens() {
         LlmClient fakeClient = (request, tools, streamListener, cancellationToken) -> {
             streamListener.onTextDelta("ok");

@@ -228,7 +228,10 @@ public final class OpenAiCompatibleClient implements LlmClient {
             }
         }
         String reason = describeFailure(t, response);
-        String message = "SSE failed: " + reason + " " + body;
+        String gateway = DashScopeSseError.fromHttpBody(body);
+        String message = gateway != null
+            ? gateway
+            : ("SSE failed: " + reason + " " + body);
         if (response != null) {
             if (t != null) {
                 return new LlmHttpException(response.code(), message, t);
@@ -356,8 +359,10 @@ public final class OpenAiCompatibleClient implements LlmClient {
             JsonNode content = delta.get("content");
             if (content != null && content.isTextual()) {
                 String value = content.asText("");
-                acc.text.append(value);
-                streamListener.onTextDelta(value);
+                if (!value.isEmpty()) {
+                    acc.text.append(value);
+                    streamListener.onTextDelta(value);
+                }
             }
 
             JsonNode reasoning = delta.get("reasoning_content");

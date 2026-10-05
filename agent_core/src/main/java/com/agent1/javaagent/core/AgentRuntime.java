@@ -270,6 +270,9 @@ public final class AgentRuntime implements Closeable {
             }
             String message = e.getMessage() == null ? e.toString() : e.getMessage();
             state.setError(message);
+            AgentMessage errorMessage = AgentMessage.assistant("错误: " + message, List.of());
+            state.appendMessage(errorMessage);
+            emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(errorMessage));
             emit(AgentEventType.AGENT_ERROR, new EventPayloads.AgentError(message));
         } finally {
             state.setStreaming(false);

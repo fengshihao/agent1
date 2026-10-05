@@ -1,11 +1,25 @@
 package com.agent1.javaagent.llm.openai;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /** HTTP 200 SSE 里的 DashScope / OpenAI 网关错误（避免当成空回复）。 */
 final class DashScopeSseError {
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     private DashScopeSseError() {
+    }
+
+    static String fromHttpBody(String body) {
+        if (body == null || body.isBlank()) {
+            return null;
+        }
+        try {
+            return messageOf(MAPPER.readTree(body));
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     static String messageOf(JsonNode root) {
@@ -45,6 +59,7 @@ final class DashScopeSseError {
             || code.startsWith("BadRequest")
             || code.startsWith("DataInspection")
             || code.startsWith("Model.")
+            || code.startsWith("AllocationQuota")
             || "Arrearage".equals(code);
     }
 

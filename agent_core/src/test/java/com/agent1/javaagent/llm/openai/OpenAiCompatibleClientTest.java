@@ -213,6 +213,36 @@ class OpenAiCompatibleClientTest {
     }
 
     @Test
+    void streamChat_http403_surfacesDashScopeQuotaMessage() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(
+                new MockResponse()
+                    .setResponseCode(403)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody(
+                        "{\"error\":{\"message\":\"Free quota exhausted\","
+                            + "\"code\":\"AllocationQuota.FreeTierOnly\"}}"
+                    )
+            );
+            server.start();
+            OpenAiCompatibleClient client = new OpenAiCompatibleClient(
+                new OpenAiCompatibleConfig("k", server.url("/v1").toString(), Duration.ofSeconds(5), null)
+            );
+            IllegalStateException ex = assertThrows(
+                IllegalStateException.class,
+                () -> client.streamChat(
+                    new ChatRequest("deepseek-v4-flash", List.of(AgentMessage.user("hi"))),
+                    List.of(),
+                    s -> {},
+                    new CancellationToken()
+                )
+            );
+            assertTrue(ex.getMessage().contains("AllocationQuota.FreeTierOnly"), ex.getMessage());
+            assertTrue(ex.getMessage().contains("Free quota exhausted"), ex.getMessage());
+        }
+    }
+
+    @Test
     void streamChat_parsesUsageAndFinishReason() throws Exception {
         try (MockWebServer server = new MockWebServer()) {
             String sseBody = ""
