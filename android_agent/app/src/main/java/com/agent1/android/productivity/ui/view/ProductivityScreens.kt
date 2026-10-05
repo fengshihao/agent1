@@ -2,6 +2,7 @@ package com.agent1.android.productivity.ui.view
 
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +30,8 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
@@ -82,6 +85,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.agent1.javaagent.modelcatalog.QwenModelInfo
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
@@ -89,6 +93,7 @@ import com.agent1.javaagent.session.SessionMeta
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
 import com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem
+import com.agent1.android.productivity.ui.viewmodel.RunTokenSummary
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.SessionListUiState
@@ -986,6 +991,7 @@ private fun ChatMessageList(
         state.streamingText.length,
         state.streamingReasoning.length,
         state.isRunning,
+        state.lastRunTokenSummary,
     ) {
         if (!stickToBottom) return@LaunchedEffect
         val total = listState.layoutInfo.totalItemsCount
@@ -1061,7 +1067,19 @@ private fun ChatMessageList(
                     )
                 }
                 is ChatRunTimelineItem.ToolPart -> {
-                    LiveToolBubble(item)
+                    CollapsibleToolCallBubble(
+                        stateKey = item.id,
+                        toolName = item.toolName,
+                        argsPreview = item.argsPreview,
+                        finished = item.finished,
+                        isError = item.isError,
+                        resultSummary = item.resultSummary,
+                        progressLines = item.progressLines,
+                        workspacePath = state.workspacePath,
+                        workspaceImagePath = item.workspaceImagePath,
+                        imageWarning = item.imageWarning,
+                        workspaceFilePaths = item.workspaceFilePaths,
+                    )
                 }
             }
         }
@@ -1090,7 +1108,31 @@ private fun ChatMessageList(
                 )
             }
         }
+        if (!state.isRunning) {
+            state.lastRunTokenSummary?.let { summary ->
+                item(key = "run-token-summary") {
+                    RunTokenSummaryRow(summary)
+                }
+            }
+        }
     }
+}
+
+@Composable
+private fun RunTokenSummaryRow(summary: RunTokenSummary) {
+    val color = if (summary.failed) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Text(
+        text = summary.displayText(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        style = MaterialTheme.typography.labelMedium,
+        color = color,
+    )
 }
 
 private fun shouldShowAssistantPending(state: ChatUiState): Boolean {
@@ -1130,53 +1172,132 @@ private fun AssistantPendingBubble(label: String) {
 }
 
 @Composable
-private fun LiveToolBubble(tool: ChatRunTimelineItem.ToolPart) {
+private fun toolStatusAccent(finished: Boolean, isError: Boolean): Color {
+    val scheme = MaterialTheme.colorScheme
+    return when {
+        !finished -> if (isSystemInDarkTheme()) Color(0xFFE8C547) else Color(0xFFB8860B)
+        isError -> scheme.error
+        else -> scheme.secondary
+    }
+}
+
+@Composable
+private fun CollapsibleToolCallBubble(
+    stateKey: String,
+    toolName: String,
+    argsPreview: String,
+    finished: Boolean,
+    isError: Boolean,
+    resultSummary: String,
+    progressLines: List<String>,
+    workspacePath: String,
+    workspaceImagePath: String?,
+    imageWarning: String?,
+    workspaceFilePaths: List<String>,
+) {
+    var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val bubbles = chatBubbleColors()
+    val accent = toolStatusAccent(finished, isError)
+    val statusLabel = when {
+        !finished -> "执行中"
+        isError -> "失败"
+        else -> "成功"
+    }
     BubbleShell(
         alignEnd = false,
         wide = true,
         background = bubbles.systemBackground,
-        borderColor = bubbles.systemBorder,
+        borderColor = accent,
+        borderWidth = 2.dp,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                tool.toolName,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            if (tool.argsPreview.isNotBlank() && !tool.finished) {
-                Text(
-                    tool.argsPreview,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                if (!tool.finished) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
-                    )
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowRight,
+                    contentDescription = if (expanded) "收起工具结果" else "展开工具结果",
+                    modifier = Modifier.size(20.dp),
+                    tint = accent,
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            toolName,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (!finished) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = accent,
+                            )
+                        }
+                        Text(
+                            statusLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = accent,
+                        )
+                    }
+                    if (argsPreview.isNotBlank()) {
+                        Text(
+                            argsPreview,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = if (expanded) Int.MAX_VALUE else 4,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
-                Text(
-                    tool.statusLine,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = when {
-                        tool.isError -> MaterialTheme.colorScheme.error
-                        tool.finished -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
             }
-            tool.progressLines.forEach { line ->
-                Text(
-                    line,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            AnimatedVisibility(visible = expanded) {
+                SelectionContainer {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (!finished && progressLines.isNotEmpty()) {
+                            progressLines.forEach { line ->
+                                Text(
+                                    line,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (resultSummary.isNotBlank()) {
+                            WorkspaceChatBody(
+                                content = resultSummary,
+                                workspaceAbsolutePath = workspacePath,
+                                markdown = false,
+                                workspaceFilePaths = workspaceFilePaths,
+                                textStyle = MaterialTheme.typography.bodyMedium,
+                            )
+                        } else if (finished && !isError) {
+                            Text(
+                                "（无输出）",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        workspaceImagePath?.let { path ->
+                            WorkspaceImagePreview(
+                                workspaceAbsolutePath = workspacePath,
+                                workspaceRelativePath = path,
+                                warning = imageWarning,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -1212,36 +1333,19 @@ private fun MessageBubble(
             }
         }
         isTool -> {
-            BubbleShell(
-                alignEnd = false,
-                wide = true,
-                background = bubbles.systemBackground,
-                borderColor = bubbles.systemBorder,
-            ) {
-                SelectionContainer {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "🔧",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    WorkspaceChatBody(
-                        content = line.content,
-                        workspaceAbsolutePath = workspacePath,
-                        markdown = false,
-                        workspaceFilePaths = line.workspaceFilePaths,
-                        textStyle = MaterialTheme.typography.bodyMedium,
-                    )
-                    line.workspaceImagePath?.let { path ->
-                        WorkspaceImagePreview(
-                            workspaceAbsolutePath = workspacePath,
-                            workspaceRelativePath = path,
-                            warning = line.imageWarning,
-                        )
-                    }
-                    }
-                }
-            }
+            CollapsibleToolCallBubble(
+                stateKey = reasoningStateKey,
+                toolName = line.toolName ?: "工具",
+                argsPreview = line.toolArgsPreview.orEmpty(),
+                finished = line.toolFinished,
+                isError = line.toolIsError,
+                resultSummary = line.content,
+                progressLines = emptyList(),
+                workspacePath = workspacePath,
+                workspaceImagePath = line.workspaceImagePath,
+                imageWarning = line.imageWarning,
+                workspaceFilePaths = line.workspaceFilePaths,
+            )
         }
         else -> {
             BubbleShell(
@@ -1328,6 +1432,7 @@ private fun BubbleShell(
     wide: Boolean,
     background: Color,
     borderColor: Color,
+    borderWidth: Dp = 1.dp,
     content: @Composable () -> Unit,
 ) {
     Box(
@@ -1341,7 +1446,7 @@ private fun BubbleShell(
                 .background(background)
                 .then(
                     if (borderColor.alpha > 0f) {
-                        Modifier.border(1.dp, borderColor, RoundedCornerShape(16.dp))
+                        Modifier.border(borderWidth, borderColor, RoundedCornerShape(16.dp))
                     } else {
                         Modifier
                     },

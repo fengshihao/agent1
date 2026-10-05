@@ -7,6 +7,7 @@ import com.agent1.javaagent.event.AgentEvent
 import com.agent1.javaagent.event.AgentEventType
 import com.agent1.javaagent.event.EventPayloads
 import com.agent1.javaagent.model.AgentMessage
+import com.agent1.javaagent.model.ToolCall
 import com.agent1.javaagent.modelcatalog.QwenModelCatalog
 import com.agent1.android.productivity.logic.business.AskUserFormatting
 import com.agent1.android.productivity.logic.business.AskUserPendingDetector
@@ -51,6 +52,11 @@ class ChatViewModel(
     @Volatile
     private var flushJob: Job? = null
 
+    private var runInputTokens = 0L
+    private var runOutputTokens = 0L
+    private var runCachedTokens = 0L
+    private var runEndedWithFailure = false
+
     init {
         refreshConfigSummary()
         viewModelScope.launch {
@@ -83,9 +89,10 @@ class ChatViewModel(
                 val ws = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
                 val accessible = gateway.listAccessibleFilePaths(sessionId)
                 val pending = AskUserPendingDetector.detectPendingRequest(messages)
+                val toolCallsById = indexToolCalls(messages)
                 val lines = messages
                     .filter { it.role != AgentMessage.ROLE_SYSTEM }
-                    .flatMap { it.toChatLines(ws) }
+                    .flatMap { it.toChatLines(ws, toolCallsById) }
                     .mapIndexed { index, line ->
                     line.copy(stableKey = "transcript-$index-${line.role}")
                 }
@@ -125,12 +132,14 @@ class ChatViewModel(
             return
         }
         resetStreamBuffers()
+        resetRunUsageAccumulators()
         _state.value = _state.value.copy(
             isRunning = true,
             streamingText = "",
             streamingReasoning = "",
             runTimeline = emptyList(),
             runActivityLabel = "正在连接模型…",
+            lastRunTokenSummary = null,
             pendingAskUser = null,
             lines = _state.value.lines + ChatLine(
                 role = "user",
@@ -159,6 +168,7 @@ class ChatViewModel(
                     }
                 }
             } catch (e: Exception) {
+                runEndedWithFailure = true
                 _state.value = _state.value.copy(
                     lines = _state.value.lines + ChatLine("assistant", "错误: ${e.message}"),
                 )
@@ -169,6 +179,7 @@ class ChatViewModel(
                     streamingText = "",
                     streamingReasoning = "",
                     runActivityLabel = null,
+                    lastRunTokenSummary = buildRunTokenSummaryIfNeeded(),
                 )
                 loadTranscriptIntoState(initialLoad = false)
             }
@@ -260,6 +271,30 @@ class ChatViewModel(
         }
     }
 
+    private fun resetRunUsageAccumulators() {
+        runInputTokens = 0L
+        runOutputTokens = 0L
+        runCachedTokens = 0L
+        runEndedWithFailure = false
+    }
+
+    private fun accumulateUsage(payload: EventPayloads.Usage) {
+        runInputTokens += payload.inputTokens
+        runOutputTokens += payload.outputTokens
+        payload.cachedTokens?.let { runCachedTokens += it }
+    }
+
+    private fun buildRunTokenSummaryIfNeeded(): RunTokenSummary? {
+        val hasUsage = runInputTokens > 0 || runOutputTokens > 0
+        if (!runEndedWithFailure && !hasUsage) return null
+        return RunTokenSummary(
+            inputTokens = runInputTokens,
+            outputTokens = runOutputTokens,
+            cachedTokens = runCachedTokens,
+            failed = runEndedWithFailure,
+        )
+    }
+
     /** 工具开始前把当前流式助手气泡写入时间线，保证正文和工具按发生顺序交错。 */
     private fun flushStreamingIntoTimeline() {
         publishStreamNow()
@@ -292,10 +327,13 @@ class ChatViewModel(
 
     private fun updateToolTimeline(
         toolCallId: String,
-        statusLine: String? = null,
         appendProgress: String? = null,
         finished: Boolean = false,
         isError: Boolean = false,
+        resultSummary: String? = null,
+        workspaceImagePath: String? = null,
+        imageWarning: String? = null,
+        workspaceFilePaths: List<String>? = null,
     ): List<ChatRunTimelineItem> {
         val timeline = _state.value.runTimeline
         if (timeline.isEmpty()) return timeline
@@ -305,12 +343,27 @@ class ChatViewModel(
         if (index < 0) return timeline
         val current = timeline[index] as ChatRunTimelineItem.ToolPart
         val updated = current.copy(
-            statusLine = statusLine ?: current.statusLine,
             progressLines = appendProgress?.let { current.progressLines + it } ?: current.progressLines,
             finished = finished || current.finished,
             isError = isError || current.isError,
+            resultSummary = resultSummary ?: current.resultSummary,
+            workspaceImagePath = workspaceImagePath ?: current.workspaceImagePath,
+            imageWarning = imageWarning ?: current.imageWarning,
+            workspaceFilePaths = workspaceFilePaths ?: current.workspaceFilePaths,
         )
         return timeline.toMutableList().also { it[index] = updated }
+    }
+
+    private fun indexToolCalls(messages: List<AgentMessage>): Map<String, ToolCall> {
+        val map = linkedMapOf<String, ToolCall>()
+        for (message in messages) {
+            for (call in message.toolCalls) {
+                if (call.id.isNotBlank()) {
+                    map[call.id] = call
+                }
+            }
+        }
+        return map
     }
 
     private fun onAgentEvent(event: AgentEvent) {
@@ -337,7 +390,6 @@ class ChatViewModel(
                     toolCallId = call.id,
                     toolName = name,
                     argsPreview = call.argumentsJson.trim().take(220),
-                    statusLine = "开始调用 $name…",
                 )
                 _state.value = _state.value.copy(
                     runActivityLabel = "调用工具 · $name",
@@ -353,7 +405,6 @@ class ChatViewModel(
                         runActivityLabel = "工具执行中 · $line",
                         runTimeline = updateToolTimeline(
                             toolCallId = payload.toolCallId,
-                            statusLine = "执行中 · $line",
                             appendProgress = line,
                         ),
                     )
@@ -364,19 +415,19 @@ class ChatViewModel(
                 val pending = payload.result?.takeIf { it.stopRunWaitingUser() }?.details?.let { node ->
                     AskUserFormatting.parseRequest(JSONObject(node.toString()))
                 }
-                val preview = if (payload.isError) {
-                    payload.errorMessage?.trim()?.take(120)
-                        ?: payload.result?.text?.trim()?.take(120)
-                        ?: "失败"
+                val rawResult = if (payload.isError) {
+                    payload.errorMessage?.trim()
+                        ?: payload.result?.text?.trim()
+                        ?: "工具执行失败"
                 } else {
-                    payload.result?.text?.trim()?.take(120)?.replace('\n', ' ').orEmpty()
+                    payload.result?.text?.trim().orEmpty()
                 }
-                val status = when {
-                    pending != null -> "等待您回答"
-                    payload.isError -> "失败 · ${preview.replace('\n', ' ')}"
-                    preview.isNotEmpty() -> "完成 · $preview"
-                    else -> "完成"
-                }
+                val ws = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
+                val display = ChatTranscriptFormatting.formatToolResult(rawResult, ws)
+                val toolFiles = ChatTranscriptFormatting.mergeWorkspaceFilePaths(
+                    display.summary,
+                    display.workspaceFilePaths,
+                )
                 _state.value = _state.value.copy(
                     runActivityLabel = if (
                         _state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()
@@ -391,9 +442,15 @@ class ChatViewModel(
                     },
                     runTimeline = updateToolTimeline(
                         toolCallId = payload.toolCallId,
-                        statusLine = status,
                         finished = true,
-                        isError = payload.isError,
+                        isError = payload.isError && pending == null,
+                        resultSummary = when {
+                            pending != null -> AskUserFormatting.summaryForBubble(pending)
+                            else -> display.summary
+                        },
+                        workspaceImagePath = display.workspaceImagePath,
+                        imageWarning = display.imageWarning,
+                        workspaceFilePaths = toolFiles,
                     ),
                     pendingAskUser = pending?.let { initialAskUserForm(it) } ?: _state.value.pendingAskUser,
                 )
@@ -404,14 +461,22 @@ class ChatViewModel(
                 }
             }
             AgentEventType.AGENT_ERROR -> {
+                runEndedWithFailure = true
                 val message = (event.payload as? EventPayloads.AgentError)?.message ?: "运行出错"
                 _state.value = _state.value.copy(runActivityLabel = message)
+            }
+            AgentEventType.USAGE -> {
+                val payload = event.payload as EventPayloads.Usage
+                accumulateUsage(payload)
             }
             else -> Unit
         }
     }
 
-    private fun AgentMessage.toChatLines(workspaceRoot: java.nio.file.Path?): List<ChatLine> {
+    private fun AgentMessage.toChatLines(
+        workspaceRoot: java.nio.file.Path?,
+        toolCallsById: Map<String, ToolCall>,
+    ): List<ChatLine> {
         val tool = AgentMessage.ROLE_TOOL_RESULT == role
         if (tool) {
             if (AskUserFormatting.isPauseSummary(content)) {
@@ -426,12 +491,17 @@ class ChatViewModel(
             }
             val display = ChatTranscriptFormatting.formatToolResult(content, workspaceRoot)
             val toolFiles = ChatTranscriptFormatting.mergeWorkspaceFilePaths(display.summary, display.workspaceFilePaths)
+            val call = toolCallId?.let { toolCallsById[it] }
             return listOf(
                 ChatLine(
                     role = role,
                     content = display.summary,
                     reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
                     isTool = true,
+                    toolName = call?.name ?: "工具",
+                    toolArgsPreview = call?.argumentsJson?.trim()?.take(220),
+                    toolFinished = true,
+                    toolIsError = isError,
                     workspaceImagePath = display.workspaceImagePath,
                     imageWarning = display.imageWarning,
                     workspaceFilePaths = toolFiles,

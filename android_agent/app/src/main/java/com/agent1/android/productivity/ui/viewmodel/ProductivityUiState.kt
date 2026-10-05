@@ -5,6 +5,30 @@ import com.agent1.javaagent.modelcatalog.QwenModelInfo
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
 
+/** 单次 Run 结束后的 token 与缓存统计（下次发送前保留展示）。 */
+data class RunTokenSummary(
+    val inputTokens: Long,
+    val outputTokens: Long,
+    val cachedTokens: Long,
+    val failed: Boolean = false,
+) {
+    val cacheHitPercent: Int?
+        get() = if (inputTokens > 0) {
+            ((cachedTokens * 100.0) / inputTokens).toInt().coerceIn(0, 100)
+        } else {
+            null
+        }
+
+    fun displayText(): String {
+        val parts = mutableListOf(
+            "输入 ${inputTokens}",
+            "输出 ${outputTokens}",
+        )
+        cacheHitPercent?.let { parts.add("缓存命中 ${it}%") }
+        return parts.joinToString(" · ")
+    }
+}
+
 data class AskUserFormState(
     val request: AskUserFormatting.Request,
     val textAnswers: Map<String, String> = emptyMap(),
@@ -40,11 +64,14 @@ sealed interface ChatRunTimelineItem {
         val toolCallId: String,
         val toolName: String,
         val argsPreview: String = "",
-        /** 开始、执行中、结束（成功或失败）的单行状态。 */
-        val statusLine: String,
         val progressLines: List<String> = emptyList(),
         val finished: Boolean = false,
         val isError: Boolean = false,
+        /** 展开后展示的格式化结果摘要。 */
+        val resultSummary: String = "",
+        val workspaceImagePath: String? = null,
+        val imageWarning: String? = null,
+        val workspaceFilePaths: List<String> = emptyList(),
     ) : ChatRunTimelineItem
 }
 
@@ -55,6 +82,10 @@ data class ChatLine(
     /** LazyColumn 稳定 key，避免刷新后滚动跳动。 */
     val stableKey: String = "",
     val isTool: Boolean = false,
+    val toolName: String? = null,
+    val toolArgsPreview: String? = null,
+    val toolFinished: Boolean = true,
+    val toolIsError: Boolean = false,
     /** 工作区内图片相对路径（工具结果或助手 Markdown 引用）。 */
     val workspaceImagePath: String? = null,
     val imageWarning: String? = null,
@@ -91,4 +122,6 @@ data class ChatUiState(
     val fileImportMessage: String? = null,
     /** 当前待回复的 ask_user 表单（对话列表与输入框之间，限高可滚动）。 */
     val pendingAskUser: AskUserFormState? = null,
+    /** 上一轮 Run 结束后的 token / 缓存统计；运行中不展示。 */
+    val lastRunTokenSummary: RunTokenSummary? = null,
 )
