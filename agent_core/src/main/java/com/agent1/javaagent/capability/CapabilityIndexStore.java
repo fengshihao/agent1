@@ -5,8 +5,10 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -123,6 +125,9 @@ public final class CapabilityIndexStore {
         Path dbPath = CapabilityDatabasePaths.databaseFile(agentRoot);
         int effectiveLimit = Math.min(Math.max(limit, 1), 20);
         String normalizedPlatform = normalizePlatform(platform);
+        if (queryTerms(query).size() > 1) {
+            return searchAnyTerm(dbPath, query, kinds, normalizedPlatform, effectiveLimit);
+        }
         List<CapabilityHit> ftsHits = List.of();
         try {
             ftsHits = searchFts(dbPath, query, kinds, normalizedPlatform, effectiveLimit);
@@ -318,7 +323,7 @@ public final class CapabilityIndexStore {
                 + ")";
         StringBuilder sql = new StringBuilder(
             """
-            SELECT c.id, c.kind, c.title, c.summary, c.tags, c.entry, c.doc_path, c.platforms,
+            SELECT c.id, c.kind, c.title, c.summary, c.tags, c.entry, c.doc_path, c.platforms, c.requires_json,
                    ("""
                 + bm25
                 + " * c.weight) AS score\n"
@@ -354,7 +359,7 @@ public final class CapabilityIndexStore {
         String like = "%" + q.toLowerCase(Locale.ROOT) + "%";
         StringBuilder sql = new StringBuilder(
             """
-            SELECT c.id, c.kind, c.title, c.summary, c.tags, c.entry, c.doc_path, c.platforms,
+            SELECT c.id, c.kind, c.title, c.summary, c.tags, c.entry, c.doc_path, c.platforms, c.requires_json,
                    (
                      (CASE WHEN lower(c.title) LIKE ? THEN %1$f ELSE 0 END)
                      + (CASE WHEN lower(c.tags) LIKE ? THEN %2$f ELSE 0 END)
@@ -390,6 +395,56 @@ public final class CapabilityIndexStore {
         params.add(candidateLimit);
         List<CapabilityHit> hits = runSearch(dbPath, sql.toString(), params);
         return finalizeRanking(hits, query, limit);
+    }
+
+    /** 整句对不上时，按空格拆开的词分别匹配，命中词越多越靠前。 */
+    private static List<CapabilityHit> searchAnyTerm(
+        Path dbPath,
+        String query,
+        List<String> kinds,
+        String platform,
+        int limit
+    ) {
+        List<String> terms = queryTerms(query);
+        Map<String, TermHit> merged = new LinkedHashMap<>();
+        int perTerm = Math.min(Math.max(limit, 8), 20);
+        for (String term : terms) {
+            if (term.length() < 2) {
+                continue;
+            }
+            for (CapabilityHit hit : searchLike(dbPath, term, kinds, platform, perTerm)) {
+                TermHit acc = merged.computeIfAbsent(hit.id(), id -> new TermHit(hit));
+                acc.terms++;
+                if (hit.score() > acc.hit.score()) {
+                    acc.hit = hit;
+                }
+            }
+        }
+        List<TermHit> ranked = new ArrayList<>(merged.values());
+        ranked.sort((a, b) -> {
+            if (a.terms != b.terms) {
+                return Integer.compare(b.terms, a.terms);
+            }
+            return fieldPriorityComparator(terms).compare(a.hit, b.hit);
+        });
+        List<CapabilityHit> out = new ArrayList<>();
+        for (TermHit item : ranked) {
+            if (out.size() >= limit) {
+                break;
+            }
+            out.add(item.hit);
+        }
+        return List.copyOf(out);
+    }
+
+    private static final class TermHit {
+        private CapabilityHit hit;
+        private int terms;
+
+        private TermHit(CapabilityHit hit) {
+            this.hit = hit;
+            this.terms = 0;
+        }
     }
 
     private static List<CapabilityHit> finalizeRanking(List<CapabilityHit> hits, String query, int limit) {
@@ -506,6 +561,7 @@ public final class CapabilityIndexStore {
                         rs.getString("entry"),
                         rs.getString("doc_path"),
                         rs.getString("platforms"),
+                        rs.getString("requires_json"),
                         rs.getDouble("score")
                     )
                 );
@@ -570,6 +626,7 @@ public final class CapabilityIndexStore {
         String entry,
         String docPath,
         String platforms,
+        String requiresJson,
         double score
     ) {
     }

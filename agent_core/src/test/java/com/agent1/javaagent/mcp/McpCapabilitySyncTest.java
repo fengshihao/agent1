@@ -27,8 +27,9 @@ class McpCapabilitySyncTest {
             0,
             ""
         )));
+        String schema = "{\"type\":\"object\",\"properties\":{\"q\":{\"type\":\"string\",\"description\":\"query\"}},\"required\":[\"q\"]}";
         McpToolLister lister = server -> List.of(
-            new McpListedTool("search", "find issues"),
+            new McpListedTool("search", "find issues", schema),
             new McpListedTool("create-issue", "open an issue")
         );
 
@@ -39,6 +40,7 @@ class McpCapabilitySyncTest {
         var hits = CapabilityIndexStore.search(temp, "find issues", List.of("mcp"), "any", 5);
         assertFalse(hits.isEmpty());
         assertTrue(hits.stream().anyMatch(hit -> "$mcp.github.search".equals(hit.entry())));
+        assertTrue(hits.stream().anyMatch(hit -> hit.requiresJson() != null && hit.requiresJson().contains("\"q\"")));
         assertTrue(hits.stream().noneMatch(hit -> hit.summary().contains("inputSchema")));
         var hyphen = CapabilityIndexStore.search(temp, "create-issue", List.of("mcp"), "any", 5);
         assertTrue(hyphen.stream().anyMatch(hit -> hit.entry().contains("create-issue")));
@@ -52,5 +54,7 @@ class McpCapabilitySyncTest {
         );
         assertEquals(2, cached.toolCount());
         assertTrue(cached.warnings().isEmpty());
+        var fromCache = CapabilityIndexStore.search(temp, "find issues", List.of("mcp"), "any", 5);
+        assertTrue(fromCache.stream().anyMatch(hit -> hit.requiresJson() != null && hit.requiresJson().contains("\"q\"")));
     }
 }

@@ -59,7 +59,13 @@ public final class ExecuteScriptTool implements AgentTool {
 
     @Override
     public String description() {
-        return "Run JavaScript in the session workspace sandbox (Weizhi). Provide code or a workspace-relative file path.";
+        return """
+            在 workspace 跑 QuickJS。不是 Node，不是浏览器，没有 document/window，不能 require。
+            优先 file（如 jobs/run.js），code 与 file 二选一。
+            可以顶层 await。返回值是最后一条表达式，不要写顶层 return。
+            MCP：await $mcp.服务器.工具({...})，名字来自 capability_search 的 entry。
+            外层工具：await $tools.工具名({...})，不能再调 execute_script。
+            """.trim();
     }
 
     @Override

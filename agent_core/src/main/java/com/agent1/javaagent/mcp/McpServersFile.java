@@ -152,6 +152,10 @@ public final class McpServersFile {
         }
     }
 
+    public static boolean schemaCached(Path baseDir, String serverName) {
+        return Files.isRegularFile(schemaStamp(baseDir, serverName));
+    }
+
     public static boolean cacheMatches(Path baseDir, McpServerRecord server) {
         String stored = readUrlStamp(baseDir, server.name());
         return server.url().trim().equals(stored) && Files.isRegularFile(cacheJson(baseDir, server.name()));
@@ -173,7 +177,11 @@ public final class McpServersFile {
                 if (name.isBlank()) {
                     continue;
                 }
-                tools.add(new McpListedTool(name, text(node, "description")));
+                JsonNode schema = node.get("inputSchema");
+                String schemaText = schema != null && schema.isObject() && schema.size() > 0
+                    ? schema.toString()
+                    : "";
+                tools.add(new McpListedTool(name, text(node, "description"), schemaText));
             }
             return List.copyOf(tools);
         } catch (IOException e) {
@@ -191,12 +199,18 @@ public final class McpServersFile {
             ObjectNode node = array.addObject();
             node.put("name", tool.name());
             node.put("description", tool.description());
-            node.putObject("inputSchema");
+            JsonNode schema = parseSchema(tool.inputSchema());
+            if (schema == null) {
+                node.putObject("inputSchema");
+            } else {
+                node.set("inputSchema", schema);
+            }
             node.put("readOnlyHint", false);
         }
         try {
             atomicWrite(cacheJson(baseDir, server.name()), MAPPER.writeValueAsString(array));
             atomicWrite(urlStamp(baseDir, server.name()), server.url().trim());
+            atomicWrite(schemaStamp(baseDir, server.name()), "1");
         } catch (IOException e) {
             throw new IllegalStateException("write mcp tool cache failed", e);
         }
@@ -242,12 +256,28 @@ public final class McpServersFile {
         return value.asText("").trim();
     }
 
+    private static JsonNode parseSchema(String inputSchema) {
+        if (inputSchema == null || inputSchema.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode node = MAPPER.readTree(inputSchema);
+            return node != null && node.isObject() ? node : null;
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     private static Path cacheJson(Path baseDir, String serverName) {
         return cacheDir(baseDir).resolve(safeName(serverName) + ".json");
     }
 
     private static Path urlStamp(Path baseDir, String serverName) {
         return cacheDir(baseDir).resolve(safeName(serverName) + ".url");
+    }
+
+    private static Path schemaStamp(Path baseDir, String serverName) {
+        return cacheDir(baseDir).resolve(safeName(serverName) + ".schema");
     }
 
     private static Path cacheDir(Path baseDir) {

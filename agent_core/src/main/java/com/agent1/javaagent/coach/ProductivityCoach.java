@@ -64,7 +64,7 @@ public final class ProductivityCoach {
         } else if ("capability_search".equals(toolName) && text != null) {
             boolean empty = text.startsWith("未找到匹配");
             int calls = runState.recordCapabilitySearch(empty);
-            if (calls > 2 || (empty && runState.capabilitySearchEmptyCalls() >= 2)) {
+            if (calls > 2 || (empty && runState.capabilitySearchEmptyCalls() >= 3)) {
                 hookId = "capability.search_limit";
                 advice =
                     "本任务已多次检索本地能力索引且仍无可用条目。请勿继续换关键词搜索、"
@@ -126,6 +126,15 @@ public final class ProductivityCoach {
                     advice =
                         "execute_script 只能运行 .js 脚本，不能把 SVG/图片当 file 执行。"
                             + "读数据用 read_file；SVG 转 PNG/JPG 用 import { svgToImage } from './svg-raster.js'。";
+                } else if (text != null && text.contains("return not in a function")) {
+                    hookId = "script.no_top_return";
+                    advice =
+                        "execute_script 不要写顶层 return。顶层 await 可以，用最后一条表达式当返回值。"
+                            + "例如 const r = await $mcp.服务器.工具({...}); JSON.stringify(r)";
+                } else if (text != null && (text.contains("require is not defined")
+                    || text.contains("require(") && text.contains("ReferenceError"))) {
+                    hookId = "script.not_node";
+                    advice = "这是 QuickJS，不是 Node。不要 require。读写用脚本里的 fs，或外层 read_file / write_file。";
                 } else if (CatalogMissingNativeHints.looksLikeMissingNative(text)) {
                     String plugin = CatalogMissingNativeHints.resolvePluginName(code, text);
                     hookId = "catalog.missing_native";

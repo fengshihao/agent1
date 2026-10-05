@@ -127,7 +127,9 @@ public final class HttpMcpToolLister implements McpToolLister {
             if (name.isEmpty()) {
                 continue;
             }
-            list.add(new McpListedTool(name, tool.path("description").asText("")));
+            JsonNode schema = tool.get("inputSchema");
+            String schemaText = schema != null && schema.isObject() ? schema.toString() : "";
+            list.add(new McpListedTool(name, tool.path("description").asText(""), schemaText));
         }
         return List.copyOf(list);
     }

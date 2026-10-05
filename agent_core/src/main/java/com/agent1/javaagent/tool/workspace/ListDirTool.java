@@ -30,7 +30,7 @@ public final class ListDirTool implements AgentTool {
 
     @Override
     public String description() {
-        return "List a workspace directory or read-only agent docs directory (docs/system/...).";
+        return "列出工作区目录中的文件和子目录。";
     }
 
     @Override

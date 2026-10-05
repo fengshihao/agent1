@@ -33,10 +33,7 @@ public final class ReadFileTool implements AgentTool {
 
     @Override
     public String description() {
-        return """
-            Read a text file from session workspace or read-only agent docs \
-            (docs/system/... or docs/capabilities/...) with optional line range.
-            """.trim();
+        return "读取工作区中的文本文件，可指定行范围。";
     }
 
     @Override

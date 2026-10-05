@@ -30,7 +30,11 @@ public final class PromoteRequestTool implements AgentTool {
 
     @Override
     public String description() {
-        return "Promote staged workspace assets (staging/skills, staging/scripts) to agentRoot shared/local.";
+        return """
+            把 workspace/staging 晋升到 shared/local。
+            Skill：staging/skills/<name>/SKILL.md，frontmatter 含 name、description。
+            脚本：staging/scripts/<name>.js。先 capability_search skill-creator，再调用本工具。
+            """.trim();
     }
 
     @Override

@@ -4,6 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
+import com.agent1.javaagent.mcp.McpCapabilitySync;
+import com.agent1.javaagent.mcp.McpListedTool;
+import com.agent1.javaagent.mcp.McpServerRecord;
+import com.agent1.javaagent.mcp.McpServersFile;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.util.PathIo;
@@ -11,6 +15,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -84,5 +90,61 @@ class CapabilitySearchToolTest {
 
         assertTrue(result.getText().contains("UC09 body"));
         assertTrue(result.getText().contains("source: local"));
+    }
+
+    @Test
+    void searchShowsParamsOnlyForFirstTwoMcpHits() {
+        Path agentRoot = temp.resolve("agentRoot5");
+        McpServersFile.save(agentRoot, List.of(new McpServerRecord(
+            "gaode",
+            "https://example.com/mcp",
+            Map.of(),
+            true,
+            "",
+            0,
+            ""
+        )));
+        McpCapabilitySync.ensureIndexed(agentRoot, server -> List.of(
+            new McpListedTool("maps_geo", "地址转坐标", schema("address")),
+            new McpListedTool("maps_weather", "查天气", schema("city")),
+            new McpListedTool("maps_around", "周边搜", schema("radiusOnly"))
+        ), true);
+
+        CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot);
+        ObjectNode params = new ObjectMapper().createObjectNode();
+        params.put("query", "maps");
+        params.put("limit", 8);
+        ToolExecutionResult result = tool.execute("t6", params, new CancellationToken(), u -> {
+        });
+
+        String text = result.getText();
+        assertTrue(text.contains("maps_geo"));
+        assertTrue(text.contains("maps_weather"));
+        assertTrue(text.contains("maps_around"));
+        assertTrue(count(text, "参数:") == 2, text);
+        assertTrue(text.contains("radiusOnly"));
+        assertTrue(text.contains("address"));
+        assertFalse(text.contains("city"));
+    }
+
+    private static String schema(String field) {
+        return "{\"type\":\"object\",\"properties\":{\""
+            + field
+            + "\":{\"type\":\"string\",\"description\":\"d\"}},\"required\":[\""
+            + field
+            + "\"]}";
+    }
+
+    private static int count(String text, String needle) {
+        int n = 0;
+        int from = 0;
+        while (true) {
+            int at = text.indexOf(needle, from);
+            if (at < 0) {
+                return n;
+            }
+            n++;
+            from = at + needle.length();
+        }
     }
 }

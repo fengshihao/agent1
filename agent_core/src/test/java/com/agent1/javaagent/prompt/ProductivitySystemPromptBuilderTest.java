@@ -35,13 +35,10 @@ class ProductivitySystemPromptBuilderTest {
     void mentionsMcpCallFormWhenScriptHostToolsEnabled() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), null, true, true);
-        assertTrue(prompt.contains("$mcp.<server>.<tool>"));
         assertTrue(prompt.contains("capability_search"));
         assertTrue(prompt.contains("webview_exec"));
-        assertTrue(prompt.contains("svgToImage"));
-        assertTrue(prompt.contains("svg-raster.js"));
-        assertTrue(prompt.contains("writeFile"));
-        assertTrue(prompt.contains("顶层 return"));
+        assertTrue(prompt.contains("execute_script"));
+        assertFalse(prompt.contains("svgToImage"));
         assertFalse(prompt.contains("toDataURL"));
         assertFalse(prompt.contains("workspace/dog.svg"));
     }
@@ -59,10 +56,8 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(prompt.contains("execute_script"));
         assertTrue(prompt.contains("capability_search"));
-        assertTrue(prompt.contains("jobs/run.js"));
-        assertTrue(prompt.contains("QuickJS"));
+        assertTrue(prompt.contains("写代码"));
         assertFalse(prompt.contains("webview_exec"));
-        assertTrue(prompt.contains("没有 document、window、DOM"));
         assertFalse(prompt.contains("docx_markdown_to_word"));
     }
 
@@ -71,7 +66,7 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(prompt.contains("execute_script"));
-        assertTrue(prompt.contains("jobs/run.js"));
+        assertTrue(prompt.contains("写代码"));
         assertFalse(prompt.contains("直接生产"));
         assertFalse(prompt.contains("编程生产"));
         assertFalse(prompt.contains("docx_"));
@@ -82,11 +77,9 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
         assertTrue(prompt.contains("不能 npm"));
-        assertTrue(prompt.contains("node_modules"));
-        assertTrue(prompt.contains("sessions/<sessionId>/workspace/"));
-        assertTrue(prompt.contains("shared/catalog/"));
-        assertTrue(prompt.contains("docs/system/"));
-        assertTrue(prompt.contains("主要工具"));
+        assertTrue(prompt.contains("shared/"));
+        assertTrue(prompt.contains("docs/"));
+        assertTrue(prompt.contains("分工"));
         assertFalse(prompt.contains("QuickJS"));
         assertFalse(prompt.contains("Tavily"));
     }
@@ -148,15 +141,17 @@ class ProductivitySystemPromptBuilderTest {
     void frameworkStatesHowToCreateSkillWithoutSearching() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
-        assertTrue(prompt.contains("skill-creator"));
+        assertFalse(prompt.contains("skill-creator"));
         assertFalse(prompt.contains("skill(action=read"));
-        assertFalse(prompt.contains("skill(action=list"));
-        assertTrue(prompt.contains("workspace/staging/skills/<name>/SKILL.md"));
-        assertTrue(prompt.contains("promote_request"));
-        assertTrue(prompt.contains("name"));
-        assertTrue(prompt.contains("description"));
         assertTrue(prompt.contains("capability_search"));
-        assertTrue(prompt.contains("会直接带上 SKILL 正文"));
+        String promote = new com.agent1.javaagent.tool.agent.PromoteRequestTool(
+            temp.resolve("agentRoot"),
+            temp.resolve("ws")
+        ).description();
+        assertTrue(promote.contains("skill-creator"));
+        assertTrue(promote.contains("staging/skills/<name>/SKILL.md"));
+        assertTrue(promote.contains("name"));
+        assertTrue(promote.contains("description"));
     }
 
     @Test
@@ -167,8 +162,6 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(workspace, agentRoot, false, false);
         assertTrue(prompt.contains("shared/"));
-        assertTrue(prompt.contains("promote_request"));
-        assertTrue(prompt.contains("catalog_install"));
         assertTrue(prompt.contains(agentRoot.toString()));
     }
 
@@ -206,10 +199,8 @@ class ProductivitySystemPromptBuilderTest {
     void mainPromptBatchCapabilitySearchGuidance() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
-        assertTrue(prompt.contains("能力检索"));
-        assertTrue(prompt.contains("一个关键词搜一轮"));
-        assertTrue(prompt.contains("limit"));
-        assertTrue(prompt.contains("explore"));
+        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("两三个词"));
     }
 
     @Test

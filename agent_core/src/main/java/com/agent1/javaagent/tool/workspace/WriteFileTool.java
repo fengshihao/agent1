@@ -30,7 +30,7 @@ public final class WriteFileTool implements AgentTool {
 
     @Override
     public String description() {
-        return "Write text content to a file in session workspace (creates or overwrites).";
+        return "创建或覆盖工作区中的文本文件。";
     }
 
     @Override

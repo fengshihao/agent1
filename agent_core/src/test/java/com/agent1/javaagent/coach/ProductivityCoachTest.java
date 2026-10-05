@@ -56,6 +56,19 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void topLevelReturnGetsUsageCoachImmediately() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("file", "jobs/geo.js");
+        ToolExecutionResult fail = ToolExecutionResult.text(
+            "{\"ok\":false,\"message\":\"SyntaxError: return not in a function\"}"
+        );
+        ToolExecutionResult out = coach.maybeAugment("execute_script", params, fail, false);
+        assertTrue(out.getText().contains("[coach] script.no_top_return"));
+        assertTrue(out.getText().contains("最后一条表达式"));
+    }
+
+    @Test
     void scriptFailRepeatCoachAfterThreshold() {
         AgentCoachConfig config = new AgentCoachConfig(true, 65_536, 80, 8192, 2);
         ProductivityCoach coach = new ProductivityCoach(config);
@@ -155,14 +168,17 @@ class ProductivityCoachTest {
     }
 
     @Test
-    void capabilitySearchLimitCoachAfterTwoEmpty() {
+    void capabilitySearchLimitCoachAfterThreeEmpty() {
         ProductivityCoach coach = new ProductivityCoach();
         ObjectNode params = MAPPER.createObjectNode();
         params.put("query", "foo");
         ToolExecutionResult empty = ToolExecutionResult.text("未找到匹配「foo」的能力条目。");
-        coach.maybeAugment("capability_search", params, empty, false);
+        ToolExecutionResult first = coach.maybeAugment("capability_search", params, empty, false);
+        assertFalse(first.getText().contains("[coach]"));
         ToolExecutionResult second = coach.maybeAugment("capability_search", params, empty, false);
-        assertTrue(second.getText().contains("[coach] capability.search_limit"));
+        assertFalse(second.getText().contains("[coach]"));
+        ToolExecutionResult third = coach.maybeAugment("capability_search", params, empty, false);
+        assertTrue(third.getText().contains("[coach] capability.search_limit"));
     }
 
     @Test

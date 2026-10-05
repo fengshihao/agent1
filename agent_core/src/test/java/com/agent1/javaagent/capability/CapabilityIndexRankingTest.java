@@ -86,11 +86,11 @@ class CapabilityIndexRankingTest {
     @Test
     void fieldMatchTierOrdersTitleBeforeTagsBeforeSummary() {
         CapabilityIndexStore.CapabilityHit titleHit =
-            new CapabilityIndexStore.CapabilityHit("a", "test", TOKEN, "", "", "", "", "any", 0);
+            new CapabilityIndexStore.CapabilityHit("a", "test", TOKEN, "", "", "", "", "any", "", 0);
         CapabilityIndexStore.CapabilityHit tagHit =
-            new CapabilityIndexStore.CapabilityHit("b", "test", "x", "", TOKEN, "", "", "any", 0);
+            new CapabilityIndexStore.CapabilityHit("b", "test", "x", "", TOKEN, "", "", "any", "", 0);
         CapabilityIndexStore.CapabilityHit summaryHit =
-            new CapabilityIndexStore.CapabilityHit("c", "test", "x", TOKEN, "", "", "", "any", 0);
+            new CapabilityIndexStore.CapabilityHit("c", "test", "x", TOKEN, "", "", "", "any", "", 0);
         var terms = CapabilityIndexStore.queryTerms(TOKEN);
         assertTrue(CapabilityIndexStore.fieldMatchTier(titleHit, terms)
             < CapabilityIndexStore.fieldMatchTier(tagHit, terms));
@@ -109,6 +109,60 @@ class CapabilityIndexRankingTest {
         );
         var hits = CapabilityIndexStore.search(agentRoot, TOKEN, List.of(), "any", 5);
         assertEquals("w.high", hits.get(0).id());
+    }
+
+    @Test
+    void longMixedQueryStillFindsPartialTerms() {
+        CapabilityIndexStore.rebuild(
+            agentRoot,
+            List.of(
+                rec(
+                    "mcp:gaode/maps_geo",
+                    "gaode / maps_geo",
+                    "将详细的结构化地址转换为经纬度坐标",
+                    "mcp",
+                    "$mcp.gaode.maps_geo",
+                    1.0
+                ),
+                rec(
+                    "mcp:gaode/maps_weather",
+                    "gaode / maps_weather",
+                    "根据城市名称查询天气",
+                    "mcp",
+                    "$mcp.gaode.maps_weather",
+                    1.0
+                )
+            )
+        );
+        var hits = CapabilityIndexStore.search(
+            agentRoot,
+            "地图 地理编码 坐标 地址查询 geocode amap baidu map MCP",
+            List.of(),
+            "any",
+            5
+        );
+        assertFalse(hits.isEmpty());
+        assertEquals("mcp:gaode/maps_geo", hits.get(0).id());
+    }
+
+    @Test
+    void moreTermMatchesOutrankASingleTitleHit() {
+        CapabilityIndexStore.rebuild(
+            agentRoot,
+            List.of(
+                rec("only.map", "map catalog", "unrelated", ""),
+                rec(
+                    "mcp:gaode/maps_geo",
+                    "gaode / maps_geo",
+                    "将详细的结构化地址转换为经纬度坐标",
+                    "mcp",
+                    "$mcp.gaode.maps_geo",
+                    1.0
+                )
+            )
+        );
+        var hits = CapabilityIndexStore.search(agentRoot, "坐标 map", List.of(), "any", 5);
+        assertEquals("mcp:gaode/maps_geo", hits.get(0).id());
     }
 
     private static int indexOf(List<CapabilityIndexStore.CapabilityHit> hits, String id) {

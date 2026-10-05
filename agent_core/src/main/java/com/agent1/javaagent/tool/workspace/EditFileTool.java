@@ -30,7 +30,7 @@ public final class EditFileTool implements AgentTool {
 
     @Override
     public String description() {
-        return "Replace old_string with new_string in a workspace text file.";
+        return "精确替换工作区文件中的一段文本。";
     }
 
     @Override

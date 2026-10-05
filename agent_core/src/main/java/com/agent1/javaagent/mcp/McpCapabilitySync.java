@@ -13,7 +13,7 @@ import java.util.Map;
 
 /**
  * 把已启用 MCP server 的工具写进能力索引（kind=mcp）。
- * 搜索结果只给名称、短描述和 {@code $mcp} 调用形式，不把参数 schema 放进模型工具列表。
+ * 参数 schema 放在索引的 {@code requires_json}，不进全文检索。搜索只给前两条 MCP 展开参数。
  */
 public final class McpCapabilitySync {
 
@@ -45,7 +45,8 @@ public final class McpCapabilitySync {
             List<McpListedTool> cached = cacheOk
                 ? McpServersFile.readToolCache(agentRoot, server.name())
                 : null;
-            List<McpListedTool> tools = !forceNetwork && cached != null ? cached : null;
+            boolean schemaReady = McpServersFile.schemaCached(agentRoot, server.name());
+            List<McpListedTool> tools = !forceNetwork && cached != null && schemaReady ? cached : null;
             boolean listedNow = false;
             if (tools == null) {
                 try {
@@ -109,7 +110,7 @@ public final class McpCapabilitySync {
             entry,
             "",
             "",
-            "",
+            clip(tool.inputSchema(), 4000),
             "mcp",
             1.0
         );

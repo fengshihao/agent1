@@ -2,6 +2,7 @@ package com.agent1.javaagent.tool.agent;
 
 import com.agent1.javaagent.capability.CapabilityIndexStore;
 import com.agent1.javaagent.core.CancellationToken;
+import com.agent1.javaagent.mcp.McpSchemaBrief;
 import com.agent1.javaagent.skill.AgentSkill;
 import com.agent1.javaagent.skill.AgentSkillLoader;
 import com.agent1.javaagent.tool.AgentTool;
@@ -58,10 +59,10 @@ public final class CapabilitySearchTool implements AgentTool {
     @Override
     public String description() {
         return """
-            Search the local capability index (SQLite FTS). One call takes one query string; \
-            include multiple keywords in that string (space-separated) to cover several capabilities at once. \
-            Optional limit 1-20 (default 8). Skill hits include the loaded SKILL.md body. \
-            Doc hits include doc_path for read_file.
+            查本地能力。query 用两三个词，命中越多越靠前。
+            不要把同义词堆进同一次查询，也不要每个词单独搜一轮。
+            kinds 用 mcp、skill、doc、builtin、catalog_script。limit 1–20，默认 8。
+            前两条 MCP 命中带参数，其余只有名称和入口。命中 Skill 会直接带上正文。有 doc_path 再用 read_file。
             """.trim();
     }
 
@@ -77,7 +78,7 @@ public final class CapabilitySearchTool implements AgentTool {
                 .put("type", "string")
                 .put(
                     "description",
-                    "Keywords for this task; put several capabilities in one string (space-separated), not one search per tool"
+                    "两三个关键词，例如「地址 坐标」。不要堆同义词。"
                 )
         );
         properties.set(
@@ -117,9 +118,7 @@ public final class CapabilitySearchTool implements AgentTool {
 
         if (hits.isEmpty() && loadedSkills.isEmpty()) {
             return ToolExecutionResult.text(
-                "未找到匹配「" + query + "」的能力条目。"
-                    + "同一任务不宜反复换词检索；无 doc_path 时不要通读 docs/system。"
-                    + "若无本地条目，请在 workspace 用文件工具或 execute_script 尝试实现，或向用户说明暂无内置方案。"
+                "未找到匹配「" + query + "」的能力条目。用更短的关键词再搜一次。"
             );
         }
 
@@ -141,11 +140,16 @@ public final class CapabilitySearchTool implements AgentTool {
         for (AgentSkill skill : loadedSkills) {
             appendLoadedSkill(text, details, skill);
         }
+        int mcpDetails = 0;
         for (CapabilityIndexStore.CapabilityHit hit : hits) {
             if (loadedNames.contains(skillName(hit))) {
                 continue;
             }
-            appendIndexHit(text, details, hit);
+            boolean withParams = "mcp".equalsIgnoreCase(hit.kind()) && mcpDetails < 2;
+            if (withParams) {
+                mcpDetails++;
+            }
+            appendIndexHit(text, details, hit, withParams);
         }
         ObjectNode root = MAPPER.createObjectNode();
         root.set("hits", details);
@@ -259,7 +263,8 @@ public final class CapabilitySearchTool implements AgentTool {
     private static void appendIndexHit(
         StringBuilder text,
         ArrayNode details,
-        CapabilityIndexStore.CapabilityHit hit
+        CapabilityIndexStore.CapabilityHit hit,
+        boolean withParams
     ) {
         text.append("- [").append(hit.kind()).append("] ").append(hit.title()).append('\n');
         text.append("  id: ").append(hit.id()).append('\n');
@@ -270,6 +275,12 @@ public final class CapabilitySearchTool implements AgentTool {
             text.append("  doc: ").append(hit.docPath()).append('\n');
         }
         text.append("  ").append(truncate(hit.summary(), 220)).append('\n');
+        if (withParams) {
+            String params = McpSchemaBrief.format(hit.requiresJson());
+            if (!params.isEmpty()) {
+                text.append("  参数:\n").append(params).append('\n');
+            }
+        }
 
         ObjectNode row = MAPPER.createObjectNode();
         row.put("id", hit.id());
