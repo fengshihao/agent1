@@ -29,13 +29,6 @@ dependencies {
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }
 
-val syncMcpSources = tasks.register<Copy>("syncMcpSources") {
-    from(weizhiRepo.resolve("android/agent-tools-mcp/src/main/java")) {
-        exclude("**/McpLog.java")
-    }
-    into(layout.buildDirectory.dir("generated/mcp-sources"))
-}
-
 val syncWebViewJvmSources = tasks.register<Copy>("syncWebViewJvmSources") {
     from(weizhiRepo.resolve("android/agent-tools-webview/src/main/java")) {
         include("com/weizhi/agent/web/WebViewTask.java")
@@ -50,7 +43,6 @@ sourceSets {
         java {
             srcDir(weizhiRepo.resolve("java"))
             srcDir(weizhiRepo.resolve("android/agent-tools/src/main/java"))
-            srcDir(layout.buildDirectory.dir("generated/mcp-sources"))
             srcDir(layout.buildDirectory.dir("generated/webview-jvm-sources"))
             srcDir("src/shared/java")
             srcDir("src/main/java")
@@ -61,7 +53,7 @@ sourceSets {
 }
 
 tasks.named("compileJava") {
-    dependsOn(syncMcpSources, syncWebViewJvmSources)
+    dependsOn(syncWebViewJvmSources)
 }
 
 tasks.test {

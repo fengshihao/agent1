@@ -40,4 +40,26 @@ class McpServersFileTest {
             new McpServerRecord("bad name", "https://example.com/mcp", Map.of(), true, "", 0, "")
         )));
     }
+
+    @Test
+    void scriptServersJsonOmitsDisabledServers() {
+        McpServersFile.save(temp, List.of(
+            new McpServerRecord(
+                "github",
+                "https://example.com/mcp",
+                Map.of("Authorization", "Bearer secret"),
+                true,
+                "",
+                0,
+                ""
+            ),
+            new McpServerRecord("off", "https://example.com/off", Map.of(), false, "", 0, "")
+        ));
+        String json = McpServersFile.scriptServersJson(temp);
+        assertTrue(json.contains("\"github\""));
+        assertTrue(json.contains("https://example.com/mcp"));
+        assertTrue(json.contains("Bearer secret"));
+        org.junit.jupiter.api.Assertions.assertFalse(json.contains("\"off\""));
+        assertEquals("{}", McpServersFile.scriptServersJson(null));
+    }
 }

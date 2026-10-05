@@ -37,6 +37,10 @@ public final class WeizhiScriptEngineFactory implements ScriptEngineFactory {
             if (scriptFolder != null) {
                 effective.scriptFolder(scriptFolder.toString());
             }
+            effective.mcpAgentRoot(agentRoot);
+            if (!effective.enableFetch()) {
+                effective.enableFetch(true);
+            }
         }
         return new WeizhiScriptEngine(workspace, effective);
     }

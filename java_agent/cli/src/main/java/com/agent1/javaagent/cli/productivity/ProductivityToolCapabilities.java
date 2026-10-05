@@ -47,7 +47,7 @@ public final class ProductivityToolCapabilities {
             lines.add("execute_script：未启用（构建 ../weizhi native 或设置 AGENT1_WEIZHI_REPO）");
         }
         lines.add("grep · glob · zip · bash · load_skill");
-        lines.add("MCP：脚本 $mcp.<server>.<tool>，经 mcp_call_tool 转发（配置见 agentRoot/mcp_servers.json）");
+        lines.add("MCP：脚本 $mcp.<server>.<tool>，经 weizhi mcp.connect（配置见 agentRoot/mcp_servers.json）");
         if (CdpWebViewRuntime.isAvailable()) {
             lines.add("webview_exec：Headless Chromium + CDP（与 Android bridge.js 同协议）");
         } else {

@@ -5,9 +5,7 @@ import com.agent1.javaagent.tool.AgentTool
 import com.agent1.javaagent.tool.WorkspaceToolProvider
 import com.agent1.javaagent.weizhi.WeizhiSandboxFactory
 import com.agent1.javaagent.weizhi.WeizhiToolkitAdapters
-import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.javaagent.workspace.WorkspaceSandbox
-import com.weizhi.agent.mcp.McpAgentExtension
 import com.weizhi.agent.skill.AssetSkillRepository
 import com.weizhi.agent.skill.CompositeSkillRepository
 import com.weizhi.agent.skill.FileSystemSkillRepository
@@ -20,7 +18,8 @@ import com.weizhi.agent.tool.builtin.ZipTools
 import com.weizhi.agent.web.WebViewAgentExtension
 
 /**
- * Android 侧 Weizhi 工具环：搜索、压缩、bash、skill，以及 WebView / MCP。
+ * Android 侧 Weizhi 工具环：搜索、压缩、bash、skill，以及 WebView。
+ * MCP 调用走脚本 {@code $mcp}（引擎 {@code mcp.connect}），不在这里注册 Java 工具、不写 workspace/.mcp。
  * 文件读写仍走 Agent1 工作区工具。
  */
 class WeizhiAgentTools(
@@ -43,7 +42,6 @@ class WeizhiAgentTools(
             ),
         )
         WebViewAgentExtension(appContext).register(toolkit, weizhiSandbox)
-        McpAgentExtension(SessionWorkspacePaths.agentRoot(appContext)).register(toolkit, weizhiSandbox)
         return WeizhiToolkitAdapters.toAgentTools(toolkit, sandbox)
     }
 }

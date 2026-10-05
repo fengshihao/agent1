@@ -5,7 +5,7 @@
 
 ## 不要只提交裸 AAR
 
-`implementation(files("weizhi-release.aar"))` 或把单个 AAR 拷进 Agent1 **可以凑合**，但 Agent1 一次依赖 **五个模块**（`weizhi` / `caps` / `agent-tools` / `agent-tools-webview` / `agent-tools-mcp`），模块间还有 **POM 传递依赖**。应使用 **Maven 布局**（AAR + POM），与 `import-weizhi-prebuilt.sh` 一致；不要只丢裸 AAR 文件。
+`implementation(files("weizhi-release.aar"))` 或把单个 AAR 拷进 Agent1 **可以凑合**，但 Agent1 一次依赖 **四个模块**（`weizhi` / `caps` / `agent-tools` / `agent-tools-webview`），模块间还有 **POM 传递依赖**。应使用 **Maven 布局**（AAR + POM），与 `import-weizhi-prebuilt.sh` 一致；不要只丢裸 AAR 文件。
 
 ## 目录结构（导入后）
 
@@ -35,7 +35,7 @@ weizhi 仓库已提供 Maven 发布脚本（见 [weizhi PR #1](https://github.co
    ./scripts/package-android-maven-bundle.sh
    ```
 
-3. 模块需与 Agent1 源码联编时一致：`weizhi`, `caps`, `agent-tools`, `agent-tools-webview`, `agent-tools-mcp`（默认 `group=com.weizhi`，版本见 `coordinates.properties`）。
+3. 模块需与 Agent1 源码联编时一致：`weizhi`, `caps`, `agent-tools`, `agent-tools-webview`（默认 `group=com.weizhi`，版本见 `coordinates.properties`）。
 
 4. **GitHub Packages**（tag `android-v*` 等）：weizhi CI 可设 `WEIZHI_PUBLISH_URL=https://maven.pkg.github.com/fengshihao/weizhi`；Agent1 侧仍可用 tgz + `import-weizhi-prebuilt.sh`，或后续在 Gradle 里加只读 Packages 仓库（需 PAT）。
 

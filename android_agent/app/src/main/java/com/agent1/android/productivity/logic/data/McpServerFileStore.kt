@@ -4,7 +4,7 @@ import com.agent1.javaagent.mcp.McpServerRecord
 import com.agent1.javaagent.mcp.McpServersFile
 import java.nio.file.Path
 
-/** 持久化 HTTP MCP 服务器列表。路径与微智 {@code McpAgentExtension} 的 agentRoot 相同。 */
+/** 持久化 HTTP MCP 服务器列表。路径为 {@code agentRoot/mcp_servers.json}。 */
 class McpServerFileStore(
     private val agentRoot: Path,
 ) {

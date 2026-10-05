@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** 读写微智同一份 {@code baseDir/mcp_servers.json}（v2）和 {@code mcp_cache/}。 */
+/** 读写 {@code baseDir/mcp_servers.json}（v2）和 {@code mcp_cache/}。缓存给能力检索用，不写入会话 workspace。 */
 public final class McpServersFile {
 
     public static final String FILE_NAME = "mcp_servers.json";
@@ -30,6 +30,34 @@ public final class McpServersFile {
 
     public static Path configFile(Path baseDir) {
         return baseDir.toAbsolutePath().normalize().resolve(FILE_NAME);
+    }
+
+    /**
+     * 已启用 server 的精简表，供脚本 {@code $mcp} 调 {@code mcp.connect}。
+     * 单行 JSON 对象：{@code {"name":{"url":"...","headers":{...}}}}。
+     */
+    public static String scriptServersJson(Path baseDir) {
+        ObjectNode root = MAPPER.createObjectNode();
+        if (baseDir != null) {
+            for (McpServerRecord server : load(baseDir)) {
+                if (!server.enabled()) {
+                    continue;
+                }
+                ObjectNode node = root.putObject(server.name());
+                node.put("url", server.url().trim());
+                if (!server.headers().isEmpty()) {
+                    ObjectNode headers = node.putObject("headers");
+                    for (Map.Entry<String, String> header : server.headers().entrySet()) {
+                        headers.put(header.getKey(), header.getValue());
+                    }
+                }
+            }
+        }
+        try {
+            return MAPPER.writeValueAsString(root);
+        } catch (IOException e) {
+            return "{}";
+        }
     }
 
     public static List<McpServerRecord> load(Path baseDir) {

@@ -1,9 +1,11 @@
 package com.agent1.javaagent.weizhi;
 
+import com.agent1.javaagent.mcp.McpServersFile;
 import com.agent1.javaagent.script.ScriptToolBridge;
 import com.weizhi.WeizhiEngine;
 import com.weizhi.agent.script.ScriptToolsBridge;
 import com.weizhi.platform.MiniJson;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -12,8 +14,8 @@ import java.util.Set;
 /** 在 caps 安装之后链式挂上 {@code $tools}。用户脚本必须单独 eval，不能和 prelude 拼成一次。 */
 public final class WeizhiScriptToolInstaller {
 
-    /** 与 {@link #prelude()} 同步；Agent1 行号扣减用。 */
-    public static final int TOOLS_PRELUDE_LINE_COUNT = lineCount(preludeStatic());
+    /** 与 {@link #preludeStatic} 同步；Agent1 行号扣减用。 */
+    public static final int TOOLS_PRELUDE_LINE_COUNT = lineCount(preludeStatic("{}"));
 
     private WeizhiScriptToolInstaller() {
     }
@@ -29,8 +31,12 @@ public final class WeizhiScriptToolInstaller {
         return TOOLS_PRELUDE_LINE_COUNT;
     }
 
-    /** 仅 $tools 注入 prelude；应在用户脚本前单独 eval。 */
+    /** 仅 $tools / $mcp 注入 prelude；应在用户脚本前单独 eval。 */
     public static String preludeSource(ScriptToolBridge bridge) {
+        return preludeSource(bridge, null);
+    }
+
+    public static String preludeSource(ScriptToolBridge bridge, Path mcpAgentRoot) {
         if (bridge == null) {
             return "";
         }
@@ -38,7 +44,7 @@ public final class WeizhiScriptToolInstaller {
         if (names == null || names.isEmpty()) {
             return "";
         }
-        return preludeStatic();
+        return preludeStatic(McpServersFile.scriptServersJson(mcpAgentRoot));
     }
 
     public static void install(WeizhiEngine engine, ScriptToolBridge bridge) {
@@ -60,11 +66,21 @@ public final class WeizhiScriptToolInstaller {
         ScriptToolBridge bridge,
         String workspaceRelativeFile
     ) {
+        return evalSteps(userSource, agentArgsPrelude, bridge, workspaceRelativeFile, null);
+    }
+
+    public static List<EvalStep> evalSteps(
+        String userSource,
+        String agentArgsPrelude,
+        ScriptToolBridge bridge,
+        String workspaceRelativeFile,
+        Path mcpAgentRoot
+    ) {
         List<EvalStep> steps = new ArrayList<>();
         if (agentArgsPrelude != null && !agentArgsPrelude.isBlank()) {
             steps.add(new EvalStep("<agent-args>", agentArgsPrelude));
         }
-        String toolsPrelude = preludeSource(bridge);
+        String toolsPrelude = preludeSource(bridge, mcpAgentRoot);
         if (!toolsPrelude.isBlank()) {
             steps.add(new EvalStep("<tools-prelude>", toolsPrelude));
         }
@@ -101,10 +117,11 @@ public final class WeizhiScriptToolInstaller {
     }
 
     /**
-     * {@code $tools} 与微智 prelude 一致。{@code $mcp.<server>.<tool>} 在这里转成
-     * {@code $tools.mcp_call_tool}，不把每个远端 API 注册成模型工具。
+     * {@code $tools} 与微智 prelude 一致。{@code $mcp} 走引擎 {@code mcp.connect}，
+     * 配置由 Agent1 写入 {@code mcp_servers.json}。
      */
-    private static String preludeStatic() {
+    private static String preludeStatic(String serversJson) {
+        String table = serversJson == null || serversJson.isBlank() ? "{}" : serversJson.trim();
         return "(function(){\n"
             + "globalThis.$tools = new Proxy({}, {\n"
             + "  get: function(_, name) {\n"
@@ -117,20 +134,37 @@ public final class WeizhiScriptToolInstaller {
             + "    };\n"
             + "  }\n"
             + "});\n"
-            + "globalThis.$mcp = new Proxy({}, {\n"
-            + "  get: function(_, server) {\n"
-            + "    return new Proxy({}, {\n"
-            + "      get: function(_, tool) {\n"
-            + "        return async function(input) {\n"
-            + "          return await globalThis.$tools.mcp_call_tool({\n"
-            + "            tool: \"mcp__\" + String(server) + \"__\" + String(tool),\n"
-            + "            args_json: JSON.stringify(input || {})\n"
-            + "          });\n"
-            + "        };\n"
+            + "globalThis.$mcp = (function(){\n"
+            + "  var servers = " + table + ";\n"
+            + "  var clients = {};\n"
+            + "  function clientFor(server) {\n"
+            + "    var cfg = servers[server];\n"
+            + "    if (!cfg || typeof cfg.url !== 'string') {\n"
+            + "      return Promise.reject(new Error('unknown MCP server: ' + String(server)));\n"
+            + "    }\n"
+            + "    if (!clients[server]) {\n"
+            + "      if (typeof globalThis.mcp !== 'object' || typeof globalThis.mcp.connect !== 'function') {\n"
+            + "        return Promise.reject(new Error('weizhi mcp client is not available'));\n"
             + "      }\n"
-            + "    });\n"
+            + "      clients[server] = globalThis.mcp.connect({ url: cfg.url, headers: cfg.headers || {} });\n"
+            + "    }\n"
+            + "    return clients[server];\n"
             + "  }\n"
-            + "});\n"
+            + "  return new Proxy({}, {\n"
+            + "    get: function(_, server) {\n"
+            + "      return new Proxy({}, {\n"
+            + "        get: function(_, tool) {\n"
+            + "          return async function(input) {\n"
+            + "            var c = await clientFor(String(server));\n"
+            + "            var r = await c.callTool(String(tool), input || {});\n"
+            + "            if (r && r.isError) throw new Error(r.text || 'mcp tool error');\n"
+            + "            return r && r.text !== undefined ? r.text : r;\n"
+            + "          };\n"
+            + "        }\n"
+            + "      });\n"
+            + "    }\n"
+            + "  });\n"
+            + "})();\n"
             + "})();";
     }
 

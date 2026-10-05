@@ -1,6 +1,6 @@
 # Agent1 与微智 Weizhi
 
-[Weizhi（之谓 · 微智）](https://github.com/fengshihao/weizhi) 是 Agent1 生产力路径的 **脚本与工具执行引擎**：端上 **QuickJS**（C + JNI）、沙箱 `fs`、平台 **Caps**，以及 **`:agent-tools`** 工具环（grep / glob / zip / bash、`execute_script`、Skill、MCP、WebView）。
+[Weizhi（之谓 · 微智）](https://github.com/fengshihao/weizhi) 是 Agent1 生产力路径的 **脚本与工具执行引擎**：端上 **QuickJS**（C + JNI）、沙箱 `fs`、平台 **Caps**，以及 **`:agent-tools`** 工具环（grep / glob / zip / bash、`execute_script`、Skill、WebView）。MCP 客户端在 Weizhi 引擎内（`mcp.connect`），配置与能力索引由 Agent1 负责。
 
 Agent1 **`java-agent-core`** 负责 LLM 对话、Session、工作区 Java Tool、`capability_search`、JSONL 审计；**不重复实现** JS 运行时与设备能力桥。二者通过 **`java_agent/weizhi-bridge`** 与 Android `app/src/weizhi/` 装配。
 

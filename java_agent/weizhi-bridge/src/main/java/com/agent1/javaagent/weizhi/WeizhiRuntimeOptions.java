@@ -22,6 +22,7 @@ public final class WeizhiRuntimeOptions {
         this.enableNativeMock = from.enableNativeMock;
         this.nativePluginDir = from.nativePluginDir;
         this.scriptToolBridge = from.scriptToolBridge;
+        this.mcpAgentRoot = from.mcpAgentRoot;
     }
 
     public WeizhiRuntimeOptions copy() {
@@ -36,6 +37,7 @@ public final class WeizhiRuntimeOptions {
     private boolean enableNativeMock;
     private String nativePluginDir;
     private ScriptToolBridge scriptToolBridge;
+    private java.nio.file.Path mcpAgentRoot;
 
     public WeizhiLimits limits() {
         return limits;
@@ -106,6 +108,15 @@ public final class WeizhiRuntimeOptions {
 
     public WeizhiRuntimeOptions scriptToolBridge(ScriptToolBridge scriptToolBridge) {
         this.scriptToolBridge = scriptToolBridge;
+        return this;
+    }
+
+    public java.nio.file.Path mcpAgentRoot() {
+        return mcpAgentRoot;
+    }
+
+    public WeizhiRuntimeOptions mcpAgentRoot(java.nio.file.Path mcpAgentRoot) {
+        this.mcpAgentRoot = mcpAgentRoot == null ? null : mcpAgentRoot.toAbsolutePath().normalize();
         return this;
     }
 }

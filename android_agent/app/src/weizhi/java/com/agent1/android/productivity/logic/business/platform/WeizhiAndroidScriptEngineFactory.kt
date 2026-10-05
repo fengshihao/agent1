@@ -28,7 +28,7 @@ class WeizhiAndroidScriptEngineFactory(
 
     private class AndroidWeizhiScriptEngine(
         appContext: Context,
-        agentRoot: java.nio.file.Path,
+        private val agentRoot: java.nio.file.Path,
         workspace: Path,
         confirmer: (String) -> Boolean,
         private val scriptToolBridge: ScriptToolBridge?,
@@ -45,6 +45,7 @@ class WeizhiAndroidScriptEngineFactory(
             if (scriptDir != null) {
                 engine.setScriptFolder(scriptDir.toString())
             }
+            engine.enableFetch()
             val session = AndroidCaps.Session(appContext, workspaceFile)
             session.confirmer = PlatformHost.Confirmer { message -> confirmer(message) }
             AndroidCaps.install(engine, session)
@@ -72,6 +73,7 @@ class WeizhiAndroidScriptEngineFactory(
                 agentArgsPrelude,
                 scriptToolBridge,
                 workspaceRelativeFile,
+                agentRoot,
             )) {
                 if (cancellationToken.isCancelled) {
                     throw java.util.concurrent.CancellationException("cancelled")

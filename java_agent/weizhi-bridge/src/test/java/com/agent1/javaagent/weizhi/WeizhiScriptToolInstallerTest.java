@@ -39,8 +39,8 @@ class WeizhiScriptToolInstallerTest {
         int preludeLines = WeizhiScriptToolInstaller.TOOLS_PRELUDE_LINE_COUNT;
         assertTrue(preludeLines > 13);
         assertTrue(wrapped.contains("globalThis.$mcp"));
-        assertTrue(wrapped.contains("mcp_call_tool"));
-        assertTrue(wrapped.contains("mcp__"));
+        assertTrue(wrapped.contains("mcp.connect"));
+        assertFalse(wrapped.contains("mcp_call_tool"));
         assertEquals("import { markdownToDocx } from './docx.js';", lines[preludeLines]);
         assertEquals('{', lines[preludeLines].charAt(7));
     }
@@ -57,6 +57,32 @@ class WeizhiScriptToolInstallerTest {
         assertEquals("<agent-args>", steps.get(0).filename());
         assertEquals("convert.js", steps.get(1).filename());
         assertEquals("export default 1;\n", steps.get(1).source());
+    }
+
+    @Test
+    void preludeEmbedsEnabledMcpServers(@org.junit.jupiter.api.io.TempDir java.nio.file.Path agentRoot)
+        throws Exception {
+        com.agent1.javaagent.mcp.McpServersFile.save(
+            agentRoot,
+            List.of(new com.agent1.javaagent.mcp.McpServerRecord(
+                "demo",
+                "https://example.com/mcp",
+                Map.of(),
+                true,
+                "",
+                0,
+                ""
+            ))
+        );
+        String prelude = WeizhiScriptToolInstaller.evalSteps(
+            "1",
+            null,
+            bridge("read_file"),
+            null,
+            agentRoot
+        ).get(0).source();
+        assertTrue(prelude.contains("https://example.com/mcp"));
+        assertTrue(prelude.contains("\"demo\""));
     }
 
     private static ScriptToolBridge bridge(String name) {

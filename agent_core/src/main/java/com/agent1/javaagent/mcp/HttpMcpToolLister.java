@@ -17,7 +17,7 @@ import okhttp3.ResponseBody;
 
 /**
  * Streamable HTTP 的 {@code tools/list}。只取名称和描述，供能力检索使用。
- * 真正调用仍走微智 {@code mcp_call_tool}。
+ * 真正调用走脚本 {@code $mcp}（Weizhi 引擎 {@code mcp.connect}）。
  */
 public final class HttpMcpToolLister implements McpToolLister {
 

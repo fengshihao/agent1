@@ -33,8 +33,10 @@ class WeizhiWorkspaceToolsTest {
     }
 
     @Test
-    void registersMcpMetaToolsWhenAgentRootProvided(@TempDir Path workspace, @TempDir Path agentRoot)
-        throws Exception {
+    void doesNotRegisterMcpJavaToolsOrWriteWorkspaceCatalog(
+        @TempDir Path workspace,
+        @TempDir Path agentRoot
+    ) throws Exception {
         Files.writeString(
             agentRoot.resolve("mcp_servers.json"),
             """
@@ -46,7 +48,8 @@ class WeizhiWorkspaceToolsTest {
             agentRoot,
             workspace
         );
-        assertTrue(tools.stream().anyMatch(tool -> "mcp_list_servers".equals(tool.name())));
-        assertTrue(tools.stream().anyMatch(tool -> "mcp_call_tool".equals(tool.name())));
+        assertTrue(tools.stream().noneMatch(tool -> "mcp_list_servers".equals(tool.name())));
+        assertTrue(tools.stream().noneMatch(tool -> "mcp_call_tool".equals(tool.name())));
+        assertTrue(java.nio.file.Files.notExists(workspace.resolve(".mcp")));
     }
 }

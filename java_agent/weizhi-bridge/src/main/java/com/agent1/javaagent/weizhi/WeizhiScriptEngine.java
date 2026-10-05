@@ -65,7 +65,8 @@ final class WeizhiScriptEngine implements ScriptEngine {
             userSource,
             agentArgsPrelude,
             options.scriptToolBridge(),
-            workspaceRelativeFile
+            workspaceRelativeFile,
+            options.mcpAgentRoot()
         )) {
             last = runOnce(step.source(), timeoutMs, cancellationToken, step.filename());
         }

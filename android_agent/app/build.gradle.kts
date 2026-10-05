@@ -180,7 +180,6 @@ dependencies {
         implementation(project(":caps"))
         implementation(project(":agent-tools"))
         implementation(project(":agent-tools-webview"))
-        implementation(project(":agent-tools-mcp"))
     } else if (weizhiPrebuiltBase != null) {
         val coords = Properties().apply {
             weizhiPrebuiltBase.resolve("coordinates.properties").inputStream().use { load(it) }
@@ -195,7 +194,6 @@ dependencies {
         implementation(w("artifact.caps"))
         implementation(w("artifact.agent-tools"))
         implementation(w("artifact.agent-tools-webview"))
-        implementation(w("artifact.agent-tools-mcp"))
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.35.0")
