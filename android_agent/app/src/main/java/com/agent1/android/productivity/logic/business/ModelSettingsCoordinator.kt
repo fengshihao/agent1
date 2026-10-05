@@ -14,6 +14,9 @@ class ModelSettingsCoordinator(context: Context) {
     private val store = AgentRuntimePreferencesStore(appContext)
     private val catalogService = ModelCatalogService()
 
+    fun apiKeyForProvider(providerId: String): String =
+        store.readApiKeyForProvider(resolveProvider(providerId).id)
+
     fun readForm(): ModelSettingsForm {
         val prefs = store.read()
         val effective = effectiveRuntimeConfig()
@@ -21,7 +24,7 @@ class ModelSettingsCoordinator(context: Context) {
         return ModelSettingsForm(
             providerId = prefs.providerId,
             baseUrl = prefs.baseUrl.ifBlank { resolveProvider(prefs.providerId).defaultBaseUrl },
-            apiKey = prefs.apiKey,
+            apiKey = store.readApiKeyForProvider(prefs.providerId),
             modelId = prefs.modelId.ifBlank { summary.modelId },
             maxContextTurns = if (prefs.maxContextTurns > 0) {
                 prefs.maxContextTurns

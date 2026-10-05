@@ -12,11 +12,25 @@ class AgentRuntimePreferencesStore(context: Context) {
     private val appContext = context.applicationContext
     private val prefs by lazy { createPrefs(appContext) }
 
+    fun readApiKeyForProvider(providerId: String): String {
+        val currentProvider = prefs.getString(KEY_PROVIDER, ModelProviderDefaults.PROVIDER_DASHSCOPE)
+            ?: ModelProviderDefaults.PROVIDER_DASHSCOPE
+        val legacy = prefs.getString(KEY_API_KEY, "").orEmpty()
+        val stored = prefs.getString(AgentRuntimeApiKeyStorage.storageKey(providerId), null)
+        return AgentRuntimeApiKeyStorage.resolveApiKeyForProvider(
+            providerId = providerId,
+            currentProviderId = currentProvider,
+            legacyApiKey = legacy,
+            storedForProvider = stored,
+        )
+    }
+
     fun read(): AgentRuntimePreferences {
+        val providerId = prefs.getString(KEY_PROVIDER, ModelProviderDefaults.PROVIDER_DASHSCOPE)
+            ?: ModelProviderDefaults.PROVIDER_DASHSCOPE
         return AgentRuntimePreferences(
-            providerId = prefs.getString(KEY_PROVIDER, ModelProviderDefaults.PROVIDER_DASHSCOPE)
-                ?: ModelProviderDefaults.PROVIDER_DASHSCOPE,
-            apiKey = prefs.getString(KEY_API_KEY, "").orEmpty(),
+            providerId = providerId,
+            apiKey = readApiKeyForProvider(providerId),
             baseUrl = prefs.getString(KEY_BASE_URL, ModelProviderDefaults.DEFAULT_BASE_URL)
                 ?: ModelProviderDefaults.DEFAULT_BASE_URL,
             modelId = prefs.getString(KEY_MODEL, "").orEmpty(),
@@ -31,9 +45,11 @@ class AgentRuntimePreferencesStore(context: Context) {
     }
 
     fun save(preferences: AgentRuntimePreferences) {
+        val trimmedKey = preferences.apiKey.trim()
         prefs.edit()
             .putString(KEY_PROVIDER, preferences.providerId)
-            .putString(KEY_API_KEY, preferences.apiKey.trim())
+            .putString(KEY_API_KEY, trimmedKey)
+            .putString(AgentRuntimeApiKeyStorage.storageKey(preferences.providerId), trimmedKey)
             .putString(KEY_BASE_URL, preferences.baseUrl.trim())
             .putString(KEY_MODEL, preferences.modelId.trim())
             .putInt(KEY_MAX_CONTEXT_TURNS, preferences.maxContextTurns)
