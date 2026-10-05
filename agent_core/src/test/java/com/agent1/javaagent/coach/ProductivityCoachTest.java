@@ -53,6 +53,7 @@ class ProductivityCoachTest {
         ToolExecutionResult in = ToolExecutionResult.text("ok");
         ToolExecutionResult out = coach.maybeAugment("execute_script", params, in, false);
         assertTrue(out.getText().contains("[coach] script.inline_long"));
+        assertTrue(out.getText().contains("edit_file"));
     }
 
     @Test

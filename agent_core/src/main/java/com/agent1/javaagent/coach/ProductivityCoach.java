@@ -161,7 +161,7 @@ public final class ProductivityCoach {
                     hookId = "script.inline_long";
                     advice =
                         "inline 脚本过长：请 write_file 到 workspace/*.js，"
-                            + "再用 execute_script 的 file 参数执行，便于行号与调试。";
+                            + "再用 execute_script 的 file 参数执行；后续改动用 edit_file，少占 token。";
                 }
             }
         }

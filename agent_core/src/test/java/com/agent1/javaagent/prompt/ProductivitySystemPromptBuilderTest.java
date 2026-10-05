@@ -203,6 +203,9 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("不要并行多次 capability_search"));
         assertTrue(prompt.contains("limit（最多 20）"));
         assertTrue(prompt.contains("execute_script 的 code"));
+        assertTrue(prompt.contains("20 行或 1000 字符"));
+        assertTrue(prompt.contains("edit_file"));
+        assertFalse(prompt.contains("稳定行号"));
     }
 
     @Test

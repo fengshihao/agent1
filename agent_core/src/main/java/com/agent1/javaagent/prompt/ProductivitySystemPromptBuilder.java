@@ -40,7 +40,7 @@ public final class ProductivitySystemPromptBuilder {
 
         ## 步骤
         1. 不确定有什么能力时，先 capability_search。一次调用里把任务相关的关键词都写进 query（空格分隔）；需要时用 kinds、limit（最多 20）。同一轮不要并行多次 capability_search；第一次结果不够用再单独搜第二次。不要对每个词各搜一轮。
-        2. 执行脚本：一次性、几行以内的简单逻辑（例如单次 $mcp 调用）可直接 execute_script 的 code，不必先 write_file。多步、要复用或要调试行号时，把 .js 写进 workspace 再用 file。路径相对工作区，不要再加 workspace/ 前缀。
+        2. 执行脚本：短一次性逻辑可用 execute_script 的 code。超过约 20 行或 1000 字符、或之后还要改时，先 write_file 写成 .js 再用 file 执行；后续改动用 edit_file，少占 token。按此原则自行判断。路径相对工作区，不要再加 workspace/ 前缀。
         3. execute_script 或 webview_exec。具体写法看工具说明；用错时按工具返回的提醒改，不要换着试。
         4. 回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
         """.trim();

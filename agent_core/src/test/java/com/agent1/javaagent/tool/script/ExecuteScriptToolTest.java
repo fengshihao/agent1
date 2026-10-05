@@ -46,6 +46,14 @@ class ExecuteScriptToolTest {
     }
 
     @Test
+    void descriptionPrefersFileForLongOrIterativeScripts() {
+        String description = tool.description();
+        assertTrue(description.contains("20 行或 1000 字符"));
+        assertTrue(description.contains("edit_file"));
+        assertFalse(description.contains("稳定行号"));
+    }
+
+    @Test
     void rejectsBothCodeAndFile() throws Exception {
         ObjectNode params = MAPPER.createObjectNode();
         params.put("code", "1+1");

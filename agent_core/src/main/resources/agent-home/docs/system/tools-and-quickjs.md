@@ -8,7 +8,7 @@
 
 ## execute_script
 
-- 优先 **file** 模式（workspace 内 `.js`），便于行号与调试。
+- **code 与 file 二选一**：短一次性用 code；超过约 20 行或 1000 字符、或还要改时，写到 workspace `.js` 再用 file。后续用 `edit_file`，少占 token。按此原则自行判断。
 - 失败时工具返回 JSON，字段 **location.userLine** 相对用户脚本（prelude 已扣减；Weizhi 内建注入需 D4 完全对齐）。
 - inline 过长会触发 Coach **script.inline_long**。
 - **Catalog 脚本库（7.2）**：`shared/catalog/scripts` → `setScriptFolder`；见 Weizhi `MODULE_LOADING.md`。
