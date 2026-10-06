@@ -1,17 +1,29 @@
 package com.agent1.android.productivity.logic.business
 
+import com.agent1.android.productivity.logic.data.remote.ModelsDevCatalogClient
 import com.agent1.javaagent.modelcatalog.QwenModelCatalog
 import com.agent1.javaagent.modelcatalog.QwenModelInfo
-import com.agent1.android.productivity.logic.data.remote.OpenAiCompatibleModelsClient
 
 /** 远程模型 id + 内置规格表合并，供设置页展示。 */
 class ModelCatalogService(
-    private val modelsClient: OpenAiCompatibleModelsClient = OpenAiCompatibleModelsClient(),
+    private val catalogClient: ModelsDevCatalogClient = ModelsDevCatalogClient(),
 ) {
 
-    fun fetchRemoteModelOptions(baseUrl: String, apiKey: String): Result<List<RemoteModelOption>> {
-        return modelsClient.listModelIds(baseUrl, apiKey).map { ids ->
-            ids.map { id -> toOption(id) }
+    /** 从 models.dev 拉该服务商的最新文本模型；失败时由调用方退回本地候选。 */
+    fun fetchPublicModelOptions(providerId: String): Result<List<RemoteModelOption>> {
+        return catalogClient.fetch(modelsDevProviderKeys(providerId)).map { models ->
+            models.map { model ->
+                val known = QwenModelCatalog.findByModelId(model.id).orElse(null)
+                if (known != null) {
+                    fromCatalog(known)
+                } else {
+                    RemoteModelOption(
+                        modelId = model.id,
+                        title = model.name,
+                        subtitle = model.releaseDate,
+                    )
+                }
+            }
         }
     }
 
@@ -51,19 +63,6 @@ class ModelCatalogService(
             subtitle = "上一代 · 可关闭思考",
         ),
     )
-
-    private fun toOption(modelId: String): RemoteModelOption {
-        val catalog = QwenModelCatalog.findByModelId(modelId).orElse(null)
-        return if (catalog != null) {
-            fromCatalog(catalog)
-        } else {
-            RemoteModelOption(
-                modelId = modelId,
-                title = modelId,
-                subtitle = "远程列表",
-            )
-        }
-    }
 
     private fun fromCatalog(info: QwenModelInfo): RemoteModelOption {
         val subtitle = buildString {

@@ -55,8 +55,8 @@ class ModelSettingsCoordinator(context: Context) {
 
     fun configurationError(): String? = effectiveRuntimeConfig().configurationError()
 
-    fun fetchRemoteModels(baseUrl: String, apiKey: String): Result<List<RemoteModelOption>> {
-        return catalogService.fetchRemoteModelOptions(baseUrl, apiKey)
+    fun fetchPublicModels(providerId: String): Result<List<RemoteModelOption>> {
+        return catalogService.fetchPublicModelOptions(providerId)
     }
 
     fun bundledModelsFor(providerId: String): List<RemoteModelOption> = when (providerId) {

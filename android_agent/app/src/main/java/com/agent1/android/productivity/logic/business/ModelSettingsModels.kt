@@ -27,18 +27,22 @@ data class ModelSettingsForm(
 const val PROVIDER_DASHSCOPE = "dashscope"
 const val PROVIDER_DEEPSEEK = "deepseek"
 const val PROVIDER_ZHIPU_CODING = "zhipu_coding"
-const val PROVIDER_OPENAI = "openai"
-const val PROVIDER_CUSTOM = "custom"
 
 const val DEFAULT_DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 const val DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 const val DEFAULT_DEEPSEEK_MODEL = "deepseek-flash"
 const val DEFAULT_ZHIPU_CODING_BASE_URL = "https://open.bigmodel.cn/api/coding/paas/v4"
 const val DEFAULT_ZHIPU_CODING_MODEL = "glm-5.3"
-const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+
+/** models.dev 上对应该服务商的目录键，可多个并去重。 */
+fun modelsDevProviderKeys(providerId: String): List<String> = when (providerId) {
+    PROVIDER_DEEPSEEK -> listOf("deepseek")
+    PROVIDER_ZHIPU_CODING -> listOf("zhipuai-coding-plan", "zai-coding-plan")
+    else -> listOf("alibaba-cn")
+}
 
 fun providerOptions(): List<ProviderOption> = listOf(
-    ProviderOption(PROVIDER_DASHSCOPE, "阿里云 DashScope（OpenAI 兼容）", DEFAULT_DASHSCOPE_BASE_URL),
+    ProviderOption(PROVIDER_DASHSCOPE, "阿里云", DEFAULT_DASHSCOPE_BASE_URL),
     ProviderOption(
         PROVIDER_DEEPSEEK,
         "DeepSeek",
@@ -47,12 +51,10 @@ fun providerOptions(): List<ProviderOption> = listOf(
     ),
     ProviderOption(
         PROVIDER_ZHIPU_CODING,
-        "智谱 GLM Coding Plan",
+        "智谱 Coding",
         DEFAULT_ZHIPU_CODING_BASE_URL,
         DEFAULT_ZHIPU_CODING_MODEL,
     ),
-    ProviderOption(PROVIDER_OPENAI, "OpenAI", DEFAULT_OPENAI_BASE_URL),
-    ProviderOption(PROVIDER_CUSTOM, "自定义 OpenAI 兼容", ""),
 )
 
 fun resolveProvider(id: String?): ProviderOption {

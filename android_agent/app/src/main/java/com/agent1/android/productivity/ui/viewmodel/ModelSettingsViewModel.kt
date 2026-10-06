@@ -5,9 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
 import com.agent1.android.productivity.logic.business.ModelSettingsForm
-import com.agent1.android.productivity.logic.business.PROVIDER_CUSTOM
 import com.agent1.android.productivity.logic.business.ProviderOption
 import com.agent1.android.productivity.logic.business.RemoteModelOption
+import com.agent1.android.productivity.logic.business.PROVIDER_DASHSCOPE
 import com.agent1.android.productivity.logic.business.providerOptions
 import com.agent1.android.productivity.logic.business.resolveProvider
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +49,7 @@ class ModelSettingsViewModel(
     val state: StateFlow<ModelSettingsUiState> = _state.asStateFlow()
 
     private var persistJob: Job? = null
+    private var catalogJob: Job? = null
     private var loaded = false
 
     init {
@@ -57,10 +58,17 @@ class ModelSettingsViewModel(
 
     fun loadFromStore() {
         val form = coordinator.readForm()
-        val bundled = coordinator.bundledModelsFor(form.providerId)
+        val known = providerOptions().firstOrNull { it.id == form.providerId }
+        val providerId = known?.id ?: PROVIDER_DASHSCOPE
+        val baseUrl = if (known != null) {
+            form.baseUrl.ifBlank { resolveProvider(providerId).defaultBaseUrl }
+        } else {
+            resolveProvider(PROVIDER_DASHSCOPE).defaultBaseUrl
+        }
+        val bundled = coordinator.bundledModelsFor(providerId)
         _state.value = _state.value.copy(
-            providerId = form.providerId,
-            baseUrl = form.baseUrl,
+            providerId = providerId,
+            baseUrl = baseUrl,
             apiKey = form.apiKey,
             modelId = form.modelId,
             maxContextTurns = form.maxContextTurns.toString(),
@@ -80,6 +88,7 @@ class ModelSettingsViewModel(
             statusMessage = null,
         )
         loaded = true
+        refreshModelCatalog()
     }
 
     fun onProviderSelected(providerId: String) {
@@ -98,17 +107,14 @@ class ModelSettingsViewModel(
             val remoteModels = coordinator.bundledModelsFor(preset.id)
             val updated = current.copy(
                 providerId = preset.id,
-                baseUrl = if (preset.id == PROVIDER_CUSTOM) {
-                    current.baseUrl
-                } else {
-                    preset.defaultBaseUrl
-                },
+                baseUrl = preset.defaultBaseUrl,
                 apiKey = apiKey,
                 modelId = modelId,
                 remoteModels = remoteModels,
             )
             _state.value = updated
             persistNow(updated)
+            refreshModelCatalog()
         }
     }
 
@@ -166,32 +172,28 @@ class ModelSettingsViewModel(
         _state.value = _state.value.copy(showAdvanced = !_state.value.showAdvanced)
     }
 
-    fun fetchRemoteModels() {
-        val current = _state.value
-        if (current.isFetchingModels) return
-        viewModelScope.launch {
-            _state.value = current.copy(isFetchingModels = true, statusMessage = null)
+    fun refreshModelCatalog() {
+        val providerId = _state.value.providerId
+        if (providerId.isBlank()) return
+        catalogJob?.cancel()
+        catalogJob = viewModelScope.launch {
+            _state.value = _state.value.copy(isFetchingModels = true)
             val result = withContext(Dispatchers.IO) {
-                coordinator.fetchRemoteModels(current.baseUrl, current.apiKey)
+                coordinator.fetchPublicModels(providerId)
             }
+            if (_state.value.providerId != providerId) return@launch
+            val fallback = coordinator.bundledModelsFor(providerId)
             result.fold(
                 onSuccess = { models ->
                     _state.value = _state.value.copy(
                         isFetchingModels = false,
-                        remoteModels = models,
-                        statusMessage = "已拉取 ${models.size} 个模型",
-                        modelId = if (_state.value.modelId.isBlank()) {
-                            models.firstOrNull()?.modelId.orEmpty()
-                        } else {
-                            _state.value.modelId
-                        },
+                        remoteModels = models.ifEmpty { fallback },
                     )
-                    schedulePersist()
                 },
-                onFailure = { err ->
+                onFailure = {
                     _state.value = _state.value.copy(
                         isFetchingModels = false,
-                        statusMessage = err.message ?: "拉取模型失败",
+                        remoteModels = _state.value.remoteModels.ifEmpty { fallback },
                     )
                 },
             )

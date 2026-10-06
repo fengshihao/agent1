@@ -101,7 +101,7 @@
 
 | 优先级 | Android 已有、CLI 可借鉴 | 说明 |
 |:------:|--------------------------|------|
-| P1 | 远程 `GET /v1/models` 选型 | `ModelCatalogService` |
+| P1 | 按服务商从 models.dev 拉最新模型列表 | `ModelCatalogService` |
 | P2 | 诊断 zip 一键分享 | 可做成 `./agent1 diag export` |
 | P2 | 聊天内 workspace 图片预览 | 终端可链到文件路径或 OSC |
 
