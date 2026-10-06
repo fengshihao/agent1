@@ -402,7 +402,7 @@ private fun ColumnScope.SessionDrawer(
         onClick = onOpenSettings,
     )
     DrawerTextButton(
-        label = "MCP",
+        label = "MCP & web搜索",
         icon = Icons.Filled.Add,
         onClick = onOpenMcp,
     )

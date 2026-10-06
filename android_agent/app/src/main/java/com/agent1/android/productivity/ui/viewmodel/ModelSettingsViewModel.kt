@@ -29,8 +29,6 @@ data class ModelSettingsUiState(
     val maxContextMessages: String = "",
     val maxTurnsPerRun: String = "",
     val maxToolCallsPerRun: String = "",
-    val webSearchApiKey: String = "",
-    val webSearchBaseUrl: String = "",
     val remoteModels: List<RemoteModelOption> = emptyList(),
     val showAdvanced: Boolean = false,
     val isFetchingModels: Boolean = false,
@@ -79,8 +77,6 @@ class ModelSettingsViewModel(
             },
             maxTurnsPerRun = form.maxTurnsPerRun.toString(),
             maxToolCallsPerRun = form.maxToolCallsPerRun.toString(),
-            webSearchApiKey = form.webSearchApiKey,
-            webSearchBaseUrl = form.webSearchBaseUrl,
             remoteModels = bundled,
             configError = coordinator.configurationError(),
             effectiveSummary = coordinator.configurationSummary(),
@@ -155,16 +151,6 @@ class ModelSettingsViewModel(
 
     fun onMaxToolCallsPerRunChange(value: String) {
         _state.value = _state.value.copy(maxToolCallsPerRun = value.filter { it.isDigit() })
-        schedulePersist()
-    }
-
-    fun onWebSearchApiKeyChange(value: String) {
-        _state.value = _state.value.copy(webSearchApiKey = value)
-        schedulePersist()
-    }
-
-    fun onWebSearchBaseUrlChange(value: String) {
-        _state.value = _state.value.copy(webSearchBaseUrl = value)
         schedulePersist()
     }
 
@@ -250,8 +236,8 @@ class ModelSettingsViewModel(
             maxToolCallsPerRun = snapshot.maxToolCallsPerRun.toIntOrNull()
                 ?: defaults.maxToolCallsPerRun,
             savedInApp = true,
-            webSearchApiKey = snapshot.webSearchApiKey.trim(),
-            webSearchBaseUrl = snapshot.webSearchBaseUrl.trim(),
+            webSearchApiKey = defaults.webSearchApiKey,
+            webSearchBaseUrl = defaults.webSearchBaseUrl,
         )
         return coordinator.saveAndReload(form)
     }

@@ -6,11 +6,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -19,8 +23,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.ui.viewmodel.McpSettingsViewModel
 
@@ -30,6 +39,7 @@ fun McpSettingsScreen(
     onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
+    var revealWebSearchKey by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -38,8 +48,8 @@ fun McpSettingsScreen(
             .padding(bottom = 24.dp),
     ) {
         AgentTopBar(
-            title = "MCP",
-            subtitle = "仅 http / https",
+            title = "MCP & web搜索",
+            subtitle = null,
             leading = {
                 TopBarIconButton(
                     icon = Icons.Filled.ArrowBack,
@@ -133,6 +143,39 @@ fun McpSettingsScreen(
             ) {
                 Text(if (state.busy) "正在保存…" else "添加")
             }
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            Text("Web 搜索", style = MaterialTheme.typography.titleSmall)
+            OutlinedTextField(
+                value = state.webSearchApiKey,
+                onValueChange = viewModel::onWebSearchApiKeyChange,
+                placeholder = { Text("Tavily API Key") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = if (revealWebSearchKey) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+                trailingIcon = {
+                    IconButton(
+                        onClick = { revealWebSearchKey = !revealWebSearchKey },
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            if (revealWebSearchKey) AgentIcons.VisibilityOff else AgentIcons.Visibility,
+                            contentDescription = if (revealWebSearchKey) "隐藏" else "显示",
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                },
+            )
+            OutlinedTextField(
+                value = state.webSearchBaseUrl,
+                onValueChange = viewModel::onWebSearchBaseUrlChange,
+                placeholder = { Text("Tavily Base URL") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
         }
     }
 }

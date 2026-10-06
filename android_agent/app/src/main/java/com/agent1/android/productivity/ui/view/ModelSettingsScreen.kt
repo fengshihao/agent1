@@ -53,7 +53,6 @@ fun ModelSettingsScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var revealKey by remember { mutableStateOf(false) }
-    var revealWebSearchKey by remember { mutableStateOf(false) }
     val statusLine = when {
         !state.configError.isNullOrBlank() -> state.configError
         state.isSaving -> "正在保存…"
@@ -140,21 +139,6 @@ fun ModelSettingsScreen(
                     }
                 }
             }
-
-            SecretField(
-                value = state.webSearchApiKey,
-                onValueChange = viewModel::onWebSearchApiKeyChange,
-                placeholder = "Tavily API Key",
-                revealed = revealWebSearchKey,
-                onToggleReveal = { revealWebSearchKey = !revealWebSearchKey },
-            )
-            OutlinedTextField(
-                value = state.webSearchBaseUrl,
-                onValueChange = viewModel::onWebSearchBaseUrlChange,
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("Tavily Base URL") },
-            )
 
             AdvancedSection(
                 expanded = state.showAdvanced,

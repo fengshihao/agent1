@@ -4,7 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.agent1.android.productivity.logic.business.McpServerForm
 import com.agent1.android.productivity.logic.business.McpSettingsCoordinator
+import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +20,8 @@ data class McpSettingsUiState(
     val name: String = "",
     val url: String = "",
     val authorization: String = "",
+    val webSearchApiKey: String = "",
+    val webSearchBaseUrl: String = "",
     val busy: Boolean = false,
     val statusMessage: String? = null,
     val errorMessage: String? = null,
@@ -24,15 +29,52 @@ data class McpSettingsUiState(
 
 class McpSettingsViewModel(
     private val coordinator: McpSettingsCoordinator,
+    private val modelSettings: ModelSettingsCoordinator,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(McpSettingsUiState())
     val state: StateFlow<McpSettingsUiState> = _state.asStateFlow()
+    private var webSearchJob: Job? = null
+    private var webSearchReady = false
 
     init {
         viewModelScope.launch {
             val servers = withContext(Dispatchers.IO) { coordinator.load() }
-            _state.update { it.copy(servers = servers) }
+            val form = withContext(Dispatchers.IO) { modelSettings.readForm() }
+            _state.update {
+                it.copy(
+                    servers = servers,
+                    webSearchApiKey = form.webSearchApiKey,
+                    webSearchBaseUrl = form.webSearchBaseUrl,
+                )
+            }
+            webSearchReady = true
+        }
+    }
+
+    fun onWebSearchApiKeyChange(value: String) {
+        _state.update { it.copy(webSearchApiKey = value) }
+        scheduleWebSearchSave()
+    }
+
+    fun onWebSearchBaseUrlChange(value: String) {
+        _state.update { it.copy(webSearchBaseUrl = value) }
+        scheduleWebSearchSave()
+    }
+
+    private fun scheduleWebSearchSave() {
+        if (!webSearchReady) return
+        webSearchJob?.cancel()
+        webSearchJob = viewModelScope.launch {
+            delay(WEB_SEARCH_DEBOUNCE_MS)
+            val snapshot = _state.value
+            withContext(Dispatchers.IO) {
+                val form = modelSettings.readForm().copy(
+                    webSearchApiKey = snapshot.webSearchApiKey.trim(),
+                    webSearchBaseUrl = snapshot.webSearchBaseUrl.trim(),
+                )
+                modelSettings.saveAndReload(form)
+            }
         }
     }
 
@@ -113,5 +155,9 @@ class McpSettingsViewModel(
                 },
             )
         }
+    }
+
+    companion object {
+        private const val WEB_SEARCH_DEBOUNCE_MS = 450L
     }
 }

@@ -59,8 +59,9 @@ fun ProductivityNavHost() {
         }
         composable(Routes.MCP) {
             val coordinator = remember(appContext) { McpSettingsCoordinator(appContext) }
+            val modelSettings = remember(appContext) { ModelSettingsCoordinator(appContext) }
             val vm: McpSettingsViewModel = viewModel(
-                factory = simpleFactory { McpSettingsViewModel(coordinator) },
+                factory = simpleFactory { McpSettingsViewModel(coordinator, modelSettings) },
             )
             McpSettingsScreen(
                 viewModel = vm,
