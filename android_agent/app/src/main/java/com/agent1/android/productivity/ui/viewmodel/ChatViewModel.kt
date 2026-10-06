@@ -8,7 +8,6 @@ import com.agent1.javaagent.event.AgentEventType
 import com.agent1.javaagent.event.EventPayloads
 import com.agent1.javaagent.model.AgentMessage
 import com.agent1.javaagent.model.ToolCall
-import com.agent1.javaagent.modelcatalog.QwenModelCatalog
 import com.agent1.android.productivity.logic.business.AskUserFormatting
 import com.agent1.android.productivity.logic.business.AskUserPendingDetector
 import com.agent1.android.productivity.logic.business.AskUserReplyFormatter
@@ -116,10 +115,6 @@ class ChatViewModel(
                 transcriptLoadError = e.message ?: e.javaClass.simpleName,
             )
         }
-    }
-
-    fun toggleModelPanel() {
-        _state.value = _state.value.copy(showModelPanel = !_state.value.showModelPanel)
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -660,7 +655,6 @@ class ChatViewModel(
     }
 
     companion object {
-        val catalogModels = QwenModelCatalog.primaryModels()
         private const val STREAM_FLUSH_MS = 80L
     }
 }

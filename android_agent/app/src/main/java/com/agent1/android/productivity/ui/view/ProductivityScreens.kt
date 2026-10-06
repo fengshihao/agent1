@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.ui.view
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -27,13 +28,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -78,7 +76,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -86,7 +83,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -101,15 +97,11 @@ import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.RunTokenSummary
 import com.agent1.android.productivity.ui.viewmodel.SessionListUiState
 import com.agent1.android.productivity.ui.viewmodel.SessionListViewModel
-import com.agent1.javaagent.modelcatalog.QwenModelInfo
-import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
-import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -184,12 +176,16 @@ fun ProductivityHome(
         }
     }
 
+    BackHandler(enabled = drawerState.isOpen) {
+        closeDrawer()
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
                 modifier = Modifier
-                    .width(300.dp)
+                    .width(240.dp)
                     .fillMaxHeight(),
                 drawerContainerColor = MaterialTheme.colorScheme.surface,
             ) {
@@ -212,23 +208,6 @@ fun ProductivityHome(
                             }
                         }
                     },
-                    onOpenSettings = {
-                        closeDrawer()
-                        onOpenSettings()
-                    },
-                    onOpenMcp = {
-                        closeDrawer()
-                        onOpenMcp()
-                    },
-                    onOpenCapabilities = {
-                        closeDrawer()
-                        onOpenCapabilities()
-                    },
-                    onOpenSystemPrompt = {
-                        closeDrawer()
-                        onOpenSystemPrompt(activeSessionId)
-                    },
-                    onExportDiagnostics = { sessionListViewModel.exportDiagnostics(context) },
                 )
             }
         },
@@ -237,11 +216,16 @@ fun ProductivityHome(
         if (sessionId.isBlank()) {
             ChatLanding(
                 startupError = listState.startupError,
+                exportInProgress = listState.exportInProgress,
                 onOpenDrawer = {
                     scope.launch {
                         if (drawerState.isOpen) drawerState.close() else drawerState.open()
                     }
                 },
+                onOpenSettings = onOpenSettings,
+                onOpenMcp = onOpenMcp,
+                onOpenCapabilities = onOpenCapabilities,
+                onExportDiagnostics = { sessionListViewModel.exportDiagnostics(context) },
             )
         } else {
             ChatPane(
@@ -255,6 +239,7 @@ fun ProductivityHome(
                 },
                 onNewChat = { newChat() },
                 onOpenSettings = onOpenSettings,
+                onOpenMcp = onOpenMcp,
                 onOpenCapabilities = onOpenCapabilities,
                 onOpenSystemPrompt = { onOpenSystemPrompt(sessionId) },
             )
@@ -270,6 +255,7 @@ private fun ChatPane(
     onOpenDrawer: () -> Unit,
     onNewChat: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenMcp: () -> Unit,
     onOpenCapabilities: () -> Unit,
     onOpenSystemPrompt: () -> Unit,
 ) {
@@ -283,6 +269,7 @@ private fun ChatPane(
         onOpenDrawer = onOpenDrawer,
         onNewChat = onNewChat,
         onOpenSettings = onOpenSettings,
+        onOpenMcp = onOpenMcp,
         onOpenCapabilities = onOpenCapabilities,
         onOpenSystemPrompt = onOpenSystemPrompt,
     )
@@ -304,11 +291,6 @@ private fun ColumnScope.SessionDrawer(
     onNewChat: () -> Unit,
     onOpenSession: (SessionMeta) -> Unit,
     onDeleteSession: (SessionMeta) -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenMcp: () -> Unit,
-    onOpenCapabilities: () -> Unit,
-    onOpenSystemPrompt: () -> Unit,
-    onExportDiagnostics: () -> Unit,
 ) {
     val sessions = state.sessions.sortedByDescending { it.updatedAt }
     Text(
@@ -381,47 +363,13 @@ private fun ColumnScope.SessionDrawer(
     state.configSummary?.modelId?.let { modelId ->
         Text(
             modelId,
-            modifier = Modifier.padding(start = 20.dp, top = 10.dp, end = 16.dp),
+            modifier = Modifier.padding(start = 20.dp, top = 10.dp, end = 16.dp, bottom = 12.dp),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
     }
-    if (!state.exportMessage.isNullOrBlank()) {
-        Text(
-            state.exportMessage.orEmpty(),
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-    DrawerTextButton(
-        label = "模型设置",
-        icon = Icons.Filled.Settings,
-        onClick = onOpenSettings,
-    )
-    DrawerTextButton(
-        label = "MCP & web搜索",
-        icon = Icons.Filled.Add,
-        onClick = onOpenMcp,
-    )
-    DrawerTextButton(
-        label = "能力检索",
-        icon = Icons.Filled.Search,
-        onClick = onOpenCapabilities,
-    )
-    DrawerTextButton(
-        label = "系统提示词",
-        icon = Icons.Filled.Info,
-        onClick = onOpenSystemPrompt,
-    )
-    DrawerTextButton(
-        label = if (state.exportInProgress) "正在打包…" else "诊断包",
-        icon = Icons.Filled.Share,
-        onClick = onExportDiagnostics,
-        enabled = !state.exportInProgress,
-    )
 }
 
 @Composable
@@ -475,42 +423,94 @@ private fun SessionDrawerRow(
 }
 
 @Composable
-private fun DrawerTextButton(
+private fun ChatMoreMenu(
+    expanded: Boolean,
+    exportInProgress: Boolean,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenMcp: () -> Unit,
+    onOpenCapabilities: () -> Unit,
+    onExportDiagnostics: () -> Unit,
+    onOpenSystemPrompt: (() -> Unit)? = null,
+    onBrief: (() -> Unit)? = null,
+) {
+    Box {
+        TopBarIconButton(
+            icon = Icons.Filled.MoreVert,
+            contentDescription = "更多",
+            onClick = onOpen,
+            busy = exportInProgress,
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+            MoreMenuRow("模型设置", Icons.Filled.Settings) {
+                onDismiss()
+                onOpenSettings()
+            }
+            MoreMenuRow("MCP & web搜索", AgentIcons.Hub) {
+                onDismiss()
+                onOpenMcp()
+            }
+            MoreMenuRow("能力检索", Icons.Filled.Search) {
+                onDismiss()
+                onOpenCapabilities()
+            }
+            if (onOpenSystemPrompt != null) {
+                MoreMenuRow("系统提示词", Icons.Filled.Info) {
+                    onDismiss()
+                    onOpenSystemPrompt()
+                }
+            }
+            if (onBrief != null) {
+                MoreMenuRow("会话简报", AgentIcons.Description, enabled = !exportInProgress) {
+                    onDismiss()
+                    onBrief()
+                }
+            }
+            MoreMenuRow(
+                label = if (exportInProgress) "正在打包…" else "诊断包",
+                icon = Icons.Filled.Share,
+                enabled = !exportInProgress,
+            ) {
+                onDismiss()
+                onExportDiagnostics()
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoreMenuRow(
     label: String,
     icon: ImageVector,
-    onClick: () -> Unit,
     enabled: Boolean = true,
+    onClick: () -> Unit,
 ) {
-    val tint = if (enabled) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = tint,
-        )
-        Text(label, style = MaterialTheme.typography.titleSmall, color = tint)
-    }
+    DropdownMenuItem(
+        text = { Text(label) },
+        leadingIcon = {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+        },
+        enabled = enabled,
+        onClick = onClick,
+    )
 }
 
 @Composable
 private fun ChatLanding(
     startupError: String?,
+    exportInProgress: Boolean,
     onOpenDrawer: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenMcp: () -> Unit,
+    onOpenCapabilities: () -> Unit,
+    onExportDiagnostics: () -> Unit,
 ) {
+    var moreMenu by rememberSaveable { mutableStateOf(false) }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
@@ -526,7 +526,18 @@ private fun ChatLanding(
                             onClick = onOpenDrawer,
                         )
                     },
-                    actions = {},
+                    actions = {
+                        ChatMoreMenu(
+                            expanded = moreMenu,
+                            exportInProgress = exportInProgress,
+                            onOpen = { moreMenu = true },
+                            onDismiss = { moreMenu = false },
+                            onOpenSettings = onOpenSettings,
+                            onOpenMcp = onOpenMcp,
+                            onOpenCapabilities = onOpenCapabilities,
+                            onExportDiagnostics = onExportDiagnostics,
+                        )
+                    },
                 )
                 AgentHairline()
             }
@@ -576,6 +587,7 @@ fun ChatScreen(
     onOpenDrawer: () -> Unit,
     onNewChat: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenMcp: () -> Unit,
     onOpenCapabilities: () -> Unit,
     onOpenSystemPrompt: () -> Unit,
 ) {
@@ -620,63 +632,18 @@ fun ChatScreen(
                             )
                         },
                         actions = {
-                            Box {
-                                TopBarIconButton(
-                                    icon = Icons.Filled.MoreVert,
-                                    contentDescription = "更多",
-                                    onClick = { moreMenu = true },
-                                    busy = state.exportInProgress,
-                                )
-                                DropdownMenu(
-                                    expanded = moreMenu,
-                                    onDismissRequest = { moreMenu = false },
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text("运行规格") },
-                                        onClick = {
-                                            moreMenu = false
-                                            viewModel.toggleModelPanel()
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("会话简报") },
-                                        enabled = !state.exportInProgress,
-                                        onClick = {
-                                            moreMenu = false
-                                            viewModel.exportBriefTranscript(context)
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("诊断包") },
-                                        enabled = !state.exportInProgress,
-                                        onClick = {
-                                            moreMenu = false
-                                            viewModel.exportDiagnostics(context)
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("模型设置") },
-                                        onClick = {
-                                            moreMenu = false
-                                            onOpenSettings()
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("能力检索") },
-                                        onClick = {
-                                            moreMenu = false
-                                            onOpenCapabilities()
-                                        },
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("系统提示词") },
-                                        onClick = {
-                                            moreMenu = false
-                                            onOpenSystemPrompt()
-                                        },
-                                    )
-                                }
-                            }
+                            ChatMoreMenu(
+                                expanded = moreMenu,
+                                exportInProgress = state.exportInProgress,
+                                onOpen = { moreMenu = true },
+                                onDismiss = { moreMenu = false },
+                                onOpenSettings = onOpenSettings,
+                                onOpenMcp = onOpenMcp,
+                                onOpenCapabilities = onOpenCapabilities,
+                                onOpenSystemPrompt = onOpenSystemPrompt,
+                                onBrief = { viewModel.exportBriefTranscript(context) },
+                                onExportDiagnostics = { viewModel.exportDiagnostics(context) },
+                            )
                             TopBarIconButton(
                                 icon = Icons.Filled.Add,
                                 contentDescription = "新建对话",
@@ -692,7 +659,7 @@ fun ChatScreen(
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    if (!state.showModelPanel && state.configError != null) {
+                    if (state.configError != null) {
                         ConfigErrorBanner(state.configError.orEmpty())
                     }
                     if (!state.transcriptLoadError.isNullOrBlank()) {
@@ -757,15 +724,6 @@ fun ChatScreen(
                     )
                 }
             }
-        }
-
-        AnimatedVisibility(visible = state.showModelPanel) {
-            RuntimeConfigOverlay(
-                summary = state.configSummary,
-                catalog = ChatViewModel.catalogModels,
-                configError = state.configError,
-                onDismiss = { viewModel.toggleModelPanel() },
-            )
         }
     }
 }
@@ -1500,59 +1458,6 @@ private fun BubbleShell(
 }
 
 @Composable
-private fun RuntimeConfigOverlay(
-    summary: RuntimeConfigSummary?,
-    catalog: List<QwenModelInfo>,
-    configError: String?,
-    onDismiss: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.55f))
-            .clickable(onClick = onDismiss)
-            .padding(horizontal = 24.dp, vertical = 48.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.surface,
-                            MaterialTheme.colorScheme.surfaceContainerLow,
-                        ),
-                    ),
-                )
-                .clickable(enabled = false) {}
-                .padding(20.dp)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "模型与运行时",
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        Icons.Filled.Close,
-                        contentDescription = "关闭",
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
-            ModelAndRuntimePanel(summary, catalog, configError)
-        }
-    }
-}
-
-@Composable
 private fun EmptyChatHint(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
@@ -1572,69 +1477,6 @@ private fun EmptyChatHint(modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-    }
-}
-
-@Composable
-fun ModelAndRuntimePanel(
-    summary: RuntimeConfigSummary?,
-    catalog: List<QwenModelInfo>,
-    configError: String?,
-) {
-    val fmt = NumberFormat.getIntegerInstance(Locale.US)
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (configError != null) {
-            Text(configError, color = MaterialTheme.colorScheme.error)
-        } else if (summary != null) {
-            DetailLine("当前模型", summary.modelId)
-            DetailLine("Base URL", summary.baseUrl)
-            DetailLine("API Key", if (summary.isApiKeyConfigured) "已配置" else "未配置")
-            DetailLine(
-                "Run 限额",
-                "上下文 ${summary.maxContextTurns} 轮 · 每 Run ${summary.maxTurnsPerRun} 轮 · 工具 ${summary.maxToolCallsPerRun} 次",
-            )
-            DetailLine(
-                "Agent 工具",
-                com.agent1.android.productivity.logic.business.ProductivityToolCapabilities.summaryForUi(),
-            )
-            val match = summary.catalogMatch.orElse(null)
-            if (match != null) {
-                DetailLine(
-                    "规格",
-                    "上下文 ${fmt.format(match.contextWindowTokens)} · " +
-                        "输入≤${fmt.format(match.maxInputTokens)} · 输出≤${fmt.format(match.maxOutputTokens)}",
-                )
-            }
-        }
-        Text(
-            "主要模型",
-            modifier = Modifier.padding(top = 8.dp),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        catalog.forEach { model ->
-            Text(
-                "${model.displayName} · ${model.modelId}",
-                fontWeight = FontWeight.Medium,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                "上下文 ${fmt.format(model.contextWindowTokens)} · " +
-                    "输入≤${fmt.format(model.maxInputTokens)} · 输出≤${fmt.format(model.maxOutputTokens)}" +
-                    (model.maxThinkingChainTokens?.let { " · 思考链≤${fmt.format(it)}" } ?: "") +
-                    " · 工具${if (model.isFunctionCalling) "支持" else "不支持"} · ${model.thinkingMode}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun DetailLine(label: String, value: String) {
-    Column(modifier = Modifier.padding(bottom = 4.dp)) {
-        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

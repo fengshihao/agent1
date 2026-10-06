@@ -1,7 +1,6 @@
 package com.agent1.android.productivity.ui.viewmodel
 
 import com.agent1.android.productivity.logic.business.AskUserFormatting
-import com.agent1.javaagent.modelcatalog.QwenModelInfo
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
 
@@ -55,7 +54,6 @@ data class AskUserFormState(
 data class SessionListUiState(
     val sessions: List<SessionMeta> = emptyList(),
     val configSummary: RuntimeConfigSummary? = null,
-    val catalogModels: List<QwenModelInfo> = emptyList(),
     val configError: String? = null,
     val isLoading: Boolean = true,
     val exportInProgress: Boolean = false,
@@ -128,7 +126,6 @@ data class ChatUiState(
     val isRunning: Boolean = false,
     val configError: String? = null,
     val configSummary: RuntimeConfigSummary? = null,
-    val showModelPanel: Boolean = false,
     val exportInProgress: Boolean = false,
     val exportMessage: String? = null,
     val transcriptLoadError: String? = null,

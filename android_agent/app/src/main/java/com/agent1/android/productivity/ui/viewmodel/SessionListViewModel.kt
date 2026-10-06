@@ -3,7 +3,6 @@ package com.agent1.android.productivity.ui.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.agent1.javaagent.modelcatalog.QwenModelCatalog
 import com.agent1.javaagent.session.SessionMeta
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
@@ -38,7 +37,6 @@ class SessionListViewModel(
                 _state.value = SessionListUiState(
                     sessions = sessions,
                     configSummary = gateway.configurationSummary(),
-                    catalogModels = QwenModelCatalog.primaryModels(),
                     configError = gateway.configurationError(),
                     isLoading = false,
                     exportInProgress = current.exportInProgress,
