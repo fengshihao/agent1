@@ -17,7 +17,7 @@ https://github.com/fengshihao/weizhi/blob/master/docs/AGENT1_DOCX_INTEGRATION.md
 | 调用方式 | `execute_script` 里 `import './docx.js'`（catalog 回退）。无外层 `docx_*` 工具 |
 | 系统提示 | 只指向 `capability_search`；**API** → `docs/system/office-docx.md` |
 | 测试 | `DocxOfficeIntegrationTest`、Android `ChatTranscriptFormattingTest` |
-| 用户打开 docx | `WorkspaceFileAttachments` + `WorkspaceFileActions`（FileProvider） |
+| 用户打开 docx | 聊天附件仍走 `WorkspaceFileActions`；脚本用 `android.intent.start({ action: "view", path })`（`launchIntent = true`，FileProvider 已声明） |
 
 ## Issue #8 checklist（Agent1）
 

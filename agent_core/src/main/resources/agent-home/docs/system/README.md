@@ -6,6 +6,7 @@
 - `promotion.md` — 创建 Skill / 脚本并 `promote_request` 到 `shared/local`
 - `catalog-install.md` — 从 CDN 清单按需 `sync apply` / `catalog_install`（含 native SO）
 - `tools-and-quickjs.md` — 文件工具、execute_script、QuickJS 与 Caps
+- `android-intent.md` — `android.intent.start`：打开文件、分享文件、系统面板
 - `office-docx.md` — Word / docx 脚本 API
 - `svg-raster.md` — SVG 转 PNG / JPG（`svgToImage`）
 - `events-audit.md` — `logs/events.jsonl` 审计事件

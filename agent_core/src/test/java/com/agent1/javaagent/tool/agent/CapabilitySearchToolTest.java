@@ -58,6 +58,25 @@ class CapabilitySearchToolTest {
     }
 
     @Test
+    void androidSearchFindsIntentViewCall() throws Exception {
+        Path agentRoot = temp.resolve("agentRootIntent");
+        AgentHomeBootstrap.ensure(agentRoot);
+        CapabilitySearchTool android = new CapabilitySearchTool(agentRoot, "android");
+        CapabilitySearchTool desktop = new CapabilitySearchTool(agentRoot, "desktop");
+        ObjectNode params = new ObjectMapper().createObjectNode();
+        params.put("query", "打开 Word docx");
+
+        ToolExecutionResult onAndroid = android.execute("t-intent", params, new CancellationToken(), u -> {
+        });
+        ToolExecutionResult onDesktop = desktop.execute("t-intent-desk", params, new CancellationToken(), u -> {
+        });
+
+        assertTrue(onAndroid.getText().contains("android.intent.start"));
+        assertTrue(onAndroid.getText().contains("action: \"view\""));
+        assertFalse(onDesktop.getText().contains("android.intent.start"));
+    }
+
+    @Test
     void searchLoadsSkillCreatorBody() throws Exception {
         Path agentRoot = temp.resolve("agentRoot3");
         AgentHomeBootstrap.ensure(agentRoot);
