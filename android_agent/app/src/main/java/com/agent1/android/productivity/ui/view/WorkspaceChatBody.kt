@@ -34,28 +34,32 @@ fun WorkspaceChatBody(
     }
     val useMarkdown = markdown && ChatTranscriptFormatting.shouldRenderAsMarkdown(logicalContent)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (paths.isNotEmpty()) {
-            WorkspaceInlineLinkifiedText(
-                content = logicalContent,
-                workspaceAbsolutePath = workspaceAbsolutePath,
-                workspaceFilePaths = paths,
-                textStyle = textStyle,
-                linkStyle = textStyle.copy(color = MaterialTheme.colorScheme.primary),
-                markdown = useMarkdown,
-            )
-        } else if (useMarkdown) {
-            WorkspaceMarkdown(
-                content = ChatTranscriptFormatting.rewriteWorkspaceMarkdownHrefs(
-                    ChatTranscriptFormatting.linkifyBareWorkspacePaths(logicalContent, paths),
-                ),
-                workspaceAbsolutePath = workspaceAbsolutePath,
-            )
-        } else {
-            Text(
-                logicalContent,
-                style = textStyle,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+        when {
+            useMarkdown -> {
+                WorkspaceMarkdown(
+                    content = ChatTranscriptFormatting.rewriteWorkspaceMarkdownHrefs(
+                        ChatTranscriptFormatting.linkifyBareWorkspacePaths(logicalContent, paths),
+                    ),
+                    workspaceAbsolutePath = workspaceAbsolutePath,
+                )
+            }
+            paths.isNotEmpty() -> {
+                WorkspaceInlineLinkifiedText(
+                    content = logicalContent,
+                    workspaceAbsolutePath = workspaceAbsolutePath,
+                    workspaceFilePaths = paths,
+                    textStyle = textStyle,
+                    linkStyle = textStyle.copy(color = MaterialTheme.colorScheme.primary),
+                    markdown = false,
+                )
+            }
+            else -> {
+                Text(
+                    logicalContent,
+                    style = textStyle,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
     }
 }
