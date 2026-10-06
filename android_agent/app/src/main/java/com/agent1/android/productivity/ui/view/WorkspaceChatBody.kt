@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
+import java.nio.file.Paths
 
 @Composable
 fun WorkspaceChatBody(
@@ -21,8 +22,11 @@ fun WorkspaceChatBody(
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
     if (content.isBlank()) return
-    val paths = remember(content, workspaceFilePaths) {
-        ChatTranscriptFormatting.mergeWorkspaceFilePaths(content, workspaceFilePaths)
+    val root = remember(workspaceAbsolutePath) {
+        if (workspaceAbsolutePath.isBlank()) null else Paths.get(workspaceAbsolutePath)
+    }
+    val paths = remember(content, workspaceFilePaths, root) {
+        ChatTranscriptFormatting.mergeWorkspaceFilePaths(content, workspaceFilePaths, root)
     }
     val useMarkdown = markdown && ChatTranscriptFormatting.shouldRenderAsMarkdown(content)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {

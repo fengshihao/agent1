@@ -43,13 +43,13 @@ fun WorkspaceInlineLinkifiedText(
         Text(content, modifier = modifier, style = textStyle, color = MaterialTheme.colorScheme.onSurface)
         return
     }
-    val paths = remember(content, workspaceFilePaths) {
-        ChatTranscriptFormatting.mergeWorkspaceFilePaths(content, workspaceFilePaths)
-    }
-    val segments = remember(content, paths) {
-        ChatTranscriptFormatting.splitLinkifiedSegments(content, paths)
-    }
     val root = remember(workspaceAbsolutePath) { Paths.get(workspaceAbsolutePath) }
+    val paths = remember(content, workspaceFilePaths, root) {
+        ChatTranscriptFormatting.mergeWorkspaceFilePaths(content, workspaceFilePaths, root)
+    }
+    val segments = remember(content, paths, root) {
+        ChatTranscriptFormatting.splitLinkifiedSegments(content, paths, root)
+    }
     if (markdown) {
         Column(
             modifier = modifier.fillMaxWidth(),

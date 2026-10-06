@@ -44,6 +44,19 @@ class WeizhiDocsGrepGlobTest {
     }
 
     @Test
+    void globAcceptsAgentRootAbsolutePath() throws Exception {
+        AgentTool glob = tools.stream().filter(t -> "glob".equals(t.name())).findFirst().orElseThrow();
+        ObjectNode params = new ObjectMapper().createObjectNode();
+        params.put("pattern", "**/*.md");
+        params.put("path", agent1Sandbox.agentRoot().toString());
+        ToolExecutionResult result = glob.execute("gl2", params, new CancellationToken(), u -> {
+        });
+        String text = result.getText();
+        assertTrue(!text.contains("Access denied"), text);
+        assertTrue(text.contains("docs/system/"));
+    }
+
+    @Test
     void globListsMarkdownUnderDocs() throws Exception {
         AgentTool glob = tools.stream().filter(t -> "glob".equals(t.name())).findFirst().orElseThrow();
         ObjectNode params = new ObjectMapper().createObjectNode();

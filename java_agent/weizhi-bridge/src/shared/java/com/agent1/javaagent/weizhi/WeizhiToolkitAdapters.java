@@ -7,6 +7,7 @@ import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.weizhi.agent.tool.AgentToolkit;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,12 +74,32 @@ public final class WeizhiToolkitAdapters {
         JsonNode argsNode = params;
         if ("webview_exec".equals(name)) {
             argsNode = WebViewExecHost.rewriteArgs(params);
+        } else if (sandbox != null && ("grep".equals(name) || "glob".equals(name))) {
+            argsNode = rewriteWeizhiSearchPath(params, sandbox);
         }
         String raw = call(toolkit, name, argsNode, token);
         if ("webview_exec".equals(name)) {
             return WebViewExecHost.materialize(sandbox, raw);
         }
         return raw;
+    }
+
+    private static JsonNode rewriteWeizhiSearchPath(JsonNode params, WorkspaceSandbox sandbox) {
+        if (params == null || !params.isObject()) {
+            return params;
+        }
+        JsonNode pathNode = params.get("path");
+        if (pathNode == null || pathNode.isNull() || !pathNode.isTextual()) {
+            return params;
+        }
+        String raw = pathNode.asText();
+        String logical = sandbox.toWeizhiReadPath(raw);
+        if (logical == null || logical.equals(raw)) {
+            return params;
+        }
+        ObjectNode copy = params.deepCopy();
+        copy.put("path", logical);
+        return copy;
     }
 
     private static String call(

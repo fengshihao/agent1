@@ -95,6 +95,49 @@ public final class WorkspaceSandbox {
         return displayPath(absolute);
     }
 
+    /**
+     * 微智 {@code grep}/{@code glob} 的路径参数：仅 workspace 相对路径，或 {@code docs/system|capabilities/...}。
+     * 模型常会传 agentRoot / workspace 绝对路径（{@link #resolveRead} 不接受绝对路径，但展示里会出现绝对 agentRoot）。
+     */
+    public String toWeizhiReadPath(String rawPath) {
+        if (rawPath == null || rawPath.isBlank()) {
+            return rawPath;
+        }
+        String trimmed = normalizeRelative(rawPath);
+        if (isAgentDocPath(trimmed)) {
+            return trimmed;
+        }
+        if ("docs".equals(trimmed)) {
+            return agentRoot == null ? trimmed : "docs/system";
+        }
+
+        Path input = Path.of(trimmed);
+        if (!input.isAbsolute()) {
+            return normalizeWorkspaceRelative(trimmed);
+        }
+
+        Path abs = input.normalize();
+        if (abs.startsWith(root)) {
+            return root.relativize(abs).toString().replace('\\', '/');
+        }
+        if (agentRoot != null) {
+            Path agent = agentRoot;
+            if (abs.equals(agent)) {
+                return "docs/system";
+            }
+            if (abs.startsWith(agent)) {
+                String rel = agent.relativize(abs).toString().replace('\\', '/');
+                if (isAgentDocPath(rel)) {
+                    return rel;
+                }
+                if ("docs".equals(rel)) {
+                    return "docs/system";
+                }
+            }
+        }
+        return trimmed;
+    }
+
     private Path resolveWorkspace(String relativePath) {
         String normalized = normalizeWorkspaceRelative(relativePath);
         Path input = Path.of(normalized);

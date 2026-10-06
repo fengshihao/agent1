@@ -72,4 +72,22 @@ class WorkspaceSandboxTest {
         assertEquals(sandbox.getRoot().resolve("artifacts/dog.svg").normalize(), resolved);
         assertEquals("artifacts/dog.svg", sandbox.relativize(resolved));
     }
+
+    @Test
+    void toWeizhiReadPathMapsAgentRootAbsoluteToDocsSystem() {
+        Path agentRoot = temp.resolve("agentRoot3");
+        AgentHomeBootstrap.ensure(agentRoot);
+        WorkspaceSandbox withAgent = new WorkspaceSandbox(temp.resolve("ws3"), agentRoot);
+        assertEquals("docs/system", withAgent.toWeizhiReadPath(agentRoot.toString()));
+        assertEquals(
+            "docs/system/directories.md",
+            withAgent.toWeizhiReadPath(agentRoot.resolve("docs/system/directories.md").toString())
+        );
+    }
+
+    @Test
+    void toWeizhiReadPathMapsWorkspaceAbsolute() {
+        Path file = sandbox.getRoot().resolve("notes/a.txt");
+        assertEquals("notes/a.txt", sandbox.toWeizhiReadPath(file.toString()));
+    }
 }

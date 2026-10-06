@@ -19,15 +19,45 @@ object SessionWorkspacePaths {
     }
 
     /** 模型/工具常带 `workspace/` 或 `./` 前缀；解析与 UI 链接统一去掉。 */
-    fun normalizeWorkspaceRelativePath(raw: String): String {
+    fun normalizeWorkspaceRelativePath(raw: String): String =
+        canonicalWorkspaceRelative(raw, null)
+
+    /**
+     * 转为会话 workspace 内相对路径。模型常输出绝对路径（含 `.../sessions/.../workspace/...`）。
+     */
+    fun canonicalWorkspaceRelative(raw: String, workspaceRoot: Path?): String {
         var path = raw.trim().replace('\\', '/')
         if (path.startsWith("file://")) return path
-        path = path.removePrefix("./")
-        while (path.startsWith("/")) {
-            path = path.removePrefix("/")
+        val input = runCatching { java.nio.file.Paths.get(path) }.getOrNull()
+        if (input != null && input.isAbsolute) {
+            val abs = input.normalize()
+            if (workspaceRoot != null) {
+                val root = workspaceRoot.toAbsolutePath().normalize()
+                if (abs.startsWith(root)) {
+                    return root.relativize(abs).toString().replace('\\', '/')
+                }
+            }
+            val unix = abs.toString().replace('\\', '/')
+            val marker = "/workspace/"
+            val idx = unix.lastIndexOf(marker)
+            if (idx >= 0) {
+                val tail = unix.substring(idx + marker.length)
+                if (tail.isNotBlank()) {
+                    return stripWorkspaceRelativePrefixes(tail)
+                }
+            }
         }
-        path = path.removePrefix("workspace/")
-        return path
+        return stripWorkspaceRelativePrefixes(path)
+    }
+
+    private fun stripWorkspaceRelativePrefixes(path: String): String {
+        var p = path.trim().replace('\\', '/')
+        p = p.removePrefix("./")
+        while (p.startsWith("/")) {
+            p = p.removePrefix("/")
+        }
+        p = p.removePrefix("workspace/")
+        return p
     }
 
     fun resolveFile(workspaceRoot: Path, link: String): File? {
@@ -39,7 +69,7 @@ object SessionWorkspacePaths {
             if (!abs.startsWith(root)) return null
             return abs.toFile().takeIf { it.isFile }
         }
-        val relative = normalizeWorkspaceRelativePath(raw)
+        val relative = canonicalWorkspaceRelative(raw, workspaceRoot)
         if (relative.isBlank()) return null
         val candidate = workspaceRoot.resolve(relative).normalize()
         val root = workspaceRoot.toAbsolutePath().normalize()

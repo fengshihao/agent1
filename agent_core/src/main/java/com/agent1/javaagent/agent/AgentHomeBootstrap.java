@@ -109,6 +109,7 @@ public final class AgentHomeBootstrap {
         );
         copyResourceIfMissing(systemDir.resolve("office-docx.md"), "/agent-home/docs/system/office-docx.md");
         copyResourceIfMissing(systemDir.resolve("svg-raster.md"), "/agent-home/docs/system/svg-raster.md");
+        copyResourceIfMissing(systemDir.resolve("android-intent.md"), "/agent-home/docs/system/android-intent.md");
     }
 
     private static void copyResourceIfMissing(Path target, String resourcePath) {

@@ -25,4 +25,24 @@ class SessionWorkspacePathsTest {
         assertNotNull(resolved)
         assertEquals(file.absolutePath, resolved?.absolutePath)
     }
+
+    @Test
+    fun canonicalWorkspaceRelative_stripsAbsolutePathUnderWorkspace() {
+        val root = Files.createTempDirectory("ws-abs").toAbsolutePath()
+        val file = root.resolve("out/report.docx")
+        assertEquals(
+            "out/report.docx",
+            SessionWorkspacePaths.canonicalWorkspaceRelative(file.toString(), root),
+        )
+    }
+
+    @Test
+    fun resolveFile_findsFileFromAbsoluteWorkspacePath() {
+        val root = Files.createTempDirectory("ws-abs-resolve")
+        val file = root.resolve("notes.md").toFile()
+        file.writeText("# hi")
+        val resolved = SessionWorkspacePaths.resolveFile(root, file.absolutePath)
+        assertNotNull(resolved)
+        assertEquals(file.absolutePath, resolved?.absolutePath)
+    }
 }

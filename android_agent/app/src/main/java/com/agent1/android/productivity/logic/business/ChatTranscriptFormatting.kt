@@ -180,18 +180,22 @@ object ChatTranscriptFormatting {
     }
 
     /** 合并工具 JSON、Markdown 链接与正文裸路径，供 UI 展示可打开附件。 */
-    fun mergeWorkspaceFilePaths(content: String, extra: List<String>): List<String> {
+    fun mergeWorkspaceFilePaths(
+        content: String,
+        extra: List<String>,
+        workspaceRoot: Path? = null,
+    ): List<String> {
         return (extra + extractMarkdownFileLinks(content) +
             extractMarkdownImagePaths(content) +
             extractPlainWorkspacePaths(content))
-            .map { normalizeWorkspacePath(it) }
+            .map { normalizeWorkspacePath(it, workspaceRoot) }
             .filter { it.isNotEmpty() }
             .distinct()
             .toList()
     }
 
-    fun normalizeWorkspacePath(raw: String): String =
-        SessionWorkspacePaths.normalizeWorkspaceRelativePath(raw)
+    fun normalizeWorkspacePath(raw: String, workspaceRoot: Path? = null): String =
+        SessionWorkspacePaths.canonicalWorkspaceRelative(raw, workspaceRoot)
 
     /** 将尚未写成 Markdown 链接的工作区路径改为 `[文件名](path)`，便于渲染可点链接。 */
     fun linkifyBareWorkspacePaths(content: String, paths: List<String>): String {
@@ -246,15 +250,19 @@ object ChatTranscriptFormatting {
     }
 
     /** 将正文按已知工作区路径拆成普通文本段与路径段（供聊天气泡内联链接）。 */
-    fun splitLinkifiedSegments(content: String, paths: List<String>): List<LinkifiedSegment> {
+    fun splitLinkifiedSegments(
+        content: String,
+        paths: List<String>,
+        workspaceRoot: Path? = null,
+    ): List<LinkifiedSegment> {
         if (content.isEmpty()) return emptyList()
         val normalized = (
             paths +
                 extractMarkdownFileLinks(content) +
-                extractMarkdownImagePaths(content).map { normalizeWorkspacePath(it) }
+                extractMarkdownImagePaths(content).map { normalizeWorkspacePath(it, workspaceRoot) }
             )
             .filter { it.isNotBlank() }
-            .map { normalizeWorkspacePath(it) }
+            .map { normalizeWorkspacePath(it, workspaceRoot) }
             .distinct()
         val aliases = normalized.flatMap { path ->
             listOf(path, "./$path", "workspace/$path")
@@ -266,7 +274,12 @@ object ChatTranscriptFormatting {
                 index + 1 < content.length &&
                 content[index + 1] == '['
             ) {
-                val imageLink = parseWorkspaceMarkdownLink(content, index + 1, allowImageBang = true)
+                val imageLink = parseWorkspaceMarkdownLink(
+                    content,
+                    index + 1,
+                    workspaceRoot,
+                    allowImageBang = true,
+                )
                 if (imageLink != null) {
                     out.add(
                         LinkifiedSegment(
@@ -280,7 +293,7 @@ object ChatTranscriptFormatting {
                     continue
                 }
             }
-            val markdownLink = parseWorkspaceMarkdownLink(content, index)
+            val markdownLink = parseWorkspaceMarkdownLink(content, index, workspaceRoot)
             if (markdownLink != null) {
                 out.add(
                     LinkifiedSegment(
@@ -302,11 +315,16 @@ object ChatTranscriptFormatting {
                 val start = index
                 index++
                 while (index < content.length) {
-                    if (parseWorkspaceMarkdownLink(content, index) != null) break
+                    if (parseWorkspaceMarkdownLink(content, index, workspaceRoot) != null) break
                     if (content[index] == '!' &&
                         index + 1 < content.length &&
                         content[index + 1] == '[' &&
-                        parseWorkspaceMarkdownLink(content, index + 1, allowImageBang = true) != null
+                        parseWorkspaceMarkdownLink(
+                            content,
+                            index + 1,
+                            workspaceRoot,
+                            allowImageBang = true,
+                        ) != null
                     ) {
                         break
                     }
@@ -323,6 +341,7 @@ object ChatTranscriptFormatting {
     private fun parseWorkspaceMarkdownLink(
         content: String,
         index: Int,
+        workspaceRoot: Path? = null,
         allowImageBang: Boolean = false,
     ): ParsedWorkspaceMarkdownLink? {
         if (index >= content.length || content[index] != '[') return null
@@ -336,7 +355,7 @@ object ChatTranscriptFormatting {
         val rawHref = content.substring(closeBracket + 2, closeParen).trim()
             .removePrefix(WORKSPACE_FILE_HREF_PREFIX)
         if (rawHref.startsWith("http://") || rawHref.startsWith("https://")) return null
-        val path = normalizeWorkspacePath(rawHref)
+        val path = normalizeWorkspacePath(rawHref, workspaceRoot)
         if (path.isEmpty() || !isWorkspaceFilePath(path)) return null
         val label = content.substring(index + 1, closeBracket).ifBlank {
             path.substringAfterLast('/').ifEmpty { path }
