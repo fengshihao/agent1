@@ -73,7 +73,25 @@ class CapabilitySearchToolTest {
 
         assertTrue(onAndroid.getText().contains("android.intent.start"));
         assertTrue(onAndroid.getText().contains("action: \"view\""));
+        assertTrue(onAndroid.getText().contains("不必再 read_file"));
+        assertTrue(onAndroid.getText().contains("panel"));
         assertFalse(onDesktop.getText().contains("android.intent.start"));
+    }
+
+    @Test
+    void longDocIsNotInlined() throws Exception {
+        Path agentRoot = temp.resolve("agentRootLongDoc");
+        AgentHomeBootstrap.ensure(agentRoot);
+        CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot, "android");
+        ObjectNode params = new ObjectMapper().createObjectNode();
+        params.put("query", "markdown word docx");
+
+        ToolExecutionResult result = tool.execute("t-long", params, new CancellationToken(), u -> {
+        });
+
+        assertTrue(result.getText().contains("docx"));
+        assertFalse(result.getText().contains("不必再 read_file docs/system/office-docx.md"));
+        assertFalse(result.getText().contains("没有 `open()` 改已有 docx"));
     }
 
     @Test
