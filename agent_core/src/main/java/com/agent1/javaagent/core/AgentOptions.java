@@ -1,5 +1,6 @@
 package com.agent1.javaagent.core;
 
+import com.agent1.javaagent.config.AgentRuntimeDefaults;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.tool.AgentTool;
 import java.time.Duration;
@@ -8,8 +9,8 @@ import java.util.List;
 import java.util.Objects;
 
 public final class AgentOptions {
-    public static final int DEFAULT_MAX_TURNS_PER_RUN = 12;
-    public static final int DEFAULT_MAX_TOOL_CALLS_PER_RUN = 24;
+    public static final int DEFAULT_MAX_TURNS_PER_RUN = AgentRuntimeDefaults.DEFAULT_MAX_TURNS_PER_RUN;
+    public static final int DEFAULT_MAX_TOOL_CALLS_PER_RUN = AgentRuntimeDefaults.DEFAULT_MAX_TOOL_CALLS_PER_RUN;
 
     private final String systemPrompt;
     private final String model;
@@ -77,14 +78,14 @@ public final class AgentOptions {
     }
 
     /**
-     * Max model rounds that may end with tool calls before the run aborts (default 12).
+     * Max model rounds that may end with tool calls before the run aborts (see {@link AgentRuntimeDefaults}).
      */
     public int getMaxTurnsPerRun() {
         return maxTurnsPerRun;
     }
 
     /**
-     * Max tool invocations per user prompt run (default 24).
+     * Max tool invocations per user prompt run (see {@link AgentRuntimeDefaults}).
      */
     public int getMaxToolCallsPerRun() {
         return maxToolCallsPerRun;

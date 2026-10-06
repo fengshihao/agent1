@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.tool.ToolExecutionResult;
+import com.agent1.javaagent.tool.script.InlineScriptSpill;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.agent1.javaagent.coach.AgentCoachConfig;
@@ -54,6 +55,23 @@ class ProductivityCoachTest {
         ToolExecutionResult out = coach.maybeAugment("execute_script", params, in, false);
         assertTrue(out.getText().contains("[coach] script.inline_long"));
         assertTrue(out.getText().contains("edit_file"));
+    }
+
+    @Test
+    void spilledInlineDoesNotRepeatCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        StringBuilder code = new StringBuilder();
+        for (int i = 0; i < 81; i++) {
+            code.append("x\n");
+        }
+        params.put("code", code.toString());
+        ToolExecutionResult in = ToolExecutionResult.text(
+            "\"ok\"" + InlineScriptSpill.notice("jobs/inline-abc.js")
+        );
+        ToolExecutionResult out = coach.maybeAugment("execute_script", params, in, false);
+        assertFalse(out.getText().contains("[coach] script.inline_long"));
+        assertTrue(out.getText().contains("jobs/inline-abc.js"));
     }
 
     @Test

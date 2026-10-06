@@ -496,6 +496,7 @@ public final class ProductivityAgentHost implements Closeable {
         runtime.setSystemPrompt(new ProductivitySystemPromptBuilder()
             .hostAppend(scriptPromptAppend)
             .webSearch(runtimeConfig.isWebSearchConfigured())
+            .runLimits(runtimeConfig.getMaxTurnsPerRun(), runtimeConfig.getMaxToolCallsPerRun())
             .buildMainPrompt(
                 workspace,
                 agentRoot,

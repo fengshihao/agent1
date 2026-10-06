@@ -8,9 +8,10 @@
 
 ## execute_script
 
-- **code 与 file 二选一**：短一次性用 code；超过约 20 行或 1000 字符、或还要改时，写到 workspace `.js` 再用 file。后续用 `edit_file`，少占 token。按此原则自行判断。
-- 失败时工具返回 JSON，字段 **location.userLine** 相对用户脚本（prelude 已扣减；Weizhi 内建注入需 D4 完全对齐）。
-- inline 过长会触发 Coach **script.inline_long**。
+- **编排优先**：多步骤任务尽量在同一段脚本里 `await` 平台 API / `$tools`，少占外层工具轮次；单 Run 预算见系统提示「环境」（默认约 24 轮往返、48 次工具，App「模型配置 → 高级参数」可调）。
+- **code 与 file 二选一**：短一次性用 code。超过 20 行或 1000 字符时，运行时把 code 写入 `jobs/inline-*.js` 再执行，结果末尾说明路径。之后 `edit_file` 改该文件，再用 file。
+- 失败时工具返回 JSON，字段 **location.userLine** 相对用户脚本（prelude 已扣减；Weizhi 内建注入需 D4 完全对齐）。inline 落盘时该说明附在 JSON 之后，不改变失败 JSON 开头。
+- 未落盘的过长 inline 仍会触发 Coach **script.inline_long**。
 - **Catalog 脚本库（7.2）**：`shared/catalog/scripts` → `setScriptFolder`；见 Weizhi `MODULE_LOADING.md`。
 - **工作区 orchestrator（file 模式）**：`runJs` 使用 workspace 相对 filename（如 `jobs/run.js`）；`import './docx.js'` 先查 workspace 再 **回退 catalog**；`import './helper.js'` 仍在 workspace。Agent1 不再镜像 `.workspace-run/`。
 - **Word**：在 `execute_script` 里 `import … from './docx.js'`（先 workspace，再 catalog）。API 见 `docs/system/office-docx.md`。没有外层 docx 工具。

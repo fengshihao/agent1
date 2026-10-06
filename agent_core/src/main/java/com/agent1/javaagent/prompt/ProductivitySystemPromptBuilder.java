@@ -16,7 +16,8 @@ import java.time.ZoneId;
 public final class ProductivitySystemPromptBuilder {
 
     static final String IDENTITY = """
-        你是生产力助手。在当前会话 workspace 里完成任务。不操作手机界面。
+        你是编程型生产力智能体：在当前会话 workspace 里写代码、改文件、用脚本编排完成任务。
+        你不是纯聊天助手；默认用工程化方式交付（脚本、工作区产物、可验证步骤），而不是只给口头步骤。
         """.trim();
 
     static final String WORKFLOW_DIRECT = """
@@ -27,6 +28,7 @@ public final class ProductivitySystemPromptBuilder {
 
         ## 怎么做
         动手改文件或调用不熟悉的能力前，用 capability_search 看有没有现成 API 或同类说明。
+        多步骤任务尽量合并为一次可执行方案（脚本或单次编排），少占外层工具轮次。
         用文件工具改 workspace。路径相对工作区，不要再加 workspace/ 前缀。
         回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
         """.trim();
@@ -34,13 +36,15 @@ public final class ProductivitySystemPromptBuilder {
     static final String WORKFLOW_WITH_SCRIPT = """
         ## 分工
         优先用 execute_script 完成任务（QuickJS：编排、MCP、catalog 脚本、$tools）。
+        Weizhi 的平台 API（android.* / mac.* / linux.*）用来把宿主系统能力交给脚本使用。具体函数不要猜，先 capability_search，按结果里的调用示例写。
         写代码：read_file、write_file、edit_file、glob。
         查已有能力：capability_search（API、脚本、MCP、Skill、文档）。
         辅助：bash、grep、read_url。
 
         ## 怎么做
         动手写脚本或调用不熟悉的 API 前，用 capability_search 看有没有现成接口或同类脚本。一次 query 把相关词写全；需要时用 kinds、limit（最多 20）。同一轮不必并行多次搜。
-        短一次性逻辑可用 execute_script 的 code；超过约 20 行或 1000 字符、或之后还要改时，先 write_file 写成 .js 再用 file；后续 edit_file。路径相对工作区，不要加 workspace/ 前缀。
+        多步骤任务：在一段 execute_script 里串行完成（await 平台 API、await $tools.工具名、读写 workspace 文件），不要拆成多轮 Run、也不要外层逐个工具慢慢试。
+        短一次性逻辑可用 execute_script 的 code。超过 20 行或 1000 字符时，运行时会把 code 写入 jobs/ 再执行，并在结果里给出路径；之后用 edit_file 改该文件，再用 file。路径相对工作区，不要加 workspace/ 前缀。
         脚本里 await $tools.工具名({...}) 可调用已注册的外层工具（不能再调 execute_script）。具体写法看各工具说明；用错时按返回提醒改。
         回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
         """.trim();
@@ -57,12 +61,14 @@ public final class ProductivitySystemPromptBuilder {
         """.trim();
 
     static final String GENERAL_SUBAGENT = """
-        你是 general 子智能体，可以在当前会话工作区内读取和修改文件以完成委派任务。
+        你是 general 子智能体（编程型）：可以在当前会话工作区内读取和修改文件、写脚本片段以完成委派任务。
         完成后向父智能体回报：结论摘要，以及产出物在工作区内的相对路径（若有）。
         """.trim();
 
     private String hostAppend = "";
     private boolean webSearchEnabled;
+    private int maxTurnsPerRun;
+    private int maxToolCallsPerRun;
 
     public ProductivitySystemPromptBuilder hostAppend(String hostAppend) {
         this.hostAppend = hostAppend != null ? hostAppend.trim() : "";
@@ -71,6 +77,13 @@ public final class ProductivitySystemPromptBuilder {
 
     public ProductivitySystemPromptBuilder webSearch(boolean enabled) {
         this.webSearchEnabled = enabled;
+        return this;
+    }
+
+    /** 注入单 Run 工具预算，便于模型在接近上限前改用 execute_script 一次性收尾。 */
+    public ProductivitySystemPromptBuilder runLimits(int maxTurnsPerRun, int maxToolCallsPerRun) {
+        this.maxTurnsPerRun = maxTurnsPerRun;
+        this.maxToolCallsPerRun = maxToolCallsPerRun;
         return this;
     }
 
@@ -109,7 +122,13 @@ public final class ProductivitySystemPromptBuilder {
             workflow = workflow + "\n" + WEBVIEW_FROM_SCRIPT;
         }
         sb.append(workflow).append("\n\n");
-        sb.append(buildEnvironmentSection(workspaceRoot, agentRoot, environmentSupplement));
+        sb.append(buildEnvironmentSection(
+            workspaceRoot,
+            agentRoot,
+            environmentSupplement,
+            maxTurnsPerRun,
+            maxToolCallsPerRun
+        ));
         if (webSearchEnabled) {
             sb.append("\n- 公开信息可用 web_search（Tavily）。不要编造检索结果。");
         }
@@ -128,10 +147,20 @@ public final class ProductivitySystemPromptBuilder {
     }
 
     static String buildEnvironmentSection(Path workspaceRoot, Path agentRoot) {
-        return buildEnvironmentSection(workspaceRoot, agentRoot, "");
+        return buildEnvironmentSection(workspaceRoot, agentRoot, "", 0, 0);
     }
 
     static String buildEnvironmentSection(Path workspaceRoot, Path agentRoot, String environmentSupplement) {
+        return buildEnvironmentSection(workspaceRoot, agentRoot, environmentSupplement, 0, 0);
+    }
+
+    static String buildEnvironmentSection(
+        Path workspaceRoot,
+        Path agentRoot,
+        String environmentSupplement,
+        int maxTurnsPerRun,
+        int maxToolCallsPerRun
+    ) {
         Path normalized = workspaceRoot.toAbsolutePath().normalize();
         String date = LocalDate.now(ZoneId.systemDefault()).toString();
         String osName = System.getProperty("os.name", "unknown");
@@ -142,14 +171,23 @@ public final class ProductivitySystemPromptBuilder {
         String extra = environmentSupplement == null || environmentSupplement.isBlank()
             ? ""
             : environmentSupplement.trim() + "\n";
+        String runLimitsLine = "";
+        if (maxTurnsPerRun > 0 && maxToolCallsPerRun > 0) {
+            runLimitsLine =
+                "- 单条用户消息的一轮 Run 预算：模型↔工具往返最多 "
+                    + maxTurnsPerRun
+                    + " 轮，工具执行最多 "
+                    + maxToolCallsPerRun
+                    + " 次（可在宿主「模型配置」高级参数调节）。接近上限时优先用 execute_script 一次完成剩余步骤，并给出可继续的结论。\n";
+        }
         return """
             ## 环境
             %s- 工作区（唯一可写）：%s
             - 日期：%s
             - 平台：%s
-            - shared/、docs/ 只读。没有 Node，不能 npm 或 require。
+            %s- shared/、docs/ 只读。没有 Node，不能 npm 或 require。
             %s%s
-            """.formatted(rootLine, normalized, date, osName, catalogLine, extra).trim();
+            """.formatted(rootLine, normalized, date, osName, runLimitsLine, catalogLine, extra).trim();
     }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();

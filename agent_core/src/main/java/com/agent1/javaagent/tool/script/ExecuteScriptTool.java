@@ -61,7 +61,7 @@ public final class ExecuteScriptTool implements AgentTool {
     public String description() {
         return """
             在 workspace 跑 QuickJS。不是 Node，不是浏览器，没有 document/window，不能 require。
-            code 与 file 二选一。短一次性脚本用 code；超过约 20 行或 1000 字符、或还要迭代修改时，先 write_file 再 file（如 jobs/run.js），后续用 edit_file 改，少占 token。按此原则自行判断。
+            code 与 file 二选一。短一次性脚本用 code。超过 20 行或 1000 字符时，运行时会把 code 写入 jobs/ 再执行，并在结果里给出路径；后续用 edit_file 改该文件，再用 file。
             可以顶层 await。返回值是最后一条表达式，不要写顶层 return。
             MCP：await $mcp.服务器.工具({...})，名字来自 capability_search 的 entry。
             外层工具：await $tools.工具名({...})。已注册时可用 $tools.webview_exec 进入浏览器环境（与外层同名工具相同）。不能再调 execute_script。
@@ -142,8 +142,20 @@ public final class ExecuteScriptTool implements AgentTool {
             source = code;
         }
 
+        String spilledFile = null;
+        if (!hasFile && InlineScriptSpill.exceeds(source)) {
+            try {
+                spilledFile = InlineScriptSpill.write(sandbox, source);
+            } catch (IOException e) {
+                return ToolExecutionResult.text("错误：inline 过长，写入 jobs/ 失败: " + e.getMessage());
+            }
+        }
+        final String boundFile = hasFile ? file : spilledFile;
+
         String prelude = buildArgsPrelude(parameters.get("args"));
-        ScriptEvalFrame.SourceKind kind = hasFile ? ScriptEvalFrame.SourceKind.FILE : ScriptEvalFrame.SourceKind.INLINE;
+        ScriptEvalFrame.SourceKind kind = boundFile == null
+            ? ScriptEvalFrame.SourceKind.INLINE
+            : ScriptEvalFrame.SourceKind.FILE;
 
         Path workspaceRoot = sandbox.getRoot();
 
@@ -153,7 +165,7 @@ public final class ExecuteScriptTool implements AgentTool {
             try (ScriptEngine engine = engineFactory.open(workspaceRoot)) {
                 frame = new ScriptEvalFrame(
                     kind,
-                    hasFile ? file : "",
+                    boundFile == null ? "" : boundFile,
                     ScriptEvalFrame.countPreludeLines(prelude),
                     engine.agentHostPreludeLines(),
                     ScriptEvalFrame.countLines(source)
@@ -166,15 +178,16 @@ public final class ExecuteScriptTool implements AgentTool {
                         prelude,
                         defaultTimeoutMs,
                         cancellationToken,
-                        hasFile ? file : null
+                        boundFile
                     );
                     String text = json == null ? "null" : json;
                     if (!autoInstallPrefix.isEmpty()) {
                         text = autoInstallPrefix + text;
                     }
-                    return ToolExecutionResult.text(text);
+                    return ToolExecutionResult.text(withSpillNotice(text, spilledFile));
                 } catch (RuntimeException e) {
                     String failText = ScriptFailureFormatter.formatJson(frame, e);
+                    failText = withSpillNotice(failText, spilledFile);
                     if (attempt == 0 && tryAutoInstallNative(source, failText)) {
                         autoInstallPrefix = "[catalog] auto-installed native plugin for ensureNative\n\n";
                         continue;
@@ -221,6 +234,13 @@ public final class ExecuteScriptTool implements AgentTool {
         } catch (Exception ignored) {
             return false;
         }
+    }
+
+    private static String withSpillNotice(String text, String spilledFile) {
+        if (spilledFile == null) {
+            return text;
+        }
+        return text + InlineScriptSpill.notice(spilledFile);
     }
 
     private static boolean looksLikeJavaScriptFile(String file) {

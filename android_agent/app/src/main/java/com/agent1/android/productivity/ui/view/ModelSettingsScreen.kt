@@ -459,6 +459,7 @@ private fun AdvancedSection(
                         value = maxTurnsPerRun,
                         onValueChange = onMaxTurnsPerRunChange,
                         label = { Text("每轮 Run 最大回合") },
+                        placeholder = { Text("默认 24，模型↔工具循环") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )
@@ -466,6 +467,7 @@ private fun AdvancedSection(
                         value = maxToolCallsPerRun,
                         onValueChange = onMaxToolCallsPerRunChange,
                         label = { Text("每轮 Run 最大工具调用") },
+                        placeholder = { Text("默认 48，可在高级参数保存") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )

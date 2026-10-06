@@ -3,6 +3,7 @@ package com.agent1.javaagent.coach;
 import com.agent1.javaagent.script.ScriptEvalFrame;
 import com.agent1.javaagent.script.ScriptFailureFormatter;
 import com.agent1.javaagent.tool.ToolExecutionResult;
+import com.agent1.javaagent.tool.script.InlineScriptSpill;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -158,7 +159,8 @@ public final class ProductivityCoach {
                                 + "可读 docs/system/tools-and-quickjs.md。";
                     }
                 }
-            } else if (file.isEmpty() && !code.isBlank()) {
+            } else if (file.isEmpty() && !code.isBlank()
+                && (text == null || !text.contains(InlineScriptSpill.MARKER))) {
                 int lines = countLines(code);
                 int bytes = code.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
                 if (lines > inlineLongLines || bytes > inlineLongBytes) {

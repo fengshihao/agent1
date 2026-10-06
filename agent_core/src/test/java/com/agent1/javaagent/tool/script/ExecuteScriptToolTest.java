@@ -189,6 +189,38 @@ class ExecuteScriptToolTest {
     }
 
     @Test
+    void longInlineSpillsToJobsAndStillRuns() throws Exception {
+        String code = "a".repeat(InlineScriptSpill.MAX_CHARS + 1);
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", code);
+
+        ToolExecutionResult result = tool.execute("c1", params, new CancellationToken(), u -> {});
+
+        assertTrue(result.getText().startsWith("\"ok\""));
+        assertTrue(result.getText().contains(InlineScriptSpill.MARKER + "jobs/inline-"));
+        assertTrue(result.getText().contains("edit_file"));
+        Path spilled = Files.list(workspaceA.resolve("jobs")).findFirst().orElseThrow();
+        assertEquals(code, Files.readString(spilled));
+    }
+
+    @Test
+    void twentyLinesAndOneThousandCharsStayInline() throws Exception {
+        String twentyLines = ("x\n").repeat(19) + "x";
+        assertEquals(20, twentyLines.split("\n", -1).length);
+        ObjectNode byLines = MAPPER.createObjectNode();
+        byLines.put("code", twentyLines);
+        ToolExecutionResult linesResult = tool.execute("c1", byLines, new CancellationToken(), u -> {});
+        assertEquals("\"ok\"", linesResult.getText());
+        assertFalse(Files.exists(workspaceA.resolve("jobs")));
+
+        ObjectNode byChars = MAPPER.createObjectNode();
+        byChars.put("code", "b".repeat(InlineScriptSpill.MAX_CHARS));
+        ToolExecutionResult charsResult = tool.execute("c2", byChars, new CancellationToken(), u -> {});
+        assertEquals("\"ok\"", charsResult.getText());
+        assertFalse(Files.exists(workspaceA.resolve("jobs")));
+    }
+
+    @Test
     void rejectsNonJavaScriptFileExtension() throws Exception {
         Files.writeString(workspaceA.resolve("dog.svg"), "<svg/>", StandardCharsets.UTF_8);
         ObjectNode params = MAPPER.createObjectNode();

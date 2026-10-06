@@ -40,6 +40,8 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("$tools.webview_exec"));
         assertTrue(prompt.contains("execute_script"));
         assertTrue(prompt.contains("优先用 execute_script"));
+        assertTrue(prompt.contains("宿主系统能力"));
+        assertFalse(prompt.contains("不操作手机界面"));
         assertFalse(prompt.contains("svgToImage"));
         assertFalse(prompt.contains("toDataURL"));
         assertFalse(prompt.contains("页面和画布"));
@@ -88,11 +90,36 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
+    void statesProgrammingAgentIdentity() {
+        String withoutScript = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), false);
+        assertTrue(withoutScript.contains("编程型生产力智能体"));
+        assertTrue(withoutScript.contains("不是纯聊天助手"));
+
+        String withScript = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), true);
+        assertTrue(withScript.contains("编程型生产力智能体"));
+        assertTrue(withScript.contains("一段 execute_script 里串行完成"));
+        assertTrue(withScript.contains("不要拆成多轮 Run"));
+    }
+
+    @Test
+    void runLimitsAppearInEnvironmentWhenSet() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .runLimits(24, 48)
+            .buildMainPrompt(temp.resolve("ws"), true);
+        assertTrue(prompt.contains("模型↔工具往返最多 24 轮"));
+        assertTrue(prompt.contains("工具执行最多 48 次"));
+        assertTrue(prompt.contains("模型配置"));
+    }
+
+    @Test
     void mentionsCapabilitySearchWithoutScriptEngine() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
         assertTrue(prompt.contains("capability_search"));
-        assertFalse(prompt.contains("编程智能体"));
+        assertTrue(prompt.contains("编程型生产力智能体"));
+        assertFalse(prompt.contains("execute_script"));
     }
 
     @Test
