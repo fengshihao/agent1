@@ -2,13 +2,12 @@ package com.agent1.android.productivity.ui.view
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -30,17 +29,17 @@ import com.agent1.android.productivity.ui.viewmodel.CapabilityHitUi
 import com.agent1.android.productivity.ui.viewmodel.CapabilitySearchViewModel
 import com.agent1.android.productivity.ui.viewmodel.DisabledMcpUi
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CapabilitySearchScreen(
     viewModel: CapabilitySearchViewModel,
     onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
+    val kindChoices = CapabilitySearchViewModel.kindChoices()
     Column(modifier = Modifier.fillMaxSize()) {
         AgentTopBar(
             title = "能力检索",
-            subtitle = "与 capability_search 相同",
+            subtitle = null,
             leading = {
                 TopBarIconButton(
                     icon = Icons.Filled.ArrowBack,
@@ -58,36 +57,29 @@ fun CapabilitySearchScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                Text(
-                    "参数与模型调用 capability_search 相同：query、kinds、limit。下面第一段正文就是模型拿到的结果。平台由本机固定，模型不能另传。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Row(
                     modifier = Modifier.padding(top = 12.dp),
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = state.query,
-                    onValueChange = viewModel::onQueryChange,
-                    label = { Text("query") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    supportingText = { Text("自然语言或关键词，必填") },
-                )
-            }
-            item {
-                Text("kinds", style = MaterialTheme.typography.labelLarge)
-                Text(
-                    "不选表示全部种类。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                FlowRow(
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(top = 8.dp),
                 ) {
-                    CapabilitySearchViewModel.kindChoices().forEach { (id, label) ->
+                    OutlinedTextField(
+                        value = state.query,
+                        onValueChange = viewModel::onQueryChange,
+                        placeholder = { Text("搜索") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    Button(
+                        onClick = viewModel::search,
+                        enabled = !state.busy && state.query.isNotBlank(),
+                    ) {
+                        Text(if (state.busy) "…" else "搜索")
+                    }
+                }
+            }
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    itemsIndexed(kindChoices, key = { _, choice -> choice.first }) { _, (id, label) ->
                         FilterChip(
                             selected = state.selectedKinds.contains(id),
                             onClick = { viewModel.toggleKind(id) },
@@ -101,7 +93,6 @@ fun CapabilitySearchScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("limit", style = MaterialTheme.typography.labelLarge)
                     OutlinedButton(
                         onClick = { viewModel.setLimit(state.limit - 1) },
                         enabled = state.limit > 1 && !state.busy,
@@ -115,19 +106,6 @@ fun CapabilitySearchScreen(
                     ) {
                         Text("+")
                     }
-                    Text(
-                        "1–${CapabilitySearchViewModel.MAX_LIMIT}，默认 ${CapabilitySearchViewModel.DEFAULT_LIMIT}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            item {
-                Button(
-                    onClick = viewModel::search,
-                    enabled = !state.busy && state.query.isNotBlank(),
-                ) {
-                    Text(if (state.busy) "检索中…" else "检索")
                 }
             }
             if (!state.errorMessage.isNullOrBlank()) {
@@ -156,14 +134,6 @@ fun CapabilitySearchScreen(
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.padding(top = 8.dp),
                         )
-                    }
-                }
-                if (state.visible.isNotEmpty()) {
-                    item {
-                        Text("条目", style = MaterialTheme.typography.titleSmall)
-                    }
-                    itemsIndexed(state.visible, key = { index, hit -> "v-$index-${hit.id}" }) { _, hit ->
-                        CapabilityHitCard(hit)
                     }
                 }
                 if (state.hiddenByPlatform.isNotEmpty()) {
