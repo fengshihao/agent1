@@ -845,65 +845,78 @@ private fun ChatComposer(
     onSend: () -> Unit,
     onStop: () -> Unit,
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Bottom,
+    val fieldShape = RoundedCornerShape(22.dp)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        AgentHairline()
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            IconButton(
-                onClick = onPickFiles,
-                enabled = pickFilesEnabled,
-                modifier = Modifier.size(36.dp),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    AgentIcons.AttachFile,
-                    contentDescription = "选择文件",
-                    tint = if (pickFilesEnabled) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                IconButton(
+                    onClick = onPickFiles,
+                    enabled = pickFilesEnabled,
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        AgentIcons.AttachFile,
+                        contentDescription = "选择文件",
+                        modifier = Modifier.size(22.dp),
+                        tint = if (pickFilesEnabled) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        },
+                    )
+                }
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = {
+                        Text(
+                            "输入消息…",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     },
+                    enabled = enabled,
+                    shape = fieldShape,
+                    maxLines = 4,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        disabledBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    ),
                 )
-            }
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("输入消息…") },
-                enabled = enabled,
-                shape = RoundedCornerShape(22.dp),
-                maxLines = 4,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    disabledBorderColor = Color.Transparent,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-            )
-            FilledIconButton(
-                onClick = { if (isRunning) onStop() else onSend() },
-                enabled = isRunning || canSend,
-                modifier = Modifier.size(40.dp),
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                    disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
-                ),
-            ) {
-                Icon(
-                    if (isRunning) AgentIcons.Stop else Icons.Filled.Send,
-                    contentDescription = if (isRunning) "停止" else "发送",
-                    modifier = Modifier.size(if (isRunning) 14.dp else 18.dp),
-                )
+                FilledIconButton(
+                    onClick = { if (isRunning) onStop() else onSend() },
+                    enabled = isRunning || canSend,
+                    modifier = Modifier.size(40.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                        disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
+                    ),
+                ) {
+                    Icon(
+                        if (isRunning) AgentIcons.Stop else Icons.Filled.Send,
+                        contentDescription = if (isRunning) "停止" else "发送",
+                        modifier = Modifier.size(if (isRunning) 16.dp else 20.dp),
+                    )
+                }
             }
         }
     }

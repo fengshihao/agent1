@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#1C1914</color>
+    <!-- 与 ProductivityTheme Paper / NightPaper 对齐，避免 IME adjustResize 露出系统默认白底 -->
+    <color name="agent1_window_background">#F4EFE6</color>
 </resources>
