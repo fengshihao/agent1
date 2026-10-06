@@ -36,32 +36,27 @@ public final class WorkspaceSandbox {
     }
 
     /**
-     * 读/list/grep/glob：workspace 相对路径，或 {@code docs/system|capabilities/...}（需配置 agentRoot）。
+     * 读/list/grep/glob：先收成逻辑路径，再解析。
+     * 逻辑路径是 workspace 相对路径，或 {@code docs/system|capabilities/...}。
      */
     public Path resolveRead(String relativePath) {
-        if (relativePath == null || relativePath.isBlank()) {
-            throw new SecurityException("path is empty");
-        }
-        String trimmed = relativePath.trim();
-        if (isAgentDocPath(trimmed)) {
+        String logical = logicalPath(relativePath);
+        if (isAgentDocPath(logical)) {
             if (agentRoot == null) {
-                throw new SecurityException("agent docs not available (no agentRoot): " + trimmed);
+                throw new SecurityException("agent docs not available (no agentRoot): " + logical);
             }
-            return AgentReadScope.resolveDocPath(agentRoot, trimmed);
+            return AgentReadScope.resolveDocPath(agentRoot, logical);
         }
-        return resolveWorkspace(trimmed);
+        return resolveWorkspace(logical);
     }
 
-    /** 写/edit：仅 workspace；禁止 docs/ 与越界。 */
+    /** 写/edit：仅 workspace；禁止 docs/ 与越界。绝对路径会先收成逻辑路径。 */
     public Path resolveWrite(String relativePath) {
-        if (relativePath == null || relativePath.isBlank()) {
-            throw new SecurityException("path is empty");
+        String logical = logicalPath(relativePath);
+        if (isAgentDocPath(logical) || logical.startsWith("docs/") || "docs".equals(logical)) {
+            throw new SecurityException("path is read-only agent docs: " + logical);
         }
-        String trimmed = relativePath.trim();
-        if (isAgentDocPath(trimmed) || trimmed.startsWith("docs/")) {
-            throw new SecurityException("path is read-only agent docs: " + trimmed);
-        }
-        return resolveWorkspace(trimmed);
+        return resolveWorkspace(logical);
     }
 
     /** @deprecated 读路径请用 {@link #resolveRead(String)}；写路径用 {@link #resolveWrite(String)}。 */
@@ -96,12 +91,13 @@ public final class WorkspaceSandbox {
     }
 
     /**
-     * 微智 {@code grep}/{@code glob} 的路径参数：仅 workspace 相对路径，或 {@code docs/system|capabilities/...}。
-     * 模型常会传 agentRoot / workspace 绝对路径（{@link #resolveRead} 不接受绝对路径，但展示里会出现绝对 agentRoot）。
+     * 模型路径的唯一入口：收成逻辑路径。
+     * workspace 内文件为相对路径；只读文档为 {@code docs/system/...} 或 {@code docs/capabilities/...}。
+     * 工作区或 agentRoot 下的绝对路径会改写；区外绝对路径拒绝。
      */
-    public String toWeizhiReadPath(String rawPath) {
+    public String logicalPath(String rawPath) {
         if (rawPath == null || rawPath.isBlank()) {
-            return rawPath;
+            throw new SecurityException("path is empty");
         }
         String trimmed = normalizeRelative(rawPath);
         if (isAgentDocPath(trimmed)) {
@@ -109,6 +105,9 @@ public final class WorkspaceSandbox {
         }
         if ("docs".equals(trimmed)) {
             return agentRoot == null ? trimmed : "docs/system";
+        }
+        if (".".equals(trimmed)) {
+            return trimmed;
         }
 
         Path input = Path.of(trimmed);
@@ -118,24 +117,26 @@ public final class WorkspaceSandbox {
 
         Path abs = input.normalize();
         if (abs.startsWith(root)) {
-            return root.relativize(abs).toString().replace('\\', '/');
+            String rel = root.relativize(abs).toString().replace('\\', '/');
+            return rel.isEmpty() ? "." : rel;
         }
-        if (agentRoot != null) {
-            Path agent = agentRoot;
-            if (abs.equals(agent)) {
+        if (agentRoot != null && abs.startsWith(agentRoot)) {
+            if (abs.equals(agentRoot)) {
                 return "docs/system";
             }
-            if (abs.startsWith(agent)) {
-                String rel = agent.relativize(abs).toString().replace('\\', '/');
-                if (isAgentDocPath(rel)) {
-                    return rel;
-                }
-                if ("docs".equals(rel)) {
-                    return "docs/system";
-                }
+            String rel = agentRoot.relativize(abs).toString().replace('\\', '/');
+            if (isAgentDocPath(rel) || "docs".equals(rel)) {
+                return "docs".equals(rel) ? "docs/system" : rel;
             }
+            throw new SecurityException("absolute path is outside readable docs: " + rawPath);
         }
-        return trimmed;
+        throw new SecurityException("absolute path not allowed: " + rawPath);
+    }
+
+    /** @deprecated 使用 {@link #logicalPath(String)}。 */
+    @Deprecated
+    public String toWeizhiReadPath(String rawPath) {
+        return logicalPath(rawPath);
     }
 
     private Path resolveWorkspace(String relativePath) {

@@ -29,7 +29,7 @@ object ChatTranscriptFormatting {
     )
 
     fun formatToolResult(raw: String, workspaceRoot: Path?): ToolResultDisplay {
-        val trimmed = raw.trim()
+        val trimmed = SessionWorkspacePaths.scrubWorkspaceAbsolute(raw.trim(), workspaceRoot)
         if (!trimmed.startsWith("{")) {
             val paths = extractPlainWorkspacePaths(trimmed)
             return ToolResultDisplay(

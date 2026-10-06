@@ -60,6 +60,14 @@ object SessionWorkspacePaths {
         return p
     }
 
+    /** 展示文本里的 workspace 绝对路径改成相对路径。 */
+    fun scrubWorkspaceAbsolute(text: String, workspaceRoot: Path?): String {
+        if (workspaceRoot == null || text.isEmpty()) return text
+        val prefix = workspaceRoot.toAbsolutePath().normalize().toString()
+        if (!text.contains(prefix)) return text
+        return text.replace("$prefix/", "").replace(prefix, ".")
+    }
+
     fun resolveFile(workspaceRoot: Path, link: String): File? {
         val raw = link.trim()
         if (raw.isBlank()) return null

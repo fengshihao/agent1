@@ -52,7 +52,7 @@ class ProductivitySystemPromptBuilderTest {
     void warnsAgainstWorkspacePathPrefix() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
-        assertTrue(prompt.contains("不要再加 workspace/ 前缀"));
+        assertTrue(prompt.contains("不要加 workspace/ 前缀"));
     }
 
     @Test
@@ -149,8 +149,8 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(workspace, false);
 
-        assertTrue(prompt.contains(workspace.toString()));
-        assertTrue(prompt.contains("工作区"));
+        assertFalse(prompt.contains(workspace.toString()));
+        assertTrue(prompt.contains("相对工作区"));
     }
 
     @Test
@@ -192,7 +192,9 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(workspace, agentRoot, false, false);
         assertTrue(prompt.contains("shared/"));
-        assertTrue(prompt.contains(agentRoot.toString()));
+        assertTrue(prompt.contains("docs/system/"));
+        assertFalse(prompt.contains(agentRoot.toString()));
+        assertFalse(prompt.contains(workspace.toString()));
     }
 
     @Test

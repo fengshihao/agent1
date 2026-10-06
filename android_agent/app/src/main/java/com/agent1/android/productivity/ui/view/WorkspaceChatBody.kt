@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
+import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import java.nio.file.Paths
 
 @Composable
@@ -25,14 +26,17 @@ fun WorkspaceChatBody(
     val root = remember(workspaceAbsolutePath) {
         if (workspaceAbsolutePath.isBlank()) null else Paths.get(workspaceAbsolutePath)
     }
-    val paths = remember(content, workspaceFilePaths, root) {
-        ChatTranscriptFormatting.mergeWorkspaceFilePaths(content, workspaceFilePaths, root)
+    val logicalContent = remember(content, root) {
+        SessionWorkspacePaths.scrubWorkspaceAbsolute(content, root)
     }
-    val useMarkdown = markdown && ChatTranscriptFormatting.shouldRenderAsMarkdown(content)
+    val paths = remember(logicalContent, workspaceFilePaths, root) {
+        ChatTranscriptFormatting.mergeWorkspaceFilePaths(logicalContent, workspaceFilePaths, root)
+    }
+    val useMarkdown = markdown && ChatTranscriptFormatting.shouldRenderAsMarkdown(logicalContent)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (paths.isNotEmpty()) {
             WorkspaceInlineLinkifiedText(
-                content = content,
+                content = logicalContent,
                 workspaceAbsolutePath = workspaceAbsolutePath,
                 workspaceFilePaths = paths,
                 textStyle = textStyle,
@@ -42,13 +46,13 @@ fun WorkspaceChatBody(
         } else if (useMarkdown) {
             WorkspaceMarkdown(
                 content = ChatTranscriptFormatting.rewriteWorkspaceMarkdownHrefs(
-                    ChatTranscriptFormatting.linkifyBareWorkspacePaths(content, paths),
+                    ChatTranscriptFormatting.linkifyBareWorkspacePaths(logicalContent, paths),
                 ),
                 workspaceAbsolutePath = workspaceAbsolutePath,
             )
         } else {
             Text(
-                content,
+                logicalContent,
                 style = textStyle,
                 color = MaterialTheme.colorScheme.onSurface,
             )

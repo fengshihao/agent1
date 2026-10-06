@@ -9,6 +9,7 @@ import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +55,13 @@ class WeizhiDocsGrepGlobTest {
         String text = result.getText();
         assertTrue(!text.contains("Access denied"), text);
         assertTrue(text.contains("docs/system/"));
+    }
+
+    @Test
+    void bashCommandRewritesDocAbsolutePath() {
+        String command = "cat \"" + agent1Sandbox.agentRoot().resolve("docs/system/directories.md") + "\"";
+        String rewritten = WeizhiToolkitAdapters.rewriteCommandPaths(command, agent1Sandbox);
+        assertEquals("cat \"docs/system/directories.md\"", rewritten);
     }
 
     @Test

@@ -90,4 +90,22 @@ class WorkspaceSandboxTest {
         Path file = sandbox.getRoot().resolve("notes/a.txt");
         assertEquals("notes/a.txt", sandbox.toWeizhiReadPath(file.toString()));
     }
+
+    @Test
+    void resolveReadAcceptsWorkspaceAbsolutePath() throws Exception {
+        Path file = sandbox.getRoot().resolve("notes/a.txt");
+        java.nio.file.Files.createDirectories(file.getParent());
+        java.nio.file.Files.writeString(file, "hi");
+        assertEquals(file.toAbsolutePath().normalize(), sandbox.resolveRead(file.toString()));
+        assertEquals(file.toAbsolutePath().normalize(), sandbox.resolveWrite(file.toString()));
+    }
+
+    @Test
+    void resolveReadAcceptsAgentDocAbsolutePath() throws Exception {
+        Path agentRoot = temp.resolve("agentRoot4");
+        AgentHomeBootstrap.ensure(agentRoot);
+        WorkspaceSandbox withAgent = new WorkspaceSandbox(temp.resolve("ws4"), agentRoot);
+        Path doc = agentRoot.resolve("docs/system/directories.md");
+        assertEquals(doc.toAbsolutePath().normalize(), withAgent.resolveRead(doc.toString()));
+    }
 }

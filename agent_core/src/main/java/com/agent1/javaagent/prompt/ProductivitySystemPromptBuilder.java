@@ -29,7 +29,8 @@ public final class ProductivitySystemPromptBuilder {
         ## 怎么做
         动手改文件或调用不熟悉的能力前，用 capability_search 看有没有现成 API 或同类说明。
         多步骤任务尽量合并为一次可执行方案（脚本或单次编排），少占外层工具轮次。
-        用文件工具改 workspace。路径相对工作区，不要再加 workspace/ 前缀。
+        用文件工具改 workspace。路径一律相对工作区，不要写绝对路径，也不要加 workspace/ 前缀。
+        只读文档用 docs/system/... 或 docs/capabilities/...（read_file、grep、glob、list_dir）。
         回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
         """.trim();
 
@@ -44,7 +45,8 @@ public final class ProductivitySystemPromptBuilder {
         ## 怎么做
         动手写脚本或调用不熟悉的 API 前，用 capability_search 看有没有现成接口或同类脚本。一次 query 把相关词写全；需要时用 kinds、limit（最多 20）。同一轮不必并行多次搜。
         多步骤任务：在一段 execute_script 里串行完成（await 平台 API、await $tools.工具名、读写 workspace 文件），不要拆成多轮 Run、也不要外层逐个工具慢慢试。
-        短一次性逻辑可用 execute_script 的 code。超过 20 行或 1000 字符时，运行时会把 code 写入 jobs/ 再执行，并在结果里给出路径；之后用 edit_file 改该文件，再用 file。路径相对工作区，不要加 workspace/ 前缀。
+        短一次性逻辑可用 execute_script 的 code。超过 20 行或 1000 字符时，运行时会把 code 写入 jobs/ 再执行，并在结果里给出路径；之后用 edit_file 改该文件，再用 file。路径相对工作区，不要写绝对路径，也不要加 workspace/ 前缀。
+        只读文档用 docs/system/... 或 docs/capabilities/...（read_file、grep、glob、list_dir）。
         脚本里 await $tools.工具名({...}) 可调用已注册的外层工具（不能再调 execute_script）。具体写法看各工具说明；用错时按返回提醒改。
         回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
         """.trim();
@@ -161,12 +163,14 @@ public final class ProductivitySystemPromptBuilder {
         int maxTurnsPerRun,
         int maxToolCallsPerRun
     ) {
-        Path normalized = workspaceRoot.toAbsolutePath().normalize();
+        if (workspaceRoot == null) {
+            throw new IllegalArgumentException("workspaceRoot required");
+        }
         String date = LocalDate.now(ZoneId.systemDefault()).toString();
         String osName = System.getProperty("os.name", "unknown");
-        String rootLine = agentRoot == null
+        String docsLine = agentRoot == null
             ? ""
-            : "- agentRoot：" + agentRoot.toAbsolutePath().normalize() + "\n";
+            : "- 只读文档：docs/system/、docs/capabilities/（不要写绝对路径）\n";
         String catalogLine = agentRoot == null ? "" : catalogPendingSummary(agentRoot);
         String extra = environmentSupplement == null || environmentSupplement.isBlank()
             ? ""
@@ -182,12 +186,12 @@ public final class ProductivitySystemPromptBuilder {
         }
         return """
             ## 环境
-            %s- 工作区（唯一可写）：%s
-            - 日期：%s
+            - 工作区（唯一可写）：当前会话 workspace，路径相对工作区根
+            %s- 日期：%s
             - 平台：%s
-            %s- shared/、docs/ 只读。没有 Node，不能 npm 或 require。
+            %s- shared/ 只读，不能用 write_file 修改。没有 Node，不能 npm 或 require。
             %s%s
-            """.formatted(rootLine, normalized, date, osName, runLimitsLine, catalogLine, extra).trim();
+            """.formatted(docsLine, date, osName, runLimitsLine, catalogLine, extra).trim();
     }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();

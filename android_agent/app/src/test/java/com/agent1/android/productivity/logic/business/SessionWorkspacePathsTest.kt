@@ -37,6 +37,16 @@ class SessionWorkspacePathsTest {
     }
 
     @Test
+    fun scrubWorkspaceAbsolute_replacesWorkspacePrefix() {
+        val root = Files.createTempDirectory("ws-scrub").toAbsolutePath()
+        val text = "已写入: " + root.resolve("out/a.docx")
+        assertEquals(
+            "已写入: out/a.docx",
+            SessionWorkspacePaths.scrubWorkspaceAbsolute(text, root),
+        )
+    }
+
+    @Test
     fun resolveFile_findsFileFromAbsoluteWorkspacePath() {
         val root = Files.createTempDirectory("ws-abs-resolve")
         val file = root.resolve("notes.md").toFile()
