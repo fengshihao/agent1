@@ -65,7 +65,7 @@ class CapabilitySearchViewTest {
 
         assertFalse(view.modelText().contains("android.share.send"));
         assertTrue(view.hiddenByPlatform().stream().anyMatch(hit ->
-            "caps.android.share.send".equals(hit.id())
+            "android.share.send".equals(hit.id())
                 && CapabilitySearchView.PLATFORM_HIDDEN.equals(hit.availability())
         ));
     }

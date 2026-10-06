@@ -58,7 +58,7 @@ class CapabilityIndexStoreTest {
 
         var hits = CapabilityIndexStore.search(agentRoot, "svg png", List.of(), "any", 5);
         assertFalse(hits.isEmpty());
-        assertTrue(hits.stream().anyMatch(h -> "catalog_script.svg-raster".equals(h.id())));
+        assertTrue(hits.stream().anyMatch(h -> "svg.svgToImage".equals(h.id())));
     }
 
     @Test
@@ -74,8 +74,8 @@ class CapabilityIndexStoreTest {
             5
         );
         assertFalse(hits.isEmpty());
-        assertEquals("doc.promotion", hits.get(0).id());
-        assertEquals("docs/system/promotion.md", hits.get(0).docPath());
+        assertEquals("agent.promotion", hits.get(0).id());
+        assertEquals("", hits.get(0).docPath());
     }
 
     @Test
@@ -102,8 +102,8 @@ class CapabilityIndexStoreTest {
             5
         );
         assertFalse(hits.isEmpty());
-        assertEquals("doc.promotion", hits.get(0).id());
-        assertEquals("docs/system/promotion.md", hits.get(0).docPath());
+        assertEquals("agent.promotion", hits.get(0).id());
+        assertEquals("", hits.get(0).docPath());
     }
 
     @Test
@@ -112,20 +112,20 @@ class CapabilityIndexStoreTest {
         CapabilityIndexStore.ensure(agentRoot);
 
         assertEquals(
-            "doc.directories",
-            CapabilityIndexStore.search(agentRoot, "directories workspace", List.of("doc"), "any", 3).get(0).id()
+            "agent.directories",
+            CapabilityIndexStore.search(agentRoot, "directories workspace", List.of("builtin"), "any", 3).get(0).id()
         );
         assertEquals(
-            "doc.catalog-install",
-            CapabilityIndexStore.search(agentRoot, "catalog_install", List.of("doc"), "any", 3).get(0).id()
+            "agent.catalog-install",
+            CapabilityIndexStore.search(agentRoot, "catalog_install", List.of("builtin"), "any", 3).get(0).id()
         );
         assertEquals(
-            "doc.events-audit",
-            CapabilityIndexStore.search(agentRoot, "events.jsonl", List.of("doc"), "any", 3).get(0).id()
+            "agent.events-audit",
+            CapabilityIndexStore.search(agentRoot, "events.jsonl", List.of("builtin"), "any", 3).get(0).id()
         );
         assertEquals(
-            "doc.trusted-sources",
-            CapabilityIndexStore.search(agentRoot, "trusted source", List.of("doc"), "any", 3).get(0).id()
+            "agent.trusted-sources",
+            CapabilityIndexStore.search(agentRoot, "trusted source", List.of("builtin"), "any", 3).get(0).id()
         );
     }
 
@@ -137,13 +137,13 @@ class CapabilityIndexStoreTest {
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + db.toAbsolutePath());
             Statement statement = connection.createStatement()) {
             statement.executeUpdate("UPDATE meta SET value = '0' WHERE key = 'seed_revision'");
-            statement.executeUpdate("DELETE FROM capability WHERE id = 'doc.promotion'");
-            statement.executeUpdate("DELETE FROM capability_fts WHERE id = 'doc.promotion'");
+            statement.executeUpdate("DELETE FROM capability WHERE id = 'agent.promotion'");
+            statement.executeUpdate("DELETE FROM capability_fts WHERE id = 'agent.promotion'");
         }
 
         var missing = CapabilityIndexStore.searchLike(
             db,
-            "doc.promotion",
+            "agent.promotion",
             List.of(),
             "any",
             5
@@ -158,7 +158,7 @@ class CapabilityIndexStoreTest {
             "android",
             5
         );
-        assertEquals("doc.promotion", hits.get(0).id());
+        assertEquals("agent.promotion", hits.get(0).id());
     }
 
     @Test

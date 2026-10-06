@@ -10,6 +10,7 @@ import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,9 +27,12 @@ class WeizhiDocsGrepGlobTest {
     private List<AgentTool> tools;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         Path agentRoot = temp.resolve("agentRoot");
         AgentHomeBootstrap.ensure(agentRoot);
+        Path doc = agentRoot.resolve("docs/system/directories.md");
+        Files.createDirectories(doc.getParent());
+        Files.writeString(doc, "# fixture\nagentRoot\n");
         agent1Sandbox = new WorkspaceSandbox(temp.resolve("workspace"), agentRoot);
         tools = WeizhiWorkspaceTools.create(agent1Sandbox, agentRoot, null);
     }

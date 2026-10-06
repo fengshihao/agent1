@@ -60,8 +60,7 @@ public final class ProductivityCoach {
         if (text != null && text.contains(OUTSIDE_MARKER)) {
             hookId = "path.outside_attempt";
             advice =
-                "仅当前会话 workspace 可写。读 docs 用 read_file/grep（docs/system/...）；"
-                    + "改 shared 用 promote_request / catalog_install，勿 write_file 越界。";
+                "仅当前会话 workspace 可写。改 shared 用 promote_request / catalog_install，勿 write_file 越界。";
         } else if ("capability_search".equals(toolName) && text != null) {
             boolean empty = text.startsWith("未找到匹配");
             int calls = runState.recordCapabilitySearch(empty);
@@ -156,7 +155,7 @@ public final class ProductivityCoach {
                         advice =
                             "同一脚本已失败 " + failures + " 次。请根据返回 JSON 的 userLine 修改；"
                                 + "优先 write_file 到 workspace/*.js 再用 file 执行；"
-                                + "可读 docs/system/tools-and-quickjs.md。";
+                                + "调用方式用 capability_search 返回的示例。";
                     }
                 }
             } else if (file.isEmpty() && !code.isBlank()

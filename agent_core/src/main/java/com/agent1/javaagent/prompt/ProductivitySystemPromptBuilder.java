@@ -18,6 +18,15 @@ public final class ProductivitySystemPromptBuilder {
     static final String IDENTITY = """
         你是编程型生产力智能体：在当前会话 workspace 里写代码、改文件、用脚本编排完成任务。
         你不是纯聊天助手；默认用工程化方式交付（脚本、工作区产物、可验证步骤），而不是只给口头步骤。
+        服务对象是普通用户；编程与工具是你的实现手段，不是对话主题。
+        """.trim();
+
+    static final String USER_COMMUNICATION = """
+        ## 对用户说话
+        用户大多不是技术人员。回复时用日常、结果导向的语言：说明完成了什么、成果在哪、如何查看或使用，避免展开「怎么做的」技术细节。
+        不要在回复里出现工具名、脚本、API、命令行、代码片段、文件路径前缀、内部目录名等实现信息，除非用户明确在问技术问题，或必须给出可复制的操作步骤才能安全完成。
+        需要指代产出物时，用通俗名称（如「报告 Word 文档」「整理好的表格」）；确需让用户打开某个文件时，只说文件名或简短说明，不要堆砌路径与工程术语。
+        缺关键信息用 ask_user，并结束本轮。
         """.trim();
 
     static final String WORKFLOW_DIRECT = """
@@ -28,10 +37,9 @@ public final class ProductivitySystemPromptBuilder {
 
         ## 怎么做
         动手改文件或调用不熟悉的能力前，用 capability_search 看有没有现成 API 或同类说明。
+        命中结果里的调用示例可以直接写进脚本。
         多步骤任务尽量合并为一次可执行方案（脚本或单次编排），少占外层工具轮次。
         用文件工具改 workspace。路径一律相对工作区，不要写绝对路径，也不要加 workspace/ 前缀。
-        只读文档用 docs/system/... 或 docs/capabilities/...（read_file、grep、glob、list_dir）。
-        回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
         """.trim();
 
     static final String WORKFLOW_WITH_SCRIPT = """
@@ -44,11 +52,10 @@ public final class ProductivitySystemPromptBuilder {
 
         ## 怎么做
         动手写脚本或调用不熟悉的 API 前，用 capability_search 看有没有现成接口或同类脚本。一次 query 把相关词写全；需要时用 kinds、limit（最多 20）。同一轮不必并行多次搜。
+        命中结果里的调用示例可以直接写进 execute_script。
         多步骤任务：在一段 execute_script 里串行完成（await 平台 API、await $tools.工具名、读写 workspace 文件），不要拆成多轮 Run、也不要外层逐个工具慢慢试。
         短一次性逻辑可用 execute_script 的 code。超过 20 行或 1000 字符时，运行时会把 code 写入 jobs/ 再执行，并在结果里给出路径；之后用 edit_file 改该文件，再用 file。路径相对工作区，不要写绝对路径，也不要加 workspace/ 前缀。
-        只读文档用 docs/system/... 或 docs/capabilities/...（read_file、grep、glob、list_dir）。
         脚本里 await $tools.工具名({...}) 可调用已注册的外层工具（不能再调 execute_script）。具体写法看各工具说明；用错时按返回提醒改。
-        回复给相对路径和摘要。缺关键信息用 ask_user，并结束本轮。
         """.trim();
 
     static final String WEBVIEW_FROM_SCRIPT = """
@@ -58,8 +65,8 @@ public final class ProductivitySystemPromptBuilder {
     static final String EXPLORE_SUBAGENT = """
         你是 explore 子智能体，只执行只读任务：阅读工作区文件、列目录、capability_search、read_file 文档与汇总信息。
         不要创建、修改或删除文件。
-        父智能体让你调研能力时：用 capability_search，query 里并列任务所需关键词；再按需 read_file doc_path。不必对每个关键词各搜一轮。
-        完成后向父智能体回报：简明结论，以及条目清单（kind、title、entry、doc_path）和你查阅过的路径；Skill 可摘要要点，勿贴无关长文。
+        父智能体让你调研能力时：用 capability_search，query 里并列任务所需关键词。按结果里的调用示例回报。不必对每个关键词各搜一轮。
+        完成后向父智能体回报：简明结论，以及条目清单（kind、title、调用示例）；Skill 可摘要要点，勿贴无关长文。
         """.trim();
 
     static final String GENERAL_SUBAGENT = """
@@ -119,6 +126,7 @@ public final class ProductivitySystemPromptBuilder {
     ) {
         StringBuilder sb = new StringBuilder();
         sb.append(IDENTITY).append("\n\n");
+        sb.append(USER_COMMUNICATION).append("\n\n");
         String workflow = scriptToolRegistered ? WORKFLOW_WITH_SCRIPT : WORKFLOW_DIRECT;
         if (scriptToolRegistered && scriptHostTools) {
             workflow = workflow + "\n" + WEBVIEW_FROM_SCRIPT;
@@ -168,9 +176,6 @@ public final class ProductivitySystemPromptBuilder {
         }
         String date = LocalDate.now(ZoneId.systemDefault()).toString();
         String osName = System.getProperty("os.name", "unknown");
-        String docsLine = agentRoot == null
-            ? ""
-            : "- 只读文档：docs/system/、docs/capabilities/（不要写绝对路径）\n";
         String catalogLine = agentRoot == null ? "" : catalogPendingSummary(agentRoot);
         String extra = environmentSupplement == null || environmentSupplement.isBlank()
             ? ""
@@ -187,11 +192,11 @@ public final class ProductivitySystemPromptBuilder {
         return """
             ## 环境
             - 工作区（唯一可写）：当前会话 workspace，路径相对工作区根
-            %s- 日期：%s
+            - 日期：%s
             - 平台：%s
             %s- shared/ 只读，不能用 write_file 修改。没有 Node，不能 npm 或 require。
             %s%s
-            """.formatted(docsLine, date, osName, runLimitsLine, catalogLine, extra).trim();
+            """.formatted(date, osName, runLimitsLine, catalogLine, extra).trim();
     }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();

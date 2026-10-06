@@ -7,7 +7,6 @@ import com.agent1.javaagent.catalog.SvgRasterCatalogScripts;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -52,7 +51,7 @@ public final class AgentHomeBootstrap {
             }
         }
         ensureManifest(root);
-        ensureBundledSystemDocs(root);
+        removeBundledSystemDocs(root);
         OfficeCatalogScripts.ensure(root);
         SvgRasterCatalogScripts.ensure(root);
         CapabilityIndexStore.ensure(root);
@@ -92,42 +91,28 @@ public final class AgentHomeBootstrap {
         }
     }
 
-    private static void ensureBundledSystemDocs(Path root) {
-        Path systemDir = root.resolve("docs/system");
-        copyResourceIfMissing(systemDir.resolve("README.md"), "/agent-home/docs/system/README.md");
-        copyResourceIfMissing(systemDir.resolve("directories.md"), "/agent-home/docs/system/directories.md");
-        copyResourceIfMissing(systemDir.resolve("catalog-install.md"), "/agent-home/docs/system/catalog-install.md");
-        copyResourceIfMissing(systemDir.resolve("promotion.md"), "/agent-home/docs/system/promotion.md");
-        copyResourceIfMissing(systemDir.resolve("trusted-sources.md"), "/agent-home/docs/system/trusted-sources.md");
-        copyResourceIfMissing(
-            systemDir.resolve("tools-and-quickjs.md"),
-            "/agent-home/docs/system/tools-and-quickjs.md"
-        );
-        copyResourceIfMissing(
-            systemDir.resolve("events-audit.md"),
-            "/agent-home/docs/system/events-audit.md"
-        );
-        copyResourceIfMissing(systemDir.resolve("office-docx.md"), "/agent-home/docs/system/office-docx.md");
-        copyResourceIfMissing(systemDir.resolve("svg-raster.md"), "/agent-home/docs/system/svg-raster.md");
-        copyResourceIfMissing(systemDir.resolve("android-intent.md"), "/agent-home/docs/system/android-intent.md");
-    }
+    /** 旧版本曾把 API 手册拷进 docs/system。能力改走调用卡后，升级时删掉这些文件。 */
+    private static final List<String> RETIRED_SYSTEM_DOCS = List.of(
+        "README.md",
+        "directories.md",
+        "catalog-install.md",
+        "promotion.md",
+        "trusted-sources.md",
+        "tools-and-quickjs.md",
+        "events-audit.md",
+        "office-docx.md",
+        "svg-raster.md",
+        "android-intent.md"
+    );
 
-    private static void copyResourceIfMissing(Path target, String resourcePath) {
-        if (Files.isRegularFile(target)) {
-            return;
-        }
-        java.net.URL url = AgentHomeBootstrap.class.getResource(resourcePath);
-        if (url == null) {
-            return;
-        }
-        try (InputStream in = url.openStream()) {
-            Path parent = target.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
+    private static void removeBundledSystemDocs(Path root) {
+        Path systemDir = root.resolve("docs/system");
+        for (String name : RETIRED_SYSTEM_DOCS) {
+            try {
+                Files.deleteIfExists(systemDir.resolve(name));
+            } catch (IOException e) {
+                throw new IllegalStateException("remove retired system doc failed: " + name, e);
             }
-            PathIo.writeString(target, new String(in.readAllBytes(), StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new IllegalStateException("copy bundled doc failed: " + target, e);
         }
     }
 }

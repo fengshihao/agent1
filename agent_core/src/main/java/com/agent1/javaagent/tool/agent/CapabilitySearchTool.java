@@ -8,15 +8,10 @@ import com.agent1.javaagent.skill.AgentSkillLoader;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolUpdateListener;
-import com.agent1.javaagent.util.PathIo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -32,9 +27,6 @@ public final class CapabilitySearchTool implements AgentTool {
     public static final String TOOL_NAME = "capability_search";
 
     private static final int LOADED_SKILL_CHARS = 8_000;
-
-    /** 排名第一的说明不超过该字数时，把正文附在检索结果里，避免再 read_file。 */
-    static final int INLINE_DOC_CHARS = 4_000;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -67,11 +59,12 @@ public final class CapabilitySearchTool implements AgentTool {
     @Override
     public String description() {
         return """
-            编程前用来找本地已有 API 和脚本（MCP、Skill、Caps、文档、catalog_script），避免重复实现。
+            编程前用来找本地已有 API 和脚本（MCP、Skill、Caps、catalog_script），避免重复实现。
             query 用空格分隔关键词，一次写全；命中越多越靠前。
             无翻页：只返回前 limit 条（默认 8，可设 1–20）。不够就改 query、用 kinds，或提高 limit。
             同一轮不必并行多次；不够再下一轮再搜。
-            kinds：mcp、skill、doc、builtin、catalog_script。前两条 MCP 命中带参数，其余只有名称和入口。命中 Skill 会直接带上正文。排名第一且说明不超过 4000 字时，结果里已附正文，不必再 read_file；更长的文档再用 read_file。
+            kinds：mcp、skill、builtin、catalog_script、caps。前两条 MCP 命中带参数，其余给出名称和调用示例。命中 Skill 会直接带上正文。
+            结果里的调用示例可以直接写进 execute_script。
             """.trim();
     }
 
@@ -160,7 +153,6 @@ public final class CapabilitySearchTool implements AgentTool {
             }
             appendIndexHit(text, details, hit, withParams);
         }
-        appendTopDoc(text, hits, loadedNames);
         ObjectNode root = MAPPER.createObjectNode();
         root.set("hits", details);
         return new ToolExecutionResult(text.toString().trim(), root);
@@ -270,58 +262,6 @@ public final class CapabilitySearchTool implements AgentTool {
         details.add(row);
     }
 
-    private void appendTopDoc(
-        StringBuilder text,
-        List<CapabilityIndexStore.CapabilityHit> hits,
-        Set<String> loadedNames
-    ) {
-        CapabilityIndexStore.CapabilityHit top = null;
-        for (CapabilityIndexStore.CapabilityHit hit : hits) {
-            if (!loadedNames.contains(skillName(hit))) {
-                top = hit;
-                break;
-            }
-        }
-        if (top == null || top.docPath().isBlank()) {
-            return;
-        }
-        String body = readBundledDoc(top.docPath());
-        if (body == null || body.length() > INLINE_DOC_CHARS) {
-            return;
-        }
-        text.append("\n---\n排名第一的说明已附上（")
-            .append(body.length())
-            .append(" 字），不必再 read_file ")
-            .append(top.docPath())
-            .append("\n\n")
-            .append(body.trim())
-            .append('\n');
-    }
-
-    private String readBundledDoc(String docPath) {
-        String relative = docPath.trim().replace('\\', '/');
-        if (relative.isEmpty() || relative.startsWith("/") || relative.contains("..")) {
-            return null;
-        }
-        Path file = agentRoot.resolve(relative).normalize();
-        if (file.startsWith(agentRoot) && Files.isRegularFile(file)) {
-            try {
-                return PathIo.readString(file).trim();
-            } catch (IOException ignored) {
-                return null;
-            }
-        }
-        String resource = "/agent-home/" + relative;
-        try (InputStream in = CapabilitySearchTool.class.getResourceAsStream(resource)) {
-            if (in == null) {
-                return null;
-            }
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8).trim();
-        } catch (IOException ignored) {
-            return null;
-        }
-    }
-
     private static void appendIndexHit(
         StringBuilder text,
         ArrayNode details,
@@ -330,13 +270,8 @@ public final class CapabilitySearchTool implements AgentTool {
     ) {
         text.append("- [").append(hit.kind()).append("] ").append(hit.title()).append('\n');
         text.append("  id: ").append(hit.id()).append('\n');
-        if (!hit.entry().isEmpty()) {
-            text.append("  entry: ").append(hit.entry()).append('\n');
-        }
-        if (!hit.docPath().isEmpty()) {
-            text.append("  doc: ").append(hit.docPath()).append('\n');
-        }
         text.append("  ").append(truncate(hit.summary(), 220)).append('\n');
+        appendEntry(text, hit.entry());
         if (withParams) {
             String params = McpSchemaBrief.format(hit.requiresJson());
             if (!params.isEmpty()) {
@@ -376,6 +311,20 @@ public final class CapabilitySearchTool implements AgentTool {
             return "desktop";
         }
         return platform.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static void appendEntry(StringBuilder text, String entry) {
+        if (entry == null || entry.isEmpty()) {
+            return;
+        }
+        if (!entry.contains("\n")) {
+            text.append("  entry: ").append(entry).append('\n');
+            return;
+        }
+        text.append("  调用:\n");
+        for (String line : entry.split("\n", -1)) {
+            text.append("  ").append(line).append('\n');
+        }
     }
 
     private static String truncate(String text, int max) {

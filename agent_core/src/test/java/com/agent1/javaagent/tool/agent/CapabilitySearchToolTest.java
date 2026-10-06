@@ -73,8 +73,8 @@ class CapabilitySearchToolTest {
 
         assertTrue(onAndroid.getText().contains("android.intent.start"));
         assertTrue(onAndroid.getText().contains("action: \"view\""));
-        assertTrue(onAndroid.getText().contains("不必再 read_file"));
         assertTrue(onAndroid.getText().contains("panel"));
+        assertFalse(onAndroid.getText().contains("office-docx.md"));
         assertFalse(onDesktop.getText().contains("android.intent.start"));
     }
 
@@ -89,9 +89,10 @@ class CapabilitySearchToolTest {
         ToolExecutionResult result = tool.execute("t-long", params, new CancellationToken(), u -> {
         });
 
-        assertTrue(result.getText().contains("docx"));
-        assertFalse(result.getText().contains("不必再 read_file docs/system/office-docx.md"));
-        assertFalse(result.getText().contains("没有 `open()` 改已有 docx"));
+        assertTrue(result.getText().contains("markdownToDocx"));
+        assertTrue(result.getText().contains("inputPath"));
+        assertFalse(result.getText().contains("office-docx.md"));
+        assertFalse(result.getText().contains("不必再 read_file"));
     }
 
     @Test

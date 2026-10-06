@@ -14,15 +14,24 @@ public final class CapabilitySeedLoader {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String SEED_RESOURCE = "/agent-home/capabilities/search-index.seed.jsonl";
+    /** 微智按 API 导出的调用卡。真源：weizhi {@code docs/api-cards.jsonl}。 */
+    private static final String WEIZHI_CARDS_RESOURCE = "/agent-home/capabilities/weizhi-api-cards.jsonl";
 
     private CapabilitySeedLoader() {
     }
 
     public static List<CapabilityRecord> loadBundledSeed() {
         List<CapabilityRecord> out = new ArrayList<>();
-        try (InputStream in = CapabilitySeedLoader.class.getResourceAsStream(SEED_RESOURCE)) {
+        out.addAll(loadResource(SEED_RESOURCE, false));
+        out.addAll(loadResource(WEIZHI_CARDS_RESOURCE, true));
+        return out;
+    }
+
+    private static List<CapabilityRecord> loadResource(String resource, boolean weizhiCard) {
+        List<CapabilityRecord> out = new ArrayList<>();
+        try (InputStream in = CapabilitySeedLoader.class.getResourceAsStream(resource)) {
             if (in == null) {
-                throw new IllegalStateException("missing bundled seed: " + SEED_RESOURCE);
+                throw new IllegalStateException("missing bundled seed: " + resource);
             }
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
                 String line;
@@ -31,11 +40,11 @@ public final class CapabilitySeedLoader {
                     if (line.isEmpty() || line.startsWith("#")) {
                         continue;
                     }
-                    out.add(parseLine(line));
+                    out.add(weizhiCard ? parseWeizhiCard(line) : parseLine(line));
                 }
             }
         } catch (Exception e) {
-            throw new IllegalStateException("read capability seed failed", e);
+            throw new IllegalStateException("read capability seed failed: " + resource, e);
         }
         return out;
     }
@@ -56,6 +65,29 @@ public final class CapabilitySeedLoader {
             node.has("requires") ? node.get("requires").toString() : "",
             node.path("source").asText("bundled"),
             node.path("weight").asDouble(1.0)
+        );
+    }
+
+    /** 微智卡片没有 kind / doc_path；{@code params} 放进 requires_json，不作为下一步文档。 */
+    static CapabilityRecord parseWeizhiCard(String jsonLine) throws Exception {
+        JsonNode node = MAPPER.readTree(jsonLine);
+        String id = node.path("id").asText("");
+        String kind = id.startsWith("android.") ? "caps" : "catalog_script";
+        String requires = node.has("params") && !node.get("params").isNull() ? node.get("params").toString() : "";
+        double weight = id.startsWith("docx.") ? 1.2 : 1.1;
+        return new CapabilityRecord(
+            id,
+            kind,
+            node.path("title").asText(""),
+            node.path("summary").asText(""),
+            tagsToCsv(node.get("tags")),
+            platformsToStored(node.get("platforms")),
+            node.path("entry").asText(""),
+            "",
+            "",
+            requires,
+            "weizhi",
+            weight
         );
     }
 

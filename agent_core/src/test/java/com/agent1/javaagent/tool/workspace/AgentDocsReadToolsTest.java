@@ -8,6 +8,7 @@ import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,9 +23,12 @@ class AgentDocsReadToolsTest {
     private WorkspaceSandbox sandbox;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         Path agentRoot = temp.resolve("agentRoot");
         AgentHomeBootstrap.ensure(agentRoot);
+        Path doc = agentRoot.resolve("docs/system/directories.md");
+        Files.createDirectories(doc.getParent());
+        Files.writeString(doc, "# fixture\nagentRoot\n");
         sandbox = new WorkspaceSandbox(temp.resolve("workspace"), agentRoot);
     }
 

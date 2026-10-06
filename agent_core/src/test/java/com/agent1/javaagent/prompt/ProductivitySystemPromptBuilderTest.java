@@ -29,6 +29,9 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
         assertTrue(prompt.contains("ask_user"));
+        assertTrue(prompt.contains("对用户说话"));
+        assertTrue(prompt.contains("普通用户"));
+        assertTrue(prompt.contains("除非用户明确在问技术问题"));
     }
 
     @Test
@@ -83,7 +86,8 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(temp.resolve("ws"), false);
         assertTrue(prompt.contains("不能 npm"));
         assertTrue(prompt.contains("shared/"));
-        assertTrue(prompt.contains("docs/"));
+        assertTrue(prompt.contains("调用示例"));
+        assertFalse(prompt.contains("docs/"));
         assertTrue(prompt.contains("分工"));
         assertFalse(prompt.contains("QuickJS"));
         assertFalse(prompt.contains("Tavily"));
@@ -192,7 +196,7 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(workspace, agentRoot, false, false);
         assertTrue(prompt.contains("shared/"));
-        assertTrue(prompt.contains("docs/system/"));
+        assertFalse(prompt.contains("docs/system/"));
         assertFalse(prompt.contains(agentRoot.toString()));
         assertFalse(prompt.contains(workspace.toString()));
     }
@@ -215,6 +219,7 @@ class ProductivitySystemPromptBuilderTest {
         assertFalse(prompt.contains("HTML"));
         assertFalse(prompt.contains("toDataURL"));
         assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("调用示例"));
         assertTrue(prompt.contains("execute_script"));
     }
 

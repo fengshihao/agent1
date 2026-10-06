@@ -34,6 +34,9 @@ class WorkspaceSandboxTest {
     void resolveReadAgentDocPath() throws Exception {
         Path agentRoot = temp.resolve("agentRoot");
         AgentHomeBootstrap.ensure(agentRoot);
+        Path written = agentRoot.resolve("docs/system/directories.md");
+        Files.createDirectories(written.getParent());
+        Files.writeString(written, "# fixture\n");
         WorkspaceSandbox withAgent = new WorkspaceSandbox(temp.resolve("ws"), agentRoot);
         Path doc = withAgent.resolveRead("docs/system/directories.md");
         assertTrue(Files.isRegularFile(doc));

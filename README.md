@@ -55,7 +55,7 @@ Agent1 要成为 **Android / 嵌入式 JVM 宿主** 里的默认 **生产力编�
    在 Session `workspace/` 里生成并迭代 **orchestrator 脚本**（`execute_script`），通过 Weizhi QuickJS 调用 `fs`、平台 **Caps**、catalog 脚本、以及白名单内的 `$tools` 桥。复杂任务拆成多步脚本，而不是一轮轮硬调零散 Java Tool。
 
 2. **工具少而精，细节靠检索**  
-   Java 层只保留工作区 I/O、脚本执行、用户澄清、文档只读等「内核工具」。具体怎么做 Word、grep、画图、调外部服务，先走 **`capability_search`（能力 / Ability 检索）** → `read_agent_doc` / Skill 正文，避免提示词爆炸。
+   Java 层只保留工作区 I/O、脚本执行、用户澄清等「内核工具」。具体怎么做 Word、分享、画图、调外部服务，先走 **`capability_search`**：结果里的调用示例可以直接写进脚本。Skill 命中时附上正文。API 手册不打进 APK。
 
 3. **Skill：可加载、可自创、可晋升**  
    - **加载**：`load_skill` 从 workspace `skills/`、App `assets`（Android）或项目目录（桌面联编）拉取 SKILL.md 工作流。  
@@ -240,7 +240,7 @@ Full **scripting and tool-loop** capabilities come from **[Weizhi](https://githu
 ### How it works
 
 - **JavaScript-first**: orchestrate tasks with `execute_script` (Weizhi QuickJS) in the session workspace; call Caps, catalog scripts, `$tools`, and `$mcp.*` from JS.
-- **Discovery, not prompt bloat**: use **`capability_search`** to find skills, docs, and MCP tools; load workflows with **`load_skill`**; evolve skills into shared storage over time.
+- **Discovery, not prompt bloat**: use **`capability_search`** to get a callable example for skills, APIs, and MCP tools; load workflows with **`load_skill`**. API manuals are not shipped in the app.
 - **WebView tools**: render script-driven pages on device (Android WebView; desktop Chromium for dev).
 - **MCP**: configure servers under `agentRoot`; invoke from scripts without registering every tool in Java.
 - **Self-evolution**: session sandboxes, promotion to shared catalog, full event trail—see `doc/规划/自进化Agent/`.
