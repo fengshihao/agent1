@@ -236,6 +236,53 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void bashWhichBeforeCapabilitySearchCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("command", "which pandoc");
+        ToolExecutionResult in = ToolExecutionResult.text("Error: command exited with code 1");
+        ToolExecutionResult out = coach.maybeAugment("bash", params, in, false);
+        assertTrue(out.getText().contains("[coach] bash.host_tool_probe"));
+        assertTrue(out.getText().contains("capability_search"));
+    }
+
+    @Test
+    void bashWhichNoCoachAfterCapabilitySearch() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode searchParams = MAPPER.createObjectNode();
+        searchParams.put("query", "docx");
+        coach.maybeAugment(
+            "capability_search",
+            searchParams,
+            ToolExecutionResult.text("capability_search: 1 条\n- [catalog_script] x"),
+            false
+        );
+        ObjectNode bashParams = MAPPER.createObjectNode();
+        bashParams.put("command", "which pandoc");
+        ToolExecutionResult out = coach.maybeAugment(
+            "bash",
+            bashParams,
+            ToolExecutionResult.text("Error: command exited with code 1"),
+            false
+        );
+        assertFalse(out.getText().contains("[coach] bash.host_tool_probe"));
+    }
+
+    @Test
+    void bashLsNoHostToolProbeCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("command", "ls -l");
+        ToolExecutionResult out = coach.maybeAugment(
+            "bash",
+            params,
+            ToolExecutionResult.text("ok"),
+            false
+        );
+        assertFalse(out.getText().contains("[coach] bash.host_tool_probe"));
+    }
+
+    @Test
     void fileModeScriptSkipsInlineCoach() {
         ProductivityCoach coach = new ProductivityCoach();
         ObjectNode params = MAPPER.createObjectNode();

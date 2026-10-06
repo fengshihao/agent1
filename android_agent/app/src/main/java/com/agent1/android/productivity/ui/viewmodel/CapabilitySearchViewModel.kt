@@ -140,7 +140,6 @@ class CapabilitySearchViewModel(
             "mcp" to "MCP",
             "bridge_tool" to "桥接",
             "agent_tool" to "外层工具",
-            "doc" to "文档",
         )
 
         fun kindChoices(): List<Pair<String, String>> {

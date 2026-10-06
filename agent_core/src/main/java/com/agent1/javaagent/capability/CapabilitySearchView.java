@@ -35,8 +35,7 @@ public final class CapabilitySearchView {
         "skill",
         "mcp",
         "bridge_tool",
-        "agent_tool",
-        "doc"
+        "agent_tool"
     );
 
     /** 出现在模型结果里。 */
@@ -122,7 +121,7 @@ public final class CapabilitySearchView {
         }
         params.put("limit", limit);
         try {
-            return new CapabilitySearchTool(agentRoot, platform, projectRoot)
+            return new CapabilitySearchTool(agentRoot, platform, projectRoot, true)
                 .execute("capability-view", params, new CancellationToken(), update -> {
                 });
         } catch (RuntimeException e) {

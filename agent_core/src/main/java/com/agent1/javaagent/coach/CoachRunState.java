@@ -6,11 +6,15 @@ public final class CoachRunState {
     private final java.util.Map<String, Integer> scriptFailureCounts = new java.util.LinkedHashMap<>();
     private int capabilitySearchCalls;
     private int capabilitySearchEmptyCalls;
+    private boolean capabilitySearchUsed;
+    private int bashHostToolProbeCoachCount;
 
     public void clear() {
         scriptFailureCounts.clear();
         capabilitySearchCalls = 0;
         capabilitySearchEmptyCalls = 0;
+        capabilitySearchUsed = false;
+        bashHostToolProbeCoachCount = 0;
     }
 
     public int recordScriptFailure(String scriptKey) {
@@ -24,6 +28,7 @@ public final class CoachRunState {
 
     /** @return 本 Run 内 capability_search 累计调用次数 */
     public int recordCapabilitySearch(boolean emptyResult) {
+        capabilitySearchUsed = true;
         capabilitySearchCalls++;
         if (emptyResult) {
             capabilitySearchEmptyCalls++;
@@ -33,5 +38,15 @@ public final class CoachRunState {
 
     public int capabilitySearchEmptyCalls() {
         return capabilitySearchEmptyCalls;
+    }
+
+    public boolean capabilitySearchUsed() {
+        return capabilitySearchUsed;
+    }
+
+    /** @return 本 Run 内因 bash 探测主机工具而追加 coach 的次数 */
+    public int recordBashHostToolProbeCoach() {
+        bashHostToolProbeCoachCount++;
+        return bashHostToolProbeCoachCount;
     }
 }

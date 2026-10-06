@@ -14,6 +14,9 @@ public final class ProductivityCoach {
     private static final String OUTSIDE_MARKER = "路径超出工作区范围";
     private static final Pattern WEBVIEW_OUTPUT_BYTES =
         Pattern.compile("·\\s*(\\d+)\\s*字节");
+    private static final Pattern BASH_WHICH_COMMAND =
+        Pattern.compile("(^|\\s)which(\\s|$)", Pattern.CASE_INSENSITIVE);
+    private static final int BASH_HOST_TOOL_PROBE_COACH_LIMIT = 2;
     private static final int WEBVIEW_TINY_IMAGE_BYTES = 256;
 
     private final int largeWriteBytes;
@@ -61,6 +64,18 @@ public final class ProductivityCoach {
             hookId = "path.outside_attempt";
             advice =
                 "仅当前会话 workspace 可写。改 shared 用 promote_request / catalog_install，勿 write_file 越界。";
+        } else if ("bash".equals(toolName) && parameters != null) {
+            String command = parameters.path("command").asText("");
+            if (looksLikeHostToolWhich(command)
+                && !runState.capabilitySearchUsed()
+                && runState.recordBashHostToolProbeCoach() <= BASH_HOST_TOOL_PROBE_COACH_LIMIT) {
+                hookId = "bash.host_tool_probe";
+                advice =
+                    "Android/沙箱 bash 通常没有 pandoc、LibreOffice、python3 等主机转换工具，也不要反复 which/find。"
+                        + "文档类任务先 capability_search（如 docx、markdown word、转 Word），"
+                        + "再用 execute_script 按结果里的 catalog 示例调用（如 docx.js 的 markdownToDocx）。"
+                        + "不要猜 Node 的 require/fs。";
+            }
         } else if ("capability_search".equals(toolName) && text != null) {
             boolean empty = text.startsWith("未找到匹配");
             int calls = runState.recordCapabilitySearch(empty);
@@ -283,6 +298,13 @@ public final class ProductivityCoach {
             || lower.contains("process.cwd")
             || lower.contains("process.env")
             || lower.contains("buffer.from");
+    }
+
+    private static boolean looksLikeHostToolWhich(String command) {
+        if (command == null || command.isBlank()) {
+            return false;
+        }
+        return BASH_WHICH_COMMAND.matcher(command.trim()).find();
     }
 
     private static boolean looksLikeNonScriptDataFile(String file) {

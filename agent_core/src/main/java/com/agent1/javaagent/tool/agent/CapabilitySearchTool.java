@@ -34,21 +34,33 @@ public final class CapabilitySearchTool implements AgentTool {
     /** Host 装配时固定（android / desktop）；索引行上的 platforms 字段仍用于过滤。 */
     private final String hostPlatform;
     private final Path projectRoot;
+    /** 仅能力检索 UI 需要按 kind 筛选；模型工具默认全量检索。 */
+    private final boolean applyKindFilter;
     private final AgentSkillLoader skillLoader = new AgentSkillLoader();
 
     /** 单测等场景：不按平台过滤（等同 any）。 */
     public CapabilitySearchTool(Path agentRoot) {
-        this(agentRoot, "any", null);
+        this(agentRoot, "any", null, false);
     }
 
     public CapabilitySearchTool(Path agentRoot, String hostPlatform) {
-        this(agentRoot, hostPlatform, null);
+        this(agentRoot, hostPlatform, null, false);
     }
 
     public CapabilitySearchTool(Path agentRoot, String hostPlatform, Path projectRoot) {
+        this(agentRoot, hostPlatform, projectRoot, false);
+    }
+
+    public CapabilitySearchTool(
+        Path agentRoot,
+        String hostPlatform,
+        Path projectRoot,
+        boolean applyKindFilter
+    ) {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
         this.hostPlatform = normalizeHostPlatform(hostPlatform);
         this.projectRoot = projectRoot == null ? null : projectRoot.toAbsolutePath().normalize();
+        this.applyKindFilter = applyKindFilter;
     }
 
     @Override
@@ -61,9 +73,9 @@ public final class CapabilitySearchTool implements AgentTool {
         return """
             编程前用来找本地已有 API 和脚本（MCP、Skill、Caps、catalog_script），避免重复实现。
             query 用空格分隔关键词，一次写全；命中越多越靠前。
-            无翻页：只返回前 limit 条（默认 8，可设 1–20）。不够就改 query、用 kinds，或提高 limit。
+            无翻页：只返回前 limit 条（默认 8，可设 1–20）。不够就改 query 或提高 limit。
             同一轮不必并行多次；不够再下一轮再搜。
-            kinds：mcp、skill、builtin、catalog_script、caps。前两条 MCP 命中带参数，其余给出名称和调用示例。命中 Skill 会直接带上正文。
+            默认检索全部类型（mcp、skill、catalog_script、caps 等）。前两条 MCP 命中带参数，其余给出名称和调用示例。命中 Skill 会直接带上正文。
             结果里的调用示例可以直接写进 execute_script。
             """.trim();
     }
@@ -82,12 +94,6 @@ public final class CapabilitySearchTool implements AgentTool {
                     "description",
                     "本任务相关关键词，空格分隔，一次写全，例如「地理编码 地址 坐标」。"
                 )
-        );
-        properties.set(
-            "kinds",
-            MAPPER.createObjectNode()
-                .put("type", "array")
-                .set("items", MAPPER.createObjectNode().put("type", "string"))
         );
         properties.set(
             "limit",
@@ -111,7 +117,9 @@ public final class CapabilitySearchTool implements AgentTool {
         if (query.isEmpty()) {
             return ToolExecutionResult.text("错误：query 不能为空");
         }
-        List<String> kinds = parseKinds(parameters == null ? null : parameters.get("kinds"));
+        List<String> kinds = applyKindFilter
+            ? parseKinds(parameters == null ? null : parameters.get("kinds"))
+            : List.of();
         int limit = parameters == null ? 8 : parameters.path("limit").asInt(8);
 
         List<CapabilityIndexStore.CapabilityHit> hits =

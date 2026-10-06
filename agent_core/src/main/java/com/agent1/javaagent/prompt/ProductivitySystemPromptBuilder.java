@@ -51,7 +51,7 @@ public final class ProductivitySystemPromptBuilder {
         辅助：bash、grep、read_url。
 
         ## 怎么做
-        动手写脚本或调用不熟悉的 API 前，用 capability_search 看有没有现成接口或同类脚本。一次 query 把相关词写全；需要时用 kinds、limit（最多 20）。同一轮不必并行多次搜。
+        动手写脚本或调用不熟悉的 API 前，用 capability_search 看有没有现成接口或同类脚本。一次 query 把相关词写全；默认会搜全部能力类型，不要自行缩小范围。可用 limit（最多 20）。同一轮不必并行多次搜。
         命中结果里的调用示例可以直接写进 execute_script。catalog 脚本写成 from "文件名.js"，不要加 ./。./ 只表示 workspace 里和当前脚本放在一起的文件。不要 glob、list_dir 或 catalog_sync 去找脚本库。
         多步骤任务：在一段 execute_script 里串行完成（await 平台 API、await $tools.工具名、读写 workspace 文件），不要拆成多轮 Run、也不要外层逐个工具慢慢试。
         短一次性逻辑可用 execute_script 的 code。超过 20 行或 1000 字符时，运行时会把 code 写入 jobs/ 再执行，并在结果里给出路径；之后用 edit_file 改该文件，再用 file。路径相对工作区，不要写绝对路径，也不要加 workspace/ 前缀。

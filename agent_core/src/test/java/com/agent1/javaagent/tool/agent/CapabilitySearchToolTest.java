@@ -26,6 +26,37 @@ class CapabilitySearchToolTest {
     Path temp;
 
     @Test
+    void modelToolIgnoresKindsFilter() throws Exception {
+        Path agentRoot = temp.resolve("agentRootKinds");
+        AgentHomeBootstrap.ensure(agentRoot);
+        CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot, "android");
+        ObjectNode params = new ObjectMapper().createObjectNode();
+        params.put("query", "markdown word docx");
+        params.putArray("kinds").add("skill").add("builtin");
+
+        ToolExecutionResult result = tool.execute("t-kinds", params, new CancellationToken(), u -> {
+        });
+
+        assertTrue(result.getText().contains("markdownToDocx"));
+        assertTrue(result.getText().contains("catalog_script"));
+    }
+
+    @Test
+    void kindFilterAppliesWhenEnabled() throws Exception {
+        Path agentRoot = temp.resolve("agentRootKindsFilter");
+        AgentHomeBootstrap.ensure(agentRoot);
+        CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot, "android", null, true);
+        ObjectNode params = new ObjectMapper().createObjectNode();
+        params.put("query", "markdown word docx");
+        params.putArray("kinds").add("skill").add("builtin");
+
+        ToolExecutionResult result = tool.execute("t-kinds-filter", params, new CancellationToken(), u -> {
+        });
+
+        assertTrue(result.getText().startsWith("未找到匹配"));
+    }
+
+    @Test
     void searchReturnsDocxHint() throws Exception {
         Path agentRoot = temp.resolve("agentRoot");
         CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot);
