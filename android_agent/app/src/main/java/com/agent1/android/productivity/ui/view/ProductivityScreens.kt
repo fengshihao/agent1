@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1218,16 +1217,6 @@ private fun AssistantPendingBubble(label: String) {
 }
 
 @Composable
-private fun toolStatusAccent(finished: Boolean, isError: Boolean): Color {
-    val scheme = MaterialTheme.colorScheme
-    return when {
-        !finished -> if (isSystemInDarkTheme()) Color(0xFFE8C547) else Color(0xFFB8860B)
-        isError -> scheme.error
-        else -> scheme.secondary
-    }
-}
-
-@Composable
 private fun CollapsibleToolCallBubble(
     stateKey: String,
     toolName: String,
@@ -1242,23 +1231,24 @@ private fun CollapsibleToolCallBubble(
     workspaceFilePaths: List<String>,
 ) {
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
-    val accent = toolStatusAccent(finished, isError)
-    val statusLabel = when {
-        !finished -> "执行中"
-        isError -> "失败"
-        else -> "成功"
-    }
+    val bubbles = chatBubbleColors()
+    val failed = finished && isError
     CollapsibleMetaBubble(
         expanded = expanded,
         onToggle = { expanded = !expanded },
         title = toolName,
-        statusLabel = statusLabel,
-        statusColor = accent,
+        borderColor = if (failed) MaterialTheme.colorScheme.error else bubbles.systemBorder,
         showSpinner = !finished,
-        collapsedPreview = argsPreview,
         expandContentDescription = "展开工具结果",
         collapseContentDescription = "收起工具结果",
     ) {
+        if (argsPreview.isNotBlank()) {
+            Text(
+                argsPreview,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (!finished && progressLines.isNotEmpty()) {
             progressLines.forEach { line ->
                 Text(
@@ -1398,15 +1388,13 @@ private fun CollapsibleReasoningBlock(
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val trimmed = reasoning.trim().trimEnd('▌', ' ').trim()
     if (trimmed.isEmpty()) return
-    val accent = toolStatusAccent(finished = !inProgress, isError = false)
+    val bubbles = chatBubbleColors()
     CollapsibleMetaBubble(
         expanded = expanded,
         onToggle = { expanded = !expanded },
         title = "思考过程",
-        statusLabel = if (inProgress) "进行中" else "完成",
-        statusColor = accent,
+        borderColor = bubbles.systemBorder,
         showSpinner = inProgress,
-        collapsedPreview = "",
         expandContentDescription = "展开思考过程",
         collapseContentDescription = "收起思考过程",
     ) {
@@ -1423,71 +1411,48 @@ private fun CollapsibleMetaBubble(
     expanded: Boolean,
     onToggle: () -> Unit,
     title: String,
-    statusLabel: String,
-    statusColor: Color,
+    borderColor: Color,
     showSpinner: Boolean,
-    collapsedPreview: String,
     expandContentDescription: String,
     collapseContentDescription: String,
     expandedContent: @Composable ColumnScope.() -> Unit,
 ) {
     val bubbles = chatBubbleColors()
+    val iconTint = MaterialTheme.colorScheme.onSurfaceVariant
     BubbleShell(
         alignEnd = false,
         wide = true,
         background = bubbles.systemBackground,
-        borderColor = bubbles.systemBorder,
+        borderColor = borderColor,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onToggle),
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Icon(
                     imageVector = if (expanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowRight,
                     contentDescription = if (expanded) collapseContentDescription else expandContentDescription,
                     modifier = Modifier.size(20.dp),
-                    tint = statusColor,
+                    tint = iconTint,
                 )
-                Column(
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            title,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        if (showSpinner) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp,
-                                color = statusColor,
-                            )
-                        }
-                        Text(
-                            statusLabel,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = statusColor,
-                        )
-                    }
-                    if (collapsedPreview.isNotBlank()) {
-                        Text(
-                            collapsedPreview,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = if (expanded) Int.MAX_VALUE else 4,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (showSpinner) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = iconTint,
+                    )
                 }
             }
             AnimatedVisibility(visible = expanded) {
