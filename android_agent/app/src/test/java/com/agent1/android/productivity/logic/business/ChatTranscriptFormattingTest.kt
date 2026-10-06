@@ -116,6 +116,15 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
+    fun splitLinkifiedSegments_skipsBareImagePathWhenMarkdownImagePresent() {
+        val content = "已生成 cat.png\n\n![预览](cat.png)"
+        val segments = ChatTranscriptFormatting.splitLinkifiedSegments(content, listOf("cat.png"))
+        val imageSegments = segments.filter { it.workspacePath == "cat.png" }
+        assertEquals(1, imageSegments.size)
+        assertTrue(segments.any { it.text.contains("已生成 cat.png") })
+    }
+
+    @Test
     fun rewriteWorkspaceMarkdownHrefs_leavesImages() {
         val src = "图 ![小猫](cat.png)"
         assertEquals(src, ChatTranscriptFormatting.rewriteWorkspaceMarkdownHrefs(src))

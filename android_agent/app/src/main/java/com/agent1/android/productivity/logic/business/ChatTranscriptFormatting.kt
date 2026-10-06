@@ -264,9 +264,17 @@ object ChatTranscriptFormatting {
             .filter { it.isNotBlank() }
             .map { normalizeWorkspacePath(it, workspaceRoot) }
             .distinct()
+        val markdownImagePaths = extractMarkdownImagePaths(content)
+            .map { normalizeWorkspacePath(it, workspaceRoot) }
+            .filter { it.isNotEmpty() && isImagePath(it) }
+            .toSet()
         val aliases = normalized.flatMap { path ->
             listOf(path, "./$path", "workspace/$path")
         }.distinct().sortedByDescending { it.length }
+        val bareMatchAliases = aliases.filter { alias ->
+            val canonical = normalizeWorkspacePath(alias, workspaceRoot)
+            !(canonical in markdownImagePaths && isImagePath(canonical))
+        }
         val out = mutableListOf<LinkifiedSegment>()
         var index = 0
         while (index < content.length) {
@@ -304,11 +312,11 @@ object ChatTranscriptFormatting {
                 index += markdownLink.span
                 continue
             }
-            val matchedAlias = aliases.firstOrNull { alias ->
+            val matchedAlias = bareMatchAliases.firstOrNull { alias ->
                 content.regionMatches(index, alias, 0, alias.length)
             }
             if (matchedAlias != null) {
-                val canonical = normalizeWorkspacePath(matchedAlias)
+                val canonical = normalizeWorkspacePath(matchedAlias, workspaceRoot)
                 out.add(LinkifiedSegment(workspacePath = canonical))
                 index += matchedAlias.length
             } else {
@@ -328,7 +336,9 @@ object ChatTranscriptFormatting {
                     ) {
                         break
                     }
-                    val hit = aliases.any { alias -> content.regionMatches(index, alias, 0, alias.length) }
+                    val hit = bareMatchAliases.any { alias ->
+                        content.regionMatches(index, alias, 0, alias.length)
+                    }
                     if (hit) break
                     index++
                 }

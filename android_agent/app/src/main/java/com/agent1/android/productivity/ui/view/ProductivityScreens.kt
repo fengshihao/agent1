@@ -1091,10 +1091,6 @@ private fun ChatMessageList(
                         isError = item.isError,
                         resultSummary = item.resultSummary,
                         progressLines = item.progressLines,
-                        workspacePath = state.workspacePath,
-                        workspaceImagePath = item.workspaceImagePath,
-                        imageWarning = item.imageWarning,
-                        workspaceFilePaths = item.workspaceFilePaths,
                     )
                 }
             }
@@ -1196,10 +1192,6 @@ private fun CollapsibleToolCallBubble(
     isError: Boolean,
     resultSummary: String,
     progressLines: List<String>,
-    workspacePath: String,
-    workspaceImagePath: String?,
-    imageWarning: String?,
-    workspaceFilePaths: List<String>,
 ) {
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val bubbles = chatBubbleColors()
@@ -1230,25 +1222,16 @@ private fun CollapsibleToolCallBubble(
             }
         }
         if (resultSummary.isNotBlank()) {
-            WorkspaceChatBody(
-                content = resultSummary,
-                workspaceAbsolutePath = workspacePath,
-                markdown = false,
-                workspaceFilePaths = workspaceFilePaths,
-                textStyle = MaterialTheme.typography.bodyMedium,
+            Text(
+                resultSummary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         } else if (finished && !isError) {
             Text(
                 "（无输出）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        workspaceImagePath?.let { path ->
-            WorkspaceImagePreview(
-                workspaceAbsolutePath = workspacePath,
-                workspaceRelativePath = path,
-                warning = imageWarning,
             )
         }
     }
@@ -1292,10 +1275,6 @@ private fun MessageBubble(
                 isError = line.toolIsError,
                 resultSummary = line.content,
                 progressLines = emptyList(),
-                workspacePath = workspacePath,
-                workspaceImagePath = line.workspaceImagePath,
-                imageWarning = line.imageWarning,
-                workspaceFilePaths = line.workspaceFilePaths,
             )
         }
         else -> {

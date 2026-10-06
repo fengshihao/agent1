@@ -92,6 +92,7 @@ private fun RenderLinkifiedSegments(
     linkStyle: TextStyle,
 ) {
     val context = LocalContext.current
+    val shownImagePaths = remember(segments) { mutableSetOf<String>() }
     segments.forEach { segment ->
         val path = segment.workspacePath
         if (path == null) {
@@ -111,7 +112,7 @@ private fun RenderLinkifiedSegments(
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (ChatTranscriptFormatting.isImageWorkspacePath(path)) {
+                if (ChatTranscriptFormatting.isImageWorkspacePath(path) && shownImagePaths.add(path)) {
                     WorkspaceImagePreview(
                         workspaceAbsolutePath = workspaceAbsolutePath,
                         workspaceRelativePath = path,
