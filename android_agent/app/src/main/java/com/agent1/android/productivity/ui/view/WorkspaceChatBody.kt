@@ -24,39 +24,30 @@ fun WorkspaceChatBody(
     val paths = remember(content, workspaceFilePaths) {
         ChatTranscriptFormatting.mergeWorkspaceFilePaths(content, workspaceFilePaths)
     }
-    val prepared = remember(content, paths) {
-        ChatTranscriptFormatting.linkifyBareWorkspacePaths(content, paths)
-    }
-    val useMarkdown = markdown && ChatTranscriptFormatting.shouldRenderAsMarkdown(prepared)
+    val useMarkdown = markdown && ChatTranscriptFormatting.shouldRenderAsMarkdown(content)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (useMarkdown) {
+        if (paths.isNotEmpty()) {
+            WorkspaceInlineLinkifiedText(
+                content = content,
+                workspaceAbsolutePath = workspaceAbsolutePath,
+                workspaceFilePaths = paths,
+                textStyle = textStyle,
+                linkStyle = textStyle.copy(color = MaterialTheme.colorScheme.primary),
+                markdown = useMarkdown,
+            )
+        } else if (useMarkdown) {
             WorkspaceMarkdown(
-                content = prepared,
+                content = ChatTranscriptFormatting.rewriteWorkspaceMarkdownHrefs(
+                    ChatTranscriptFormatting.linkifyBareWorkspacePaths(content, paths),
+                ),
                 workspaceAbsolutePath = workspaceAbsolutePath,
             )
-            if (paths.isNotEmpty()) {
-                WorkspaceFileAttachments(
-                    workspaceAbsolutePath = workspaceAbsolutePath,
-                    relativePaths = paths,
-                    showPathLabels = true,
-                )
-            }
         } else {
-            if (paths.isEmpty()) {
-                Text(
-                    prepared,
-                    style = textStyle,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            } else {
-                WorkspaceInlineLinkifiedText(
-                    content = prepared,
-                    workspaceAbsolutePath = workspaceAbsolutePath,
-                    workspaceFilePaths = paths,
-                    textStyle = textStyle,
-                    linkStyle = textStyle.copy(color = MaterialTheme.colorScheme.primary),
-                )
-            }
+            Text(
+                content,
+                style = textStyle,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
     }
 }

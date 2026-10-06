@@ -19,6 +19,9 @@ object ChatTranscriptFormatting {
     /** 聊天气泡内正文上限，避免 Compose/Markdown 渲染超大字符串导致 OOM 或 ANR。 */
     const val UI_BUBBLE_MAX_CHARS = 20_000
 
+    /** Markdown 渲染器用此前缀，避免相对路径链接被当成纯文本。 */
+    const val WORKSPACE_FILE_HREF_PREFIX = "agent1-file:"
+
     private val imageExt = setOf("png", "jpg", "jpeg", "webp", "gif")
 
     private val attachmentExt = setOf(
@@ -151,7 +154,11 @@ object ChatTranscriptFormatting {
     fun extractMarkdownFileLinks(content: String): List<String> {
         val regex = Regex("""(?<!!)\[[^\]]*]\(([^)]+)\)""")
         return regex.findAll(content)
-            .map { normalizeWorkspacePath(it.groupValues[1].trim()) }
+            .map {
+                normalizeWorkspacePath(
+                    it.groupValues[1].trim().removePrefix(WORKSPACE_FILE_HREF_PREFIX),
+                )
+            }
             .filter { it.isNotEmpty() && !it.startsWith("http://") && !it.startsWith("https://") }
             .filter { isWorkspaceFilePath(it) }
             .distinct()
@@ -174,7 +181,9 @@ object ChatTranscriptFormatting {
 
     /** 合并工具 JSON、Markdown 链接与正文裸路径，供 UI 展示可打开附件。 */
     fun mergeWorkspaceFilePaths(content: String, extra: List<String>): List<String> {
-        return (extra + extractMarkdownFileLinks(content) + extractPlainWorkspacePaths(content))
+        return (extra + extractMarkdownFileLinks(content) +
+            extractMarkdownImagePaths(content) +
+            extractPlainWorkspacePaths(content))
             .map { normalizeWorkspacePath(it) }
             .filter { it.isNotEmpty() }
             .distinct()
@@ -190,11 +199,14 @@ object ChatTranscriptFormatting {
         var result = content
         val normalized = paths.map { normalizeWorkspacePath(it) }.distinct()
         for (path in normalized.sortedByDescending { it.length }) {
-            if (result.contains("($path)")) continue
+            if (result.contains("($path)") || result.contains("($WORKSPACE_FILE_HREF_PREFIX$path)")) continue
             val label = path.substringAfterLast('/').ifEmpty { path }
             val variants = listOf(path, "./$path", "workspace/$path", "/$path").distinct()
             for (variant in variants.sortedByDescending { it.length }) {
-                if (result.contains(variant) && !result.contains("($path)")) {
+                if (result.contains(variant) &&
+                    !result.contains("($path)") &&
+                    !result.contains("($WORKSPACE_FILE_HREF_PREFIX$path)")
+                ) {
                     result = result.replace(variant, "[$label]($path)")
                 }
             }
@@ -202,7 +214,31 @@ object ChatTranscriptFormatting {
         return result
     }
 
+    /**
+     * 把工作区文件 Markdown 链接改成带 scheme 的 href，供 Markdown 组件画成超链接。
+     * 图片 `![](path)` 保持相对路径，交给 ImageTransformer。
+     */
+    fun rewriteWorkspaceMarkdownHrefs(content: String): String {
+        if (content.isEmpty()) return content
+        val regex = Regex("""(?<!!)\[[^\]]*]\(([^)]+)\)""")
+        return regex.replace(content) { match ->
+            val raw = match.groupValues[1].trim()
+            if (raw.startsWith("http://") ||
+                raw.startsWith("https://") ||
+                raw.startsWith(WORKSPACE_FILE_HREF_PREFIX)
+            ) {
+                return@replace match.value
+            }
+            val path = normalizeWorkspacePath(raw)
+            if (path.isEmpty() || !isWorkspaceFilePath(path)) return@replace match.value
+            val label = match.value.substringAfter('[').substringBefore(']')
+            "[$label]($WORKSPACE_FILE_HREF_PREFIX$path)"
+        }
+    }
+
     fun isWorkspaceFilePath(path: String): Boolean = isAttachmentPath(path) || isImagePath(path)
+
+    fun isImageWorkspacePath(path: String): Boolean = isImagePath(path)
 
     private fun isAttachmentPath(path: String): Boolean {
         val ext = path.substringAfterLast('.', "").lowercase()
@@ -212,14 +248,49 @@ object ChatTranscriptFormatting {
     /** 将正文按已知工作区路径拆成普通文本段与路径段（供聊天气泡内联链接）。 */
     fun splitLinkifiedSegments(content: String, paths: List<String>): List<LinkifiedSegment> {
         if (content.isEmpty()) return emptyList()
-        val normalized = paths.filter { it.isNotBlank() }.map { normalizeWorkspacePath(it) }.distinct()
+        val normalized = (
+            paths +
+                extractMarkdownFileLinks(content) +
+                extractMarkdownImagePaths(content).map { normalizeWorkspacePath(it) }
+            )
+            .filter { it.isNotBlank() }
+            .map { normalizeWorkspacePath(it) }
+            .distinct()
         val aliases = normalized.flatMap { path ->
             listOf(path, "./$path", "workspace/$path")
         }.distinct().sortedByDescending { it.length }
-        if (aliases.isEmpty()) return listOf(LinkifiedSegment(text = content))
         val out = mutableListOf<LinkifiedSegment>()
         var index = 0
         while (index < content.length) {
+            if (content[index] == '!' &&
+                index + 1 < content.length &&
+                content[index + 1] == '['
+            ) {
+                val imageLink = parseWorkspaceMarkdownLink(content, index + 1, allowImageBang = true)
+                if (imageLink != null) {
+                    out.add(
+                        LinkifiedSegment(
+                            text = imageLink.label.ifBlank {
+                                imageLink.path.substringAfterLast('/').ifEmpty { imageLink.path }
+                            },
+                            workspacePath = imageLink.path,
+                        ),
+                    )
+                    index += 1 + imageLink.span
+                    continue
+                }
+            }
+            val markdownLink = parseWorkspaceMarkdownLink(content, index)
+            if (markdownLink != null) {
+                out.add(
+                    LinkifiedSegment(
+                        text = markdownLink.label,
+                        workspacePath = markdownLink.path,
+                    ),
+                )
+                index += markdownLink.span
+                continue
+            }
             val matchedAlias = aliases.firstOrNull { alias ->
                 content.regionMatches(index, alias, 0, alias.length)
             }
@@ -231,6 +302,14 @@ object ChatTranscriptFormatting {
                 val start = index
                 index++
                 while (index < content.length) {
+                    if (parseWorkspaceMarkdownLink(content, index) != null) break
+                    if (content[index] == '!' &&
+                        index + 1 < content.length &&
+                        content[index + 1] == '[' &&
+                        parseWorkspaceMarkdownLink(content, index + 1, allowImageBang = true) != null
+                    ) {
+                        break
+                    }
                     val hit = aliases.any { alias -> content.regionMatches(index, alias, 0, alias.length) }
                     if (hit) break
                     index++
@@ -238,8 +317,42 @@ object ChatTranscriptFormatting {
                 out.add(LinkifiedSegment(text = content.substring(start, index)))
             }
         }
-        return out
+        return out.ifEmpty { listOf(LinkifiedSegment(text = content)) }
     }
+
+    private fun parseWorkspaceMarkdownLink(
+        content: String,
+        index: Int,
+        allowImageBang: Boolean = false,
+    ): ParsedWorkspaceMarkdownLink? {
+        if (index >= content.length || content[index] != '[') return null
+        if (!allowImageBang && index > 0 && content[index - 1] == '!') return null
+        val closeBracket = content.indexOf(']', startIndex = index + 1)
+        if (closeBracket < 0 || closeBracket + 1 >= content.length || content[closeBracket + 1] != '(') {
+            return null
+        }
+        val closeParen = content.indexOf(')', startIndex = closeBracket + 2)
+        if (closeParen < 0) return null
+        val rawHref = content.substring(closeBracket + 2, closeParen).trim()
+            .removePrefix(WORKSPACE_FILE_HREF_PREFIX)
+        if (rawHref.startsWith("http://") || rawHref.startsWith("https://")) return null
+        val path = normalizeWorkspacePath(rawHref)
+        if (path.isEmpty() || !isWorkspaceFilePath(path)) return null
+        val label = content.substring(index + 1, closeBracket).ifBlank {
+            path.substringAfterLast('/').ifEmpty { path }
+        }
+        return ParsedWorkspaceMarkdownLink(
+            label = label,
+            path = path,
+            span = closeParen + 1 - index,
+        )
+    }
+
+    private data class ParsedWorkspaceMarkdownLink(
+        val label: String,
+        val path: String,
+        val span: Int,
+    )
 }
 
 /** 聊天气泡内联路径片段。 */

@@ -49,11 +49,12 @@ fun WorkspaceMarkdown(
         object : UriHandler {
             override fun openUri(uri: String) {
                 val trimmed = uri.trim()
+                val href = trimmed.removePrefix(ChatTranscriptFormatting.WORKSPACE_FILE_HREF_PREFIX)
                 if (workspaceRoot != null &&
-                    !trimmed.startsWith("http://") &&
-                    !trimmed.startsWith("https://")
+                    !href.startsWith("http://") &&
+                    !href.startsWith("https://")
                 ) {
-                    val normalized = SessionWorkspacePaths.normalizeWorkspaceRelativePath(trimmed)
+                    val normalized = SessionWorkspacePaths.normalizeWorkspaceRelativePath(href)
                     if (SessionWorkspacePaths.resolveFile(workspaceRoot, normalized) != null) {
                         WorkspaceFileActions.openWorkspaceFile(context, workspaceRoot, normalized)
                         return

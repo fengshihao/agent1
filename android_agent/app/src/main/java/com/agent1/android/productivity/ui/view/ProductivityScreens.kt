@@ -1,11 +1,14 @@
 package com.agent1.android.productivity.ui.view
 
 import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -30,27 +34,26 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -60,51 +63,56 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.launch
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.agent1.javaagent.modelcatalog.QwenModelInfo
-import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
-import com.agent1.javaagent.session.SessionMeta
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
 import com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem
-import com.agent1.android.productivity.ui.viewmodel.RunTokenSummary
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
+import com.agent1.android.productivity.ui.viewmodel.RunTokenSummary
 import com.agent1.android.productivity.ui.viewmodel.SessionListUiState
 import com.agent1.android.productivity.ui.viewmodel.SessionListViewModel
-import kotlinx.coroutines.flow.distinctUntilChanged
+import com.agent1.javaagent.modelcatalog.QwenModelInfo
+import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
+import com.agent1.javaagent.session.SessionMeta
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProductivityHome(
@@ -959,6 +967,18 @@ private fun ConfigErrorBanner(message: String) {
     )
 }
 
+private suspend fun LazyListState.scrollToActualBottom() {
+    val lastIndex = layoutInfo.totalItemsCount - 1
+    if (lastIndex < 0) return
+    scrollToItem(lastIndex)
+    withFrameNanos { }
+    val last = layoutInfo.visibleItemsInfo.lastOrNull() ?: return
+    val overflow = (last.offset + last.size) - layoutInfo.viewportEndOffset
+    if (overflow > 0) {
+        scrollBy(overflow.toFloat())
+    }
+}
+
 @Composable
 private fun ChatMessageList(
     state: ChatUiState,
@@ -968,20 +988,46 @@ private fun ChatMessageList(
 ) {
     val visibleLines = state.lines.filterNot { it.hideInChat }
     val listState = rememberLazyListState()
-    var stickToBottom by rememberSaveable(state.sessionId) { mutableStateOf(true) }
+    val stickToBottomState = rememberSaveable(state.sessionId) { mutableStateOf(true) }
+    val stickToBottom = stickToBottomState.value
 
-    LaunchedEffect(listState) {
+    val userScrollConnection = remember(listState, stickToBottomState) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y > 1f) {
+                    stickToBottomState.value = false
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (source == NestedScrollSource.UserInput && !listState.canScrollForward) {
+                    stickToBottomState.value = true
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(listState, stickToBottomState) {
         snapshotFlow {
             val layout = listState.layoutInfo
-            val total = layout.totalItemsCount
-            if (total == 0) {
-                true
-            } else {
-                val lastVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: 0
-                lastVisible >= total - 2
-            }
+            val last = layout.visibleItemsInfo.lastOrNull()
+            ChatListAutoscroll.isAtBottom(
+                totalItems = layout.totalItemsCount,
+                lastVisibleIndex = last?.index ?: -1,
+                lastVisibleOffset = last?.offset ?: 0,
+                lastVisibleSize = last?.size ?: 0,
+                viewportEndOffset = layout.viewportEndOffset,
+            )
         }.distinctUntilChanged().collect { atBottom ->
-            stickToBottom = atBottom
+            if (atBottom) {
+                stickToBottomState.value = true
+            }
         }
     }
 
@@ -992,12 +1038,10 @@ private fun ChatMessageList(
         state.streamingReasoning.length,
         state.isRunning,
         state.lastRunTokenSummary,
+        stickToBottom,
     ) {
         if (!stickToBottom) return@LaunchedEffect
-        val total = listState.layoutInfo.totalItemsCount
-        if (total > 0) {
-            listState.animateScrollToItem(total - 1)
-        }
+        listState.scrollToActualBottom()
     }
     if (state.isLoadingTranscript && state.lines.isEmpty()) {
         Box(
@@ -1023,7 +1067,9 @@ private fun ChatMessageList(
     }
     LazyColumn(
         state = listState,
-        modifier = modifier.padding(horizontal = 4.dp),
+        modifier = modifier
+            .padding(horizontal = 4.dp)
+            .nestedScroll(userScrollConnection),
         verticalArrangement = Arrangement.spacedBy(6.dp),
         contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
     ) {
@@ -1196,109 +1242,53 @@ private fun CollapsibleToolCallBubble(
     workspaceFilePaths: List<String>,
 ) {
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
-    val bubbles = chatBubbleColors()
     val accent = toolStatusAccent(finished, isError)
     val statusLabel = when {
         !finished -> "执行中"
         isError -> "失败"
         else -> "成功"
     }
-    BubbleShell(
-        alignEnd = false,
-        wide = true,
-        background = bubbles.systemBackground,
-        borderColor = accent,
-        borderWidth = 2.dp,
+    CollapsibleMetaBubble(
+        expanded = expanded,
+        onToggle = { expanded = !expanded },
+        title = toolName,
+        statusLabel = statusLabel,
+        statusColor = accent,
+        showSpinner = !finished,
+        collapsedPreview = argsPreview,
+        expandContentDescription = "展开工具结果",
+        collapseContentDescription = "收起工具结果",
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded },
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Icon(
-                    imageVector = if (expanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowRight,
-                    contentDescription = if (expanded) "收起工具结果" else "展开工具结果",
-                    modifier = Modifier.size(20.dp),
-                    tint = accent,
+        if (!finished && progressLines.isNotEmpty()) {
+            progressLines.forEach { line ->
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            toolName,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        if (!finished) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp,
-                                color = accent,
-                            )
-                        }
-                        Text(
-                            statusLabel,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = accent,
-                        )
-                    }
-                    if (argsPreview.isNotBlank()) {
-                        Text(
-                            argsPreview,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = if (expanded) Int.MAX_VALUE else 4,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
             }
-            AnimatedVisibility(visible = expanded) {
-                SelectionContainer {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (!finished && progressLines.isNotEmpty()) {
-                            progressLines.forEach { line ->
-                                Text(
-                                    line,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        if (resultSummary.isNotBlank()) {
-                            WorkspaceChatBody(
-                                content = resultSummary,
-                                workspaceAbsolutePath = workspacePath,
-                                markdown = false,
-                                workspaceFilePaths = workspaceFilePaths,
-                                textStyle = MaterialTheme.typography.bodyMedium,
-                            )
-                        } else if (finished && !isError) {
-                            Text(
-                                "（无输出）",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        workspaceImagePath?.let { path ->
-                            WorkspaceImagePreview(
-                                workspaceAbsolutePath = workspacePath,
-                                workspaceRelativePath = path,
-                                warning = imageWarning,
-                            )
-                        }
-                    }
-                }
-            }
+        }
+        if (resultSummary.isNotBlank()) {
+            WorkspaceChatBody(
+                content = resultSummary,
+                workspaceAbsolutePath = workspacePath,
+                markdown = false,
+                workspaceFilePaths = workspaceFilePaths,
+                textStyle = MaterialTheme.typography.bodyMedium,
+            )
+        } else if (finished && !isError) {
+            Text(
+                "（无输出）",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        workspaceImagePath?.let { path ->
+            WorkspaceImagePreview(
+                workspaceAbsolutePath = workspacePath,
+                workspaceRelativePath = path,
+                warning = imageWarning,
+            )
         }
     }
 }
@@ -1348,44 +1338,50 @@ private fun MessageBubble(
             )
         }
         else -> {
-            BubbleShell(
-                alignEnd = false,
-                wide = true,
-                background = bubbles.assistantBackground,
-                borderColor = bubbles.assistantBorder,
-            ) {
-                SelectionContainer {
-                    Column {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (line.reasoning.isNotBlank()) {
                     CollapsibleReasoningBlock(
                         reasoning = line.reasoning,
                         stateKey = reasoningStateKey,
+                        inProgress = line.stableKey == "assistant-streaming" &&
+                            line.content.isBlank(),
                     )
                 }
-                if (line.content.isNotBlank()) {
-                    WorkspaceChatBody(
-                        content = line.content,
-                        workspaceAbsolutePath = workspacePath,
-                        markdown = markdown,
-                        workspaceFilePaths = line.workspaceFilePaths,
-                    )
-                }
-                if (line.requestUserPickFiles) {
-                    IconButton(
-                        onClick = onPickFiles,
-                        enabled = pickFilesEnabled,
-                        modifier = Modifier
-                            .padding(top = 4.dp)
-                            .size(32.dp),
+                if (line.content.isNotBlank() || line.requestUserPickFiles) {
+                    BubbleShell(
+                        alignEnd = false,
+                        wide = true,
+                        background = bubbles.assistantBackground,
+                        borderColor = bubbles.assistantBorder,
                     ) {
-                        Icon(
-                            AgentIcons.AttachFile,
-                            contentDescription = "选择文件",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
+                        SelectionContainer {
+                            Column {
+                                if (line.content.isNotBlank()) {
+                                    WorkspaceChatBody(
+                                        content = line.content,
+                                        workspaceAbsolutePath = workspacePath,
+                                        markdown = markdown,
+                                        workspaceFilePaths = line.workspaceFilePaths,
+                                    )
+                                }
+                                if (line.requestUserPickFiles) {
+                                    IconButton(
+                                        onClick = onPickFiles,
+                                        enabled = pickFilesEnabled,
+                                        modifier = Modifier
+                                            .padding(top = 4.dp)
+                                            .size(32.dp),
+                                    ) {
+                                        Icon(
+                                            AgentIcons.AttachFile,
+                                            contentDescription = "选择文件",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1397,31 +1393,111 @@ private fun MessageBubble(
 private fun CollapsibleReasoningBlock(
     reasoning: String,
     stateKey: String,
+    inProgress: Boolean = false,
 ) {
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
-    val trimmed = reasoning.trim()
+    val trimmed = reasoning.trim().trimEnd('▌', ' ').trim()
     if (trimmed.isEmpty()) return
-    val title = if (expanded) {
-        "收起思考过程"
-    } else {
-        "思考过程（${trimmed.length} 字）"
-    }
-    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+    val accent = toolStatusAccent(finished = !inProgress, isError = false)
+    CollapsibleMetaBubble(
+        expanded = expanded,
+        onToggle = { expanded = !expanded },
+        title = "思考过程",
+        statusLabel = if (inProgress) "进行中" else "完成",
+        statusColor = accent,
+        showSpinner = inProgress,
+        collapsedPreview = "",
+        expandContentDescription = "展开思考过程",
+        collapseContentDescription = "收起思考过程",
+    ) {
         Text(
-            text = title,
-            modifier = Modifier
-                .clickable { expanded = !expanded }
-                .padding(vertical = 2.dp),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
+            text = trimmed,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        AnimatedVisibility(visible = expanded) {
-            Text(
-                text = trimmed,
-                modifier = Modifier.padding(top = 4.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    }
+}
+
+@Composable
+private fun CollapsibleMetaBubble(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    title: String,
+    statusLabel: String,
+    statusColor: Color,
+    showSpinner: Boolean,
+    collapsedPreview: String,
+    expandContentDescription: String,
+    collapseContentDescription: String,
+    expandedContent: @Composable ColumnScope.() -> Unit,
+) {
+    val bubbles = chatBubbleColors()
+    BubbleShell(
+        alignEnd = false,
+        wide = true,
+        background = bubbles.systemBackground,
+        borderColor = bubbles.systemBorder,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggle),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowRight,
+                    contentDescription = if (expanded) collapseContentDescription else expandContentDescription,
+                    modifier = Modifier.size(20.dp),
+                    tint = statusColor,
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (showSpinner) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = statusColor,
+                            )
+                        }
+                        Text(
+                            statusLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = statusColor,
+                        )
+                    }
+                    if (collapsedPreview.isNotBlank()) {
+                        Text(
+                            collapsedPreview,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = if (expanded) Int.MAX_VALUE else 4,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+            AnimatedVisibility(visible = expanded) {
+                SelectionContainer {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        content = expandedContent,
+                    )
+                }
+            }
         }
     }
 }

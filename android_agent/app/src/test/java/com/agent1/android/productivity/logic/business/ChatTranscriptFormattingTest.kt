@@ -56,6 +56,15 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
+    fun mergeWorkspaceFilePaths_includesMarkdownImages() {
+        val merged = ChatTranscriptFormatting.mergeWorkspaceFilePaths(
+            "看 ![图](cat.png)",
+            emptyList(),
+        )
+        assertEquals(listOf("cat.png"), merged)
+    }
+
+    @Test
     fun linkifyBareWorkspacePaths_wrapsUnlinkedPaths() {
         val out = ChatTranscriptFormatting.linkifyBareWorkspacePaths(
             "文件在 out/x.docx",
@@ -77,6 +86,42 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
+    fun splitLinkifiedSegments_parsesMarkdownFileLinkAsHyperlink() {
+        val segments = ChatTranscriptFormatting.splitLinkifiedSegments(
+            "完成 [xxx.png](xxx.png)",
+            emptyList(),
+        )
+        assertEquals(2, segments.size)
+        assertEquals("完成 ", segments[0].text)
+        assertEquals("xxx.png", segments[1].workspacePath)
+        assertEquals("xxx.png", segments[1].text)
+    }
+
+    @Test
+    fun splitLinkifiedSegments_parsesImageMarkdownAsFileLink() {
+        val segments = ChatTranscriptFormatting.splitLinkifiedSegments(
+            "看图 ![小猫](cat.png)",
+            emptyList(),
+        )
+        assertEquals(2, segments.size)
+        assertEquals("看图 ", segments[0].text)
+        assertEquals("cat.png", segments[1].workspacePath)
+        assertEquals("小猫", segments[1].text)
+    }
+
+    @Test
+    fun rewriteWorkspaceMarkdownHrefs_addsScheme() {
+        val out = ChatTranscriptFormatting.rewriteWorkspaceMarkdownHrefs("见 [报告](out/a.docx)")
+        assertEquals("见 [报告](agent1-file:out/a.docx)", out)
+    }
+
+    @Test
+    fun rewriteWorkspaceMarkdownHrefs_leavesImages() {
+        val src = "图 ![小猫](cat.png)"
+        assertEquals(src, ChatTranscriptFormatting.rewriteWorkspaceMarkdownHrefs(src))
+    }
+
+    @Test
     fun mergeWorkspaceFilePaths_stripsWorkspacePrefixInMarkdown() {
         val merged = ChatTranscriptFormatting.mergeWorkspaceFilePaths(
             "见 [报告](workspace/out/a.docx)",
@@ -88,7 +133,7 @@ class ChatTranscriptFormattingTest {
     @Test
     fun extractMarkdownFileLinks_findsDocxLink() {
         val paths = ChatTranscriptFormatting.extractMarkdownFileLinks("见 [报告](out/a.docx) 和 ![图](x.png)")
-        assertEquals(listOf("out/a.docx", "x.png"), paths)
+        assertEquals(listOf("out/a.docx"), paths)
     }
 
     @Test

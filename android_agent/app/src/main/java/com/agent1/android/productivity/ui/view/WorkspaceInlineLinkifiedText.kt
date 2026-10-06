@@ -2,6 +2,7 @@ package com.agent1.android.productivity.ui.view
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -22,7 +23,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
+import com.agent1.android.productivity.logic.business.LinkifiedSegment
 import com.agent1.android.productivity.logic.business.WorkspaceFileActions
+import java.nio.file.Path
 import java.nio.file.Paths
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -34,8 +37,8 @@ fun WorkspaceInlineLinkifiedText(
     modifier: Modifier = Modifier,
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     linkStyle: TextStyle = MaterialTheme.typography.bodyLarge,
+    markdown: Boolean = false,
 ) {
-    val context = LocalContext.current
     if (workspaceAbsolutePath.isBlank()) {
         Text(content, modifier = modifier, style = textStyle, color = MaterialTheme.colorScheme.onSurface)
         return
@@ -47,27 +50,79 @@ fun WorkspaceInlineLinkifiedText(
         ChatTranscriptFormatting.splitLinkifiedSegments(content, paths)
     }
     val root = remember(workspaceAbsolutePath) { Paths.get(workspaceAbsolutePath) }
-    FlowRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(0.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        segments.forEach { segment ->
-            val path = segment.workspacePath
-            if (path == null) {
-                if (segment.text.isNotEmpty()) {
+    if (markdown) {
+        Column(
+            modifier = modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            RenderLinkifiedSegments(
+                segments = segments,
+                markdown = true,
+                workspaceAbsolutePath = workspaceAbsolutePath,
+                root = root,
+                textStyle = textStyle,
+                linkStyle = linkStyle,
+            )
+        }
+    } else {
+        FlowRow(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            RenderLinkifiedSegments(
+                segments = segments,
+                markdown = false,
+                workspaceAbsolutePath = workspaceAbsolutePath,
+                root = root,
+                textStyle = textStyle,
+                linkStyle = linkStyle,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RenderLinkifiedSegments(
+    segments: List<LinkifiedSegment>,
+    markdown: Boolean,
+    workspaceAbsolutePath: String,
+    root: Path,
+    textStyle: TextStyle,
+    linkStyle: TextStyle,
+) {
+    val context = LocalContext.current
+    segments.forEach { segment ->
+        val path = segment.workspacePath
+        if (path == null) {
+            if (segment.text.isNotEmpty()) {
+                if (markdown && ChatTranscriptFormatting.shouldRenderAsMarkdown(segment.text)) {
+                    WorkspaceMarkdown(
+                        content = segment.text,
+                        workspaceAbsolutePath = workspaceAbsolutePath,
+                    )
+                } else {
                     Text(
                         segment.text,
                         style = textStyle,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
-            } else {
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (ChatTranscriptFormatting.isImageWorkspacePath(path)) {
+                    WorkspaceImagePreview(
+                        workspaceAbsolutePath = workspaceAbsolutePath,
+                        workspaceRelativePath = path,
+                    )
+                }
                 WorkspaceFileLinkRow(
                     relativePath = path,
                     onOpen = { WorkspaceFileActions.openWorkspaceFile(context, root, path) },
                     onShare = { WorkspaceFileActions.shareWorkspaceFile(context, root, path) },
                     linkStyle = linkStyle,
+                    labelOverride = segment.text.ifBlank { null },
                 )
             }
         }
@@ -82,8 +137,10 @@ internal fun WorkspaceFileLinkRow(
     modifier: Modifier = Modifier,
     linkStyle: TextStyle = MaterialTheme.typography.bodySmall,
     showLabel: Boolean = true,
+    labelOverride: String? = null,
 ) {
-    val label = relativePath.substringAfterLast('/').ifEmpty { relativePath }
+    val label = labelOverride?.takeIf { it.isNotBlank() }
+        ?: relativePath.substringAfterLast('/').ifEmpty { relativePath }
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
