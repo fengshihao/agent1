@@ -47,6 +47,14 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
+    fun extractPlainWorkspacePaths_findsChineseFileName() {
+        val paths = ChatTranscriptFormatting.extractPlainWorkspacePaths(
+            "成果：大模型7天学习大纲.docx 和 大模型7天学习大纲.md",
+        )
+        assertEquals(listOf("大模型7天学习大纲.docx", "大模型7天学习大纲.md"), paths)
+    }
+
+    @Test
     fun mergeWorkspaceFilePaths_combinesSources() {
         val merged = ChatTranscriptFormatting.mergeWorkspaceFilePaths(
             "下载 [报告](out/a.docx) 或 out/b.pdf",

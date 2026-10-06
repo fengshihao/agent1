@@ -272,6 +272,9 @@ public final class CapabilitySearchTool implements AgentTool {
         text.append("  id: ").append(hit.id()).append('\n');
         text.append("  ").append(truncate(hit.summary(), 220)).append('\n');
         appendEntry(text, hit.entry());
+        if ("catalog_script".equalsIgnoreCase(hit.kind())) {
+            text.append("  from \"文件名.js\" 是脚本库，不是 workspace 文件。不要加 ./，也不要去 workspace 里找。\n");
+        }
         if (withParams) {
             String params = McpSchemaBrief.format(hit.requiresJson());
             if (!params.isEmpty()) {

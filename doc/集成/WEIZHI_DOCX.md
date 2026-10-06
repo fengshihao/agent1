@@ -14,7 +14,7 @@ https://github.com/fengshihao/weizhi/blob/master/docs/AGENT1_DOCX_INTEGRATION.md
 |----|------|
 | 拷贝 `docx.js` / `docx-raw.js` / `docx-build.js` 到 agentRoot | `OfficeCatalogScripts` → `shared/catalog/scripts/` |
 | Weizhi `setScriptFolder` | 桌面 + Android（`AndroidOfficeCatalogSync`） |
-| 调用方式 | `execute_script` 里 `import './docx.js'`（catalog 回退）。无外层 `docx_*` 工具 |
+| 调用方式 | `execute_script` 里 `import { markdownToDocx } from "docx.js"`。无外层 `docx_*` 工具 |
 | 系统提示 | 只指向 `capability_search`；调用卡来自微智 `docs/api-cards.jsonl`（打进 core 资源，不打 Markdown 手册） |
 | 测试 | `DocxOfficeIntegrationTest`、Android `ChatTranscriptFormattingTest` |
 | 用户打开 docx | 聊天附件仍走 `WorkspaceFileActions`；脚本用 `android.intent.start({ action: "view", path })`（`launchIntent = true`，FileProvider 已声明） |
@@ -23,7 +23,7 @@ https://github.com/fengshihao/weizhi/blob/master/docs/AGENT1_DOCX_INTEGRATION.md
 
 - [x] `setScriptFolder` 含 `docx.js` + `docx-raw.js`
 - [x] workspace 与 `setFsRoot` 一致（既有 Weizhi 行为）
-- [x] Word 走脚本 `import './docx.js'`（`validateDocx` 在 `docx-raw.js`），不注册外层工具
+- [x] Word 走脚本 `import { markdownToDocx } from "docx.js"`（`validateDocx` 来自 `docx-raw.js`），不注册外层工具
 - [x] 系统提示不写 Word 细则；`capability_search` 返回 `markdownToDocx` 等调用卡，APK 不带 `office-docx.md`
 - [x] App 内打开/分享 workspace 附件（`.docx` 等）
 

@@ -121,7 +121,7 @@ public final class ExecuteScriptTool implements AgentTool {
             return ToolExecutionResult.text(
                 "错误：execute_script 的 file 必须是 workspace 内的 .js/.mjs/.cjs 脚本。"
                     + " 读取 SVG/图片/数据文件请用 read_file；SVG 转 PNG/JPG 请 capability_search「svg png」，"
-                    + "再在 .js 里 import { svgToImage } from './svg-raster.js'。"
+                    + "再在 .js 里 import { svgToImage } from \"svg-raster.js\"。"
             );
         }
 

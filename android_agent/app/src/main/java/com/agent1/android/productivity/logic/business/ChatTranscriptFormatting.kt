@@ -170,7 +170,9 @@ object ChatTranscriptFormatting {
         if (content.isBlank()) return emptyList()
         val scan = content.replace('`', ' ')
         val extAlternation = (attachmentExt + imageExt).distinct().joinToString("|")
-        val regex = Regex("""(?:\./|workspace/)?[A-Za-z0-9][A-Za-z0-9._/-]*\.(?:$extAlternation)\b""")
+        val regex = Regex(
+            """(?:\./|workspace/)?[\p{L}\p{N}][\p{L}\p{N}._/-]*\.(?:$extAlternation)\b""",
+        )
         return regex.findAll(scan)
             .map { normalizeWorkspacePath(it.value) }
             .filter { path -> !path.contains("://") }

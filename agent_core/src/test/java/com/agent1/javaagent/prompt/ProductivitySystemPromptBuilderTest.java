@@ -32,6 +32,7 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("对用户说话"));
         assertTrue(prompt.contains("普通用户"));
         assertTrue(prompt.contains("除非用户明确在问技术问题"));
+        assertTrue(prompt.contains("[学习大纲](大模型7天学习大纲.docx)"));
     }
 
     @Test
@@ -241,6 +242,7 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("不必并行多次"));
         assertTrue(prompt.contains("limit（最多 20）"));
         assertTrue(prompt.contains("execute_script 的 code"));
+        assertTrue(prompt.contains("不要 glob、list_dir 或 catalog_sync"));
         assertTrue(prompt.contains("20 行或 1000 字符"));
         assertTrue(prompt.contains("edit_file"));
         assertFalse(prompt.contains("不确定有什么能力时"));

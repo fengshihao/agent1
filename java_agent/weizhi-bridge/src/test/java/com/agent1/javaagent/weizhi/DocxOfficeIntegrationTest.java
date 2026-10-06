@@ -45,7 +45,7 @@ class DocxOfficeIntegrationTest {
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot);
         String js =
             """
-            import { markdownToDocx } from './docx.js';
+            import { markdownToDocx } from "docx.js";
             export default markdownToDocx({
               inputPath: 'notes/brief.md',
               outputPath: 'out/brief.docx',
@@ -84,7 +84,7 @@ class DocxOfficeIntegrationTest {
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot);
         String js =
             """
-            import { markdownToDocx, readDocx } from './docx.js';
+            import { markdownToDocx, readDocx } from "docx.js";
             markdownToDocx({
               inputPath: 'notes/headings.md',
               outputPath: 'out/headings.docx',

@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class WeizhiScriptToolInstallerTest {
 
     private static final String MODULE =
-        "import { markdownToDocx } from './docx.js';\n"
+        "import { markdownToDocx } from \"docx.js\";\n"
             + "export default markdownToDocx({ inputPath: 'a.md', outputPath: 'a.docx' });\n";
 
     @Test
@@ -41,7 +41,7 @@ class WeizhiScriptToolInstallerTest {
         assertTrue(wrapped.contains("globalThis.$mcp"));
         assertTrue(wrapped.contains("mcp.connect"));
         assertFalse(wrapped.contains("mcp_call_tool"));
-        assertEquals("import { markdownToDocx } from './docx.js';", lines[preludeLines]);
+        assertEquals("import { markdownToDocx } from \"docx.js\";", lines[preludeLines]);
         assertEquals('{', lines[preludeLines].charAt(7));
     }
 

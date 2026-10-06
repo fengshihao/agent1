@@ -129,7 +129,7 @@ public final class ProductivityCoach {
                     hookId = "script.wrong_file_type";
                     advice =
                         "execute_script 只能运行 .js 脚本，不能把 SVG/图片当 file 执行。"
-                            + "读数据用 read_file；SVG 转 PNG/JPG 用 import { svgToImage } from './svg-raster.js'。";
+                            + "读数据用 read_file；SVG 转 PNG/JPG 用 import { svgToImage } from \"svg-raster.js\"。";
                 } else if (text != null && text.contains("return not in a function")) {
                     hookId = "script.no_top_return";
                     advice =

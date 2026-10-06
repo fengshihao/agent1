@@ -24,8 +24,8 @@ public final class ProductivitySystemPromptBuilder {
     static final String USER_COMMUNICATION = """
         ## 对用户说话
         用户大多不是技术人员。回复时用日常、结果导向的语言：说明完成了什么、成果在哪、如何查看或使用，避免展开「怎么做的」技术细节。
-        不要在回复里出现工具名、脚本、API、命令行、代码片段、文件路径前缀、内部目录名等实现信息，除非用户明确在问技术问题，或必须给出可复制的操作步骤才能安全完成。
-        需要指代产出物时，用通俗名称（如「报告 Word 文档」「整理好的表格」）；确需让用户打开某个文件时，只说文件名或简短说明，不要堆砌路径与工程术语。
+        不要在回复里出现工具名、脚本、API、命令行、代码片段、绝对路径、内部目录名等实现信息，除非用户明确在问技术问题。
+        每个用户可打开的产出文件写成 Markdown 链接：方括号里用通俗名称，括号里只放工作区相对路径。例如 [学习大纲](大模型7天学习大纲.docx)。不要写绝对路径。
         缺关键信息用 ask_user，并结束本轮。
         """.trim();
 
@@ -37,7 +37,7 @@ public final class ProductivitySystemPromptBuilder {
 
         ## 怎么做
         动手改文件或调用不熟悉的能力前，用 capability_search 看有没有现成 API 或同类说明。
-        命中结果里的调用示例可以直接写进脚本。
+        命中结果里的调用示例可以直接写进脚本。catalog 脚本写成 from "文件名.js"，不要加 ./。./ 只表示 workspace 里和当前脚本放在一起的文件。不要 glob、list_dir 或 catalog_sync 去找脚本库。
         多步骤任务尽量合并为一次可执行方案（脚本或单次编排），少占外层工具轮次。
         用文件工具改 workspace。路径一律相对工作区，不要写绝对路径，也不要加 workspace/ 前缀。
         """.trim();
@@ -52,7 +52,7 @@ public final class ProductivitySystemPromptBuilder {
 
         ## 怎么做
         动手写脚本或调用不熟悉的 API 前，用 capability_search 看有没有现成接口或同类脚本。一次 query 把相关词写全；需要时用 kinds、limit（最多 20）。同一轮不必并行多次搜。
-        命中结果里的调用示例可以直接写进 execute_script。
+        命中结果里的调用示例可以直接写进 execute_script。catalog 脚本写成 from "文件名.js"，不要加 ./。./ 只表示 workspace 里和当前脚本放在一起的文件。不要 glob、list_dir 或 catalog_sync 去找脚本库。
         多步骤任务：在一段 execute_script 里串行完成（await 平台 API、await $tools.工具名、读写 workspace 文件），不要拆成多轮 Run、也不要外层逐个工具慢慢试。
         短一次性逻辑可用 execute_script 的 code。超过 20 行或 1000 字符时，运行时会把 code 写入 jobs/ 再执行，并在结果里给出路径；之后用 edit_file 改该文件，再用 file。路径相对工作区，不要写绝对路径，也不要加 workspace/ 前缀。
         脚本里 await $tools.工具名({...}) 可调用已注册的外层工具（不能再调 execute_script）。具体写法看各工具说明；用错时按返回提醒改。

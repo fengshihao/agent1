@@ -62,7 +62,7 @@ class SvgRasterScriptTest {
         });
         try (engine) {
             Files.writeString(workspace.resolve("jobs/run.js"), """
-                import { svgToImage } from './svg-raster.js';
+                import { svgToImage } from "svg-raster.js";
                 export default await svgToImage({
                   svgPath: 'icon.svg',
                   outputPath: 'out/icon.png',
@@ -114,7 +114,7 @@ class SvgRasterScriptTest {
         });
         try (engine) {
             Files.writeString(workspace.resolve("jobs/run.js"), """
-                import { svgToImage } from './svg-raster.js';
+                import { svgToImage } from "svg-raster.js";
                 export default await svgToImage({
                   svgPath: 'mark.svg',
                   outputPath: 'out/mark.jpeg',
@@ -151,7 +151,7 @@ class SvgRasterScriptTest {
         });
         try (engine) {
             Files.writeString(workspace.resolve("jobs/run.js"), """
-                import { svgToImage } from './svg-raster.js';
+                import { svgToImage } from "svg-raster.js";
                 export default await svgToImage({ svgPath: 'icon.svg', format: 'gif' });
                 """);
             RuntimeException ex = assertThrows(RuntimeException.class, () -> engine.evalForAgent(
