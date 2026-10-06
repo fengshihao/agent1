@@ -1,39 +1,43 @@
 package com.agent1.android.productivity.ui.view
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.ui.viewmodel.RegisteredToolUi
 import com.agent1.android.productivity.ui.viewmodel.SystemPromptViewModel
-import com.agent1.android.productivity.ui.viewmodel.countIgnoreCase
+import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.m3.markdownColor
+import com.mikepenz.markdown.m3.markdownTypography
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SystemPromptScreen(
     viewModel: SystemPromptViewModel,
@@ -44,7 +48,7 @@ fun SystemPromptScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         AgentTopBar(
             title = "系统提示词",
-            subtitle = "当前会话发给模型的原文",
+            subtitle = state.copyMessage,
             leading = {
                 TopBarIconButton(
                     icon = Icons.Filled.ArrowBack,
@@ -52,7 +56,17 @@ fun SystemPromptScreen(
                     onClick = onBack,
                 )
             },
-            actions = {},
+            actions = {
+                TopBarIconButton(
+                    icon = AgentIcons.ContentCopy,
+                    contentDescription = "复制系统提示词",
+                    onClick = {
+                        clipboard.setText(AnnotatedString(state.prompt))
+                        viewModel.onCopied()
+                    },
+                    enabled = state.prompt.isNotBlank(),
+                )
+            },
         )
         AgentHairline()
         Column(
@@ -63,13 +77,8 @@ fun SystemPromptScreen(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                "这里是下一次 Run 的系统提示词，以及已经注册的工具名称、说明和参数。目录、权限、QuickJS、WebView 如果写进了提示词或工具说明，会原样出现在下面。能力索引里的 Skill 和 MCP 用能力检索查看。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             if (state.busy) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             }
             if (!state.errorMessage.isNullOrBlank()) {
                 Text(
@@ -78,155 +87,84 @@ fun SystemPromptScreen(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            if (!state.copyMessage.isNullOrBlank()) {
-                Text(state.copyMessage.orEmpty(), style = MaterialTheme.typography.bodySmall)
+            if (state.prompt.isNotBlank()) {
+                PromptMarkdown(state.prompt)
             }
-            if (state.prompt.isNotBlank() || state.tools.isNotEmpty()) {
-                Text("关键词", style = MaterialTheme.typography.titleSmall)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    state.glances.forEach { glance ->
-                        val empty = glance.promptHits == 0 && glance.toolHits == 0
-                        FilterChip(
-                            selected = state.find.equals(glance.word, ignoreCase = true),
-                            onClick = { viewModel.useFind(glance.word) },
-                            label = {
-                                Text(
-                                    if (empty) {
-                                        "${glance.word}：没有"
-                                    } else {
-                                        "${glance.word}：提示词 ${glance.promptHits}，工具 ${glance.toolHits}"
-                                    },
-                                )
-                            },
-                        )
-                    }
-                }
-                OutlinedTextField(
-                    value = state.find,
-                    onValueChange = viewModel::onFindChange,
-                    label = { Text("在提示词和工具说明里查找") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
+            if (state.tools.isNotEmpty()) {
+                Text(
+                    "工具 ${state.tools.size}",
+                    style = MaterialTheme.typography.titleSmall,
                 )
-                if (state.find.isNotBlank()) {
-                    val promptHits = countIgnoreCase(state.prompt, state.find)
-                    val toolHits = state.tools.sumOf { tool ->
-                        countIgnoreCase(tool.name, state.find) +
-                            countIgnoreCase(tool.description, state.find) +
-                            countIgnoreCase(tool.parametersSchema, state.find)
-                    }
-                    Text(
-                        if (promptHits == 0 && toolHits == 0) {
-                            "提示词和已注册工具说明里都没有「${state.find}」。"
-                        } else {
-                            "提示词 $promptHits 处，工具说明 $toolHits 处。"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (promptHits == 0 && toolHits == 0) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
+                state.tools.forEach { tool ->
+                    CollapsibleToolSpec(tool)
                 }
-                TextButton(
-                    onClick = {
-                        clipboard.setText(AnnotatedString(state.prompt))
-                        viewModel.onCopied()
-                    },
-                    enabled = state.prompt.isNotBlank(),
-                ) {
-                    Text("复制系统提示词")
+            }
+        }
+    }
+}
+
+@Composable
+private fun PromptMarkdown(content: String) {
+    val body = MaterialTheme.typography.bodyMedium
+    val heading = body.copy(fontWeight = FontWeight.SemiBold)
+    Markdown(
+        content = content,
+        modifier = Modifier.fillMaxWidth(),
+        colors = markdownColor(
+            text = MaterialTheme.colorScheme.onSurface,
+            codeBackground = MaterialTheme.colorScheme.surfaceVariant,
+        ),
+        typography = markdownTypography(
+            h1 = heading,
+            h2 = heading,
+            h3 = heading,
+            h4 = body,
+            h5 = body,
+            h6 = body,
+            text = body,
+            paragraph = body,
+            code = body.copy(fontFamily = FontFamily.Monospace),
+            table = body,
+        ),
+    )
+}
+
+@Composable
+private fun CollapsibleToolSpec(tool: RegisteredToolUi) {
+    var expanded by rememberSaveable(tool.name) { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Icon(
+                imageVector = if (expanded) {
+                    Icons.Filled.KeyboardArrowDown
+                } else {
+                    Icons.Filled.KeyboardArrowRight
+                },
+                contentDescription = if (expanded) "收起" else "展开",
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(tool.name, style = MaterialTheme.typography.titleSmall)
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (tool.description.isNotBlank()) {
+                    Text(tool.description, style = MaterialTheme.typography.bodySmall)
                 }
-                Text("系统提示词", style = MaterialTheme.typography.titleSmall)
-                SelectionContainer {
+                if (tool.parametersSchema.isNotBlank()) {
                     Text(
-                        highlight(state.prompt, state.find),
+                        tool.parametersSchema,
                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                     )
                 }
-                Text(
-                    "已注册工具（${state.tools.size}）",
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                val shownTools = if (state.find.isBlank()) {
-                    state.tools
-                } else {
-                    state.tools.filter { tool -> tool.matches(state.find) }
-                }
-                if (state.find.isNotBlank() && shownTools.size != state.tools.size) {
-                    Text(
-                        "只显示说明里含「${state.find}」的工具，其余 ${state.tools.size - shownTools.size} 个已折叠。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (shownTools.isEmpty()) {
-                    Text(
-                        "没有匹配的工具。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                shownTools.forEach { tool ->
-                    RegisteredToolBlock(tool, state.find)
-                }
             }
-        }
-    }
-}
-
-@Composable
-private fun RegisteredToolBlock(tool: RegisteredToolUi, find: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(highlight(tool.name, find), style = MaterialTheme.typography.titleSmall)
-        if (tool.description.isNotBlank()) {
-            SelectionContainer {
-                Text(highlight(tool.description, find), style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        if (tool.parametersSchema.isNotBlank()) {
-            Text("参数", style = MaterialTheme.typography.labelMedium)
-            SelectionContainer {
-                Text(
-                    highlight(tool.parametersSchema, find),
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                )
-            }
-        }
-    }
-}
-
-private fun RegisteredToolUi.matches(find: String): Boolean {
-    return countIgnoreCase(name, find) +
-        countIgnoreCase(description, find) +
-        countIgnoreCase(parametersSchema, find) > 0
-}
-
-@Composable
-private fun highlight(text: String, query: String): AnnotatedString {
-    if (query.isBlank() || text.isEmpty() || query.length > text.length) {
-        return AnnotatedString(text)
-    }
-    val background = MaterialTheme.colorScheme.primaryContainer
-    val haystack = text.lowercase()
-    val needle = query.lowercase()
-    return buildAnnotatedString {
-        var start = 0
-        while (start <= text.length - needle.length) {
-            val index = haystack.indexOf(needle, start)
-            if (index < 0) {
-                append(text.substring(start))
-                break
-            }
-            append(text.substring(start, index))
-            pushStyle(SpanStyle(background = background, fontWeight = FontWeight.SemiBold))
-            append(text.substring(index, index + needle.length))
-            pop()
-            start = index + needle.length
         }
     }
 }
