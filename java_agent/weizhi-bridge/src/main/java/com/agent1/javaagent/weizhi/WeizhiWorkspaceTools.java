@@ -2,22 +2,20 @@ package com.agent1.javaagent.weizhi;
 
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.WorkspaceToolProvider;
+import com.agent1.javaagent.tool.anno.AnnotatedTools;
 import com.agent1.javaagent.weizhi.desktop.DesktopWebViewExecTool;
 import com.agent1.javaagent.weizhi.desktop.cdp.CdpWebViewRuntime;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.weizhi.agent.skill.CompositeSkillRepository;
 import com.weizhi.agent.skill.FileSystemSkillRepository;
-import com.weizhi.agent.skill.LoadSkillTool;
 import com.weizhi.agent.tool.AgentToolkit;
-import com.weizhi.agent.tool.builtin.BashTool;
-import com.weizhi.agent.tool.builtin.GlobTool;
-import com.weizhi.agent.tool.builtin.GrepTool;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * 桌面生产力路径追加的 Weizhi 工具环。
- * 文件读写仍用 Agent1 的 read/write/edit/list；这里补搜索、压缩、bash、skill 与桌面 CDP {@code webview_exec}。
+ * 文件读写、grep、glob、zip、bash、skill 用 Agent1 的 {@code @Tool}；这里仍从 Weizhi 补桌面 CDP {@code webview_exec}。
  * MCP 不在此注册 Java 工具：脚本 {@code $mcp} 走引擎客户端，配置在 {@code agentRoot/mcp_servers.json}。
  */
 public final class WeizhiWorkspaceTools {
@@ -52,24 +50,30 @@ public final class WeizhiWorkspaceTools {
         com.weizhi.agent.sandbox.WorkspaceSandbox weizhiSandbox =
             WeizhiSandboxFactory.forProductivity(sandbox);
         AgentToolkit toolkit = new AgentToolkit();
-        toolkit.registerTool(new GrepTool(weizhiSandbox));
-        toolkit.registerTool(new GlobTool(weizhiSandbox));
-        toolkit.registerTool(new com.weizhi.agent.tool.builtin.ZipTools(weizhiSandbox));
-        toolkit.registerTool(new BashTool(weizhiSandbox));
-        toolkit.registerTool(buildLoadSkillTool(sandbox.getRoot(), projectRootForSkills, agentRootForMcp));
         if (CdpWebViewRuntime.isAvailable()) {
             CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(DEFAULT_WEIZHI_REPO);
             toolkit.registerTool(new DesktopWebViewExecTool(runtime, weizhiSandbox));
             toolkit.addJsExposed("webview_exec");
         }
-        return WeizhiToolkitAdapters.toAgentTools(toolkit, sandbox);
+        List<AgentTool> tools = new ArrayList<>();
+        tools.addAll(AnnotatedTools.from(new com.agent1.javaagent.tool.workspace.GrepTool(sandbox)));
+        tools.addAll(AnnotatedTools.from(new com.agent1.javaagent.tool.workspace.GlobTool(sandbox)));
+        tools.addAll(AnnotatedTools.from(new com.agent1.javaagent.tool.workspace.ZipTools(sandbox)));
+        tools.addAll(AnnotatedTools.from(new com.agent1.javaagent.tool.workspace.BashTool(sandbox)));
+        tools.addAll(AnnotatedTools.from(buildLoadSkillTool(sandbox.getRoot(), projectRootForSkills, agentRootForMcp)));
+        tools.addAll(WeizhiToolkitAdapters.toAgentTools(toolkit, sandbox));
+        return List.copyOf(tools);
     }
 
-    private static LoadSkillTool buildLoadSkillTool(Path workspaceRoot, Path projectRoot, Path agentRoot) {
+    private static com.agent1.javaagent.tool.skill.LoadSkillTool buildLoadSkillTool(
+        Path workspaceRoot,
+        Path projectRoot,
+        Path agentRoot
+    ) {
         FileSystemSkillRepository workspaceSkills =
             new FileSystemSkillRepository(workspaceRoot.resolve("skills"));
         if (projectRoot == null && agentRoot == null) {
-            return new LoadSkillTool(workspaceSkills);
+            return new com.agent1.javaagent.tool.skill.LoadSkillTool(workspaceSkills::readResource);
         }
         java.util.List<com.weizhi.agent.skill.SkillRepository> repos = new java.util.ArrayList<>();
         if (projectRoot != null) {
@@ -82,6 +86,8 @@ public final class WeizhiWorkspaceTools {
             repos.add(new FileSystemSkillRepository(root.resolve("shared/catalog/skills")));
             repos.add(new FileSystemSkillRepository(root.resolve("shared/local/skills")));
         }
-        return new LoadSkillTool(new CompositeSkillRepository(repos.toArray(new com.weizhi.agent.skill.SkillRepository[0])));
+        com.weizhi.agent.skill.SkillRepository repo =
+            new CompositeSkillRepository(repos.toArray(new com.weizhi.agent.skill.SkillRepository[0]));
+        return new com.agent1.javaagent.tool.skill.LoadSkillTool(repo::readResource);
     }
 }
