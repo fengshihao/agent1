@@ -2,7 +2,7 @@ package com.agent1.javaagent.log;
 
 import java.nio.file.Path;
 
-/** {@code agentRoot} 下布局见 doc/基础能力/README.md（sessions、logs/events.jsonl）。 */
+/** {@code agentRoot} 下布局见 java_agent/doc/runtime-data-layout.md（sessions、logs/events.jsonl）。 */
 public final class AgentDataPaths {
 
     private static final String ENV_AGENT_ROOT = "AGENT1_AGENT_ROOT";

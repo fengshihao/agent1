@@ -4,7 +4,7 @@ import android.content.Context
 import java.io.File
 import java.nio.file.Path
 
-/** 会话工作区路径（与 {@code FileSessionStore} 布局一致）。 */
+/** 会话工作区路径（与 {@code FileSessionStore} 布局一致）。见 {@code android_agent/doc/runtime-data-layout.md}。 */
 object SessionWorkspacePaths {
 
     fun agentRoot(context: Context): Path =

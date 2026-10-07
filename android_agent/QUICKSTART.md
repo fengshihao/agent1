@@ -151,7 +151,7 @@ App 内 **模型配置** 与聊天页 **模型详情** 会显示当前包装配�
 ### 未捕获崩溃日志（App 内 + adb）
 
 - **下次启动**：若存在上次 Java 崩溃/启动失败记录，会先进入**纯 View 崩溃页**（可复制、清除、仍要进入）。
-- **落盘**：`files/last_crash_report.txt` + `files/crash-reports/crash-*.txt`；Debug 包还会 Toast 提示已写入。
+- **落盘**：`files/last_crash_report.txt` + `files/crash-reports/crash-*.txt`；Debug 包还会 Toast 提示已写入。完整目录树见 [`doc/runtime-data-layout.md`](doc/runtime-data-layout.md)。
 - **电脑拉取**（推荐）：
 
 ```bash

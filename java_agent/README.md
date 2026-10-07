@@ -15,6 +15,10 @@ Java 版状态化 Agent 内核（MVP），对齐 `pi-mono/packages/agent` 的核
 - `rxjava3`（用于多路流组合和事件桥接）
 - 无 Spring / Reactor 依赖
 
+## 生产力路径数据目录
+
+`./agent1` / `ProductivityCli` 使用的 `agentRoot` 布局（sessions、logs、shared 等）见 **[doc/runtime-data-layout.md](doc/runtime-data-layout.md)**。Android 同布局见 [android_agent/doc/runtime-data-layout.md](../android_agent/doc/runtime-data-layout.md)。
+
 ## 构建与测试
 
 ```bash

@@ -209,7 +209,7 @@ flowchart TB
 | `AGENT1_AGENT_ROOT` | 会话与日志数据根（桌面生产力路径） |
 | `AGENT1_SCRIPT_TIMEOUT_MS` 等 | 脚本与运行时限额，见 `AgentRuntimeDefaults` |
 
-Android 侧多为 App 内配置 + `filesDir/agent1`；详见 [java_agent/README.md](java_agent/README.md) 与能力对照文档。
+运行时数据目录：[桌面生产力](java_agent/doc/runtime-data-layout.md) · [Android App](android_agent/doc/runtime-data-layout.md)。能力差异见 [CLI 与 Android 对照](doc/CLI与Android-Agent能力对照.md)。
 
 ---
 

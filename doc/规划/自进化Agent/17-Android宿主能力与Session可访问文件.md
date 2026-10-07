@@ -1,6 +1,7 @@
 # 17 — Android 宿主能力介绍与会话「可访问文件列表」
 
-> 面向产品 / 集成：说明 **出站分享、入站接收、系统选择器、对话框** 等与 Weizhi Caps、Agent 工具的关系；并约定 **宿主挑选文件 → Session 级可访问列表 → 注入模型上下文** 的推荐形态。  
+> **落盘路径（权威）**：[android_agent/doc/runtime-data-layout.md](../../../android_agent/doc/runtime-data-layout.md)（实现为 `accessible-files.json` + `workspace/imports/`，非下文 `session-meta.json` 草案）。  
+> 面向产品 / 集成：说明 **出站分享、入站接收、系统选择器、对话框** 等与 Weizhi Caps、Agent 工具的关系。  
 > 关联：[16-渲染-文档与Android附件计划](./16-渲染-文档与Android附件计划.md)、Weizhi [INTEGRATION_FOR_AI.md](https://github.com/fengshihao/weizhi/blob/master/docs/INTEGRATION_FOR_AI.md)、Agent1 `ProductivitySystemPromptBuilder`。
 
 ---

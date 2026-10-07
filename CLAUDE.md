@@ -72,7 +72,7 @@ User Input → CLI Layer → AgentRuntime / ProductivityAgentHost → LLM (Qwen 
 - **`SystemPromptBuilder` / `ProductivitySystemPromptBuilder`** — OS/shell/CWD and productivity persona.
 - **Skills** — Claude Code-compatible skills from `.claude/skills/*/SKILL.md` (classic CLI).
 
-Capability tracking: `doc/基础能力/`.
+Capability tracking: runtime layout in `java_agent/doc/runtime-data-layout.md` and `android_agent/doc/runtime-data-layout.md`.
 
 ### Event System
 

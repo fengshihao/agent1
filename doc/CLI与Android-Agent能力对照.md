@@ -2,7 +2,8 @@
 
 > **对比范围**：桌面 **生产力路径**（`./agent1` / `ProductivityCli`）与 Android **生产力助手**（`ProductivityNavHost` + `ProductivityAgentHost`）。  
 > **不含**：经典 CLI（`JavaAgentCli` / `./run-java-agent`）的 bash/python/Claude Skill 四套老工具——该路径仅桌面有，见文末附录。  
-> **代码基准**：仓库 `master`，以 `ProductivityAgentHost`、`ProductivityToolCapabilities`（CLI / Android）、`WeizhiWorkspaceTools`、`WeizhiAgentTools` 为准。
+> **代码基准**：仓库 `master`，以 `ProductivityAgentHost`、`ProductivityToolCapabilities`（CLI / Android）、`WeizhiWorkspaceTools`、`WeizhiAgentTools` 为准。  
+> **运行时落盘（权威）**：[桌面](java_agent/doc/runtime-data-layout.md) · [Android](android_agent/doc/runtime-data-layout.md)
 
 ## 1. 总览
 
@@ -11,7 +12,7 @@
 | 运行时内核 | `java-agent-core` → `ProductivityAgentHost` | 同左（Maven / 本地发布） | **已对齐** |
 | Weizhi 扩展工具 | 需 classpath 含 weizhi（`../weizhi` 或 `AGENT1_WEIZHI_REPO`） | 需 `WEIZHI_INTEGRATED=true`（联编 weizhi 或 `weizhi-prebuilt`） | **条件对齐**；默认未编 weizhi 时两侧都有工作区读写、`chat_history`、`read_url` 和自进化只读工具 |
 | 交互形态 | 终端 REPL + 子命令 | Jetpack Compose 会话列表 / 聊天 / 模型设置 | CLI 偏脚本化运维；Android 偏可视化 |
-| 数据目录 `agentRoot` | `AgentDataPaths.agentRoot()`（`AGENT1_AGENT_ROOT`，默认 `~/files/agent`；`./agent1 --help` 文案写 `.agent1`，以代码为准） | `filesDir/agent1` | **路径不同**，布局一致（sessions / logs） |
+| 数据目录 `agentRoot` | `AGENT1_AGENT_ROOT` 或默认 `$HOME/files/agent`（见 [runtime-data-layout](java_agent/doc/runtime-data-layout.md)） | `filesDir/agent1`（见 [runtime-data-layout](android_agent/doc/runtime-data-layout.md)） | **路径不同**，**布局一致** |
 | 事件 JSONL | `agentRoot/logs/events.jsonl` | 同布局 | **已对齐**；CLI 有查询子命令，App 无内置查询 UI |
 | 模型与限额配置 | 环境变量为主（`AgentRuntimeConfig.fromEnvironment()`） | App 内加密偏好 + 可选 BuildConfig 注入 | Android 多 **GUI 配置**；CLI 多 **env/CI** |
 
@@ -21,16 +22,19 @@
 
 | 工具名 | 能力 | CLI | Android | 备注 |
 |--------|------|:---:|:-------:|------|
-| `read_file` | 读当前 Session workspace | ✅ | ✅ | `WorkspaceSandbox` |
+| `read_file` | 读 workspace；若存在则可读 `docs/system/`、`docs/capabilities/` 前缀（`AgentDocReadMounts`） | ✅ | ✅ | `WorkspaceSandbox` |
 | `read_url` | 读取公开 http(s) 页面标题与正文 | ✅ | ✅ | 有 `TAVILY_API_KEY` 时先 Tavily Extract，失败再本地抽正文；拒绝本机与内网地址 |
 | `write_file` | 写 workspace | ✅ | ✅ | |
 | `edit_file` | 补丁式编辑 | ✅ | ✅ | |
 | `list_dir` | 列目录 | ✅ | ✅ | |
 | `chat_history` | 读当前 Session  transcript | ✅ | ✅ | |
-| `read_agent_doc` | 只读 `agentRoot` 下 `docs/system`、`docs/capabilities` | ✅ | ✅ | 资源来自 core 内 `agent-home` |
-| `catalog_sync_status` | 同步状态占位说明 | ✅ | ✅ | 指向未来 catalog sync |
-| `catalog_install` | 远程安装占位（stub） | ✅ | ✅ | 返回 stub 文案 |
-| `promote_request` | 晋升占位（stub） | ✅ | ✅ | 未实现真实晋升 |
+| `list_sessions` | 列出会话元数据 | ✅ | ✅ | |
+| `ask_user` | 向用户提问（等待回复） | ✅ | ✅ | |
+| `capability_search` | 检索 `capabilities.db` 与 MCP 缓存 | ✅ | ✅ | Android 按平台过滤 `android` |
+| `catalog_sync_status` | 目录 sync 状态 | ✅ | ✅ | 依赖 `agent.manifest.json` / `sync/` |
+| `catalog_install` | 远程 manifest 安装（sync apply） | ✅ | ✅ | 需配置 catalog URL |
+| `promote_request` | `workspace/staging` → `shared/local` | ✅ | ✅ | `PromotionService` |
+| `web_search` | 联网搜索（配置 Key 后注册） | ✅ | ✅ | 可选 |
 
 ### 2.2 Weizhi 扩展（集成成功时两侧均有）
 
@@ -96,8 +100,7 @@
 | P1 | **`execute_script` 超时与脚本提示可配置** | CLI 有 env；Android 写死 600s，sandbox 提示仅内置 WebView 图片说明 |
 | P1 | **与仓库 `.claude/skills` 同步** | 桌面 load_skill 可读项目 skill；Android 仅 assets + workspace |
 | P2 | **非交互单次 Run API** | 便于自动化 / Shortcut |
-| P2 | **统一 `agentRoot` 默认路径文档** | `./agent1 --help` 与 `AgentDataPaths` 默认值不一致，易误导 |
-| — | **catalog_install / promote_request 真实实现** | 两侧均为 stub，属 roadmap 共 gap |
+| P2 | **`./agent1 --help` 与默认 `agentRoot` 文案** | 代码默认 `$HOME/files/agent`；help 若仍写 `.agent1` 需单独修正 |
 
 | 优先级 | Android 已有、CLI 可借鉴 | 说明 |
 |:------:|--------------------------|------|
@@ -134,6 +137,7 @@
 
 ## 附录 B — 如何刷新本对照表
 
-1. 改工具装配时同步更新 `ProductivityToolCapabilities`（CLI 与 Android 各一份摘要文案）。  
-2. 跑 `./agent1 tools` 与 Android 设置页摘要，确认字符串仍一致。  
-3. 集成状态以 `WeizhiHostSupport.tryCreateFactory`（CLI）与 `BuildConfig.WEIZHI_INTEGRATED`（Android）为准。
+1. 改落盘布局时同步 [桌面](java_agent/doc/runtime-data-layout.md) / [Android](android_agent/doc/runtime-data-layout.md) 两份 runtime 文档。  
+2. 改工具装配时同步更新 `ProductivityToolCapabilities`（CLI 与 Android 各一份摘要文案）。  
+3. 跑 `./agent1 tools` 与 Android 设置页摘要，确认字符串仍一致。  
+4. 集成状态以 `WeizhiHostSupport.tryCreateFactory`（CLI）与 `BuildConfig.WEIZHI_INTEGRATED`（Android）为准。

@@ -14,7 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** 将 {@link AgentEventType} 映射为 doc/基础能力/04 中的 JSONL {@code type} 并落盘。 */
+/** 将 {@link AgentEventType} 映射为 JSONL {@code type} 并写入 {@code agentRoot/logs/events.jsonl}。 */
 public final class AgentEventJsonlBridge implements AgentEventListener {
 
     private final RunLogContext context;

@@ -25,7 +25,7 @@ cd android_agent && ./run-webview-draw-test.sh
 5. 拉取验证：
 
 ```bash
-adb exec-out run-as com.dynamicui.demo cat files/agent1/sessions/<sessionId>/workspace/draw/agent-webview.png | head -c 80
+adb exec-out run-as com.agent1.android cat files/agent1/sessions/<sessionId>/workspace/draw/agent-webview.png | head -c 80
 # 应为 base64 字符；解码后 PNG 魔数 89 50 4E 47
 ```
 
