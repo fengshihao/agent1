@@ -14,7 +14,9 @@ public final class ProductivityToolCapabilities {
         try {
             Class.forName("com.weizhi.WeizhiEngine");
             return true;
-        } catch (ClassNotFoundException e) {
+        } catch (ClassNotFoundException | LinkageError e) {
+            // LinkageError：类在 classpath 但 native 库缺失（UnsatisfiedLinkError /
+            // clinit 失败后的 NoClassDefFoundError）。视为不可用，走「未编入 Weizhi」降级文案。
             return false;
         }
     }
