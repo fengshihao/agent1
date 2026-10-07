@@ -321,29 +321,10 @@ function byteLength(bytes) {
 }
 
 function writeBytes(relPath, bytes) {
-  var slash = relPath.lastIndexOf("/");
-  if (slash > 0) {
-    mkdirp(relPath.slice(0, slash));
-  }
   var payload = bytes;
   if (typeof Buffer !== "undefined" && Buffer.from && !(typeof Buffer.isBuffer === "function" && Buffer.isBuffer(bytes))) {
     payload = Buffer.from(bytes);
   }
+  // Weizhi ≥ weizhi#27：writeFileSync 自动创建 workspace 内父目录。
   fs.writeFileSync(relPath, payload);
-}
-
-function mkdirp(relDir) {
-  var parts = String(relDir).split("/");
-  var acc = "";
-  for (var i = 0; i < parts.length; i++) {
-    if (!parts[i]) {
-      continue;
-    }
-    acc = acc ? acc + "/" + parts[i] : parts[i];
-    try {
-      fs.mkdirSync(acc);
-    } catch (e) {
-      // 目录已存在时忽略。
-    }
-  }
 }

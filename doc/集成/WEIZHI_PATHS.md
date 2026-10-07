@@ -6,7 +6,7 @@
 
 | 层 | 谁 | 路径规则 |
 |----|-----|----------|
-| **QuickJS 引擎 `fs` / workspace 内 `import`** | `setFsRoot` = 会话 workspace | 相对或绝对均可；`realpath` / `normalize` 后须在 workspace 根下；越界 `path escape` |
+| **QuickJS 引擎 `fs` / workspace 内 `import`** | `setFsRoot` = 会话 workspace | 相对或绝对均可；`realpath` / `normalize` 后须在 workspace 根下；越界 `path escape`；`mkdirSync`/`promises.mkdir` 支持 `{ recursive: true }`；`writeFile*` 自动建父目录（[weizhi#27](https://github.com/fengshihao/weizhi/issues/27)） |
 | **Catalog 裸 `import`** | `setScriptFolder` = `agentRoot/shared/catalog/scripts` | 仅单层叶子 `from "docx.js"`，不要 `./` |
 | **Java 工具环** | `read_file` / `write_file` / `grep` / `bash`… | `WorkspaceSandbox`：工作区相对或「落在 workspace/agent 文档区」的绝对路径，收成逻辑路径 |
 | **平台 Caps** | 脚本内 `android.files.*`、`intent.start({ path })` 等 | **仅**工作区相对路径 |
@@ -23,5 +23,5 @@
 
 ## 验收
 
-- `:weizhi-bridge:test`：`WeizhiWorkspaceCatalogModuleFallbackTest`、`WeizhiWorkspaceFsAbsolutePathTest`（需 `libweizhijni`）
+- `:weizhi-bridge:test`：`WeizhiWorkspaceCatalogModuleFallbackTest`、`WeizhiWorkspaceFsAbsolutePathTest`、`WeizhiFsMkdirSyncTest`、`SvgRasterScriptTest`（需 `libweizhijni`，Weizhi master ≥ `df0e604` / weizhi#27）
 - 越界绝对路径仍应失败（引擎报错含 `escape` / `path`）
