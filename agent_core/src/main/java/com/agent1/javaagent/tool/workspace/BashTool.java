@@ -289,8 +289,7 @@ public final class BashTool {
                 if (byteCount + n > MAX_OUTPUT_BYTES) {
                     sb.append(buf, 0, MAX_OUTPUT_BYTES - byteCount);
                     truncated = true;
-                    while ((n = reader.read(buf)) >= 0) {
-                        // discard remainder so the child process cannot block on a full pipe
+                    while (reader.read(buf) >= 0) { // NOPMD EmptyWhileStmt — 排空剩余输出，防止子进程阻塞在满管道上
                     }
                     break;
                 }
