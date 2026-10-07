@@ -31,6 +31,11 @@ public final class RunPythonTool implements AgentTool {
     }
 
     @Override
+    public long suggestedTimeoutMs(JsonNode parameters, long fallbackMs) {
+        return Math.max(fallbackMs, 45_000L);
+    }
+
+    @Override
     public JsonNode parametersSchema() {
         ObjectNode schema = MAPPER.createObjectNode();
         schema.put("type", "object");
