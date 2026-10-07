@@ -39,4 +39,4 @@ Agent1 **`java-agent-core`** 负责 LLM 对话、Session、工作区 Java Tool�
 
 - Weizhi 集成指南：[weizhi `docs/INTEGRATION_FOR_AI.md`](https://github.com/fengshihao/weizhi/blob/master/docs/INTEGRATION_FOR_AI.md)
 - Agent1 双端能力表：[CLI与Android-Agent能力对照.md](../CLI与Android-Agent能力对照.md)
-- Catalog / docx / grep 沙箱：[WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md)、[WEIZHI_DOCX.md](./WEIZHI_DOCX.md)、[WEIZHI_GREP_GLOB_SANDBOX.md](./WEIZHI_GREP_GLOB_SANDBOX.md)
+- Catalog / docx / pptx / grep 沙箱：[WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md)、[WEIZHI_DOCX.md](./WEIZHI_DOCX.md)、[WEIZHI_PPTX.md](./WEIZHI_PPTX.md)、[WEIZHI_GREP_GLOB_SANDBOX.md](./WEIZHI_GREP_GLOB_SANDBOX.md)

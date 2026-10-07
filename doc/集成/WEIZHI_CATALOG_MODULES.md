@@ -9,7 +9,7 @@ Weizhi [weizhi#10](https://github.com/fengshihao/weizhi/pull/10)（closes [weizh
 | 根 | 路径 |
 |----|------|
 | `setFsRoot` | 会话 workspace |
-| `setScriptFolder` | `agentRoot/shared/catalog/scripts`（bootstrap：`docx.js`、`docx-raw.js`、`docx-build.js`、`svg-raster.js`） |
+| `setScriptFolder` | `agentRoot/shared/catalog/scripts`（bootstrap：`docx.js`、`docx-raw.js`、`docx-build.js`、`pptx.js`、`pptx-build.js`、`svg-raster.js`） |
 
 - **给模型的写法**：catalog 脚本用裸导入 `import { markdownToDocx } from "docx.js"`。`./` 只表示 workspace 里和当前脚本放在一起的文件（如 `import './helper.js'`）。
 - **兼容**：单层 `./leaf.js` 在 workspace 找不到时仍回退到 `setScriptFolder`，但不再教模型写 `./`。

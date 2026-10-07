@@ -32,6 +32,17 @@ class CapabilityIndexStoreTest {
     }
 
     @Test
+    void ensureFindsPptxCards() {
+        Path agentRoot = temp.resolve("agentRootPptx");
+        CapabilityIndexStore.ensure(agentRoot);
+
+        var hits = CapabilityIndexStore.search(agentRoot, "ppt 幻灯片 renderPptx", List.of(), "any", 5);
+        assertFalse(hits.isEmpty());
+        assertTrue(hits.stream().anyMatch(h -> h.id().equals("pptx.render")));
+        assertTrue(hits.stream().anyMatch(h -> h.entry().contains("renderPptx")));
+    }
+
+    @Test
     void platformFilterAndroidShare() {
         Path agentRoot = temp.resolve("agentRoot");
         CapabilityIndexStore.ensure(agentRoot);
