@@ -34,7 +34,7 @@ object WeizhiHostLoader {
             用户添加后会写入环境里的可访问文件列表；再用 read_file 读 imports/ 下路径。不要编造已读内容。
             """.trimIndent(),
             scriptTools,
-            WeizhiAgentTools(context),
+            WeizhiAgentTools(context, agentRoot),
             "android",
         )
     }

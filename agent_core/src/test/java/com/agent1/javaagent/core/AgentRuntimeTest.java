@@ -182,6 +182,64 @@ class AgentRuntimeTest {
     }
 
     @Test
+    void newRunClearsPausedErrorFromPreviousRun() {
+        ToolCall noopCall = new ToolCall("t1", "noop", "{}");
+        AgentTool noop = new AgentTool() {
+            @Override
+            public String name() {
+                return "noop";
+            }
+
+            @Override
+            public String description() {
+                return "noop";
+            }
+
+            @Override
+            public JsonNode parametersSchema() {
+                return new ObjectMapper().createObjectNode().put("type", "object");
+            }
+
+            @Override
+            public ToolExecutionResult execute(
+                String toolCallId,
+                JsonNode parameters,
+                CancellationToken cancellationToken,
+                ToolUpdateListener onUpdate
+            ) {
+                return ToolExecutionResult.text("ok");
+            }
+        };
+
+        java.util.concurrent.atomic.AtomicInteger llmCalls = new java.util.concurrent.atomic.AtomicInteger();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            if (tools.isEmpty() || llmCalls.getAndIncrement() > 0) {
+                streamListener.onTextDelta("done");
+                return new AssistantResponse("done", List.of());
+            }
+            return new AssistantResponse("", List.of(noopCall));
+        };
+
+        AgentRuntime runtime = new AgentRuntime(
+            AgentOptions.builder("test-model")
+                .tools(List.of(noop))
+                .maxTurnsPerRun(1)
+                .build(),
+            fake
+        );
+
+        runtime.prompt("first").join();
+        runtime.waitForIdle();
+        assertTrue(RunOutcome.isPaused(runtime.getStateSnapshot().getError()));
+
+        runtime.prompt("second").join();
+        runtime.waitForIdle();
+        assertTrue(runtime.getStateSnapshot().getError() == null
+            || runtime.getStateSnapshot().getError().isBlank());
+        runtime.close();
+    }
+
+    @Test
     void askUserTool_shouldStopRunWithWaitingUserError() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode params = mapper.createObjectNode();

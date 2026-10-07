@@ -52,7 +52,7 @@
 Agent1 要成为 **Android / 嵌入式 JVM 宿主** 里的默认 **生产力编程智能体**：
 
 1. **用户说人话，助手写 JS**  
-   在 Session `workspace/` 里生成并迭代 **orchestrator 脚本**（`execute_script`），通过 Weizhi QuickJS 调用 `fs`、平台 **Caps**、catalog 脚本、以及白名单内的 `$tools` 桥。复杂任务拆成多步脚本，而不是一轮轮硬调零散 Java Tool。
+   在 Session `workspace/` 里用一段脚本编排任务（`execute_script`），通过 Weizhi QuickJS 调用 `fs`、平台 **Caps**、catalog 脚本、以及白名单内的 `$tools` 桥。多步工作写在同一段脚本里，而不是一轮轮硬调零散 Java Tool。
 
 2. **工具少而精，细节靠检索**  
    Java 层只保留工作区 I/O、脚本执行、用户澄清等「内核工具」。具体怎么做 Word、分享、画图、调外部服务，先走 **`capability_search`**：结果里的调用示例可以直接写进脚本。Skill 命中时附上正文。API 手册不打进 APK。

@@ -12,6 +12,7 @@ Weizhi [weizhi#10](https://github.com/fengshihao/weizhi/pull/10)（closes [weizh
 | `setScriptFolder` | `agentRoot/shared/catalog/scripts`（bootstrap：`docx.js`、`docx-raw.js`、`docx-build.js`、`pptx.js`、`pptx-build.js`、`svg-raster.js`） |
 
 - **给模型的写法**：catalog 脚本用裸导入 `import { markdownToDocx } from "docx.js"`。`./` 只表示 workspace 里和当前脚本放在一起的文件（如 `import './helper.js'`）。
+- **路径沙箱**（[WEIZHI_PATHS.md](./WEIZHI_PATHS.md)）：脚本内 `fs` / workspace `import` 可用相对或绝对路径，须在 `setFsRoot` 下；Caps 的 `path` 仍仅相对路径。
 - **兼容**：单层 `./leaf.js` 在 workspace 找不到时仍回退到 `setScriptFolder`，但不再教模型写 `./`。
 - Agent1 **不再**使用 `.workspace-run/` 镜像（见 [agent1#30](https://github.com/fengshihao/agent1/issues/30)）。
 

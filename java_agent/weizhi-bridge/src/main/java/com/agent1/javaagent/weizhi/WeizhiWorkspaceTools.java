@@ -56,7 +56,7 @@ public final class WeizhiWorkspaceTools {
         toolkit.registerTool(new GlobTool(weizhiSandbox));
         toolkit.registerTool(new com.weizhi.agent.tool.builtin.ZipTools(weizhiSandbox));
         toolkit.registerTool(new BashTool(weizhiSandbox));
-        toolkit.registerTool(buildLoadSkillTool(sandbox.getRoot(), projectRootForSkills));
+        toolkit.registerTool(buildLoadSkillTool(sandbox.getRoot(), projectRootForSkills, agentRootForMcp));
         if (CdpWebViewRuntime.isAvailable()) {
             CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(DEFAULT_WEIZHI_REPO);
             toolkit.registerTool(new DesktopWebViewExecTool(runtime, weizhiSandbox));
@@ -65,14 +65,23 @@ public final class WeizhiWorkspaceTools {
         return WeizhiToolkitAdapters.toAgentTools(toolkit, sandbox);
     }
 
-    private static LoadSkillTool buildLoadSkillTool(Path workspaceRoot, Path projectRoot) {
+    private static LoadSkillTool buildLoadSkillTool(Path workspaceRoot, Path projectRoot, Path agentRoot) {
         FileSystemSkillRepository workspaceSkills =
             new FileSystemSkillRepository(workspaceRoot.resolve("skills"));
-        if (projectRoot == null) {
+        if (projectRoot == null && agentRoot == null) {
             return new LoadSkillTool(workspaceSkills);
         }
-        Path claudeSkills = projectRoot.resolve(".claude").resolve("skills");
-        FileSystemSkillRepository projectSkills = new FileSystemSkillRepository(claudeSkills);
-        return new LoadSkillTool(new CompositeSkillRepository(projectSkills, workspaceSkills));
+        java.util.List<com.weizhi.agent.skill.SkillRepository> repos = new java.util.ArrayList<>();
+        if (projectRoot != null) {
+            Path claudeSkills = projectRoot.resolve(".claude").resolve("skills");
+            repos.add(new FileSystemSkillRepository(claudeSkills));
+        }
+        repos.add(workspaceSkills);
+        if (agentRoot != null) {
+            Path root = agentRoot.toAbsolutePath().normalize();
+            repos.add(new FileSystemSkillRepository(root.resolve("shared/catalog/skills")));
+            repos.add(new FileSystemSkillRepository(root.resolve("shared/local/skills")));
+        }
+        return new LoadSkillTool(new CompositeSkillRepository(repos.toArray(new com.weizhi.agent.skill.SkillRepository[0])));
     }
 }

@@ -29,7 +29,7 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
         assertTrue(prompt.contains("ask_user"));
-        assertTrue(prompt.contains("对用户说话"));
+        assertTrue(prompt.contains("对用户"));
         assertTrue(prompt.contains("普通用户"));
         assertTrue(prompt.contains("除非用户明确在问技术问题"));
         assertTrue(prompt.contains("[学习大纲](大模型7天学习大纲.docx)"));
@@ -43,7 +43,8 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("webview_exec"));
         assertTrue(prompt.contains("$tools.webview_exec"));
         assertTrue(prompt.contains("execute_script"));
-        assertTrue(prompt.contains("优先用 execute_script"));
+        assertTrue(prompt.contains("一段 execute_script"));
+        assertTrue(prompt.contains("不要在外层单独调 webview_exec"));
         assertTrue(prompt.contains("宿主系统能力"));
         assertFalse(prompt.contains("不操作手机界面"));
         assertFalse(prompt.contains("svgToImage"));
@@ -56,7 +57,7 @@ class ProductivitySystemPromptBuilderTest {
     void warnsAgainstWorkspacePathPrefix() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
-        assertTrue(prompt.contains("不要加 workspace/ 前缀"));
+        assertTrue(prompt.contains("workspace/ 前缀"));
     }
 
     @Test
@@ -65,8 +66,9 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(prompt.contains("execute_script"));
         assertTrue(prompt.contains("capability_search"));
-        assertTrue(prompt.contains("写代码"));
+        assertTrue(prompt.contains("写成一段程序"));
         assertFalse(prompt.contains("webview_exec"));
+        assertFalse(prompt.contains("bash"));
         assertFalse(prompt.contains("docx_markdown_to_word"));
     }
 
@@ -75,7 +77,7 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(prompt.contains("execute_script"));
-        assertTrue(prompt.contains("写代码"));
+        assertTrue(prompt.contains("写成一段程序"));
         assertFalse(prompt.contains("直接生产"));
         assertFalse(prompt.contains("编程生产"));
         assertFalse(prompt.contains("docx_"));
@@ -89,7 +91,7 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("shared/"));
         assertTrue(prompt.contains("调用示例"));
         assertFalse(prompt.contains("docs/"));
-        assertTrue(prompt.contains("分工"));
+        assertTrue(prompt.contains("办事顺序"));
         assertFalse(prompt.contains("QuickJS"));
         assertFalse(prompt.contains("Tavily"));
     }
@@ -106,6 +108,9 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(withScript.contains("编程型生产力智能体"));
         assertTrue(withScript.contains("一段 execute_script 里串行完成"));
         assertTrue(withScript.contains("不要拆成多轮 Run"));
+        assertTrue(withScript.contains("不要在外层逐个调用"));
+        assertTrue(withScript.contains("失败就改这一段"));
+        assertFalse(withScript.contains("优先用"));
     }
 
     @Test
@@ -237,14 +242,15 @@ class ProductivitySystemPromptBuilderTest {
     void mainPromptBatchCapabilitySearchGuidance() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
-        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("capability_search 一次"));
         assertTrue(prompt.contains("现成接口或同类脚本"));
-        assertTrue(prompt.contains("不必并行多次"));
-        assertTrue(prompt.contains("limit（最多 20）"));
-        assertTrue(prompt.contains("execute_script 的 code"));
+        assertTrue(prompt.contains("query 写全"));
         assertTrue(prompt.contains("不要 glob、list_dir 或 catalog_sync"));
-        assertTrue(prompt.contains("20 行或 1000 字符"));
         assertTrue(prompt.contains("edit_file"));
+        assertTrue(prompt.contains("外层 read_file"));
+        assertTrue(prompt.contains("须在 workspace 根下"));
+        assertFalse(prompt.contains("20 行或 1000 字符"));
+        assertFalse(prompt.contains("limit（最多 20）"));
         assertFalse(prompt.contains("不确定有什么能力时"));
         assertFalse(prompt.contains("稳定行号"));
     }

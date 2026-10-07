@@ -1,6 +1,7 @@
 package com.agent1.javaagent.promote;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
+import com.agent1.javaagent.catalog.AgentCatalogPaths;
 import com.agent1.javaagent.log.AgentAuditEvents;
 import com.agent1.javaagent.util.PathIo;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,9 +56,12 @@ public final class PromotionService {
             promoted.add("skill:" + skill.dirName());
         }
 
+        Path catalogScripts = AgentCatalogPaths.catalogScriptsDir(agentRoot);
+        Files.createDirectories(catalogScripts);
         for (PromotionScanner.StagedScript script : scan.scripts()) {
             Path dest = localScripts.resolve(script.fileName());
             Files.copy(script.scriptFile(), dest, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(dest, catalogScripts.resolve(script.fileName()), StandardCopyOption.REPLACE_EXISTING);
             if (script.metaFile() != null) {
                 Path metaDest = localScripts.resolve(script.metaFile().getFileName());
                 Files.copy(script.metaFile(), metaDest, StandardCopyOption.REPLACE_EXISTING);

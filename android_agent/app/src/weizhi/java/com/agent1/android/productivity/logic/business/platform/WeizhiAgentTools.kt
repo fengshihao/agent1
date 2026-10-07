@@ -16,6 +16,7 @@ import com.weizhi.agent.tool.builtin.GlobTool
 import com.weizhi.agent.tool.builtin.GrepTool
 import com.weizhi.agent.tool.builtin.ZipTools
 import com.weizhi.agent.web.WebViewAgentExtension
+import java.nio.file.Path
 
 /**
  * Android 侧 Weizhi 工具环：搜索、压缩、bash、skill，以及 WebView。
@@ -24,6 +25,7 @@ import com.weizhi.agent.web.WebViewAgentExtension
  */
 class WeizhiAgentTools(
     private val appContext: Context,
+    private val agentRoot: Path,
 ) : WorkspaceToolProvider {
 
     override fun toolsFor(sandbox: WorkspaceSandbox): List<AgentTool> {
@@ -33,11 +35,14 @@ class WeizhiAgentTools(
         toolkit.registerTool(GlobTool(weizhiSandbox))
         toolkit.registerTool(ZipTools(weizhiSandbox))
         toolkit.registerTool(BashTool(weizhiSandbox))
+        val root = agentRoot.toAbsolutePath().normalize()
         toolkit.registerTool(
             LoadSkillTool(
                 CompositeSkillRepository(
                     AssetSkillRepository(appContext, "agent_skills"),
                     FileSystemSkillRepository(sandbox.root.resolve("skills")),
+                    FileSystemSkillRepository(root.resolve("shared/catalog/skills")),
+                    FileSystemSkillRepository(root.resolve("shared/local/skills")),
                 ),
             ),
         )

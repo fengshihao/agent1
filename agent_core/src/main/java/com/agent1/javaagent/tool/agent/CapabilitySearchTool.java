@@ -198,14 +198,7 @@ public final class CapabilitySearchTool implements AgentTool {
                         break;
                     }
                     String haystack = (skill.name() + " " + skill.description()).toLowerCase(Locale.ROOT);
-                    boolean allTerms = true;
-                    for (String term : terms) {
-                        if (!haystack.contains(term)) {
-                            allTerms = false;
-                            break;
-                        }
-                    }
-                    if (allTerms) {
+                    if (matchesSkillQuery(haystack, terms)) {
                         names.add(skill.name().toLowerCase(Locale.ROOT));
                     }
                 }
@@ -226,6 +219,26 @@ public final class CapabilitySearchTool implements AgentTool {
             selected.add(byName.get(name));
         }
         return selected;
+    }
+
+    /**
+     * 多词 query：命中任意 {@value #MIN_SKILL_TERM_MATCHES} 个词即可（避免「绘制流程图」「图片生成」
+     * 等泛词把「时序图 + mermaid/svg」挡掉）。1～2 个词仍要求全中。
+     */
+    static final int MIN_SKILL_TERM_MATCHES = 2;
+
+    static boolean matchesSkillQuery(String haystack, List<String> terms) {
+        if (terms.isEmpty()) {
+            return false;
+        }
+        int required = terms.size() <= MIN_SKILL_TERM_MATCHES ? terms.size() : MIN_SKILL_TERM_MATCHES;
+        int matched = 0;
+        for (String term : terms) {
+            if (haystack.contains(term)) {
+                matched++;
+            }
+        }
+        return matched >= required;
     }
 
     private static String skillName(CapabilityIndexStore.CapabilityHit hit) {

@@ -198,6 +198,7 @@ public final class AgentRuntime implements Closeable {
     }
 
     private void runAgentLoop(CancellationToken token) {
+        state.setError(null);
         emit(AgentEventType.AGENT_START, state.snapshot());
         int turnIndex = 0;
         int toolCallCount = 0;

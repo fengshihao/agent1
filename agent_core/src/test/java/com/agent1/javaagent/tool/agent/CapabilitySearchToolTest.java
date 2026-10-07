@@ -147,6 +147,29 @@ class CapabilitySearchToolTest {
     }
 
     @Test
+    void searchLoadsLocalSkillWhenPartialTermsMatch() throws Exception {
+        Path agentRoot = temp.resolve("agentRootMermaid");
+        AgentHomeBootstrap.ensure(agentRoot);
+        Path skillDir = agentRoot.resolve("shared/local/skills/mermaid-diagram");
+        Files.createDirectories(skillDir);
+        PathIo.writeString(
+            skillDir.resolve("SKILL.md"),
+            "---\nname: mermaid-diagram\n"
+                + "description: 用户要画 Mermaid 图（时序图、流程图等），或导出成 SVG/PNG。\n"
+                + "---\n# body\n"
+        );
+
+        CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot, "android");
+        ObjectNode params = new ObjectMapper().createObjectNode();
+        params.put("query", "绘制流程图 图形 SVG 图片生成 时序图");
+        ToolExecutionResult result = tool.execute("t-mermaid", params, new CancellationToken(), u -> {
+        });
+
+        assertTrue(result.getText().contains("mermaid-diagram loaded"));
+        assertTrue(result.getText().contains("source: local"));
+    }
+
+    @Test
     void searchLoadsLocalSkillByName() throws Exception {
         Path agentRoot = temp.resolve("agentRoot4");
         AgentHomeBootstrap.ensure(agentRoot);
