@@ -66,8 +66,6 @@ run_java_test() {
 
   if [[ -d "${weizhi_dir}" ]] && [[ -f "${weizhi_dir}/scripts/test.sh" ]]; then
     if [[ "${CI_LOCAL_SKIP_WEIZHI_TEST:-}" != "1" ]]; then
-      WEIZHI_DIR="${weizhi_dir}" chmod +x "${REPO_ROOT}/scripts/overlay-weizhi-office-catalog.sh" \
-        && WEIZHI_DIR="${weizhi_dir}" "${REPO_ROOT}/scripts/overlay-weizhi-office-catalog.sh"
       echo "==> weizhi: WEIZHI_SKIP_ASAN=1 ./scripts/test.sh"
       (cd "${weizhi_dir}" && WEIZHI_SKIP_ASAN=1 ./scripts/test.sh)
     fi

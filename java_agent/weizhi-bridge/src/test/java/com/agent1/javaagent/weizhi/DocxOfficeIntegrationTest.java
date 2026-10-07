@@ -15,7 +15,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** weizhi#8 / weizhi#11：Agent1 bootstrap + docx.js + markdownToDocx（对齐 weizhi OfficeTest）。 */
+/** Agent1 catalog 上的 docx.js：markdownToDocx 与标题层次。 */
 class DocxOfficeIntegrationTest {
 
     private static WeizhiScriptEngineFactory factory;

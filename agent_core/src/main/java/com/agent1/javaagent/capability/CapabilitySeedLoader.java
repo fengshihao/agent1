@@ -16,9 +16,13 @@ public final class CapabilitySeedLoader {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String SEED_RESOURCE = "/agent-home/capabilities/search-index.seed.jsonl";
-    /** 微智按 API 导出的调用卡。真源：weizhi {@code docs/api-cards.jsonl}。 */
+    /** 微智引擎 / caps 调用卡。真源：weizhi {@code docs/api-cards.jsonl}。 */
     private static final String WEIZHI_CARDS_RESOURCE = "/agent-home/capabilities/weizhi-api-cards.jsonl";
-    private static final String[] SEED_RESOURCES = {SEED_RESOURCE, WEIZHI_CARDS_RESOURCE};
+    /** Word / PPT 调用卡。真源在本仓库，不随 Weizhi 发布。 */
+    private static final String OFFICE_CARDS_RESOURCE = "/agent-home/capabilities/office-api-cards.jsonl";
+    private static final String[] SEED_RESOURCES = {
+        SEED_RESOURCE, WEIZHI_CARDS_RESOURCE, OFFICE_CARDS_RESOURCE
+    };
 
     private static volatile String fingerprintCache;
 
@@ -61,10 +65,11 @@ public final class CapabilitySeedLoader {
         List<CapabilityRecord> out = new ArrayList<>();
         out.addAll(loadResource(SEED_RESOURCE, false));
         out.addAll(loadResource(WEIZHI_CARDS_RESOURCE, true));
+        out.addAll(loadResource(OFFICE_CARDS_RESOURCE, true));
         return out;
     }
 
-    private static List<CapabilityRecord> loadResource(String resource, boolean weizhiCard) {
+    private static List<CapabilityRecord> loadResource(String resource, boolean catalogCard) {
         List<CapabilityRecord> out = new ArrayList<>();
         try (InputStream in = CapabilitySeedLoader.class.getResourceAsStream(resource)) {
             if (in == null) {
@@ -77,7 +82,7 @@ public final class CapabilitySeedLoader {
                     if (line.isEmpty() || line.startsWith("#")) {
                         continue;
                     }
-                    out.add(weizhiCard ? parseWeizhiCard(line) : parseLine(line));
+                    out.add(catalogCard ? parseWeizhiCard(line) : parseLine(line));
                 }
             }
         } catch (Exception e) {
@@ -123,7 +128,7 @@ public final class CapabilitySeedLoader {
             "",
             "",
             requires,
-            "weizhi",
+            id.startsWith("docx.") || id.startsWith("pptx.") ? "agent1" : "weizhi",
             weight
         );
     }

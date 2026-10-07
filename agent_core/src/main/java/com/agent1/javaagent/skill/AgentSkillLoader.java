@@ -18,7 +18,8 @@ public final class AgentSkillLoader {
 
     /** 随 core 发布、不经过 promote 的技能。local / catalog / project 同名条目覆盖它。 */
     private static final String[] BUNDLED_SKILL_RESOURCES = {
-        "/agent-home/skills/skill-creator/SKILL.md"
+        "/agent-home/skills/skill-creator/SKILL.md",
+        "/agent-home/skills/pptx/SKILL.md"
     };
 
     public SkillLoadResult loadFromProjectRoot(Path projectRoot) {

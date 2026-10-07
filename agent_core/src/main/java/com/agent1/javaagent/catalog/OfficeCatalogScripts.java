@@ -8,7 +8,12 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 
-/** 将 Weizhi {@code assets/office} 脚本同步到 {@code shared/catalog/scripts}（docx weizhi#8，pptx 同 catalog）。 */
+/**
+ * 把 Agent1 自带的 Office 脚本装进 {@code shared/catalog/scripts}。
+ * 真源是 classpath {@code agent-home/catalog/scripts}；Android 另有一份
+ * {@code assets/office}，由 {@code AndroidOfficeCatalogSync} 写入同一目录。
+ * Weizhi 引擎不附带这些脚本。
+ */
 public final class OfficeCatalogScripts {
 
     public static final List<String> OFFICE_SCRIPT_NAMES =
@@ -27,18 +32,10 @@ public final class OfficeCatalogScripts {
         } catch (IOException e) {
             throw new IllegalStateException("create catalog scripts dir failed: " + scripts, e);
         }
-        Path weizhiOffice = resolveWeizhiOfficeDir();
         for (String name : OFFICE_SCRIPT_NAMES) {
             Path target = scripts.resolve(name);
             if (isNonEmptyFile(target)) {
                 continue;
-            }
-            if (weizhiOffice != null) {
-                Path src = weizhiOffice.resolve(name);
-                if (Files.isRegularFile(src)) {
-                    copyFile(src, target);
-                    continue;
-                }
             }
             copyFromClasspath(name, target);
         }
@@ -54,17 +51,6 @@ public final class OfficeCatalogScripts {
         return true;
     }
 
-    private static Path resolveWeizhiOfficeDir() {
-        String repo = System.getenv("AGENT1_WEIZHI_REPO");
-        if (repo != null && !repo.isBlank()) {
-            Path office = Path.of(repo.trim()).resolve("assets").resolve("office");
-            if (Files.isDirectory(office)) {
-                return office.toAbsolutePath().normalize();
-            }
-        }
-        return null;
-    }
-
     private static void copyFromClasspath(String name, Path target) {
         String resource = "/agent-home/catalog/scripts/" + name;
         URL url = OfficeCatalogScripts.class.getResource(resource);
@@ -75,14 +61,6 @@ public final class OfficeCatalogScripts {
             Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new IllegalStateException("copy office script failed: " + target, e);
-        }
-    }
-
-    private static void copyFile(Path src, Path target) {
-        try {
-            Files.copy(src, target, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            throw new IllegalStateException("copy " + src + " -> " + target, e);
         }
     }
 

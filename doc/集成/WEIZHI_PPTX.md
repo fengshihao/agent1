@@ -1,22 +1,20 @@
-# Weizhi PPT（pptx.js）— Agent1 集成入口
+# PPT（pptx.js）— Agent1 脚本
 
-**真源文档（Weizhi 仓库）：**  
-https://github.com/fengshihao/weizhi/blob/master/docs/pptx-js-api.md  
+**给人读的 API：** [OFFICE_PPTX_API.md](./OFFICE_PPTX_API.md)
 
-**调用卡真源：** weizhi `docs/api-cards.jsonl` → Agent1 `weizhi-api-cards.jsonl`（`pptx.render` / `pptx.build`）
+脚本与 `pptx` Skill 在本仓库。Weizhi 不附带 `pptx.js`。
 
 ---
 
-## Agent1 已做 / 约定
+## 约定
 
 | 项 | 位置 |
 |----|------|
-| 拷贝 `pptx.js` / `pptx-build.js` 到 agentRoot | `OfficeCatalogScripts` → `shared/catalog/scripts/`；APK `assets/office/` |
-| 调用方式 | `execute_script` 里 `import { renderPptx } from "pptx.js"` 或 `buildPptx` from `pptx-build.js` |
-| 系统提示 | 只指向 `capability_search`；细则在调用卡，不打独立 Markdown 手册 |
+| 脚本真源 | `agent_core/.../catalog/scripts/pptx.js`、`pptx-build.js` |
+| Android 副本 | `android_agent/app/src/main/assets/office/` |
+| Skill | `agent-home/skills/pptx/SKILL.md`（随 core 内置） |
+| 调用卡 | `office-api-cards.jsonl` 的 `pptx.render` / `pptx.build` |
+| 调用 | `import { renderPptx } from "pptx.js"` 或 `buildPptx` from `pptx-build.js` |
 | 测试 | `PptxOfficeIntegrationTest`（需 `libweizhijni`） |
 
-## 构建
-
-- 脚本已提交在 `agent_core/src/main/resources/agent-home/catalog/scripts/`；本地可 `./sync-weizhi.sh` 后从 `AGENT1_WEIZHI_REPO/assets/office/` 覆盖（若 catalog 目录里尚无非空副本）。
-- 与 docx 相同：见 [WEIZHI_DOCX.md](./WEIZHI_DOCX.md) 的 Weizhi JNI 构建说明。
+与 Word 共用 `OfficeCatalogScripts`。见 [WEIZHI_DOCX.md](./WEIZHI_DOCX.md)。

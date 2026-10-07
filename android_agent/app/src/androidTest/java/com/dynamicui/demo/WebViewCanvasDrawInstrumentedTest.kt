@@ -3,7 +3,7 @@ package com.dynamicui.demo
 import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.dynamicui.demo.BuildConfig
+import com.agent1.android.BuildConfig
 import com.weizhi.agent.sandbox.WorkspaceSandbox
 import com.weizhi.agent.web.HandlerUiExecutor
 import com.weizhi.agent.web.WebViewExecTool
@@ -25,8 +25,8 @@ class WebViewCanvasDrawInstrumentedTest {
     @Test
     fun webviewExecDrawsPngViaCanvas() {
         assumeTrue(
-            BuildConfig.WEIZHI_INTEGRATED,
             "需要 Weizhi 联编（WEIZHI_INTEGRATED=true）",
+            BuildConfig.WEIZHI_INTEGRATED,
         )
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -54,14 +54,17 @@ class WebViewCanvasDrawInstrumentedTest {
         """.trimIndent()
 
         val receipt = tool.webviewExec(code, null, null, "webview_draw.png", "180000")
-        assertTrue(receipt.contains("\"ok\":true"), "webview_exec 失败: $receipt")
+        assertTrue("webview_exec 失败: $receipt", receipt.contains("\"ok\":true"))
 
         val outPath = workspaceDir.toPath().resolve("webview_draw.png")
-        assertTrue(Files.isRegularFile(outPath), "未生成 webview_draw.png")
+        assertTrue("未生成 webview_draw.png", Files.isRegularFile(outPath))
 
         val pngBytes = Base64.decode(outPath.readText().trim(), Base64.DEFAULT)
-        assertTrue(pngBytes.size > 64, "PNG 过小")
-        assertTrue(pngBytes[0] == 0x89.toByte() && pngBytes[1] == 'P'.code.toByte(), "非 PNG 魔数")
+        assertTrue("PNG 过小", pngBytes.size > 64)
+        assertTrue(
+            "非 PNG 魔数",
+            pngBytes[0] == 0x89.toByte() && pngBytes[1] == 'P'.code.toByte(),
+        )
         assertTrue(pngBytes[2] == 'N'.code.toByte() && pngBytes[3] == 'G'.code.toByte())
     }
 }
