@@ -137,6 +137,7 @@ class ProductivityAgentHostTest {
             assertTrue(toolNames.get().contains("list_sessions"));
             assertFalse(toolNames.get().contains("skill"));
             assertTrue(toolNames.get().contains("ask_user"));
+            assertTrue(toolNames.get().contains("todo_write"));
             assertTrue(toolNames.get().contains("capability_search"));
             assertFalse(toolNames.get().contains("web_search"));
             assertFalse(host.runtime().getStateSnapshot().getSystemPrompt().contains("web_search"));
@@ -223,10 +224,45 @@ class ProductivityAgentHostTest {
             assertTrue(toolNames.get().contains("read_url"));
             assertTrue(bridge.exposedNames().contains("extra_search"));
             assertTrue(bridge.exposedNames().contains("read_file"));
+            assertTrue(bridge.exposedNames().contains("todo_write"));
             assertTrue(bridge.exposedNames().contains("read_url"));
             assertFalse(bridge.exposedNames().contains("execute_script"));
             assertEquals("hit", bridge.call("extra_search", java.util.Map.of()));
             assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("$tools"));
+        }
+    }
+
+    @Test
+    void injectsOpenTodosIntoSystemPrompt() throws Exception {
+        LlmClient fake = (request, tools, streamListener, cancellationToken) ->
+            new AssistantResponse("ok", List.of());
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            host.createSession();
+            java.nio.file.Files.writeString(
+                temp.resolve("sessions").resolve(host.getActiveSessionId()).resolve("todos.json"),
+                "{\"todos\":[{\"id\":\"1\",\"content\":\"写出大纲\",\"status\":\"in_progress\"}]}"
+            );
+            host.runUserMessage("继续");
+            String prompt = host.activeSystemPrompt();
+            assertTrue(prompt.contains("当前任务清单"));
+            assertTrue(prompt.contains("写出大纲"));
+        }
+    }
+
+    @Test
+    void completedTodosAreNotInjected() throws Exception {
+        LlmClient fake = (request, tools, streamListener, cancellationToken) ->
+            new AssistantResponse("ok", List.of());
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            host.createSession();
+            java.nio.file.Files.writeString(
+                temp.resolve("sessions").resolve(host.getActiveSessionId()).resolve("todos.json"),
+                "{\"todos\":[{\"id\":\"1\",\"content\":\"写出大纲\",\"status\":\"completed\"}]}"
+            );
+            host.runUserMessage("继续");
+            assertFalse(host.activeSystemPrompt().contains("当前任务清单"));
         }
     }
 }

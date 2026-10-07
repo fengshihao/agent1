@@ -30,6 +30,7 @@
 | `chat_history` | 读当前 Session  transcript | ✅ | ✅ | |
 | `list_sessions` | 列出会话元数据 | ✅ | ✅ | |
 | `ask_user` | 向用户提问（等待回复） | ✅ | ✅ | |
+| `todo_write` | 会话短清单，整表替换；未完成项在每轮开头回注系统提示 | ✅ | ✅ | 存在 `sessions/<id>/todos.json`；脚本内 `$tools.todo_write` |
 | `capability_search` | 检索 `capabilities.db` 与 MCP 缓存 | ✅ | ✅ | Android 按平台过滤 `android` |
 | `catalog_sync_status` | 目录 sync 状态 | ✅ | ✅ | 依赖 `agent.manifest.json` / `sync/` |
 | `catalog_install` | 远程 manifest 安装（sync apply） | ✅ | ✅ | 需配置 catalog URL |

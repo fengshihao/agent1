@@ -34,7 +34,9 @@ import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import com.agent1.javaagent.tool.script.ExecuteScriptTool;
 import com.agent1.javaagent.coach.AgentCoachConfig;
 import com.agent1.javaagent.coach.ProductivityCoach;
+import com.agent1.javaagent.todo.TodoStore;
 import com.agent1.javaagent.tool.agent.AskUserTool;
+import com.agent1.javaagent.tool.agent.TodoWriteTool;
 import com.agent1.javaagent.tool.agent.CapabilitySearchTool;
 import com.agent1.javaagent.tool.agent.CatalogInstallTool;
 import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
@@ -347,6 +349,7 @@ public final class ProductivityAgentHost implements Closeable {
             throw new IllegalArgumentException("message text required");
         }
         String sessionId = requireActiveSession();
+        applySystemPrompt(sessionId);
         assertNoRunningMainRun(sessionId);
         if (productivityCoach != null) {
             productivityCoach.resetRun();
@@ -407,6 +410,7 @@ public final class ProductivityAgentHost implements Closeable {
             closeQuietly(checkpointSubscription);
             closeQuietly(bridgeSubscription);
             runtime.clearRunAuditBinding();
+            applySystemPrompt(sessionId);
         }
         if (toThrow != null) {
             throw toThrow;
@@ -495,18 +499,7 @@ public final class ProductivityAgentHost implements Closeable {
         List<AgentMessage> transcript = sessionStore.loadTranscript(sessionId);
         runtime.replaceMessages(transcript);
         Path workspace = sessionStore.workspaceDir(sessionId);
-        boolean scriptTool = scriptEngineFactory != null;
-        runtime.setSystemPrompt(new ProductivitySystemPromptBuilder()
-            .hostAppend(scriptPromptAppend)
-            .webSearch(runtimeConfig.isWebSearchConfigured())
-            .runLimits(runtimeConfig.getMaxTurnsPerRun(), runtimeConfig.getMaxToolCallsPerRun())
-            .buildMainPrompt(
-                workspace,
-                agentRoot,
-                scriptTool,
-                scriptToolBridge != null,
-                sessionEnvironmentSupplement
-            ));
+        applySystemPrompt(sessionId);
         runtime.setTools(buildTools(sessionId, workspace));
         runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace, agentRoot));
         AgentCoachConfig coachConfig = AgentCoachConfig.load(agentRoot);
@@ -538,6 +531,11 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new ListSessionsTool(sessionStore, this::getActiveSessionId));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         tools.add(new AskUserTool());
+        tools.add(new TodoWriteTool(
+            sessionStore.sessionDir(sessionId),
+            agentRoot,
+            () -> applySystemPrompt(sessionId)
+        ));
         tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform, projectRoot));
         if (runtimeConfig.isWebSearchConfigured()) {
             tools.add(new WebSearchTool(
@@ -567,6 +565,30 @@ public final class ProductivityAgentHost implements Closeable {
             mutable.set(new AgentToolsScriptBridge(tools));
         }
         return tools;
+    }
+
+    private void applySystemPrompt(String sessionId) {
+        Path workspace = sessionStore.workspaceDir(sessionId);
+        boolean scriptTool = scriptEngineFactory != null;
+        String prompt = new ProductivitySystemPromptBuilder()
+            .hostAppend(scriptPromptAppend)
+            .webSearch(runtimeConfig.isWebSearchConfigured())
+            .runLimits(runtimeConfig.getMaxTurnsPerRun(), runtimeConfig.getMaxToolCallsPerRun())
+            .buildMainPrompt(
+                workspace,
+                agentRoot,
+                scriptTool,
+                scriptToolBridge != null,
+                sessionEnvironmentSupplement
+            );
+        TodoStore.LoadResult todos = new TodoStore(sessionStore.sessionDir(sessionId)).load();
+        if (todos.ok()) {
+            String section = todos.list().promptSection();
+            if (!section.isEmpty()) {
+                prompt = prompt + "\n\n" + section;
+            }
+        }
+        runtime.setSystemPrompt(prompt);
     }
 
     private String requireActiveSession() {

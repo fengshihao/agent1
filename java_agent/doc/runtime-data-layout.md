@@ -61,6 +61,7 @@ bootstrap 还会从 classpath `agent-home` 补齐空缺的 catalog 脚本（如 
 | `transcript.jsonl` | 消息历史（运行时 append） |
 | `accessible-files.json` | 仅 Android 宿主常用；桌面一般为空或不存在 |
 | `session.summary.md` | Run 结束后规则化摘要（`SessionSummaryService`） |
+| `todos.json` | 当前会话任务清单（`todo_write` 整表替换；空清单则删除） |
 | `runs/<runId>.json` | 单次 Run 状态与统计 |
 | `workspace/` | **会话沙箱**，工具唯一可写根 |
 | `workspace/artifacts/` | 约定产出目录 |

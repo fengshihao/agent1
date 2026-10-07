@@ -35,7 +35,7 @@
 | 根 | `agent.manifest.json`、`sessions/`、`logs/`、`sync/`、`docs/`、`shared/`、`mcp_servers.json`、`mcp_cache/` |
 | 能力 | `docs/capabilities/capabilities.db`（系统 SQLite，经 `AndroidCapabilityDatabase`） |
 | 审计 | `logs/events.jsonl` |
-| 会话 | `sessions/<id>/meta.json`、`transcript.jsonl`、`runs/*.json`、`workspace/` |
+| 会话 | `sessions/<id>/meta.json`、`transcript.jsonl`、`todos.json`、`runs/*.json`、`workspace/` |
 
 ## Android 特有（会话与宿主）
 

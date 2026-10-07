@@ -2,8 +2,10 @@ package com.agent1.javaagent.log;
 
 import com.agent1.javaagent.catalog.sync.CatalogSyncService;
 import com.agent1.javaagent.promote.PromotionScanner;
+import com.agent1.javaagent.todo.TodoList;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -125,6 +127,26 @@ public final class AgentAuditEvents {
             fields.put("staging_rejection_count", staging.rejections().size());
         }
         write(agentRoot, context, "session_summary_written", fields);
+    }
+
+    /** 会话清单整表替换后的快照。状态未变时不写。 */
+    public static void todoUpdated(Path agentRoot, RunLogContext context, TodoList list) {
+        if (list == null) {
+            return;
+        }
+        Path root = resolveAgentRoot(agentRoot);
+        Map<String, Object> fields = new LinkedHashMap<>();
+        List<Map<String, String>> todos = new ArrayList<>();
+        for (TodoList.Item item : list.items()) {
+            Map<String, String> row = new LinkedHashMap<>();
+            row.put("id", item.id());
+            row.put("content", item.content());
+            row.put("status", item.status());
+            todos.add(row);
+        }
+        fields.put("todos", todos);
+        fields.put("open_count", list.openCount());
+        write(root, context, "todo_updated", fields);
     }
 
     public static void coachFired(
