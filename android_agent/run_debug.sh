@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 一键：Debug 编译 → adb 覆盖安装 → 启动 MainActivity
-# 用法：在仓库本目录执行  ./run.sh
+# 用法：在 android_agent 目录  ./run_debug.sh
+#       或在仓库根目录  ./build-android-agent.sh
 # 依赖：已连接设备且开启 USB 调试；本机已配置 adb。
 
 set -euo pipefail

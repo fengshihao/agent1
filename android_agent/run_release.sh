@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 一键：Release（R8 混淆 + 资源压缩）编译 → adb 覆盖安装 → 启动 MainActivity
-# 用法：在 android_agent 目录执行  ./run-release.sh
+# 用法：在 android_agent 目录  ./run_release.sh
+#       或在仓库根目录  ./build-android-agent.sh --release
 # 首次会自动 ./bin/init-release-keystore 生成本地 release 签名（与 debug 分离）。
 
 set -euo pipefail

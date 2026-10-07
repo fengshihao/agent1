@@ -26,18 +26,22 @@
 在终端进入本目录后执行：
 
 ```bash
-chmod +x run.sh   # 首次可选
-./run.sh
+chmod +x run_debug.sh   # 首次可选
+./run_debug.sh
 ```
+
+或在仓库根目录：`./build-android-agent.sh`
 
 等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk`、启动 `com.agent1.android` 的主界面。
 
 ### Release（R8 混淆 + 独立签名）
 
 ```bash
-chmod +x run-release.sh bin/init-release-keystore   # 首次可选
-./run-release.sh
+chmod +x run_release.sh bin/init-release-keystore   # 首次可选
+./run_release.sh
 ```
+
+或在仓库根目录：`./build-android-agent.sh --release`
 
 - 首次会生成 **`release.keystore`** 与 **`release-signing.properties`**（已 gitignore，与 debug 签名分离；默认密码可通过 `RELEASE_STORE_PASSWORD` / `RELEASE_KEY_PASSWORD` 覆盖）。
 - 仅编译、不装设备：`./bin/init-release-keystore && ./gradlew :app:assembleRelease` → `app/build/outputs/apk/release/agent1-android-release.apk`；混淆映射见 `app/build/outputs/mapping/release/mapping.txt`。

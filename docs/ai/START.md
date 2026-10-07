@@ -36,7 +36,7 @@ I want to contribute: 〈one scoped change〉. Follow AGENTS.md and docs/ai/CHEC
 ```bash
 ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test
 ./scripts/ci-local.sh fast          # 动 Android 构建链时用 full
-# 可选真机/模拟器：./build-android-agent.sh
+# 可选真机/模拟器：./build-android-agent.sh（Release：加 --release）
 ```
 
 细则：[CHECKLIST.md](./CHECKLIST.md) · [PR_PLAYBOOK.md](./PR_PLAYBOOK.md)

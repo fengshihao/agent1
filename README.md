@@ -137,7 +137,7 @@ export DASHSCOPE_API_KEY="your-key"   # 或 ALIBABA_API_KEY / OPENAI_API_KEY / Q
 
 ```bash
 ./publish-java-agent-core.sh      # 发布 java-agent-core 到本地 Maven
-./build-android-agent.sh          # 需 adb
+./build-android-agent.sh          # Debug，需 adb（Release：--release）
 ```
 
 在 App 内使用 **生产力助手** Tab：`ProductivityAgentHost` + 会话列表 / 流式聊天 / 模型设置（参考 `android_agent` 分层架构）。

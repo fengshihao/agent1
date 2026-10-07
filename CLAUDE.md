@@ -42,7 +42,8 @@ Root helper scripts (Chinese comments in headers): `./agent1`, `./run-java-agent
 
 ```bash
 ./publish-java-agent-core.sh
-./build-android-agent.sh   # needs adb
+./build-android-agent.sh              # Debug，needs adb
+./build-android-agent.sh --release    # Release（R8）
 ```
 
 ## Required Environment Variables

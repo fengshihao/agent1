@@ -35,7 +35,7 @@ Gradle 工程位于 `android_agent/` 根目录（与 `app/`、`gradlew` 同级�
    - `CrashReporter` 持久化上次崩溃信息；**下次冷启动**会先展示纯 View **崩溃门**（可复制/清除），也可用 `./pull-crash-report.sh` 从 adb 拉取 `files/last_crash_report.txt`。  
 
 6. **工程与脚本**  
-   - 含 Gradle Wrapper、`run.sh` 等，便于在本目录执行构建/安装（脚本行为以仓库内最新说明为准）。  
+   - 含 Gradle Wrapper、`run_debug.sh` / `run_release.sh` 等，便于在本目录执行构建/安装（仓库根亦可用 `./build-android-agent.sh`）。  
 
 如需快速上手，请先看 `QUICKSTART.md`。
 
