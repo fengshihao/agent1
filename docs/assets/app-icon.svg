@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--  android_agent/app/src/main/res/drawable/ic_launcher_*.xml › README / ‡cU: -->
+<!-- Agent1 app icon, mirrors android_agent/app/src/main/res/drawable/ic_launcher_*.xml -->
 <svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108" role="img" aria-label="Agent1">
-  <rect width="108" height="108" fill="#1C1914"/>
+  <rect width="108" height="108" rx="24" fill="#1C1914"/>
   <circle cx="54" cy="54" r="30" fill="#F4EFE6"/>
   <circle cx="54" cy="54" r="17" fill="#D4773B"/>
   <rect x="44.5" y="47" width="19" height="5" rx="2.5" fill="#FFF8F1"/>
