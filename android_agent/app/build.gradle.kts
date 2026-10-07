@@ -223,6 +223,9 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     testImplementation("junit:junit:4.13.2")
+    // JVM 单测里 android.jar 的 org.json 是 stub（方法直接抛异常），
+    // JSON 解析类测试（formatToolResult 等）需要真实实现。
+    testImplementation("org.json:json:20240303")
 
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test:runner:1.5.2")
