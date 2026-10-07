@@ -2,6 +2,7 @@ package com.agent1.android.productivity.logic.business
 
 import android.content.Context
 import android.net.Uri
+import com.agent1.android.productivity.logic.business.platform.AndroidHostEnvironmentProvider
 import com.agent1.javaagent.config.AgentRuntimeConfig
 import com.agent1.javaagent.event.AgentEventListener
 import com.agent1.javaagent.model.AgentMessage
@@ -48,6 +49,8 @@ class ProductivityAgentGateway(
                 agentRoot,
                 runtimeConfig,
             )
+            // 系统提示词「当前环境状态」段：Android 平台 / 内核 / 内存 / 目录标注
+            created.setEnvironmentProvider(AndroidHostEnvironmentProvider(appContext))
             host = created
             return created
         }

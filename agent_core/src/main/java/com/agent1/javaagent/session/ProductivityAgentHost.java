@@ -16,7 +16,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.agent1.javaagent.mcp.McpCapabilitySync;
 import com.agent1.javaagent.log.RunLogContext;
 import com.agent1.javaagent.model.AgentMessage;
+import com.agent1.javaagent.prompt.DesktopEnvironmentProvider;
+import com.agent1.javaagent.prompt.HostEnvironmentProvider;
 import com.agent1.javaagent.prompt.ProductivitySystemPromptBuilder;
+import com.agent1.javaagent.core.UserMessageTimestampAppender;
 import com.agent1.javaagent.run.FileRunStore;
 import com.agent1.javaagent.run.RunRecord;
 import com.agent1.javaagent.run.RunState;
@@ -82,6 +85,7 @@ public final class ProductivityAgentHost implements Closeable {
     private final String capabilitySearchPlatform;
     private final AgentRuntimeConfig runtimeConfig;
     private volatile String sessionEnvironmentSupplement = "";
+    private volatile HostEnvironmentProvider environmentProvider = DesktopEnvironmentProvider.INSTANCE;
     private ProductivityCoach productivityCoach;
     private String activeSessionId;
 
@@ -158,7 +162,10 @@ public final class ProductivityAgentHost implements Closeable {
         this.capabilitySearchPlatform = normalizeCapabilitySearchPlatform(capabilitySearchPlatform);
         this.runtimeConfig = config;
         this.runtime = new AgentRuntime(
-            config.toAgentOptionsBuilder("").tools(List.of()).build(),
+            config.toAgentOptionsBuilder("")
+                .transformContext(new UserMessageTimestampAppender())
+                .tools(List.of())
+                .build(),
             llmClient
         );
     }
@@ -259,6 +266,16 @@ public final class ProductivityAgentHost implements Closeable {
     /** 宿主注入的环境摘要（如 Android 会话可访问文件列表），在 {@link #refreshRuntimeForActiveSession} 时写入系统提示词。 */
     public void setSessionEnvironmentSupplement(String supplement) {
         this.sessionEnvironmentSupplement = supplement == null ? "" : supplement.trim();
+    }
+
+    /**
+     * 系统提示词「当前环境状态」段的信息来源（平台 / 内核 / JS 运行环境 / 内存 / 目录结构及只读/可写标注）。
+     * CLI 用桌面默认实现；Android 注入自己的实现。传 null 恢复默认。
+     */
+    public void setEnvironmentProvider(HostEnvironmentProvider provider) {
+        this.environmentProvider = provider == null
+            ? DesktopEnvironmentProvider.INSTANCE
+            : provider;
     }
 
     /** 用户通过 UI 添加附件等：写入 transcript 并刷新 runtime，不触发 LLM Run。 */
@@ -579,7 +596,8 @@ public final class ProductivityAgentHost implements Closeable {
                 agentRoot,
                 scriptTool,
                 scriptToolBridge != null,
-                sessionEnvironmentSupplement
+                sessionEnvironmentSupplement,
+                environmentProvider
             );
         TodoStore.LoadResult todos = new TodoStore(sessionStore.sessionDir(sessionId)).load();
         if (todos.ok()) {
