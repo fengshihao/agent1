@@ -1,15 +1,17 @@
 # Agent1 与微智 Weizhi
 
-[Weizhi（之谓 · 微智）](https://github.com/fengshihao/weizhi) 是 Agent1 生产力路径的 **脚本与工具执行引擎**：端上 **QuickJS**（C + JNI）、沙箱 `fs`、平台 **Caps**，以及 **`:agent-tools`** 工具环（grep / glob / zip / bash、`execute_script`、Skill、WebView）。MCP 客户端在 Weizhi 引擎内（`mcp.connect`），配置与能力索引由 Agent1 负责。
+[Weizhi（之谓 · 微智）](https://github.com/fengshihao/weizhi) 是 Agent1 生产力路径的 **脚本引擎**：端上 **QuickJS**（C + JNI）、沙箱 `fs`、平台 **Caps**，以及脚本内的 `mcp.connect`。MCP 的服务器列表、缓存和模型侧检索在 Agent1。
 
-Agent1 **`java-agent-core`** 负责 LLM 对话、Session、工作区 Java Tool、`capability_search`、JSONL 审计；**不重复实现** JS 运行时与设备能力桥。二者通过 **`java_agent/weizhi-bridge`** 与 Android `app/src/weizhi/` 装配。
+给模型调用的 `grep` / `glob` / `zip_extract` / `zip_create` / `bash` / `load_skill_through_path` 实现在 **`java-agent-core`**（`@Tool`，经 `AnnotatedTools` 收成运行时的 `AgentTool`）。`WeizhiWorkspaceTools` 与 Android `WeizhiAgentTools` 在集成 Weizhi 时注册它们。`webview_exec` 的执行体在 Agent1（桌面 CDP、Android 系统 WebView）。Weizhi 不提供模型工具模块。
+
+Agent1 **不实现** JS 运行时和设备 Caps。二者通过 **`java_agent/weizhi-bridge`** 与 Android `app/src/weizhi/` 装配。
 
 ## 职责分界
 
 | 层级 | 仓库 | 典型能力 |
 |------|------|----------|
-| 编排与数据 | **agent1** | `ProductivityAgentHost`、`read_file`…、`chat_history`、`read_agent_doc`、`capability_search`、晋升 / catalog 数据面 |
-| 执行与端能力 | **weizhi** | `WeizhiEngine.runJs`、`execute_script`、`$tools.*`、`$mcp.*`、`webview_exec`、office/catalog 脚本、`caps`（如 `android.files.*`） |
+| 编排与模型工具 | **agent1** | `ProductivityAgentHost`、工作区读写、`grep` / `glob` / `zip` / `bash`、`load_skill_through_path`、`capability_search`、审计 |
+| 脚本与端能力 | **weizhi** | `WeizhiEngine.runJs`、脚本内 `fs` / `$mcp` / Caps；`webview_exec` 的平台执行体由宿主接上 |
 
 **重要边界**：Weizhi 的 `android.*` 等 **Caps 只在 QuickJS 脚本内可用**，不会逐个注册成 LLM 的 Java `@Tool`，以免提示词与权限面失控。模型应写脚本或在检索后调用已暴露的 Agent 工具。
 

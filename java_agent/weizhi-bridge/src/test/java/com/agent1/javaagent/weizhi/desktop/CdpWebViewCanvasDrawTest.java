@@ -22,8 +22,8 @@ class CdpWebViewCanvasDrawTest {
             : Path.of(".").toAbsolutePath().normalize().resolve("weizhi");
         Assumptions.assumeTrue(Files.isDirectory(weizhiRepo.resolve("android")), "需要 weizhi 仓库");
 
-        com.weizhi.agent.sandbox.WorkspaceSandbox sandbox =
-            new com.weizhi.agent.sandbox.WorkspaceSandbox(workspace);
+        com.agent1.javaagent.workspace.WorkspaceSandbox sandbox =
+            new com.agent1.javaagent.workspace.WorkspaceSandbox(workspace);
         CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(weizhiRepo);
 
         String code = """
@@ -68,8 +68,8 @@ class CdpWebViewCanvasDrawTest {
             : Path.of(".").toAbsolutePath().normalize().resolve("weizhi");
         Assumptions.assumeTrue(Files.isDirectory(weizhiRepo.resolve("android")), "需要 weizhi 仓库");
 
-        com.weizhi.agent.sandbox.WorkspaceSandbox sandbox =
-            new com.weizhi.agent.sandbox.WorkspaceSandbox(workspace);
+        com.agent1.javaagent.workspace.WorkspaceSandbox sandbox =
+            new com.agent1.javaagent.workspace.WorkspaceSandbox(workspace);
         CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(weizhiRepo);
 
         String code = """

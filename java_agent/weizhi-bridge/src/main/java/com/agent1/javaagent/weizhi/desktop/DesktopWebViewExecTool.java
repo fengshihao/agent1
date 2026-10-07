@@ -2,9 +2,9 @@ package com.agent1.javaagent.weizhi.desktop;
 
 import com.agent1.javaagent.weizhi.WebViewExecHost;
 import com.agent1.javaagent.weizhi.desktop.cdp.CdpWebViewRuntime;
-import com.weizhi.agent.sandbox.WorkspaceSandbox;
-import com.weizhi.agent.tool.Tool;
-import com.weizhi.agent.tool.ToolParam;
+import com.agent1.javaagent.tool.anno.Tool;
+import com.agent1.javaagent.tool.anno.ToolParam;
+import com.agent1.javaagent.workspace.WorkspaceSandbox;
 
 /**
  * 桌面 CDP（Headless Chromium）版 {@code webview_exec}，与 Android {@code WebViewExecTool} 同名同参。

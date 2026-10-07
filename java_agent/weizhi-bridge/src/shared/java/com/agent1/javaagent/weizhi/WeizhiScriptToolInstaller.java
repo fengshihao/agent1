@@ -3,7 +3,6 @@ package com.agent1.javaagent.weizhi;
 import com.agent1.javaagent.mcp.McpServersFile;
 import com.agent1.javaagent.script.ScriptToolBridge;
 import com.weizhi.WeizhiEngine;
-import com.weizhi.agent.script.ScriptToolsBridge;
 import com.weizhi.platform.MiniJson;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -13,6 +12,9 @@ import java.util.Set;
 
 /** 在 caps 安装之后链式挂上 {@code $tools}。用户脚本必须单独 eval，不能和 prelude 拼成一次。 */
 public final class WeizhiScriptToolInstaller {
+
+    /** 与引擎 host call 约定的 op。脚本内禁止再调 execute_script。 */
+    static final String TOOL_OP = "agent.tool";
 
     /** 与 {@link #preludeStatic} 同步；Agent1 行号扣减用。 */
     public static final int TOOLS_PRELUDE_LINE_COUNT = lineCount(preludeStatic("{}"));
@@ -126,7 +128,7 @@ public final class WeizhiScriptToolInstaller {
             + "globalThis.$tools = new Proxy({}, {\n"
             + "  get: function(_, name) {\n"
             + "    return async function(input) {\n"
-            + "      var req = { op: '" + ScriptToolsBridge.OP + "', name: String(name), input: input || {} };\n"
+            + "      var req = { op: '" + TOOL_OP + "', name: String(name), input: input || {} };\n"
             + "      var r = __caps(req);\n"
             + "      if (typeof r === 'string') { try { r = JSON.parse(r); } catch (e) {} }\n"
             + "      if (r && r.error) throw new Error(r.error);\n"
@@ -191,14 +193,14 @@ public final class WeizhiScriptToolInstaller {
         } catch (IllegalArgumentException e) {
             return inner == null ? MiniJson.error("unsupported: host call") : inner.call(argsJson);
         }
-        if (!ScriptToolsBridge.OP.equals(MiniJson.str(args, "op"))) {
+        if (!TOOL_OP.equals(MiniJson.str(args, "op"))) {
             return inner == null ? MiniJson.error("unsupported: host call") : inner.call(argsJson);
         }
         String name = MiniJson.str(args, "name");
         if (name.isEmpty()) {
             return MiniJson.error("bad argument: agent.tool: name required");
         }
-        if (ScriptToolsBridge.EXCLUDED_TOOL.equals(name) || "execute_script".equals(name)) {
+        if ("run_js".equals(name) || "execute_script".equals(name)) {
             return MiniJson.error("unsupported: $tools." + name + " (use the host script tool)");
         }
         Set<String> exposed = bridge.exposedNames();

@@ -1,12 +1,8 @@
-# Weizhi grep/glob 与 Agent1 沙箱共用（跟踪）
+# grep/glob 与 Agent1 沙箱
 
-**Weizhi Issue：** https://github.com/fengshihao/weizhi/issues/14  
-**Weizhi：** [#14](https://github.com/fengshihao/weizhi/issues/14) 已合并 master。Agent1 经 `WeizhiSandboxFactory` 挂载 `ReadMount`，Host 只注册微智 grep/glob。
+`grep` / `glob` 在 `agent_core`，走 `com.agent1.javaagent.workspace.WorkspaceSandbox`。Weizhi 不再提供这些模型工具，也没有 `WeizhiSandboxFactory`。
 
-## 目标
-
-- LLM 外层 **只保留一份** `grep` / `glob`（Weizhi `com.weizhi.agent.tool.builtin.*`）。
-- Agent1 的 `read_file` / `list_dir` 与 Weizhi 的 grep/glob **共用同一套路径解析**（读 workspace + agent 只读文档区）。
+下文是迁移前的接口记录。
 
 ## 微智当前接口（master `android/agent-tools`）
 

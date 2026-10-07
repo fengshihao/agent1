@@ -140,6 +140,7 @@ android {
         if (weizhiIntegrated) {
             java.srcDir("../../java_agent/weizhi-bridge/src/shared/java")
             java.srcDir("src/weizhi/java")
+            assets.srcDir("src/weizhi/assets")
         }
     }
 
@@ -178,8 +179,6 @@ dependencies {
     if (findProject(":weizhi") != null) {
         implementation(project(":weizhi"))
         implementation(project(":caps"))
-        implementation(project(":agent-tools"))
-        implementation(project(":agent-tools-webview"))
     } else if (weizhiPrebuiltBase != null) {
         val coords = Properties().apply {
             weizhiPrebuiltBase.resolve("coordinates.properties").inputStream().use { load(it) }
@@ -192,10 +191,9 @@ dependencies {
         }
         implementation(w("artifact.weizhi"))
         implementation(w("artifact.caps"))
-        implementation(w("artifact.agent-tools"))
-        implementation(w("artifact.agent-tools-webview"))
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.35.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")

@@ -8,7 +8,7 @@
 |----|-----|----------|
 | **QuickJS 引擎 `fs` / workspace 内 `import`** | `setFsRoot` = 会话 workspace | 相对或绝对均可；`realpath` / `normalize` 后须在 workspace 根下；越界 `path escape`；`mkdirSync`/`promises.mkdir` 支持 `{ recursive: true }`；`writeFile*` 自动建父目录（[weizhi#27](https://github.com/fengshihao/weizhi/issues/27)） |
 | **Catalog 裸 `import`** | `setScriptFolder` = `agentRoot/shared/catalog/scripts` | 仅单层叶子 `from "docx.js"`，不要 `./` |
-| **Java 工具环** | `read_file` / `write_file` / `grep` / `bash`… | `WorkspaceSandbox`：工作区相对或「落在 workspace/agent 文档区」的绝对路径，收成逻辑路径 |
+| **Java 工具** | `agent_core` 的 `read_file` / `write_file` / `grep` / `bash` 等 | `WorkspaceSandbox`：工作区相对或「落在 workspace/agent 文档区」的绝对路径，收成逻辑路径 |
 | **平台 Caps** | 脚本内 `android.files.*`、`intent.start({ path })` 等 | **仅**工作区相对路径 |
 
 引擎已统一处理 workspace 内绝对路径与 `..` 归一化；Agent1 **不再**在调用 `runJs` 前把脚本里的 `fs` 路径强行改成相对路径。`execute_script` 的 `file` 仍传 workspace 逻辑路径（如 `jobs/run.js`），便于 `./` 相对 import。

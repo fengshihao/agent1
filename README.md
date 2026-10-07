@@ -77,15 +77,17 @@ Agent1 要成为 **Android / 嵌入式 JVM 宿主** 里的默认 **生产力编�
 
 ## 依赖：微智 Weizhi（之谓）
 
-Agent1 的「能写 JS、能 grep、能接 MCP、能在 WebView 里出图」依赖独立开源项目 **[Weizhi / 之谓（常称微智）](https://github.com/fengshihao/weizhi)**。它是面向 **AI 编程智能体** 的端上运行时：**嵌入式 QuickJS** + 沙箱文件系统 + 可选 **Caps**（Android 文件、分享、提醒等 OS 能力）+ **`:agent-tools`** 模块（工作区 grep/glob/zip/bash、Skill、`run_js` / `execute_script`、MCP、WebView）。
+Agent1 的脚本、设备能力和 WebView 依赖独立开源项目 **[Weizhi / 之谓（常称微智）](https://github.com/fengshihao/weizhi)**：嵌入式 **QuickJS**、沙箱 `fs`、可选 **Caps**（Android 文件、分享、提醒等），以及脚本内的 `mcp.connect`。
+
+给模型调用的 `grep` / `glob` / `zip` / `bash` / `load_skill_through_path` 在 **`java-agent-core`** 里用 `@Tool` 实现，桌面和 Android 共用。集成 Weizhi 时才注册。`webview_exec` 仍按平台分别实现（Android 系统 WebView、桌面 CDP），脚本引擎仍是 Weizhi。
 
 | | **Agent1（`java-agent-core`）** | **Weizhi** |
 | --- | --- | --- |
-| **定位** | 生产力 **编排层**：多轮 ReAct、Session、工作区 Java 工具、能力检索、JSONL 审计 | **执行层**：在设备里安全跑脚本、调工具、加载 Skill |
-| **LLM 可见** | 少量 Java Tool + `execute_script` 等入口 | 脚本内 `$tools.*`、`$mcp.*`、`fs`、catalog、`caps`（**不**把每个 Cap 注册成 Java Tool） |
-| **集成方式** | 发布 `java-agent-core` AAR/JAR | 源码联编或 Maven AAR；经 `java_agent/weizhi-bridge` 与 Android `WeizhiHostLoader` 接入 |
+| **定位** | 生产力 **编排层**：ReAct、Session、模型可见的 Java 工具、能力检索、JSONL 审计 | **脚本引擎**：在设备里跑 QuickJS |
+| **LLM 可见** | 工作区读写、`grep` / `glob` / `zip` / `bash`、`load_skill_through_path`、`execute_script`、`webview_exec` | 脚本内 `fs`、`$tools`、`$mcp`、Caps。这些不是单独的模型工具 |
+| **集成方式** | 发布 `java-agent-core` | 源码联编或 Maven AAR；经 `weizhi-bridge` 与 Android `WeizhiHostLoader` 接入 |
 
-**典型分工**：用户描述任务 → Agent1 在工作区改文件、检索 `capability_search`、必要时 `load_skill` → 用 **`execute_script`** 交给 Weizhi 跑 QuickJS orchestrator → 脚本里 `$tools.grep`、调 MCP、跑 office/catalog 脚本、`webview_exec` 出可视化结果 → 事件写回 Agent1 的 `events.jsonl`。
+**典型分工**：用户描述任务 → Agent1 用 Java 工具改文件、搜索、跑白名单命令、加载 Skill → 需要编排时用 **`execute_script`** 交给 Weizhi → 脚本里调 `fs`、Caps、MCP，或 `webview_exec` 出图 → 事件写回 `events.jsonl`。
 
 ### 在本仓库里怎么带上 Weizhi
 
@@ -95,7 +97,7 @@ cd android_agent && ./gradlew :app:assembleDebug   # CI 同样先 sync 再 assem
 ```
 
 - **无 weizhi 时**：仍可使用工作区读写、`read_url`、`chat_history` 等 **内核工具**（适合极简集成或先接 UI）。
-- **有 weizhi 时**：打开完整 **编程助手** 能力环（脚本 / MCP / WebView / grep…），App 内 `BuildConfig.WEIZHI_INTEGRATED=true`。
+- **有 weizhi 时**：打开脚本、MCP、WebView，并注册 `agent_core` 里的 grep / glob / zip / bash / skill。App 内 `BuildConfig.WEIZHI_INTEGRATED=true`。
 - **无 NDK / 无源码**：可用 [`android_agent/weizhi-prebuilt`](android_agent/weizhi-prebuilt/README.md) 导入预编译 Maven（见 QUICKSTART）。
 
 Weizhi 自身文档：[README](https://github.com/fengshihao/weizhi) · [AI 集成指南](https://github.com/fengshihao/weizhi/blob/master/docs/INTEGRATION_FOR_AI.md) · Agent1 侧说明：[doc/集成/WEIZHI.md](doc/集成/WEIZHI.md)。
@@ -117,7 +119,7 @@ Weizhi 自身文档：[README](https://github.com/fengshihao/weizhi) · [AI 集�
 | **Skill** | `load_skill` + workspace / assets 下的 SKILL.md |
 | **MCP** | `mcp_servers.json` + 脚本内 MCP 调用 |
 | **WebView** | `webview_exec`（Android WebView / 桌面 Chromium） |
-| **工作区增强** | `grep` · `glob` · `zip` · 设备内 `bash`（平台差异见能力对照文档） |
+| **工作区增强** | `grep` · `glob` · `zip` · 白名单 `bash`。实现在 `agent_core`，集成 Weizhi 时注册 |
 
 Android 启用完整环：联编 `weizhi` 或使用 `weizhi-prebuilt`，见 [android_agent/QUICKSTART.md](android_agent/QUICKSTART.md)。
 
@@ -193,9 +195,9 @@ flowchart TB
   Core --> Audit[events.jsonl]
   Core --> Bridge[weizhi-bridge]
   Bridge --> WZ[微智 Weizhi QuickJS]
-  WZ --> Tools[grep bash Skill MCP]
+  Core --> JavaTools[grep glob zip bash skill]
   WZ --> Cap[Caps catalog 脚本]
-  WZ --> WV[WebView]
+  Bridge --> WV[WebView]
 ```
 
 ---
@@ -235,7 +237,7 @@ Agent1 is a **compact, embeddable programming agent** for **Android and other JV
 
 ### Weizhi (微智) dependency
 
-Full **scripting and tool-loop** capabilities come from **[Weizhi](https://github.com/fengshihao/weizhi)** (embedded QuickJS, sandbox, Caps, agent-tools: grep/bash/skills/MCP/WebView). **Agent1** owns ReAct, sessions, workspace Java tools, capability search, and JSONL audit; **Weizhi** runs JS and device bridges via `weizhi-bridge`. Run `./sync-weizhi.sh` before Android assemble or desktop builds that need the complete ring. Details: [doc/集成/WEIZHI.md](doc/集成/WEIZHI.md).
+**Weizhi** supplies the on-device QuickJS engine, sandbox `fs`, Caps, and the in-script MCP client. **Agent1** owns the model-facing tools (`grep`, `glob`, `zip`, `bash`, `load_skill_through_path`) in `java-agent-core`, plus sessions, capability search, and JSONL audit. `webview_exec` stays platform-specific and is registered when Weizhi is integrated. Details: [doc/集成/WEIZHI.md](doc/集成/WEIZHI.md).
 
 ### How it works
 

@@ -10,7 +10,7 @@
 | 维度 | 桌面生产力 CLI（`./agent1`） | Android 生产力 App | 差距摘要 |
 |------|------------------------------|--------------------|----------|
 | 运行时内核 | `java-agent-core` → `ProductivityAgentHost` | 同左（Maven / 本地发布） | **已对齐** |
-| Weizhi 扩展工具 | 需 classpath 含 weizhi（`../weizhi` 或 `AGENT1_WEIZHI_REPO`） | 需 `WEIZHI_INTEGRATED=true`（联编 weizhi 或 `weizhi-prebuilt`） | **条件对齐**；默认未编 weizhi 时两侧都有工作区读写、`chat_history`、`read_url` 和自进化只读工具 |
+| 集成 Weizhi 后才注册的工具 | 需 classpath 含 weizhi（`../weizhi` 或 `AGENT1_WEIZHI_REPO`） | 需 `WEIZHI_INTEGRATED=true`（联编 weizhi 或 `weizhi-prebuilt`） | **条件对齐**。`grep` / `glob` / `zip` / `bash` / skill 的实现在 `agent_core`，仍只在集成成功时注册 |
 | 交互形态 | 终端 REPL + 子命令 | Jetpack Compose 会话列表 / 聊天 / 模型设置 | CLI 偏脚本化运维；Android 偏可视化 |
 | 数据目录 `agentRoot` | `AGENT1_AGENT_ROOT` 或默认 `$HOME/files/agent`（见 [runtime-data-layout](java_agent/doc/runtime-data-layout.md)） | `filesDir/agent1`（见 [runtime-data-layout](android_agent/doc/runtime-data-layout.md)） | **路径不同**，**布局一致** |
 | 事件 JSONL | `agentRoot/logs/events.jsonl` | 同布局 | **已对齐**；CLI 有查询子命令，App 无内置查询 UI |
@@ -37,13 +37,13 @@
 | `promote_request` | `workspace/staging` → `shared/local` | ✅ | ✅ | `PromotionService` |
 | `web_search` | 联网搜索（配置 Key 后注册） | ✅ | ✅ | 可选 |
 
-### 2.2 Weizhi 扩展（集成成功时两侧均有）
+### 2.2 集成 Weizhi 时注册（实现多在 `agent_core`）
 
 | 工具 / 能力 | CLI 装配 | Android 装配 | 差异 |
 |-------------|----------|--------------|------|
-| `grep` / `glob` / `zip` | `WeizhiWorkspaceTools` | `WeizhiAgentTools` | 行为对齐 |
-| `bash` | 桌面 shell 环境 | 设备内 Weizhi bash 沙箱 | **运行环境不同**（权限、可用命令） |
-| `load_skill` | 仓库 `.claude/skills` + workspace `skills/` | `assets/agent_skills` + workspace `skills/` | **Skill 来源不同** |
+| `grep` / `glob` / `zip_extract` / `zip_create` | `agent_core` `@Tool`，由 `WeizhiWorkspaceTools` 注册 | 同左，由 `WeizhiAgentTools` 注册 | 行为对齐 |
+| `bash` | 同上，白名单、无 shell | 同左 | **PATH 上的命令不同**（桌面系统命令，设备多为 toybox） |
+| `load_skill_through_path` | 仓库 `.claude/skills` + workspace `skills/` | `assets/agent_skills` + workspace `skills/` | **Skill 来源不同**；读取逻辑在 `agent_core` |
 | `execute_script` | Weizhi QuickJS + `$tools` 桥 | 同左 | 两侧系统提示都只要求用脚本完成任务；沙盒细则走 `capability_search` |
 | MCP | `mcp_servers.json` + `capability_search`；脚本 `$mcp` 走 weizhi `mcp.connect`，不写 workspace `.mcp` | 同一 `agentRoot`（`filesDir/agent1`） | **已对齐** |
 | Web 渲染 / 脚本页 | `webview_exec`：**Headless Chromium + CDP**（`DesktopWebViewExecTool`） | `WebViewAgentExtension`：**系统 WebView** | **实现不同**；协议与 skill（如 `webview-canvas-draw`）尽量对齐 |
@@ -55,7 +55,7 @@
 |------|-----|---------|
 | 工具摘要 | `ProductivityToolCapabilities.summaryForCli(false)` | `ProductivityToolCapabilities.summaryForUi()`（`WEIZHI_INTEGRATED=false`） |
 | 可用工具 | 2.1 节表格 | 同左 |
-| 不可用 | grep/glob/zip/bash/load_skill/MCP/webview/execute_script | 同左 |
+| 不可用 | grep/glob/zip/bash/load_skill_through_path/MCP/webview/execute_script | 同左 |
 
 集成条件对照：
 

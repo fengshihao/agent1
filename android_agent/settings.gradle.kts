@@ -39,9 +39,7 @@ if (weizhiAndroidSource != null) {
         settings.rootDir.resolve("weizhi-maven-publish.gradle"),
         overwrite = true,
     )
-    include(":weizhi", ":caps", ":agent-tools", ":agent-tools-webview")
+    include(":weizhi", ":caps")
     project(":weizhi").projectDir = root.resolve("weizhi")
     project(":caps").projectDir = root.resolve("caps")
-    project(":agent-tools").projectDir = root.resolve("agent-tools")
-    project(":agent-tools-webview").projectDir = root.resolve("agent-tools-webview")
 }

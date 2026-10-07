@@ -2,7 +2,7 @@ package com.agent1.javaagent.weizhi.desktop;
 
 import com.agent1.javaagent.weizhi.desktop.cdp.CdpWebViewRuntime;
 import com.google.gson.Gson;
-import com.weizhi.agent.sandbox.WorkspaceSandbox;
+import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.weizhi.agent.web.BridgeCodec;
 import com.weizhi.agent.web.WebViewTask;
 import java.io.ByteArrayOutputStream;

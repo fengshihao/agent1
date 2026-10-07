@@ -6,16 +6,16 @@ import com.agent1.javaagent.tool.anno.AnnotatedTools;
 import com.agent1.javaagent.weizhi.desktop.DesktopWebViewExecTool;
 import com.agent1.javaagent.weizhi.desktop.cdp.CdpWebViewRuntime;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
-import com.weizhi.agent.skill.CompositeSkillRepository;
-import com.weizhi.agent.skill.FileSystemSkillRepository;
-import com.weizhi.agent.tool.AgentToolkit;
+import com.agent1.javaagent.skill.CompositeSkillRepository;
+import com.agent1.javaagent.skill.FileSystemSkillRepository;
+import com.agent1.javaagent.skill.SkillRepository;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * 桌面生产力路径追加的 Weizhi 工具环。
- * 文件读写、grep、glob、zip、bash、skill 用 Agent1 的 {@code @Tool}；这里仍从 Weizhi 补桌面 CDP {@code webview_exec}。
+ * grep、glob、zip、bash、skill、桌面 {@code webview_exec} 都是 Agent1 的 {@code @Tool}。Weizhi 只提供脚本引擎。
  * MCP 不在此注册 Java 工具：脚本 {@code $mcp} 走引擎客户端，配置在 {@code agentRoot/mcp_servers.json}。
  */
 public final class WeizhiWorkspaceTools {
@@ -47,21 +47,16 @@ public final class WeizhiWorkspaceTools {
         if (sandbox == null) {
             throw new IllegalArgumentException("sandbox required");
         }
-        com.weizhi.agent.sandbox.WorkspaceSandbox weizhiSandbox =
-            WeizhiSandboxFactory.forProductivity(sandbox);
-        AgentToolkit toolkit = new AgentToolkit();
-        if (CdpWebViewRuntime.isAvailable()) {
-            CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(DEFAULT_WEIZHI_REPO);
-            toolkit.registerTool(new DesktopWebViewExecTool(runtime, weizhiSandbox));
-            toolkit.addJsExposed("webview_exec");
-        }
         List<AgentTool> tools = new ArrayList<>();
         tools.addAll(AnnotatedTools.from(new com.agent1.javaagent.tool.workspace.GrepTool(sandbox)));
         tools.addAll(AnnotatedTools.from(new com.agent1.javaagent.tool.workspace.GlobTool(sandbox)));
         tools.addAll(AnnotatedTools.from(new com.agent1.javaagent.tool.workspace.ZipTools(sandbox)));
         tools.addAll(AnnotatedTools.from(new com.agent1.javaagent.tool.workspace.BashTool(sandbox)));
         tools.addAll(AnnotatedTools.from(buildLoadSkillTool(sandbox.getRoot(), projectRootForSkills, agentRootForMcp)));
-        tools.addAll(WeizhiToolkitAdapters.toAgentTools(toolkit, sandbox));
+        if (CdpWebViewRuntime.isAvailable()) {
+            CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(DEFAULT_WEIZHI_REPO);
+            tools.addAll(AnnotatedTools.from(new DesktopWebViewExecTool(runtime, sandbox)));
+        }
         return List.copyOf(tools);
     }
 
@@ -75,7 +70,7 @@ public final class WeizhiWorkspaceTools {
         if (projectRoot == null && agentRoot == null) {
             return new com.agent1.javaagent.tool.skill.LoadSkillTool(workspaceSkills::readResource);
         }
-        java.util.List<com.weizhi.agent.skill.SkillRepository> repos = new java.util.ArrayList<>();
+        java.util.List<SkillRepository> repos = new java.util.ArrayList<>();
         if (projectRoot != null) {
             Path claudeSkills = projectRoot.resolve(".claude").resolve("skills");
             repos.add(new FileSystemSkillRepository(claudeSkills));
@@ -86,8 +81,7 @@ public final class WeizhiWorkspaceTools {
             repos.add(new FileSystemSkillRepository(root.resolve("shared/catalog/skills")));
             repos.add(new FileSystemSkillRepository(root.resolve("shared/local/skills")));
         }
-        com.weizhi.agent.skill.SkillRepository repo =
-            new CompositeSkillRepository(repos.toArray(new com.weizhi.agent.skill.SkillRepository[0]));
+        SkillRepository repo = new CompositeSkillRepository(repos.toArray(new SkillRepository[0]));
         return new com.agent1.javaagent.tool.skill.LoadSkillTool(repo::readResource);
     }
 }

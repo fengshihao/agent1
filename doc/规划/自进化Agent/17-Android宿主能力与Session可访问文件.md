@@ -65,14 +65,15 @@ Weizhi 的设计是：**Caps 暴露脚本可调用的 op**，**Activity 与 Resu
 |------|------|------|
 | 工作区读写 | `read_file` / `write_file` / … | 仅 Session workspace |
 | 脚本 + 平台对象 | `execute_script` → `android.*` | 文件、zip、分享文案、提醒等（见 Weizhi §5） |
-| 搜索 / bash / WebView / MCP | Weizhi 扩展工具 | 联编 Weizhi 时注册 |
+| 搜索 / bash | `agent_core` 的 `grep` / `glob` / `bash` | 联编 Weizhi 时由 `WeizhiAgentTools` 注册 |
+| WebView / 脚本 MCP | 平台 WebView；脚本内 `mcp.connect` | 联编 Weizhi 时可用 |
 | 区外只读 | `AgentToolsBundle.extraReadRoot` | 与 SAF 目录授权配合；Agent1 未默认配置 |
 
 ---
 
 ## 3. 与「微智 / Weizhi」集成的边界
 
-- **编进 APK（`WEIZHI_INTEGRATED=true`）**：Caps **JS 面** + 工具环 **自动注册**；不等于 **系统 UI 自动可用**。
+- **编进 APK（`WEIZHI_INTEGRATED=true`）**：Caps 的 JS 面，加上 `agent_core` 里的 grep / bash 等工具注册；不等于系统 UI 自动可用。
 - **默认应有、但 Agent1 仍缺宿主接线**：真 `ui.confirm`、`files.pickDirectory`、Android 13+ 通知权限（`reminders`）、脚本 `fetch`（`enableFetch`）。
 - **Weizhi 未提供、需 Agent1 自己加 Caps 或纯宿主 API**：Toast、按包名打开微信、单文件/相册选择器、接收 `ACTION_SEND`。
 

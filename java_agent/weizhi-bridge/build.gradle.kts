@@ -29,31 +29,14 @@ dependencies {
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }
 
-val syncWebViewJvmSources = tasks.register<Copy>("syncWebViewJvmSources") {
-    from(weizhiRepo.resolve("android/agent-tools-webview/src/main/java")) {
-        include("com/weizhi/agent/web/WebViewTask.java")
-        include("com/weizhi/agent/web/BridgeCodec.java")
-        include("com/weizhi/agent/web/WebViewQueue.java")
-    }
-    into(layout.buildDirectory.dir("generated/webview-jvm-sources"))
-}
-
 sourceSets {
     named("main") {
         java {
             srcDir(weizhiRepo.resolve("java"))
-            srcDir(weizhiRepo.resolve("android/agent-tools/src/main/java"))
-            srcDir(layout.buildDirectory.dir("generated/webview-jvm-sources"))
             srcDir("src/shared/java")
             srcDir("src/main/java")
-            exclude("**/AgentToolsBundle.java")
-            exclude("**/AssetSkillRepository.java")
         }
     }
-}
-
-tasks.named("compileJava") {
-    dependsOn(syncWebViewJvmSources)
 }
 
 tasks.test {

@@ -12,7 +12,7 @@ public final class ProductivityToolCapabilities {
 
     public static boolean weizhiToolsOnClasspath() {
         try {
-            Class.forName("com.weizhi.agent.tool.builtin.GrepTool");
+            Class.forName("com.weizhi.WeizhiEngine");
             return true;
         } catch (ClassNotFoundException e) {
             return false;

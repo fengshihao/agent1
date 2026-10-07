@@ -4,7 +4,7 @@ import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.agent1.android.BuildConfig
-import com.weizhi.agent.sandbox.WorkspaceSandbox
+import com.agent1.javaagent.workspace.WorkspaceSandbox
 import com.weizhi.agent.web.HandlerUiExecutor
 import com.weizhi.agent.web.WebViewExecTool
 import com.weizhi.agent.web.WebViewRuntime
