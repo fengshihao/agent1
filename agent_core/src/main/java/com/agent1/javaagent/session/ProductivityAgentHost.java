@@ -345,6 +345,8 @@ public final class ProductivityAgentHost implements Closeable {
         }
         String sessionId = requireActiveSession();
         assertNoRunningMainRun(sessionId);
+        // 每轮 Run 前重建系统提示词：「工作区当前内容」清单随上一轮落盘结果自动更新。
+        runtime.setSystemPrompt(buildSystemPrompt(sessionStore.workspaceDir(sessionId)));
         if (productivityCoach != null) {
             productivityCoach.resetRun();
         }
@@ -492,8 +494,18 @@ public final class ProductivityAgentHost implements Closeable {
         List<AgentMessage> transcript = sessionStore.loadTranscript(sessionId);
         runtime.replaceMessages(transcript);
         Path workspace = sessionStore.workspaceDir(sessionId);
+        runtime.setSystemPrompt(buildSystemPrompt(workspace));
+        runtime.setTools(buildTools(sessionId, workspace));
+        runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace, agentRoot));
+        AgentCoachConfig coachConfig = AgentCoachConfig.load(agentRoot);
+        productivityCoach = coachConfig.enabled() ? coachConfig.toCoach() : null;
+        runtime.setProductivityCoach(productivityCoach);
+        refreshMcpIndex();
+    }
+
+    private String buildSystemPrompt(Path workspace) {
         boolean scriptTool = scriptEngineFactory != null;
-        runtime.setSystemPrompt(new ProductivitySystemPromptBuilder()
+        return new ProductivitySystemPromptBuilder()
             .hostAppend(scriptPromptAppend)
             .webSearch(runtimeConfig.isWebSearchConfigured())
             .runLimits(runtimeConfig.getMaxTurnsPerRun(), runtimeConfig.getMaxToolCallsPerRun())
@@ -503,13 +515,7 @@ public final class ProductivityAgentHost implements Closeable {
                 scriptTool,
                 scriptToolBridge != null,
                 sessionEnvironmentSupplement
-            ));
-        runtime.setTools(buildTools(sessionId, workspace));
-        runtime.setWorkspaceSandbox(new WorkspaceSandbox(workspace, agentRoot));
-        AgentCoachConfig coachConfig = AgentCoachConfig.load(agentRoot);
-        productivityCoach = coachConfig.enabled() ? coachConfig.toCoach() : null;
-        runtime.setProductivityCoach(productivityCoach);
-        refreshMcpIndex();
+            );
     }
 
     /** 配置了 MCP 时，把工具名写入 capability_search。缓存有效则不访问网络。 */

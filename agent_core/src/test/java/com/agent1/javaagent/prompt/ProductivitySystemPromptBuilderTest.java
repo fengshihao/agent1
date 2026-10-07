@@ -262,4 +262,68 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("imports/a.pdf"));
         assertTrue(prompt.contains("可访问文件"));
     }
+
+    @Test
+    void environmentStatesAutonomyInsideWorkspace() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), false);
+        assertTrue(prompt.contains("自主环境"));
+        assertTrue(prompt.contains("完全自主的沙箱"));
+        assertTrue(prompt.contains("不必试探权限"));
+    }
+
+    @Test
+    void environmentIncludesWorkspaceRootListing() throws Exception {
+        Path workspace = temp.resolve("ws");
+        java.nio.file.Files.createDirectories(workspace.resolve("out"));
+        java.nio.file.Files.writeString(workspace.resolve("大纲.docx"), "x");
+
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(workspace, false);
+
+        assertTrue(prompt.contains("工作区当前内容"));
+        assertTrue(prompt.contains("大纲.docx"));
+        assertTrue(prompt.contains("out/"));
+        assertTrue(prompt.contains("不必再调用 list_dir / glob"));
+    }
+
+    @Test
+    void environmentMarksEmptyWorkspaceExplicitly() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("not-created-ws"), false);
+        assertTrue(prompt.contains("（空，还没有任何文件）"));
+    }
+
+    @Test
+    void workspaceListingTruncatesBeyondLimit() throws Exception {
+        Path workspace = temp.resolve("ws");
+        java.nio.file.Files.createDirectories(workspace);
+        for (int i = 0; i < ProductivitySystemPromptBuilder.MAX_LISTING_ENTRIES + 5; i++) {
+            java.nio.file.Files.writeString(workspace.resolve(String.format("f%02d.txt", i)), "x");
+        }
+
+        String summary = ProductivitySystemPromptBuilder.workspaceListingSummary(workspace);
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(workspace, false);
+
+        assertTrue(summary.contains("f00.txt"));
+        assertFalse(summary.contains("f34.txt"));
+        assertTrue(summary.contains("等 " + (ProductivitySystemPromptBuilder.MAX_LISTING_ENTRIES + 5) + " 项"));
+        assertTrue(prompt.contains("完整清单用 list_dir"));
+    }
+
+    @Test
+    void workspaceListingMarksDirectoriesAndStaysRelative() throws Exception {
+        Path workspace = temp.resolve("ws").toAbsolutePath().normalize();
+        java.nio.file.Files.createDirectories(workspace.resolve("报告"));
+        java.nio.file.Files.writeString(workspace.resolve("报告/first.md"), "x");
+        java.nio.file.Files.writeString(workspace.resolve("top.txt"), "x");
+
+        String summary = ProductivitySystemPromptBuilder.workspaceListingSummary(workspace);
+
+        assertTrue(summary.contains("报告/"));
+        assertTrue(summary.contains("top.txt"));
+        assertFalse(summary.contains("first.md"));
+        assertFalse(summary.contains(workspace.toString()));
+    }
 }

@@ -191,6 +191,36 @@ class ProductivityAgentHostTest {
     }
 
     @Test
+    void systemPromptCarriesFreshWorkspaceListingPerRun() throws Exception {
+        List<String> systemPrompts = new java.util.ArrayList<>();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            request.getMessages().stream()
+                .filter(m -> AgentMessage.ROLE_SYSTEM.equals(m.getRole()))
+                .forEach(m -> systemPrompts.add(m.getContent()));
+            return new AssistantResponse("x", List.of());
+        };
+
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            host.createSession();
+            Path workspace = new FileSessionStore(temp).workspaceDir(host.getActiveSessionId());
+            java.nio.file.Files.writeString(workspace.resolve("大纲.docx"), "x");
+
+            host.runUserMessage("第一轮");
+            java.nio.file.Files.createDirectories(workspace.resolve("out"));
+
+            host.runUserMessage("第二轮");
+
+            assertEquals(2, systemPrompts.size());
+            assertTrue(systemPrompts.get(0).contains("大纲.docx"));
+            assertTrue(systemPrompts.get(0).contains("自主环境"));
+            assertFalse(systemPrompts.get(0).contains("out/"));
+            assertTrue(systemPrompts.get(1).contains("大纲.docx"));
+            assertTrue(systemPrompts.get(1).contains("out/"));
+        }
+    }
+
+    @Test
     void registersExtraToolsAndExposesThemToScripts() {
         java.util.concurrent.atomic.AtomicReference<List<String>> toolNames =
             new java.util.concurrent.atomic.AtomicReference<>();

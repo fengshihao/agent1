@@ -4,10 +4,15 @@ import com.agent1.javaagent.util.PathIo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * 生产力助手系统提示词：按固定层拼装主智能体与子智能体提示词（见 doc/基础能力/06）。
@@ -177,6 +182,7 @@ public final class ProductivitySystemPromptBuilder {
         String date = LocalDate.now(ZoneId.systemDefault()).toString();
         String osName = System.getProperty("os.name", "unknown");
         String catalogLine = agentRoot == null ? "" : catalogPendingSummary(agentRoot);
+        String listingLine = workspaceListingSummary(workspaceRoot);
         String extra = environmentSupplement == null || environmentSupplement.isBlank()
             ? ""
             : environmentSupplement.trim() + "\n";
@@ -192,11 +198,54 @@ public final class ProductivitySystemPromptBuilder {
         return """
             ## 环境
             - 工作区（唯一可写）：当前会话 workspace，路径相对工作区根
+            - 自主环境：你运行在完全自主的沙箱中，工作区就是你的专属文件空间，区内读、写、新建、删除都是被允许的正常操作，不必试探权限或请求确认
+            - 工作区当前内容（每次对话自动附上；确认根目录内容不必再调用 list_dir / glob）：%s
             - 日期：%s
             - 平台：%s
             %s- shared/ 只读，不能用 write_file 修改。没有 Node，不能 npm 或 require。
             %s%s
-            """.formatted(date, osName, runLimitsLine, catalogLine, extra).trim();
+            """.formatted(listingLine, date, osName, runLimitsLine, catalogLine, extra).trim();
+    }
+
+    /** 清单最多列出的条目数；超出时只保留前若干项并提示总数，控制提示词体积。 */
+    static final int MAX_LISTING_ENTRIES = 30;
+
+    /**
+     * 生成工作区根目录的紧凑清单：目录带 / 后缀，条目超过上限时截断并给出总数。
+     * 工作区不存在或为空时明确写「空」，让模型开局即知，无需再探测。
+     */
+    static String workspaceListingSummary(Path workspaceRoot) {
+        if (workspaceRoot == null || !Files.isDirectory(workspaceRoot)) {
+            return "（空，还没有任何文件）";
+        }
+        List<Path> entries;
+        try (Stream<Path> stream = Files.list(workspaceRoot)) {
+            entries = stream
+                .sorted(Comparator.comparing(p -> p.getFileName().toString()))
+                .toList();
+        } catch (IOException | UncheckedIOException e) {
+            return "（暂时读取不到，可用 list_dir 查看）";
+        }
+        if (entries.isEmpty()) {
+            return "（空，还没有任何文件）";
+        }
+        List<String> names = new ArrayList<>();
+        for (Path entry : entries) {
+            if (names.size() >= MAX_LISTING_ENTRIES) {
+                break;
+            }
+            Path fileName = entry.getFileName();
+            if (fileName == null) {
+                continue;
+            }
+            names.add(Files.isDirectory(entry) ? fileName.toString() + "/" : fileName.toString());
+        }
+        String joined = String.join("、", names);
+        if (entries.size() > MAX_LISTING_ENTRIES) {
+            joined = joined + " 等 " + entries.size() + " 项（仅列前 "
+                + MAX_LISTING_ENTRIES + " 项，完整清单用 list_dir）";
+        }
+        return joined;
     }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();

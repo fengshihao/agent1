@@ -6,6 +6,9 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **系统提示词内嵌工作区清单**：`ProductivitySystemPromptBuilder` 的环境小节新增「自主环境」说明与「工作区当前内容」清单（目录带 `/` 后缀，超过 30 项截断并提示总数，空工作区明确写「空」）；`ProductivityAgentHost.runUserMessage` 每轮 Run 前重建系统提示词，清单随上一轮落盘结果自动刷新，减少 Agent 反复 `list_dir` 探查与权限疑虑。
+
 ### Removed
 - **Python CLI 永久下线**：删除 `python_agent/` 与 `install-python-agent.*` / `sync-python-agent.sh`；只读快照见分支 `archive/python-agent`。
 
