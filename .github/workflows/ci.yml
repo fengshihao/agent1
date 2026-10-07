@@ -41,8 +41,12 @@ jobs:
             (cd "${WEIZHI_DIR}" && WEIZHI_SKIP_ASAN=1 ./scripts/test.sh)
             AGENT1_WEIZHI_REPO="${WEIZHI_DIR}" E2E_DEEPSEEK_V6_SKIP_LLM=1 ./scripts/e2e-deepseek-v6.sh
           else
-            echo "skip weizhi: 未 clone weizhi（检查 sync-weizhi.sh 或设置 WEIZHI_SKIP_SYNC）— 仅 :core:test"
-            ./java_agent/gradlew --no-daemon -p java_agent :core:test
+            if [ "${GITHUB_REF_NAME}" = "master" ] || [ "${GITHUB_REF_NAME}" = "main" ]; then
+              echo "::error::weizhi 未同步（${WEIZHI_DIR} 缺失）。master 分支不允许静默降级；请检查 sync-weizhi.sh 或 WEIZHI_SKIP_SYNC 变量。" >&2
+              exit 1
+            fi
+            echo "::warning::skip weizhi（PR 分支降级）：未 clone weizhi — 跑 :core:test + :cli:test，桥集成测试被跳过"
+            ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test
           fi
 
   quality-static:

@@ -44,7 +44,19 @@ public final class FileSessionStore implements SessionStore {
     }
 
     public Path sessionDir(String sessionId) {
+        requireValidSessionId(sessionId);
         return sessionsRoot().resolve(sessionId);
+    }
+
+    /** sessionId 直接参与路径拼接；拒绝分隔符与「..」，防 deleteSession/listDir 等越界到 agentRoot 之外。 */
+    private static void requireValidSessionId(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new IllegalArgumentException("sessionId required");
+        }
+        if (sessionId.contains("/") || sessionId.contains("\\")
+            || sessionId.contains("..") || sessionId.contains(":")) {
+            throw new IllegalArgumentException("invalid sessionId: " + sessionId);
+        }
     }
 
     public Path workspaceDir(String sessionId) {

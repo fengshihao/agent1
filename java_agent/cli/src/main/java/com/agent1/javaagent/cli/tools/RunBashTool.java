@@ -31,6 +31,11 @@ public final class RunBashTool implements AgentTool {
     }
 
     @Override
+    public long suggestedTimeoutMs(JsonNode parameters, long fallbackMs) {
+        return Math.max(fallbackMs, 60_000L);
+    }
+
+    @Override
     public JsonNode parametersSchema() {
         ObjectNode schema = MAPPER.createObjectNode();
         schema.put("type", "object");

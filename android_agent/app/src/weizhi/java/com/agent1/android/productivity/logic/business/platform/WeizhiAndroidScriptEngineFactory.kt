@@ -6,6 +6,7 @@ import com.agent1.javaagent.core.CancellationToken
 import com.agent1.javaagent.script.ScriptEngine
 import com.agent1.javaagent.script.ScriptEngineFactory
 import com.agent1.javaagent.script.ScriptToolBridge
+import com.agent1.javaagent.weizhi.WeizhiIoExecutors
 import com.agent1.javaagent.weizhi.WeizhiScriptToolInstaller
 import com.weizhi.WeizhiEngine
 import com.weizhi.caps.AndroidCaps
@@ -34,7 +35,7 @@ class WeizhiAndroidScriptEngineFactory(
         private val scriptToolBridge: ScriptToolBridge?,
     ) : ScriptEngine {
 
-        private val engine = WeizhiEngine()
+        private val engine = WeizhiEngine(null, WeizhiIoExecutors.io(16))
         private val workspaceFile = workspace.toFile()
 
         init {

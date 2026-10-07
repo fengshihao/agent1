@@ -331,6 +331,55 @@ class OpenAiCompatibleClientTest {
     }
 
     @Test
+    void streamChat_midStreamFailure_resetsListenerBeforeRetry() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            String firstBody = ""
+                + "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n"
+                + "data: {\"error_code\":\"Throttling.RequestsThrottled\",\"message\":\"slow down\"}\n\n";
+            server.enqueue(
+                new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody(firstBody)
+            );
+            server.enqueue(
+                new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody("data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\n"
+                        + "data: [DONE]\n\n")
+            );
+            server.start();
+            OpenAiCompatibleClient client = new OpenAiCompatibleClient(
+                new OpenAiCompatibleConfig("k", server.url("/v1").toString(), Duration.ofSeconds(5), null),
+                MAPPER,
+                2,
+                1L
+            );
+            List<String> events = new ArrayList<>();
+            AssistantResponse response = client.streamChat(
+                new ChatRequest("m", List.of(AgentMessage.user("hi"))),
+                List.of(),
+                new com.agent1.javaagent.llm.LlmStreamListener() {
+                    @Override
+                    public void onTextDelta(String delta) {
+                        events.add("delta:" + delta);
+                    }
+
+                    @Override
+                    public void onRetryAttempt() {
+                        events.add("reset");
+                    }
+                },
+                new CancellationToken()
+            );
+            assertEquals("ok", response.getContent());
+            assertEquals(List.of("delta:Hel", "reset", "delta:ok"), events);
+            assertEquals(2, server.getRequestCount());
+        }
+    }
+
+    @Test
     void streamChat_cancel_throwsLlmCancelled() throws Exception {
         try (MockWebServer server = new MockWebServer()) {
             server.enqueue(

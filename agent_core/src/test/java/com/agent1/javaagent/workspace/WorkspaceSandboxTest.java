@@ -111,4 +111,47 @@ class WorkspaceSandboxTest {
         Path doc = agentRoot.resolve("docs/system/directories.md");
         assertEquals(doc.toAbsolutePath().normalize(), withAgent.resolveRead(doc.toString()));
     }
+
+    @Test
+    void symlinkInsideWorkspaceRejectedForReadAndWrite() throws Exception {
+        Path outside = temp.resolve("outside.txt");
+        Files.writeString(outside, "secret");
+        Files.createDirectories(sandbox.getRoot());
+        Path link = sandbox.getRoot().resolve("leak.txt");
+        Files.createSymbolicLink(link, outside);
+
+        assertThrows(SecurityException.class, () -> sandbox.resolveRead("leak.txt"));
+        assertThrows(SecurityException.class, () -> sandbox.resolveWrite("leak.txt"));
+    }
+
+    @Test
+    void symlinkDirectoryInsideWorkspaceRejected() throws Exception {
+        Path outsideDir = temp.resolve("outsideDir");
+        Files.createDirectories(outsideDir);
+        Files.createDirectories(sandbox.getRoot());
+        Path linkDir = sandbox.getRoot().resolve("leakdir");
+        Files.createSymbolicLink(linkDir, outsideDir);
+
+        assertThrows(SecurityException.class, () -> sandbox.resolveRead("leakdir/inner.txt"));
+        assertThrows(SecurityException.class, () -> sandbox.resolveWrite("leakdir/inner.txt"));
+        assertThrows(SecurityException.class, () -> sandbox.resolveRead("leakdir"));
+    }
+
+    @Test
+    void danglingSymlinkInsideWorkspaceRejected() throws Exception {
+        Files.createDirectories(sandbox.getRoot());
+        Path link = sandbox.getRoot().resolve("dangling");
+        Files.createSymbolicLink(link, temp.resolve("missing-target"));
+
+        assertThrows(SecurityException.class, () -> sandbox.resolveRead("dangling"));
+    }
+
+    @Test
+    void regularFilesInsideWorkspaceStillPass() throws Exception {
+        Path file = sandbox.getRoot().resolve("plain/a.txt");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "hi");
+        assertEquals(file.toAbsolutePath().normalize(), sandbox.resolveRead("plain/a.txt"));
+        assertEquals(file.toAbsolutePath().normalize(), sandbox.resolveWrite("plain/a.txt"));
+    }
 }

@@ -37,6 +37,11 @@ public final class ReadFileTool implements AgentTool {
     }
 
     @Override
+    public long suggestedTimeoutMs(JsonNode parameters, long fallbackMs) {
+        return Math.min(fallbackMs, 10_000L);
+    }
+
+    @Override
     public JsonNode parametersSchema() {
         ObjectNode schema = MAPPER.createObjectNode();
         schema.put("type", "object");

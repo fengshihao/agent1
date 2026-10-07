@@ -93,6 +93,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 if (attempt == maxRetries || !shouldRetry(e)) {
                     throw e;
                 }
+                streamListener.onRetryAttempt();
                 sleepBackoff(attempt);
             }
         }

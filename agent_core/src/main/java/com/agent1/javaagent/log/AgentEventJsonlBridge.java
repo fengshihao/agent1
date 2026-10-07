@@ -50,6 +50,7 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
             case AGENT_START -> onAgentStart((AgentStateSnapshot) payload);
             case MESSAGE_START -> onMessageStart((EventPayloads.MessageEvent) payload);
             case MESSAGE_UPDATE -> onMessageUpdate((EventPayloads.MessageUpdate) payload);
+            case MESSAGE_RESET -> onMessageReset();
             case USAGE -> onUsage((EventPayloads.Usage) payload);
             case TOOL_EXECUTION_START -> onToolStart((EventPayloads.ToolExecutionStart) payload);
             case TOOL_EXECUTION_END -> onToolEnd((EventPayloads.ToolExecutionEnd) payload);
@@ -82,6 +83,11 @@ public final class AgentEventJsonlBridge implements AgentEventListener {
 
     private void onMessageUpdate(EventPayloads.MessageUpdate payload) {
         writer.write(context, "model_text_delta", Map.of("delta", payload.getDelta()));
+    }
+
+    /** 流中途失败自动重试：标记此前 delta 已作废，回放时不应拼接。 */
+    private void onMessageReset() {
+        writer.write(context, "model_text_reset", Map.of());
     }
 
     private void onUsage(EventPayloads.Usage payload) {

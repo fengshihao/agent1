@@ -5,6 +5,7 @@ public enum AgentEventType {
     TURN_START,
     MESSAGE_START,
     MESSAGE_UPDATE,
+    MESSAGE_RESET,
     REASONING_UPDATE,
     MESSAGE_END,
     USAGE,

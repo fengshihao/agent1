@@ -155,6 +155,16 @@ class ChatViewModel(
                                 val payload = event.payload as EventPayloads.ReasoningUpdate
                                 enqueueReasoningDelta(payload.delta)
                             }
+                            AgentEventType.MESSAGE_RESET -> {
+                                // LLM 流中途失败自动重试：丢弃已展示的增量，避免重试后内容重复
+                                synchronized(streamLock) {
+                                    contentBuffer.setLength(0)
+                                    reasoningBuffer.setLength(0)
+                                }
+                                viewModelScope.launch(Dispatchers.Main) {
+                                    publishStreamNow()
+                                }
+                            }
                             else -> viewModelScope.launch(Dispatchers.Main) {
                                 publishStreamNow()
                                 onAgentEvent(event)

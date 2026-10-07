@@ -185,5 +185,22 @@ public final class WorkspaceSandbox {
                 throw new SecurityException("path escapes workspace: " + normalized);
             }
         }
+        ensureNoSymlinkUnderRoot(normalized);
+    }
+
+    /**
+     * workspace 内已存在的路径组件不得是符号链接：{@code normalize()} 只做字符串规范化，
+     * 不解析符号链接——否则「normalize 后仍在 workspace 内」的路径真实落点可能在外。
+     */
+    private void ensureNoSymlinkUnderRoot(Path normalized) {
+        Path current = root;
+        for (int i = root.getNameCount(); i < normalized.getNameCount(); i++) {
+            current = current.resolve(normalized.getName(i).toString());
+            if (java.nio.file.Files.isSymbolicLink(current)) {
+                throw new SecurityException(
+                    "symbolic link inside workspace is not allowed: " + current
+                );
+            }
+        }
     }
 }

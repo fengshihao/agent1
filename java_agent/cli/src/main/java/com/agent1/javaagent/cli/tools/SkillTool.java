@@ -61,6 +61,21 @@ public final class SkillTool implements AgentTool {
     }
 
     @Override
+    public long suggestedTimeoutMs(JsonNode parameters, long fallbackMs) {
+        String action = parameters == null ? "" : parameters.path("action").asText("");
+        if ("search".equalsIgnoreCase(action)) {
+            return Math.max(fallbackMs, 20_000L);
+        }
+        if ("install".equalsIgnoreCase(action)) {
+            return Math.max(fallbackMs, 90_000L);
+        }
+        if ("uninstall".equalsIgnoreCase(action)) {
+            return Math.max(fallbackMs, 15_000L);
+        }
+        return Math.max(fallbackMs, 15_000L);
+    }
+
+    @Override
     public JsonNode parametersSchema() {
         ObjectNode schema = MAPPER.createObjectNode();
         schema.put("type", "object");
