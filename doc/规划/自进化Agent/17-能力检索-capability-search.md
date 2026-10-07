@@ -208,8 +208,8 @@ Android hostAppend（`WeizhiHostLoader`）补充：Caps 仅脚本内；文件分
 
 | 项 | 内容 |
 |----|------|
-| **做** | catalog_install 后 rebuild 或增量 |
-| **单测** | 安装 sample 脚本后 search 可命中 |
+| **做** | catalog_install 后 rebuild 或增量；bundled seed 变更自动重建：`CapabilityIndexStore` 把 `CapabilitySeedLoader.seedFingerprint()`（seed JSONL 的 SHA-256）写入库 `seed_hash` meta，指纹不一致即重建，无需手动递增 `SEED_REVISION`（revision 仅作人工强制重建开关） |
+| **单测** | 安装 sample 脚本后 search 可命中；revision 相同但缺 `seed_hash`/指纹不同的旧库重建后新卡可命中 |
 | **Covers** | UC-06 扩展 |
 
 ### REQ-114 MCP / Skill 入索引（Phase B）

@@ -43,6 +43,48 @@ class CapabilityIndexStoreTest {
     }
 
     @Test
+    void staleSeedRevisionRebuildsMissingPptxCards() throws Exception {
+        Path agentRoot = temp.resolve("agentRootStalePptx");
+        CapabilityIndexStore.ensure(agentRoot);
+        Path db = CapabilityDatabasePaths.databaseFile(agentRoot);
+        // 模拟旧版本 APK 建出的库：revision 落后一档，且没有 pptx 卡。
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + db.toAbsolutePath());
+            Statement statement = connection.createStatement()) {
+            statement.executeUpdate("UPDATE meta SET value = '8' WHERE key = 'seed_revision'");
+            statement.executeUpdate("DELETE FROM capability WHERE id LIKE 'pptx.%'");
+            statement.executeUpdate("DELETE FROM capability_fts WHERE id LIKE 'pptx.%'");
+        }
+
+        var missing = CapabilityIndexStore.searchLike(db, "ppt 幻灯片", List.of(), "any", 5);
+        assertTrue(missing.stream().noneMatch(h -> h.id().startsWith("pptx.")));
+
+        CapabilityIndexStore.ensure(agentRoot);
+        var hits = CapabilityIndexStore.search(agentRoot, "ppt 幻灯片 演示", List.of(), "any", 5);
+        assertTrue(hits.stream().anyMatch(h -> h.id().equals("pptx.render")));
+    }
+
+    @Test
+    void staleSeedHashRebuildsEvenWhenRevisionMatches() throws Exception {
+        Path agentRoot = temp.resolve("agentRootStaleHash");
+        CapabilityIndexStore.ensure(agentRoot);
+        Path db = CapabilityDatabasePaths.databaseFile(agentRoot);
+        // 复刻真机事故：旧版本 APK 建出的库 seed_revision 与当前代码一致，但没有 seed_hash。
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + db.toAbsolutePath());
+            Statement statement = connection.createStatement()) {
+            statement.executeUpdate("DELETE FROM meta WHERE key = 'seed_hash'");
+            statement.executeUpdate("DELETE FROM capability WHERE id LIKE 'pptx.%'");
+            statement.executeUpdate("DELETE FROM capability_fts WHERE id LIKE 'pptx.%'");
+        }
+
+        var missing = CapabilityIndexStore.searchLike(db, "ppt 幻灯片", List.of(), "any", 5);
+        assertTrue(missing.stream().noneMatch(h -> h.id().startsWith("pptx.")));
+
+        CapabilityIndexStore.ensure(agentRoot);
+        var hits = CapabilityIndexStore.search(agentRoot, "ppt 幻灯片 演示", List.of(), "any", 5);
+        assertTrue(hits.stream().anyMatch(h -> h.id().equals("pptx.render")));
+    }
+
+    @Test
     void platformFilterAndroidShare() {
         Path agentRoot = temp.resolve("agentRoot");
         CapabilityIndexStore.ensure(agentRoot);
