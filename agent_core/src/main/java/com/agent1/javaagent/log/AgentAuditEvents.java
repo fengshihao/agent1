@@ -146,6 +146,33 @@ public final class AgentAuditEvents {
         write(agentRoot, context, "coach_fired", fields);
     }
 
+    /**
+     * 脚本内 {@code $tools.*} 调用的审计事件（与外层 tool_call/tool_result 对应）。
+     * 外层只记 execute_script 一条整体事件；不记这个的话脚本内部行为不可回放。
+     */
+    public static void agentToolCall(
+        Path agentRoot,
+        RunLogContext context,
+        String toolName,
+        String argsSummary,
+        boolean ok,
+        long durationMs,
+        String error
+    ) {
+        if (agentRoot == null || toolName == null || toolName.isBlank()) {
+            return;
+        }
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("tool_name", toolName.trim());
+        fields.put("args", argsSummary == null ? "" : argsSummary);
+        fields.put("is_error", !ok);
+        fields.put("duration_ms", durationMs);
+        if (!ok && error != null && !error.isBlank()) {
+            fields.put("error_message", truncate(error, ADVICE_MAX));
+        }
+        write(agentRoot, context, "agent_tool_call", fields);
+    }
+
     public static RunLogContext resolveContext(RunLogContext explicit) {
         if (explicit != null) {
             return explicit;

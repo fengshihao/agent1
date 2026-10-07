@@ -21,6 +21,7 @@ import com.agent1.javaagent.coach.ProductivityCoach;
 import com.agent1.javaagent.log.AgentAuditEvents;
 import com.agent1.javaagent.log.RunAuditScope;
 import com.agent1.javaagent.log.RunLogContext;
+import com.agent1.javaagent.script.ScriptToolRunContext;
 import com.agent1.javaagent.workspace.ToolResultSpill;
 import java.nio.file.Path;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
@@ -49,7 +50,7 @@ public final class AgentRuntime implements Closeable {
     private final List<AgentEventListener> listeners = new CopyOnWriteArrayList<>();
     private final Subject<AgentEvent> eventSubject = PublishSubject.<AgentEvent>create().toSerialized();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final ExecutorService toolExecutor = Executors.newCachedThreadPool();
+    private final ExecutorService toolExecutor = new ToolExecutorService();
     private final Duration defaultToolTimeout;
     private final int maxContextTurns;
     private final int maxContextMessages;
@@ -339,6 +340,12 @@ public final class AgentRuntime implements Closeable {
                         new EventPayloads.ReasoningUpdate(delta, updated)
                     );
                 }
+
+                @Override
+                public void onRetryAttempt() {
+                    state.setStreamMessage(AgentMessage.assistant("", List.of()));
+                    emit(AgentEventType.MESSAGE_RESET, new EventPayloads.MessageReset());
+                }
             },
             token
         );
@@ -401,10 +408,11 @@ public final class AgentRuntime implements Closeable {
                 result = ToolExecutionResult.text(errorMessage);
             } else {
                 final JsonNode paramsForExecute = parameters;
-                long timeoutMs = estimateToolTimeoutMs(toolCall.getName(), parameters);
+                long timeoutMs = estimateToolTimeoutMs(tool, parameters);
                 CompletableFuture<ToolExecutionResult> toolTask = CompletableFuture.supplyAsync(
                 () -> {
                     RunAuditScope.bind(runAuditAgentRoot, runAuditLogContext);
+                    ScriptToolRunContext.bind(token);
                     try {
                         return tool.execute(
                             toolCall.getId(),
@@ -419,6 +427,7 @@ public final class AgentRuntime implements Closeable {
                         throw new RuntimeException(e);
                     } finally {
                         RunAuditScope.clear();
+                        ScriptToolRunContext.clear();
                     }
                 },
                 toolExecutor
@@ -490,32 +499,12 @@ public final class AgentRuntime implements Closeable {
         return update;
     }
 
-    private long estimateToolTimeoutMs(String toolName, JsonNode parameters) {
+    private long estimateToolTimeoutMs(AgentTool tool, JsonNode parameters) {
         long fallback = Math.max(defaultToolTimeout.toMillis(), 1_000L);
-        if (toolName == null) {
+        if (tool == null) {
             return fallback;
         }
-        return switch (toolName) {
-            case "read" -> Math.min(fallback, 10_000L);
-            case "run_bash" -> Math.max(fallback, 60_000L);
-            case "run_python" -> Math.max(fallback, 45_000L);
-            case "skill" -> estimateSkillToolTimeoutMs(fallback, parameters);
-            default -> fallback;
-        };
-    }
-
-    private long estimateSkillToolTimeoutMs(long fallback, JsonNode parameters) {
-        String action = parameters == null ? "" : parameters.path("action").asText("");
-        if ("search".equalsIgnoreCase(action)) {
-            return Math.max(fallback, 20_000L);
-        }
-        if ("install".equalsIgnoreCase(action)) {
-            return Math.max(fallback, 90_000L);
-        }
-        if ("uninstall".equalsIgnoreCase(action)) {
-            return Math.max(fallback, 15_000L);
-        }
-        return Math.max(fallback, 15_000L);
+        return Math.max(tool.suggestedTimeoutMs(parameters, fallback), 1_000L);
     }
 
     private List<AgentMessage> buildContextMessages() {

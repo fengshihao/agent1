@@ -52,6 +52,10 @@ public final class EventPayloads {
         }
     }
 
+    /** 流式输出被重置（LLM 流中途失败自动重试时发出）；消费端应清空当前流式缓冲，丢弃已展示的增量。 */
+    public static final class MessageReset {
+    }
+
     public static final class ReasoningUpdate {
         private final String delta;
         private final AgentMessage partialMessage;
