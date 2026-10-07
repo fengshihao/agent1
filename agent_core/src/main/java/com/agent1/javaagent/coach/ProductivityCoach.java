@@ -72,8 +72,8 @@ public final class ProductivityCoach {
                 hookId = "bash.host_tool_probe";
                 advice =
                     "Android/沙箱 bash 通常没有 pandoc、LibreOffice、python3 等主机转换工具，也不要反复 which/find。"
-                        + "文档类任务先 capability_search（如 docx、markdown word、转 Word），"
-                        + "再用 execute_script 按结果里的 catalog 示例调用（如 docx.js 的 markdownToDocx）。"
+                        + "文档类任务先 capability_search（如 docx、pptx、markdown word、幻灯片），"
+                        + "再用 execute_script 按结果里的 catalog 示例调用（如 docx.js 的 markdownToDocx、pptx.js 的 renderPptx）。"
                         + "不要猜 Node 的 require/fs。";
             }
         } else if ("capability_search".equals(toolName) && text != null) {

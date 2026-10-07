@@ -6,7 +6,9 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 
 /** 从 classpath seed JSONL 加载能力条目。 */
@@ -16,8 +18,43 @@ public final class CapabilitySeedLoader {
     private static final String SEED_RESOURCE = "/agent-home/capabilities/search-index.seed.jsonl";
     /** 微智按 API 导出的调用卡。真源：weizhi {@code docs/api-cards.jsonl}。 */
     private static final String WEIZHI_CARDS_RESOURCE = "/agent-home/capabilities/weizhi-api-cards.jsonl";
+    private static final String[] SEED_RESOURCES = {SEED_RESOURCE, WEIZHI_CARDS_RESOURCE};
+
+    private static volatile String fingerprintCache;
 
     private CapabilitySeedLoader() {
+    }
+
+    /**
+     * 种子内容的 SHA-256 指纹。{@code CapabilityIndexStore} 把它写进 capabilities.db 的
+     * {@code seed_hash} meta；种子文件（含 weizhi 调用卡）内容一变，指纹即变，旧库自动重建。
+     * 这样不依赖手动递增 {@code SEED_REVISION}（revision 仍保留作人工强制重建开关）。
+     */
+    public static String seedFingerprint() {
+        String cached = fingerprintCache;
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            for (String resource : SEED_RESOURCES) {
+                try (InputStream in = CapabilitySeedLoader.class.getResourceAsStream(resource)) {
+                    if (in == null) {
+                        throw new IllegalStateException("missing bundled seed: " + resource);
+                    }
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = in.read(buf)) > 0) {
+                        digest.update(buf, 0, n);
+                    }
+                }
+            }
+            String fingerprint = HexFormat.of().formatHex(digest.digest());
+            fingerprintCache = fingerprint;
+            return fingerprint;
+        } catch (Exception e) {
+            throw new IllegalStateException("compute seed fingerprint failed", e);
+        }
     }
 
     public static List<CapabilityRecord> loadBundledSeed() {
@@ -74,7 +111,7 @@ public final class CapabilitySeedLoader {
         String id = node.path("id").asText("");
         String kind = id.startsWith("android.") ? "caps" : "catalog_script";
         String requires = node.has("params") && !node.get("params").isNull() ? node.get("params").toString() : "";
-        double weight = id.startsWith("docx.") ? 1.2 : 1.1;
+        double weight = id.startsWith("docx.") || id.startsWith("pptx.") ? 1.2 : 1.1;
         return new CapabilityRecord(
             id,
             kind,

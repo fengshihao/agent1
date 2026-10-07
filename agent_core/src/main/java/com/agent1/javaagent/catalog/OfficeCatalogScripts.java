@@ -8,10 +8,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 
-/** 将 Weizhi {@code assets/office/docx*.js} 同步到 {@code shared/catalog/scripts}（Issue weizhi#8）。 */
+/** 将 Weizhi {@code assets/office} 脚本同步到 {@code shared/catalog/scripts}（docx weizhi#8，pptx 同 catalog）。 */
 public final class OfficeCatalogScripts {
 
-    public static final List<String> OFFICE_SCRIPT_NAMES = List.of("docx.js", "docx-raw.js", "docx-build.js");
+    public static final List<String> OFFICE_SCRIPT_NAMES =
+            List.of("docx.js", "docx-raw.js", "docx-build.js", "pptx.js", "pptx-build.js");
 
     private OfficeCatalogScripts() {
     }

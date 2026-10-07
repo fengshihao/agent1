@@ -12,7 +12,7 @@ if [[ ! -d "${WEIZHI}/assets/office" ]]; then
   exit 0
 fi
 
-for name in docx.js docx-raw.js docx-build.js; do
+for name in docx.js docx-raw.js docx-build.js pptx.js pptx-build.js; do
   src="${CATALOG}/${name}"
   [[ -f "${src}" ]] || continue
   cp "${src}" "${WEIZHI}/assets/office/${name}"

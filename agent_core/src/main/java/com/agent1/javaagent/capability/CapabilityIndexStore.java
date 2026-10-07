@@ -21,9 +21,13 @@ public final class CapabilityIndexStore {
     public static final int SCHEMA_VERSION = 4;
 
     /**
-     * 种子内容代次。修改 {@code search-index.seed.jsonl} 时递增，已有 capabilities.db 会在下次检索前重建。
+     * 种子内容代次。人工强制重建开关：库内 revision 落后即重建。
+     * 日常种子内容变更由 {@code seed_hash} 指纹（{@link CapabilitySeedLoader#seedFingerprint()}）自动覆盖，
+     * 改 seed JSONL 不必再手动递增本值。
      */
-    public static final int SEED_REVISION = 8;
+    public static final int SEED_REVISION = 9;
+
+    private static final String META_SEED_HASH = "seed_hash";
 
     /**
      * FTS5 bm25 列权（仅 indexed 列，顺序与 {@code capability_fts} 一致：title, summary, tags, entry）。
@@ -85,6 +89,7 @@ public final class CapabilityIndexStore {
             insertAll(db, records);
             setMeta(db, "schema_version", Integer.toString(SCHEMA_VERSION));
             setMeta(db, "seed_revision", Integer.toString(SEED_REVISION));
+            setMeta(db, META_SEED_HASH, CapabilitySeedLoader.seedFingerprint());
             setMeta(db, "source", "bundled-seed");
         } catch (SQLException e) {
             throw new IllegalStateException("build capability index failed: " + dbPath, e);
@@ -171,7 +176,11 @@ public final class CapabilityIndexStore {
                 return true;
             }
             String seedRevision = getMeta(db, "seed_revision");
-            return !Integer.toString(SEED_REVISION).equals(seedRevision);
+            if (!Integer.toString(SEED_REVISION).equals(seedRevision)) {
+                return true;
+            }
+            // 旧库没有 seed_hash（或指纹不同）：种子内容变了，自动重建。
+            return !CapabilitySeedLoader.seedFingerprint().equals(getMeta(db, META_SEED_HASH));
         } catch (SQLException e) {
             return true;
         }

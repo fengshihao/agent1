@@ -9,7 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-/** 从 APK {@code assets/office/} 同步 docx 脚本到 agentRoot catalog（weizhi#8）。 */
+/** 从 APK {@code assets/office/} 同步 office 脚本到 agentRoot catalog（docx weizhi#8，含 pptx）。 */
 public final class AndroidOfficeCatalogSync {
 
     private AndroidOfficeCatalogSync() {
