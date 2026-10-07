@@ -74,8 +74,8 @@ run_java_test() {
     AGENT1_WEIZHI_REPO="${weizhi_dir}" E2E_DEEPSEEK_V6_SKIP_LLM=1 \
       "${REPO_ROOT}/scripts/e2e-deepseek-v6.sh"
   else
-    echo "skip weizhi: 未找到 ${weizhi_dir}（可 ./sync-weizhi.sh 或 export WEIZHI_DIR=…）— 仅 :core:test"
-    ./java_agent/gradlew --no-daemon -p java_agent :core:test
+    echo "skip weizhi: 未找到 ${weizhi_dir}（可 ./sync-weizhi.sh 或 export WEIZHI_DIR=…）— 降级跑 :core:test + :cli:test（桥集成测试被跳过）"
+    ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test
   fi
 }
 
