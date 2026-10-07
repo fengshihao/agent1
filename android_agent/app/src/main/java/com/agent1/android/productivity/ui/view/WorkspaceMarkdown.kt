@@ -1,5 +1,6 @@
 package com.agent1.android.productivity.ui.view
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -49,6 +50,7 @@ fun WorkspaceMarkdown(
         object : UriHandler {
             override fun openUri(uri: String) {
                 val trimmed = uri.trim()
+                val hadWorkspacePrefix = trimmed.startsWith(ChatTranscriptFormatting.WORKSPACE_FILE_HREF_PREFIX)
                 val href = trimmed.removePrefix(ChatTranscriptFormatting.WORKSPACE_FILE_HREF_PREFIX)
                 if (workspaceRoot != null &&
                     !href.startsWith("http://") &&
@@ -59,8 +61,17 @@ fun WorkspaceMarkdown(
                         WorkspaceFileActions.openWorkspaceFile(context, workspaceRoot, normalized)
                         return
                     }
+                    if (hadWorkspacePrefix) {
+                        // 带 agent1-file: 前缀但文件已不存在：提示用户；
+                        // 自定义 scheme 交给系统必然无 Activity 可处理（ActivityNotFoundException）。
+                        Toast.makeText(context, "文件不存在或已被移动：$normalized", Toast.LENGTH_SHORT).show()
+                        return
+                    }
                 }
-                defaultUriHandler.openUri(trimmed)
+                runCatching { defaultUriHandler.openUri(trimmed) }
+                    .onFailure {
+                        Toast.makeText(context, "无法打开链接：$trimmed", Toast.LENGTH_SHORT).show()
+                    }
             }
         }
     }

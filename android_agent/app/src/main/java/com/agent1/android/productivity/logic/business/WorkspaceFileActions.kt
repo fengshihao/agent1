@@ -32,7 +32,11 @@ object WorkspaceFileActions {
     }
 
     fun openWorkspaceFile(context: Context, workspaceRoot: Path, relativePath: String): Boolean {
-        val file = SessionWorkspacePaths.resolveFile(workspaceRoot, relativePath) ?: return false
+        val file = SessionWorkspacePaths.resolveFile(workspaceRoot, relativePath) ?: run {
+            // 文件不存在/未写完时此前静默返回，表现为“点击没反应”；给出可见提示。
+            Toast.makeText(context, "文件不存在或已被移动：$relativePath", Toast.LENGTH_SHORT).show()
+            return false
+        }
         val authority = "${context.packageName}.fileprovider"
         val uri = FileProvider.getUriForFile(context, authority, file)
         val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -48,7 +52,10 @@ object WorkspaceFileActions {
     }
 
     fun shareWorkspaceFile(context: Context, workspaceRoot: Path, relativePath: String): Boolean {
-        val file = SessionWorkspacePaths.resolveFile(workspaceRoot, relativePath) ?: return false
+        val file = SessionWorkspacePaths.resolveFile(workspaceRoot, relativePath) ?: run {
+            Toast.makeText(context, "文件不存在或已被移动：$relativePath", Toast.LENGTH_SHORT).show()
+            return false
+        }
         val authority = "${context.packageName}.fileprovider"
         val uri = FileProvider.getUriForFile(context, authority, file)
         val intent = Intent(Intent.ACTION_SEND).apply {

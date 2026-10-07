@@ -222,9 +222,15 @@ internal fun ChatMessageList(
 private suspend fun LazyListState.scrollToActualBottom() {
     val lastIndex = layoutInfo.totalItemsCount - 1
     if (lastIndex < 0) return
-    scrollToItem(lastIndex)
-    withFrameNanos { }
+    // 最后一条已（至少部分）可见时只补滚溢出量；避免流式增量触发的
+    // scrollToItem 先把条目顶部对齐视口再翻回底部，造成“跳到开头又跳到末尾”的闪烁。
+    val visibleLast = layoutInfo.visibleItemsInfo.lastOrNull()
+    if (visibleLast == null || visibleLast.index != lastIndex) {
+        scrollToItem(lastIndex)
+        withFrameNanos { }
+    }
     val last = layoutInfo.visibleItemsInfo.lastOrNull() ?: return
+    if (last.index != lastIndex) return
     val overflow = (last.offset + last.size) - layoutInfo.viewportEndOffset
     if (overflow > 0) {
         scrollBy(overflow.toFloat())
