@@ -44,4 +44,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-exec bash "${REPO_ROOT}/android_agent/run_${VARIANT}.sh" "${EXTRA[@]}"
+RUN_SCRIPT="${REPO_ROOT}/android_agent/run_${VARIANT}.sh"
+if ((${#EXTRA[@]} > 0)); then
+  exec bash "$RUN_SCRIPT" "${EXTRA[@]}"
+else
+  exec bash "$RUN_SCRIPT"
+fi
