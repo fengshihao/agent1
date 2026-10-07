@@ -2,6 +2,7 @@ package com.agent1.javaagent.session;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.model.AgentMessage;
@@ -45,6 +46,32 @@ class FileSessionStoreTest {
         assertTrue(Files.isDirectory(dir));
         store.deleteSession(s.getSessionId());
         assertFalse(Files.exists(dir));
+    }
+
+    @Test
+    void traversalSessionIdRejected() throws Exception {
+        FileSessionStore store = new FileSessionStore(temp);
+        Path victim = temp.resolve("sessions").resolve("victim");
+        Path victimFile = victim.resolve("keep.txt");
+        Files.createDirectories(victim);
+        Files.writeString(victimFile, "keep");
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> store.deleteSession("../victim"),
+            "相对穿越 sessionId 不得拼进路径"
+        );
+        assertThrows(IllegalArgumentException.class, () -> store.deleteSession(".."));
+        assertThrows(IllegalArgumentException.class, () -> store.loadTranscript("../victim"));
+        assertThrows(IllegalArgumentException.class, () -> store.sessionDir("a/b"));
+        assertTrue(Files.exists(victimFile), "越界 deleteSession 不得删除 agentRoot 外文件");
+    }
+
+    @Test
+    void windowsStyleTraversalSessionIdRejected() {
+        FileSessionStore store = new FileSessionStore(temp);
+        assertThrows(IllegalArgumentException.class, () -> store.deleteSession("..\\victim"));
+        assertThrows(IllegalArgumentException.class, () -> store.deleteSession("c:whatever"));
     }
 
     @Test
