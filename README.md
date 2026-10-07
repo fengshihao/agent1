@@ -15,6 +15,9 @@
 </p>
 
 <p align="center">
+  <a href="https://fengshihao.github.io/agent1/">
+    <img alt="Website" src="https://img.shields.io/badge/Website-fengshihao.github.io%2Fagent1-D4773B?style=for-the-badge&labelColor=1C1914" />
+  </a>
   <a href="https://github.com/fengshihao/agent1/actions/workflows/ci.yml">
     <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/fengshihao/agent1/ci.yml?branch=master&style=for-the-badge&label=CI&labelColor=1C1914" />
   </a>
@@ -26,6 +29,7 @@
 </p>
 
 <p align="center">
+  <a href="https://fengshihao.github.io/agent1/">官网</a> ·
   <a href="#zh">中文</a> ·
   <a href="#en">English</a> ·
   <a href="CONTRIBUTING.md">贡献</a> ·
@@ -88,6 +92,8 @@ gradle -p java_agent :core:test :cli:test
 
 GitHub Actions:[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — `java-test`、`quality-static`、`android-assemble-debug`。
 
+官网：[fengshihao.github.io/agent1](https://fengshihao.github.io/agent1/)（推到 `master` 后由 Pages 发布）。本地预览：`./scripts/serve-site.sh`。
+
 ## 架构一览
 
 ```mermaid
@@ -118,6 +124,7 @@ agent1/
 ├── android_agent/           # 嵌入式宿主参考 App(Compose + 生产力助手)
 ├── doc/                     # 能力对照、集成、规划
 ├── docs/ai/                 # 编码智能体开工文档
+├── site/                    # 官网（GitHub Pages）
 └── AGENTS.md
 ```
 
@@ -259,6 +266,8 @@ export DASHSCOPE_API_KEY="your-key"
 gradle -p java_agent :core:test :cli:test
 ./scripts/ci-local.sh fast
 ```
+
+Website: [fengshihao.github.io/agent1](https://fengshihao.github.io/agent1/). Local preview: `./scripts/serve-site.sh`.
 
 See [docs/ai/START.md](docs/ai/START.md) and [AGENTS.md](AGENTS.md) for one-liner integration with other coding agents.
 

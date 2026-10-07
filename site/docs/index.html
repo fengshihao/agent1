@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-i18n-title="docsTitle" data-i18n-desc="docsDescription">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>开始贡献 · Agent1</title>
+  <meta name="description" content="复制一句给 AI，让它准备 Agent1 的贡献环境；再说你想改什么。" />
+  <meta name="theme-color" content="#1C1914" />
+  <link rel="icon" href="../assets/app-icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Instrument+Serif&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/site.css" />
+</head>
+<body>
+  <a class="skip" href="#main" data-i18n="skip">跳到正文</a>
+  <header class="shell-top">
+    <div class="frame shell-top-inner">
+      <a class="mark" href="../" data-i18n-aria="brandAria" aria-label="Agent1">
+        <img class="mark-icon" src="../assets/app-icon.svg" width="28" height="28" alt="" />
+        <span class="mark-word">Agent<span>1</span></span>
+      </a>
+      <div class="shell-actions">
+        <nav class="shell-nav" data-i18n-aria="navAria" aria-label="主导航">
+          <a href="../#device" data-i18n="navDevice">设备</a>
+          <a href="../#engine" data-i18n="navEngine">引擎</a>
+          <a href="../#discover" data-i18n="navDiscover">发现</a>
+          <a href="../#integrate" data-i18n="navIntegrate">集成</a>
+          <a href="../#debug" data-i18n="navDebug">调试</a>
+          <a href="./" aria-current="page" data-i18n="navDocs">贡献</a>
+          <a class="nav-github" href="https://github.com/fengshihao/agent1">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>
+            <span data-i18n="navGitHub">GitHub</span>
+          </a>
+        </nav>
+        <label class="lang-switch">
+          <span class="visually-hidden" data-i18n="langAria">界面语言</span>
+          <select id="siteLang" data-i18n-aria="langAria" aria-label="界面语言"></select>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <div class="frame">
+    <main id="main" class="section steps">
+      <h2 data-i18n="docsH1">两步就够</h2>
+      <p data-i18n="docsIntro">不用先读完仓库。先让 AI 把 JDK 和单测跑通，再用一句话说你要改的那一件事。</p>
+
+      <h3 data-i18n="docsStep1">1. 复制发给 AI，准备环境</h3>
+      <p data-i18n="docsStep1Body">打开 Cursor（或别的编码智能体），点复制，粘贴发给它：</p>
+      <div class="copy-block">
+        <pre id="setup-prompt" data-i18n="setupPrompt">帮我准备开源项目 Agent1（https://github.com/fengshihao/agent1）的贡献环境：请你自己克隆仓库、读 AGENTS.md 和 docs/ai/START.md，安装 JDK 17 后运行 ./java_agent/gradlew -p java_agent :core:test :cli:test。准备好后告诉我，我再说想贡献什么。</pre>
+        <button type="button" class="copy-btn" data-copy="setup-prompt" data-i18n="copy">复制</button>
+      </div>
+      <p class="hint" data-i18n="docsHint1">环境就绪后，用一句话告诉它你要做什么。一次只做一件事。</p>
+      <div class="copy-block">
+        <pre id="task-prompt" data-i18n="taskPrompt">我要贡献：〈一件事〉。按 AGENTS.md 与 docs/ai/CHECKLIST.md 修改；新增或改动 Java 行为必须带 JUnit 单测；改完必须 ./scripts/ci-local.sh fast 通过，再按 docs/ai/PR_PLAYBOOK.md 开 PR。若改 Android 组装或大量 Android 代码，再跑 ./scripts/ci-local.sh full。</pre>
+        <button type="button" class="copy-btn" data-copy="task-prompt" data-i18n="copy">复制</button>
+      </div>
+
+      <h3 data-i18n="docsStep2">2. 验收 AI 有没有做对</h3>
+      <p data-i18n="docsStep2Body">让 AI 跑，或你在仓库目录运行：</p>
+      <div class="copy-block">
+        <pre id="check-prompt">./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test
+./scripts/ci-local.sh fast</pre>
+        <button type="button" class="copy-btn" data-copy="check-prompt" data-i18n="copy">复制</button>
+      </div>
+      <p class="hint" data-i18n="docsHint2">Java 行为变更必须有 JUnit。动到 Android 组装时，把 fast 换成 full。</p>
+      <ol>
+        <li><code>./java_agent/gradlew -p java_agent :core:test :cli:test</code><span data-i18n="docsLiTest"> — 核心与 CLI 单测</span></li>
+        <li><code>./scripts/ci-local.sh fast</code><span data-i18n="docsLiFast"> — 与 CI 对齐的快速门禁</span></li>
+        <li><code>./scripts/serve-site.sh</code><span data-i18n="docsLiSite"> — 本地打开本官网</span></li>
+      </ol>
+
+      <h3 data-i18n="docsFine">给 AI 的细则（人一般不用点）</h3>
+      <p class="hint">
+        <a href="https://github.com/fengshihao/agent1/blob/master/AGENTS.md">AGENTS.md</a>
+        · <a href="https://github.com/fengshihao/agent1/blob/master/docs/ai/START.md">START.md</a>
+        · <a href="https://github.com/fengshihao/agent1/blob/master/docs/ai/CHECKLIST.md">CHECKLIST.md</a>
+        · <a href="https://github.com/fengshihao/agent1/blob/master/docs/ai/PR_PLAYBOOK.md">PR_PLAYBOOK.md</a>
+      </p>
+    </main>
+
+    <footer class="foot">
+      <div class="foot-brand">
+        <img src="../assets/app-icon.svg" width="18" height="18" alt="" />
+        <a href="../" data-i18n="docsBack">← 回首页</a>
+      </div>
+      <div>
+        MIT · <a href="https://github.com/fengshihao/agent1">fengshihao/agent1</a>
+        <span aria-hidden="true"> · </span>
+        <a href="https://github.com/fengshihao/agent1/issues" data-i18n="footFeedback">反馈</a>
+      </div>
+    </footer>
+  </div>
+  <script src="../js/site-i18n.js"></script>
+</body>
+</html>

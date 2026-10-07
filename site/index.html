@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agent1 — 给低端 Android 设备的开箱即用智能体 SDK</title>
+  <meta name="description" content="Agent1 是为低端 Android 设备设计的智能体 SDK，APK 约 3MB。内置微型 JS 引擎和基础 API，AI 可以持续写代码、自己进化。能力用检索发现，数十万条也不会撑进上下文。" />
+  <meta property="og:title" content="Agent1" />
+  <meta property="og:description" content="低端 Android 上的开箱即用智能体 SDK。微型 JS 引擎，数十万能力按需发现，不撑爆上下文。" />
+  <meta property="og:url" content="https://fengshihao.github.io/agent1/" />
+  <meta name="theme-color" content="#1C1914" />
+  <link rel="icon" href="./assets/app-icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Instrument+Serif&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/site.css" />
+</head>
+<body>
+  <a class="skip" href="#main" data-i18n="skip">跳到正文</a>
+
+  <header class="shell-top">
+    <div class="frame shell-top-inner">
+      <a class="mark" href="./" data-i18n-aria="brandAria" aria-label="Agent1">
+        <img class="mark-icon" src="./assets/app-icon.svg" width="28" height="28" alt="" />
+        <span class="mark-word">Agent<span>1</span></span>
+      </a>
+      <div class="shell-actions">
+        <nav class="shell-nav" data-i18n-aria="navAria" aria-label="主导航">
+          <a href="#device" data-i18n="navDevice">设备</a>
+          <a href="#engine" data-i18n="navEngine">引擎</a>
+          <a href="#discover" data-i18n="navDiscover">发现</a>
+          <a href="#integrate" data-i18n="navIntegrate">集成</a>
+          <a href="#debug" data-i18n="navDebug">调试</a>
+          <a href="./docs/" data-i18n="navDocs">贡献</a>
+          <a class="nav-github" href="https://github.com/fengshihao/agent1" data-i18n-aria="navGitHub" aria-label="GitHub">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>
+            <span data-i18n="navGitHub">GitHub</span>
+          </a>
+        </nav>
+        <label class="lang-switch">
+          <span class="visually-hidden" data-i18n="langAria">界面语言</span>
+          <select id="siteLang" data-i18n-aria="langAria" aria-label="界面语言"></select>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <div class="frame">
+    <main id="main" class="hero">
+      <div class="hero-copy">
+        <p class="kicker" data-i18n="kicker">Android SDK · APK 约 3MB</p>
+        <h1 data-i18n="headline">给低端设备的开箱即用智能体。</h1>
+        <p class="lede" data-i18n="lede">现在只支持 Android，参考 APK 约 3MB。里面有微型 JS 引擎和已经接好的基础 API，AI 可以持续写代码、自己进化。能力用检索发现，数十万条也不会撑进上下文。</p>
+        <div class="cta-row">
+          <a class="cta cta-primary" href="#engine" data-i18n="ctaEngine">微型 JS 引擎</a>
+          <a class="cta cta-secondary" href="#discover" data-i18n="ctaDiscover">能力发现</a>
+          <a class="cta cta-text" href="#integrate" data-i18n="ctaIntegrate">一句话集成</a>
+        </div>
+        <ul class="hero-stats">
+          <li><strong data-i18n="stat1">约 3MB</strong><span>APK</span></li>
+          <li><strong>Android</strong><span data-i18n="stat2">目前只支持这一端</span></li>
+          <li><strong data-i18n="stat3">数十万</strong><span data-i18n="stat3b">能力不进上下文</span></li>
+        </ul>
+      </div>
+      <!-- 总览视频转为 GIF 后放进这个 figure：<img src="./assets/overview.gif" alt=""> -->
+      <figure class="clip" id="clip-hero"></figure>
+    </main>
+
+    <section class="section pillar" id="device" aria-labelledby="device-title">
+      <!-- 设备演示：site/assets/device.gif -->
+      <figure class="clip" id="clip-device"></figure>
+      <p class="idx">01</p>
+      <h2 id="device-title" data-i18n="deviceTitle">为低端设备做的，打开就能用。</h2>
+      <p data-i18n="deviceBody">这是一套智能体 SDK，不是要你从聊天框开始搭。会话、工作区沙箱、工具循环和事件日志都在里面。目前只支持 Android，参考实现打出来的 APK 约 3MB，为的是内存和存储都紧的手机。</p>
+      <ul class="facts">
+        <li data-i18n="deviceFact1">目前只支持 Android</li>
+        <li data-i18n="deviceFact2">APK 约 3MB</li>
+        <li data-i18n="deviceFact3">参考 App 里就是完整的生产力助手，模型 Key 在应用里配置</li>
+      </ul>
+      <pre class="snippet">./publish-java-agent-core.sh
+./build-android-agent.sh</pre>
+      <p class="hint"><a href="https://github.com/fengshihao/agent1/blob/master/android_agent/QUICKSTART.md">android_agent/QUICKSTART.md</a></p>
+    </section>
+
+    <section class="section pillar" id="engine" aria-labelledby="engine-title">
+      <!-- 引擎演示：site/assets/engine.gif -->
+      <figure class="clip" id="clip-engine"></figure>
+      <p class="idx">02</p>
+      <h2 id="engine-title" data-i18n="engineTitle">内置微型 JS 引擎。基础 API 已经接好。</h2>
+      <p data-i18n="engineBody">设备上跑的是 QuickJS。文件、工具桥和平台能力都已经接到脚本里，模型不用把每一步都拆成一次工具调用。它在会话工作区里写 JavaScript，用 run_js 跑；走通的流程收成 Skill，下一次还能找到。代码留在设备上，能力越积越多，这就是自我进化。</p>
+      <ul class="facts">
+        <li data-i18n="engineFact1">QuickJS，经 run_js 在设备上执行</li>
+        <li data-i18n="engineFact2">基础 API 已接通：工作区文件、脚本内工具桥、平台能力</li>
+        <li data-i18n="engineFact3">写好的流程可以沉淀，留给以后的自己</li>
+      </ul>
+    </section>
+
+    <section class="section pillar" id="discover" aria-labelledby="discover-title">
+      <!-- 能力发现演示：site/assets/discover.gif -->
+      <figure class="clip" id="clip-discover"></figure>
+      <p class="idx">03</p>
+      <h2 id="discover-title" data-i18n="discoverTitle">能力发现按数十万条来准备，上下文里只留下几条。</h2>
+      <p data-i18n="discoverBody">Skill、脚本、平台 API 和 MCP 工具进同一套本地索引，不写进系统提示。模型要做事时先 find_caps：回来的是短摘要和调用入口，一次只有少数几条，正文仍留在索引外面。所以目录可以长到数十万条，提示词不会跟着变厚。</p>
+      <ul class="facts">
+        <li data-i18n="discoverFact1">一个入口：find_caps</li>
+        <li data-i18n="discoverFact2">命中只带短摘要，手册不进上下文</li>
+        <li data-i18n="discoverFact3">索引在设备本地，按数十万条能力来准备</li>
+      </ul>
+    </section>
+
+    <section class="section pillar" id="integrate" aria-labelledby="integrate-title">
+      <!-- 集成演示：site/assets/integrate.gif -->
+      <figure class="clip" id="clip-integrate"></figure>
+      <p class="idx">04</p>
+      <h2 id="integrate-title" data-i18n="integrateTitle">仓库按 AI 来设计。一句话，集成进你的 App。</h2>
+      <p data-i18n="integrateBody">契约、目录和接入方式写给编码智能体读。AGENTS.md 规定它能改什么，android_agent 演示 ProductivityAgentHost 怎么接到界面上。把下面这一句发给 Cursor，它会自己克隆、阅读，并把 SDK 接进你的 Android 工程。</p>
+      <div class="copy-block">
+        <pre id="integrate-prompt" data-i18n="integratePrompt">把开源项目 Agent1（https://github.com/fengshihao/agent1）集成进我的 Android App。请阅读 README、AGENTS.md，以及 android_agent 里 ProductivityAgentHost 的接法，用 java-agent-core 接到我现有的界面上。改完告诉我要加哪些依赖、模型 Key 放在哪里。</pre>
+        <button type="button" class="copy-btn" data-copy="integrate-prompt" data-i18n="copy">复制</button>
+      </div>
+    </section>
+
+    <section class="section pillar" id="debug" aria-labelledby="debug-title">
+      <!-- 调试演示：site/assets/debug.gif -->
+      <figure class="clip" id="clip-debug"></figure>
+      <p class="idx">05</p>
+      <h2 id="debug-title" data-i18n="debugTitle">日志和文档也按 AI 来设计，它能自己查问题。</h2>
+      <p data-i18n="debugBody">每一次模型请求、工具调用、用量和这次运行为什么结束，都写进 logs/events.jsonl。会话还有 transcript 和单次 run 的状态。这些文件旁边有目录说明。把失败的日志交给编码智能体，它可以对着文档把原因找出来，再改代码。</p>
+      <ul class="facts">
+        <li><code>logs/events.jsonl</code><span data-i18n="debugFact1"> — 模型、工具、用量、结束原因</span></li>
+        <li><code>./agent1 logs failed</code><span data-i18n="debugFact2"> — 开发时直接看失败的工具调用</span></li>
+        <li><a href="https://github.com/fengshihao/agent1/blob/master/java_agent/doc/runtime-data-layout.md">runtime-data-layout.md</a><span data-i18n="debugFact3"> — 每个文件是干什么的</span></li>
+      </ul>
+      <div class="copy-block">
+        <pre id="debug-prompt" data-i18n="debugPrompt">这次运行失败了。请读 logs/events.jsonl，并用 ./agent1 logs failed 的结果对照 java_agent/doc/runtime-data-layout.md。自己定位原因，改代码，再用单测验证。</pre>
+        <button type="button" class="copy-btn" data-copy="debug-prompt" data-i18n="copy">复制</button>
+      </div>
+    </section>
+
+    <section class="section" id="contribute" aria-labelledby="contrib-title">
+      <div class="ai-box">
+        <div class="ai-head">
+          <span class="ai-badge" aria-hidden="true">AI</span>
+          <h2 id="contrib-title" data-i18n="aiTitle">用 AI 成为贡献者</h2>
+        </div>
+        <p data-i18n="aiBody">先复制下面这段发给 Cursor，让它准备好环境；再说你想改什么。克隆、读契约、跑单测都交给它。</p>
+        <div class="copy-block">
+          <pre id="home-setup-prompt" data-i18n="setupPrompt">帮我准备开源项目 Agent1（https://github.com/fengshihao/agent1）的贡献环境：请你自己克隆仓库、读 AGENTS.md 和 docs/ai/START.md，安装 JDK 17 后运行 ./java_agent/gradlew -p java_agent :core:test :cli:test。准备好后告诉我，我再说想贡献什么。</pre>
+          <button type="button" class="copy-btn" data-copy="home-setup-prompt" data-i18n="copy">复制</button>
+        </div>
+        <p class="ai-links">
+          <a href="./docs/" data-i18n="aiMore">贡献两步说明</a>
+          <span aria-hidden="true">·</span>
+          <a href="https://github.com/fengshihao/agent1/blob/master/docs/ai/START.md" data-i18n="aiFull">给 AI 的完整提示</a>
+        </p>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <div class="foot-brand">
+        <img src="./assets/app-icon.svg" width="18" height="18" alt="" />
+        <span><span data-i18n="footMit">MIT · </span><a href="https://github.com/fengshihao/agent1">fengshihao/agent1</a></span>
+      </div>
+      <div>
+        <span data-i18n="footNote">开源。目前支持 Android。</span>
+        <a href="./docs/" data-i18n="footDocs">贡献</a>
+        <span aria-hidden="true"> · </span>
+        <a href="https://github.com/fengshihao/agent1/issues" data-i18n="footFeedback">反馈</a>
+      </div>
+    </footer>
+  </div>
+  <script src="./js/site-i18n.js"></script>
+</body>
+</html>
