@@ -121,7 +121,7 @@ data class ChatUiState(
     val streamingText: String = "",
     val streamingReasoning: String = "",
     val runTimeline: List<ChatRunTimelineItem> = emptyList(),
-    /** 运行中、尚未有流式正文时的状态文案（思考、等模型、工具等） */
+    /** 运行中的状态文案。正文已经展开时仍保留，用来驱动列表底部的进行中提示。 */
     val runActivityLabel: String? = null,
     val isRunning: Boolean = false,
     val configError: String? = null,

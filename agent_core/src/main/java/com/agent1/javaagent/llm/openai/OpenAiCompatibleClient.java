@@ -65,6 +65,8 @@ public final class OpenAiCompatibleClient implements LlmClient {
             .connectTimeout(config.getTimeout())
             .readTimeout(config.getTimeout())
             .writeTimeout(config.getTimeout())
+            // HTTP/2 PING，避免模型在正文后长时间不吐 token 时，移动网络把空闲 SSE 拆掉。
+            .pingInterval(15, TimeUnit.SECONDS)
             .build();
     }
 
@@ -253,15 +255,40 @@ public final class OpenAiCompatibleClient implements LlmClient {
             int code = http.getStatusCode();
             return code == 429 || code >= 500;
         }
-        String message = e.getMessage();
-        if (message != null && DashScopeSseError.looksRetryable(message)) {
+        if (messageLooksRetryable(e.getMessage())) {
             return true;
         }
+        return causeLooksRetryable(e.getCause());
+    }
+
+    /** 手机上常见 {@code Software caused connection abort}，文案不含 timeout / connection reset。 */
+    private static boolean messageLooksRetryable(String message) {
         if (message == null) {
             return false;
         }
+        if (DashScopeSseError.looksRetryable(message)) {
+            return true;
+        }
         String lower = message.toLowerCase();
-        return lower.contains("timeout") || lower.contains("timed out") || lower.contains("connection reset");
+        return lower.contains("timeout")
+            || lower.contains("timed out")
+            || lower.contains("connection reset")
+            || lower.contains("connection abort")
+            || lower.contains("broken pipe")
+            || lower.contains("unexpected end of stream");
+    }
+
+    private static boolean causeLooksRetryable(Throwable cause) {
+        Throwable current = cause;
+        int depth = 0;
+        while (current != null && depth < 8) {
+            if (messageLooksRetryable(current.getMessage())) {
+                return true;
+            }
+            current = current.getCause();
+            depth++;
+        }
+        return false;
     }
 
     private void sleepBackoff(int attempt) {

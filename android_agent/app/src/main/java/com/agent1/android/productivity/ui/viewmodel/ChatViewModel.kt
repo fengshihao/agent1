@@ -231,7 +231,7 @@ class ChatViewModel(
             _state.value = _state.value.copy(
                 streamingText = content,
                 streamingReasoning = reasoning,
-                runActivityLabel = streamActivityLabel(content, reasoning),
+                runActivityLabel = streamActivityLabel(content, reasoning, _state.value.runActivityLabel),
             )
         }
         val pending = synchronized(streamLock) {
@@ -257,16 +257,11 @@ class ChatViewModel(
             _state.value = _state.value.copy(
                 streamingText = content,
                 streamingReasoning = reasoning,
-                runActivityLabel = streamActivityLabel(content, reasoning),
+                runActivityLabel = streamActivityLabel(content, reasoning, _state.value.runActivityLabel),
             )
         }
     }
 
-    private fun streamActivityLabel(content: String, reasoning: String): String? {
-        if (content.isNotEmpty()) return null
-        if (reasoning.isNotEmpty()) return "思考中…"
-        return _state.value.runActivityLabel
-    }
 
     private fun resetStreamBuffers() {
         synchronized(streamLock) {
@@ -319,6 +314,7 @@ class ChatViewModel(
             runTimeline = _state.value.runTimeline + segment,
             streamingText = "",
             streamingReasoning = "",
+            runActivityLabel = "准备下一步…",
         )
     }
 

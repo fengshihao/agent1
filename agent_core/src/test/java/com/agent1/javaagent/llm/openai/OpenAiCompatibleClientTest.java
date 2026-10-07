@@ -422,6 +422,31 @@ class OpenAiCompatibleClientTest {
         assertTrue(OpenAiCompatibleClient.shouldRetry(new LlmHttpException(503, "SSE failed: HTTP 503")));
         assertFalse(OpenAiCompatibleClient.shouldRetry(new LlmHttpException(401, "SSE failed: HTTP 401")));
         assertFalse(OpenAiCompatibleClient.shouldRetry(new LlmCancelledException()));
+        assertFalse(
+            OpenAiCompatibleClient.shouldRetry(
+                new LlmHttpException(401, "SSE failed: Software caused connection abort")
+            )
+        );
+    }
+
+    @Test
+    void shouldRetry_connectionAbortAndStreamDrop() {
+        assertTrue(
+            OpenAiCompatibleClient.shouldRetry(
+                new IllegalStateException("SSE failed: Software caused connection abort ")
+            )
+        );
+        assertTrue(
+            OpenAiCompatibleClient.shouldRetry(
+                new IllegalStateException("SSE failed: unknown", new java.net.SocketException("Connection reset"))
+            )
+        );
+        assertTrue(
+            OpenAiCompatibleClient.shouldRetry(
+                new IllegalStateException("SSE failed: unknown", new java.io.EOFException("unexpected end of stream"))
+            )
+        );
+        assertFalse(OpenAiCompatibleClient.shouldRetry(new IllegalStateException("SSE failed: HTTP 400")));
     }
 
     @Test

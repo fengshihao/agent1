@@ -35,6 +35,7 @@ import com.agent1.android.productivity.ui.viewmodel.ChatLine
 import com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.RunTokenSummary
+import com.agent1.android.productivity.ui.viewmodel.shouldShowAssistantPending
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 /** 会话消息区：历史行 + run 时间线 + 流式气泡 + 待处理/汇总行，粘底自动滚动。 */
@@ -254,15 +255,6 @@ private fun RunTokenSummaryRow(summary: RunTokenSummary) {
     )
 }
 
-private fun shouldShowAssistantPending(state: ChatUiState): Boolean {
-    if (!state.isRunning) return false
-    if (state.streamingText.isNotEmpty() || state.streamingReasoning.isNotEmpty()) return false
-    if (state.runTimeline.isEmpty()) return true
-    return when (val last = state.runTimeline.last()) {
-        is ChatRunTimelineItem.AssistantPart -> false
-        is ChatRunTimelineItem.ToolPart -> last.finished
-    }
-}
 
 @Composable
 private fun EmptyChatHint(modifier: Modifier = Modifier) {
