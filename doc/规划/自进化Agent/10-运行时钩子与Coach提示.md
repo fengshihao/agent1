@@ -23,7 +23,7 @@
 [coach] script.fail_repeat: 同一脚本已失败 3 次。请把代码写到 workspace/scripts/foo.js，用 file 参数执行，并根据返回里的 userLine 修改。
 ```
 
-- **进入对话历史**：与 `read_file` / `execute_script` 结果同一条记录，用户可见。  
+- **进入对话历史**：与 `read_file` / `run_js` 结果同一条记录，用户可见。  
 - **不**采用「仅 AI 可见、不写 transcript」的隐藏通道（方案 B 暂不做了）。  
 - 可选：同内容写一条 `events.jsonl` 的 `coach_fired` 便于统计。
 
@@ -63,14 +63,14 @@ UC-02 / UC-12 等高成本场景优先用 **`ScriptedLlmClient` 集成测**（�
 | `workspace.total_bytes` | `workspace/` 总大小 **> 20 MB** | 清理 `.spill/`、归档到 `artifacts/`；避免把二进制塞进 JS |
 | `path.outside_attempt` | 工具返回「路径超出工作区」 | 重申仅 workspace 可写；读 shared/docs 用只读工具；改 shared 用 **promote** / **sync** |
 
-### QuickJS / execute_script
+### QuickJS / run_js
 
 | hookId | 触发条件 | 告诉 AI 什么 |
 |--------|----------|--------------|
-| `script.inline_long` | `execute_script` 使用 **inline code** 且 **> 80 行或 > 8 KB** | 请 `write_file` 到 `*.js` 再 `file` 执行，便于行号与调试（见 [11](./11-QuickJS调试与行号映射.md)） |
+| `script.inline_long` | `run_js` 使用 **inline code** 且 **> 80 行或 > 8 KB** | 请 `write_file` 到 `*.js` 再 `file` 执行，便于行号与调试（见 [11](./11-QuickJS调试与行号映射.md)） |
 | `script.fail_repeat` | 同一 Run 内同一脚本（file 或 code hash）**失败 ≥ 3 次** | 先读 [11] 结构化错误中的 **userLine**；查 `docs/system/tools-and-quickjs.md`；缩小变更面 |
 | `script.timeout` | 执行超时 | 拆批处理、写中间结果到 workspace；勿增大单次循环 |
-| `script.use_tools` | 脚本多次调用 `$tools` 失败 | 确认工具名在 exposed 列表；脚本内勿递归 `execute_script` |
+| `script.use_tools` | 脚本多次调用 `$tools` 失败 | 确认工具名在 exposed 列表；脚本内勿递归 `run_js` |
 
 ### 进化与同步
 
@@ -108,5 +108,5 @@ UC-02 / UC-12 等高成本场景优先用 **`ScriptedLlmClient` 集成测**（�
 
 ## 验收示例
 
-- 连续 3 次 `execute_script` 报错 → 第 3 次 tool result 含 `[coach] script.fail_repeat` 与「改用 file + 看 userLine」。  
+- 连续 3 次 `run_js` 报错 → 第 3 次 tool result 含 `[coach] script.fail_repeat` 与「改用 file + 看 userLine」。  
 - 单次写入 100KB → 返回含 `[coach] file.large_write` 与 promote/staging 建议。

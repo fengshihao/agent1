@@ -1,6 +1,6 @@
 package com.agent1.javaagent.script;
 
-/** execute_script 一次求值的用户源与 prelude 行数（D1）。 */
+/** run_js 一次求值的用户源与 prelude 行数（D1）。 */
 public final class ScriptEvalFrame {
 
     public enum SourceKind {

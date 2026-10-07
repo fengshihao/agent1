@@ -42,7 +42,7 @@ class ExecuteScriptToolTest {
 
     @Test
     void nameIsExecuteScript() {
-        assertEquals("execute_script", tool.name());
+        assertEquals("run_js", tool.name());
     }
 
     @Test

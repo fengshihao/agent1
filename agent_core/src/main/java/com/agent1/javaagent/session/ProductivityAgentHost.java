@@ -78,7 +78,7 @@ public final class ProductivityAgentHost implements Closeable {
     private final String scriptPromptAppend;
     private final ScriptToolBridge scriptToolBridge;
     private final WorkspaceToolProvider extraTools;
-    /** capability_search 检索时按 Host 平台过滤（android / desktop），不由模型传参。 */
+    /** find_caps 检索时按 Host 平台过滤（android / desktop），不由模型传参。 */
     private final String capabilitySearchPlatform;
     private final AgentRuntimeConfig runtimeConfig;
     private volatile String sessionEnvironmentSupplement = "";
@@ -212,7 +212,7 @@ public final class ProductivityAgentHost implements Closeable {
         );
     }
 
-    /** CLI / Android：同上，并指定 capability_search 的平台过滤（如 {@code android}）。 */
+    /** CLI / Android：同上，并指定 find_caps 的平台过滤（如 {@code android}）。 */
     public ProductivityAgentHost(
         Path agentRoot,
         AgentRuntimeConfig config,
@@ -301,7 +301,7 @@ public final class ProductivityAgentHost implements Closeable {
     }
 
     /**
-     * 与模型调用 {@code capability_search} 相同的 query / kinds / limit 和正文。
+     * 与模型调用 {@code find_caps} 相同的 query / kinds / limit 和正文。
      * 进行中的 Run 不刷新 MCP 索引，避免和当轮写入抢同一份库。
      */
     public CapabilitySearchView.Result searchCapabilities(String query, List<String> kinds, int limit) {
@@ -508,7 +508,7 @@ public final class ProductivityAgentHost implements Closeable {
         refreshMcpIndex();
     }
 
-    /** 配置了 MCP 时，把工具名写入 capability_search。缓存有效则不访问网络。 */
+    /** 配置了 MCP 时，把工具名写入 find_caps。缓存有效则不访问网络。 */
     private void refreshMcpIndex() {
         try {
             McpCapabilitySync.ensureIndexed(agentRoot);

@@ -4,7 +4,7 @@
 
 ## 项目是什么
 
-**Agent1** 是面向 **Android / 嵌入式 JVM 宿主** 的轻量 **编程型生产力智能体**：`java-agent-core`（约 3MB 量级）提供 ReAct、会话、工作区、JSONL 审计；主路径为 **JS 编排**（`execute_script`）、**能力检索**（`capability_search`）、Skill / MCP / WebView 扩展。`android_agent` 为参考宿主；macOS / Ubuntu 上 `./agent1` 用于联调与 CI。
+**Agent1** 是面向 **Android / 嵌入式 JVM 宿主** 的轻量 **编程型生产力智能体**：`java-agent-core`（约 3MB 量级）提供 ReAct、会话、工作区、JSONL 审计；主路径为 **JS 编排**（`run_js`）、**能力检索**（`find_caps`）、Skill / MCP / WebView 扩展。`android_agent` 为参考宿主；macOS / Ubuntu 上 `./agent1` 用于联调与 CI。
 
 - **推荐产品路径**：`ProductivityAgentHost` / `ProductivityCli`（`--productivity`）
 - **脚本与工具环**：依赖 [微智 Weizhi](https://github.com/fengshihao/weizhi)（`./sync-weizhi.sh` → `weizhi-bridge`）；见 [doc/集成/WEIZHI.md](doc/集成/WEIZHI.md)

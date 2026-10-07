@@ -27,7 +27,7 @@
 | `docs/system/` | 目录 | 预留；bootstrap **不**拷贝出厂手册，升级时会删除一批已退役文件名 |
 | `docs/capabilities/` | 目录 | 能力说明 markdown + SQLite 索引 |
 | `shared/catalog/skills/` | 目录 | 目录 Skill |
-| `shared/catalog/scripts/` | 目录 | `execute_script` / QuickJS 脚本（含 `svg-raster.js`、Office 脚本等） |
+| `shared/catalog/scripts/` | 目录 | `run_js` / QuickJS 脚本（含 `svg-raster.js`、Office 脚本等） |
 | `shared/catalog/libs/js/` | 目录 | JS 库；sync 后可镜像到 scripts |
 | `shared/catalog/libs/qjs/` | 目录 | 纯 JS QJS bundle |
 | `shared/catalog/assets/images/` | 目录 | 目录图片资源 |
@@ -42,7 +42,7 @@ bootstrap 还会从 classpath `agent-home` 补齐空缺的 catalog 脚本（如 
 | 路径 | 何时出现 | 作用 |
 |------|----------|------|
 | `mcp_servers.json` | 用户配置 MCP | 已启用 server 列表 |
-| `mcp_cache/<name>.json` | MCP 工具列表缓存 | 供 `capability_search` 等 |
+| `mcp_cache/<name>.json` | MCP 工具列表缓存 | 供 `find_caps` 等 |
 | `mcp_cache/<name>.url` / `.schema` | 同上 | URL 与 schema 戳 |
 | `docs/capabilities/capabilities.db` | bootstrap | FTS5 能力索引（种子在 core `agent-home`） |
 | `docs/capabilities/*.md` | 晋升 / catalog | 单条能力说明（只读） |

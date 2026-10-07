@@ -26,7 +26,7 @@ public final class ProductivityToolCapabilities {
         }
         String webview = desktopWebViewLabel();
         if (weizhiScriptEnabled) {
-            return "工作区读写 + chat_history + read_url + web_search + execute_script（Weizhi）；扩展：grep / glob / zip / bash / "
+            return "工作区读写 + chat_history + read_url + web_search + run_js（Weizhi）；扩展：grep / glob / zip / bash / "
                 + "load_skill / MCP / " + webview;
         }
         return "工作区读写 + chat_history + read_url + web_search；扩展：grep / glob / zip / bash / load_skill / MCP / "
@@ -43,9 +43,9 @@ public final class ProductivityToolCapabilities {
             return lines;
         }
         if (weizhiScriptEnabled) {
-            lines.add("execute_script（Weizhi 脚本，$tools 桥接）");
+            lines.add("run_js（Weizhi 脚本，$tools 桥接）");
         } else {
-            lines.add("execute_script：未启用（构建 ../weizhi native 或设置 AGENT1_WEIZHI_REPO）");
+            lines.add("run_js：未启用（构建 ../weizhi native 或设置 AGENT1_WEIZHI_REPO）");
         }
         lines.add("grep · glob · zip · bash · load_skill");
         lines.add("MCP：脚本 $mcp.<server>.<tool>，经 weizhi mcp.connect（配置见 agentRoot/mcp_servers.json）");

@@ -19,7 +19,7 @@ Android 上「文件」至少有三类来源，权限与工具链不同，不宜
 **原则（与 [07-系统提示词与环境摘要](./07-系统提示词与环境摘要.md) 一致）：**
 
 - **挑选、授权、Intent、Toast** → 宿主（`logic.business.platform` + Activity Result）；UI 只转发意图。
-- **读写在 workspace 内** → `read_file` / `write_file` / `execute_script` + `android.files.*`。
+- **读写在 workspace 内** → `read_file` / `write_file` / `run_js` + `android.files.*`。
 - **模型需要知道的「当前能碰哪些文件」** → 写入 **系统提示词环境段** 和/或 **Session 持久化元数据**（每轮 `refreshRuntimeForActiveSession` 时刷新）。
 
 ---
@@ -64,7 +64,7 @@ Weizhi 的设计是：**Caps 暴露脚本可调用的 op**，**Activity 与 Resu
 | 能力 | 入口 | 说明 |
 |------|------|------|
 | 工作区读写 | `read_file` / `write_file` / … | 仅 Session workspace |
-| 脚本 + 平台对象 | `execute_script` → `android.*` | 文件、zip、分享文案、提醒等（见 Weizhi §5） |
+| 脚本 + 平台对象 | `run_js` → `android.*` | 文件、zip、分享文案、提醒等（见 Weizhi §5） |
 | 搜索 / bash | `agent_core` 的 `grep` / `glob` / `bash` | 联编 Weizhi 时由 `WeizhiAgentTools` 注册 |
 | WebView / 脚本 MCP | 平台 WebView；脚本内 `mcp.connect` | 联编 Weizhi 时可用 |
 | 区外只读 | `AgentToolsBundle.extraReadRoot` | 与 SAF 目录授权配合；Agent1 未默认配置 |
@@ -120,7 +120,7 @@ sessions/<sessionId>/
 | `kind` | 模型怎么用 | 工具链 |
 |--------|------------|--------|
 | `workspace_relative` | 直接 `read_file(path)` | 与 today 一致 |
-| `saf_tree` | 提示「仅能通过 execute_script 的 android.files.* 读该树」或后续 `read_file` 扩展 | 需 `directoryPicker` + 持久 URI |
+| `saf_tree` | 提示「仅能通过 run_js 的 android.files.* 读该树」或后续 `read_file` 扩展 | 需 `directoryPicker` + 持久 URI |
 | `content_uri_pending_import` | 提示用户或自动 import 到 `imports/` | 宿主复制后改为 `workspace_relative` |
 
 ### 4.2 宿主职责 vs Agent 职责

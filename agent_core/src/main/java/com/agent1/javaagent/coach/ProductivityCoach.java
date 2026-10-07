@@ -72,11 +72,11 @@ public final class ProductivityCoach {
                 hookId = "bash.host_tool_probe";
                 advice =
                     "Android/沙箱 bash 通常没有 pandoc、LibreOffice、python3 等主机转换工具，也不要反复 which/find。"
-                        + "文档类任务先 capability_search（如 docx、pptx、markdown word、幻灯片），"
-                        + "再用 execute_script 按结果里的 catalog 示例调用（如 docx.js 的 markdownToDocx、pptx.js 的 renderPptx）。"
+                        + "文档类任务先 find_caps（如 docx、pptx、markdown word、幻灯片），"
+                        + "再用 run_js 按结果里的 catalog 示例调用（如 docx.js 的 markdownToDocx、pptx.js 的 renderPptx）。"
                         + "不要猜 Node 的 require/fs。";
             }
-        } else if ("capability_search".equals(toolName) && text != null) {
+        } else if ("find_caps".equals(toolName) && text != null) {
             boolean empty = text.startsWith("未找到匹配");
             int calls = runState.recordCapabilitySearch(empty);
             if (calls > 2 || (empty && runState.capabilitySearchEmptyCalls() >= 3)) {
@@ -84,7 +84,7 @@ public final class ProductivityCoach {
                 advice =
                     "本任务已多次检索本地能力索引且仍无可用条目。请勿继续换关键词搜索、"
                         + "不要尝试枚举 shared/catalog 或读取 workspace/.mcp 等运行时目录。"
-                        + "请改为在 workspace 用 read/write/edit 或 execute_script 自行实现；"
+                        + "请改为在 workspace 用 read/write/edit 或 run_js 自行实现；"
                         + "若工作量过大或当前环境无法完成，向用户如实说明暂无内置方案，并给出替代做法或需用户配合的条件。";
             }
         } else if ("write_file".equals(toolName) && !isError && parameters != null
@@ -133,9 +133,9 @@ public final class ProductivityCoach {
                 hookId = "webview.tiny_output";
                 advice =
                     "输出文件过小，图片可能无效。这是标准 WebView，只支持 Web API。"
-                        + "同类转换可先 capability_search 看有没有现成脚本；读工作区文件用 input_path，不要用 Node 的 fs。";
+                        + "同类转换可先 find_caps 看有没有现成脚本；读工作区文件用 input_path，不要用 Node 的 fs。";
             }
-        } else if ("execute_script".equals(toolName) && parameters != null) {
+        } else if ("run_js".equals(toolName) && parameters != null) {
             String file = parameters.path("file").asText("").trim();
             String code = parameters.path("code").asText("");
             if (ScriptFailureFormatter.looksLikeFailureJson(text) || isScriptFailureLegacy(text)) {
@@ -143,12 +143,12 @@ public final class ProductivityCoach {
                     && text.contains("unexpected token")) {
                     hookId = "script.wrong_file_type";
                     advice =
-                        "execute_script 只能运行 .js 脚本，不能把 SVG/图片当 file 执行。"
+                        "run_js 只能运行 .js 脚本，不能把 SVG/图片当 file 执行。"
                             + "读数据用 read_file；SVG 转 PNG/JPG 用 import { svgToImage } from \"svg-raster.js\"。";
                 } else if (text != null && text.contains("return not in a function")) {
                     hookId = "script.no_top_return";
                     advice =
-                        "execute_script 不要写顶层 return。顶层 await 可以，用最后一条表达式当返回值。"
+                        "run_js 不要写顶层 return。顶层 await 可以，用最后一条表达式当返回值。"
                             + "例如 const r = await $mcp.服务器.工具({...}); r（$mcp 会解析 JSON 文本，不要 JSON.stringify）";
                 } else if (text != null && (text.contains("require is not defined")
                     || text.contains("require(") && text.contains("ReferenceError"))) {
@@ -170,7 +170,7 @@ public final class ProductivityCoach {
                         advice =
                             "同一脚本已失败 " + failures + " 次。请根据返回 JSON 的 userLine 修改；"
                                 + "优先 write_file 到 workspace/*.js 再用 file 执行；"
-                                + "调用方式用 capability_search 返回的示例。";
+                                + "调用方式用 find_caps 返回的示例。";
                     }
                 }
             } else if (file.isEmpty() && !code.isBlank()
@@ -181,7 +181,7 @@ public final class ProductivityCoach {
                     hookId = "script.inline_long";
                     advice =
                         "inline 脚本过长：请 write_file 到 workspace/*.js，"
-                            + "再用 execute_script 的 file 参数执行；后续改动用 edit_file，少占 token。";
+                            + "再用 run_js 的 file 参数执行；后续改动用 edit_file，少占 token。";
                 }
             }
         }

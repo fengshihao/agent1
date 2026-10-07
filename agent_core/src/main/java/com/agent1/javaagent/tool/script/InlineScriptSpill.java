@@ -54,7 +54,7 @@ public final class InlineScriptSpill {
 
     public static String notice(String relativePath) {
         return "\n\n---\n" + MARKER + relativePath
-            + " 并执行。后续改动请 edit_file 该文件，再用 execute_script 的 file 参数。";
+            + " 并执行。后续改动请 edit_file 该文件，再用 run_js 的 file 参数。";
     }
 
     private static String digest8(String code) {

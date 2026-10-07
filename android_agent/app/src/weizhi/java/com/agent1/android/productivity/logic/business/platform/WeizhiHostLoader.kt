@@ -15,7 +15,7 @@ object WeizhiHostLoader {
         agentRoot: Path,
         config: AgentRuntimeConfig,
     ): ProductivityAgentHost {
-        // 安装 catalog（含 docx.js），供 execute_script 的 import 回退，不注册外层 docx 工具。
+        // 安装 catalog（含 docx.js），供 run_js 的 import 回退，不注册外层 docx 工具。
         com.agent1.javaagent.agent.AgentHomeBootstrap.ensure(agentRoot)
         AndroidOfficeCatalogSync.ensureFromAssets(context.applicationContext, agentRoot)
         val scriptTools = MutableScriptToolBridge()

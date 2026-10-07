@@ -25,7 +25,7 @@
 2. `catalog_sync_status` → 未安装或版本旧。  
 3. 调用 **`sync apply --ids native.image_resize`**（或封装工具）。  
 4. 读 snippet → 脚本里 `await host.ensureNative("image_resize")` …  
-5. 在 **workspace** 写 `.js`，`execute_script` 执行。
+5. 在 **workspace** 写 `.js`，`run_js` 执行。
 
 若 check 显示 **已安装且 up to date** → 直接第 4 步，**不下载**。
 

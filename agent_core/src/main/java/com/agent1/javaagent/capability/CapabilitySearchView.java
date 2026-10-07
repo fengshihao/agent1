@@ -127,7 +127,7 @@ public final class CapabilitySearchView {
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            throw new IllegalStateException("capability_search failed: " + e.getMessage(), e);
+            throw new IllegalStateException("find_caps failed: " + e.getMessage(), e);
         }
     }
 

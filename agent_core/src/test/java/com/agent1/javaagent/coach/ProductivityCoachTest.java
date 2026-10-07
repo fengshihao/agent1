@@ -52,7 +52,7 @@ class ProductivityCoachTest {
         }
         params.put("code", code.toString());
         ToolExecutionResult in = ToolExecutionResult.text("ok");
-        ToolExecutionResult out = coach.maybeAugment("execute_script", params, in, false);
+        ToolExecutionResult out = coach.maybeAugment("run_js", params, in, false);
         assertTrue(out.getText().contains("[coach] script.inline_long"));
         assertTrue(out.getText().contains("edit_file"));
     }
@@ -69,7 +69,7 @@ class ProductivityCoachTest {
         ToolExecutionResult in = ToolExecutionResult.text(
             "\"ok\"" + InlineScriptSpill.notice("jobs/inline-abc.js")
         );
-        ToolExecutionResult out = coach.maybeAugment("execute_script", params, in, false);
+        ToolExecutionResult out = coach.maybeAugment("run_js", params, in, false);
         assertFalse(out.getText().contains("[coach] script.inline_long"));
         assertTrue(out.getText().contains("jobs/inline-abc.js"));
     }
@@ -82,7 +82,7 @@ class ProductivityCoachTest {
         ToolExecutionResult fail = ToolExecutionResult.text(
             "{\"ok\":false,\"message\":\"SyntaxError: return not in a function\"}"
         );
-        ToolExecutionResult out = coach.maybeAugment("execute_script", params, fail, false);
+        ToolExecutionResult out = coach.maybeAugment("run_js", params, fail, false);
         assertTrue(out.getText().contains("[coach] script.no_top_return"));
         assertTrue(out.getText().contains("最后一条表达式"));
     }
@@ -94,8 +94,8 @@ class ProductivityCoachTest {
         ObjectNode params = MAPPER.createObjectNode();
         params.put("code", "bad()");
         ToolExecutionResult fail = ToolExecutionResult.text("{\"ok\":false,\"message\":\"SyntaxError at line 2\"}");
-        coach.maybeAugment("execute_script", params, fail, false);
-        ToolExecutionResult second = coach.maybeAugment("execute_script", params, fail, false);
+        coach.maybeAugment("run_js", params, fail, false);
+        ToolExecutionResult second = coach.maybeAugment("run_js", params, fail, false);
         assertTrue(second.getText().contains("[coach] script.fail_repeat"));
     }
 
@@ -126,7 +126,7 @@ class ProductivityCoachTest {
         ToolExecutionResult fail = ToolExecutionResult.text(
             "{\"ok\":false,\"message\":\"unsupported: native \\\"echo_math\\\" (not in catalog)\"}"
         );
-        ToolExecutionResult out = coach.maybeAugment("execute_script", params, fail, false);
+        ToolExecutionResult out = coach.maybeAugment("run_js", params, fail, false);
         assertTrue(out.getText().contains("[coach] catalog.missing_native"));
         assertTrue(out.getText().contains("echo_math"));
         assertTrue(out.getText().contains("catalog_install"));
@@ -205,7 +205,7 @@ class ProductivityCoachTest {
         ToolExecutionResult fail = ToolExecutionResult.text(
             "{\"ok\":false,\"message\":\"SyntaxError: unexpected token in expression: '<'\"}"
         );
-        ToolExecutionResult out = coach.maybeAugment("execute_script", params, fail, false);
+        ToolExecutionResult out = coach.maybeAugment("run_js", params, fail, false);
         assertTrue(out.getText().contains("[coach] script.wrong_file_type"));
     }
 
@@ -214,10 +214,10 @@ class ProductivityCoachTest {
         ProductivityCoach coach = new ProductivityCoach();
         ObjectNode params = MAPPER.createObjectNode();
         params.put("query", "foo");
-        ToolExecutionResult hit = ToolExecutionResult.text("capability_search: 1 条\n- [doc] x");
-        coach.maybeAugment("capability_search", params, hit, false);
-        coach.maybeAugment("capability_search", params, hit, false);
-        ToolExecutionResult third = coach.maybeAugment("capability_search", params, hit, false);
+        ToolExecutionResult hit = ToolExecutionResult.text("find_caps: 1 条\n- [doc] x");
+        coach.maybeAugment("find_caps", params, hit, false);
+        coach.maybeAugment("find_caps", params, hit, false);
+        ToolExecutionResult third = coach.maybeAugment("find_caps", params, hit, false);
         assertTrue(third.getText().contains("[coach] capability.search_limit"));
     }
 
@@ -227,11 +227,11 @@ class ProductivityCoachTest {
         ObjectNode params = MAPPER.createObjectNode();
         params.put("query", "foo");
         ToolExecutionResult empty = ToolExecutionResult.text("未找到匹配「foo」的能力条目。");
-        ToolExecutionResult first = coach.maybeAugment("capability_search", params, empty, false);
+        ToolExecutionResult first = coach.maybeAugment("find_caps", params, empty, false);
         assertFalse(first.getText().contains("[coach]"));
-        ToolExecutionResult second = coach.maybeAugment("capability_search", params, empty, false);
+        ToolExecutionResult second = coach.maybeAugment("find_caps", params, empty, false);
         assertFalse(second.getText().contains("[coach]"));
-        ToolExecutionResult third = coach.maybeAugment("capability_search", params, empty, false);
+        ToolExecutionResult third = coach.maybeAugment("find_caps", params, empty, false);
         assertTrue(third.getText().contains("[coach] capability.search_limit"));
     }
 
@@ -243,7 +243,7 @@ class ProductivityCoachTest {
         ToolExecutionResult in = ToolExecutionResult.text("Error: command exited with code 1");
         ToolExecutionResult out = coach.maybeAugment("bash", params, in, false);
         assertTrue(out.getText().contains("[coach] bash.host_tool_probe"));
-        assertTrue(out.getText().contains("capability_search"));
+        assertTrue(out.getText().contains("find_caps"));
     }
 
     @Test
@@ -252,9 +252,9 @@ class ProductivityCoachTest {
         ObjectNode searchParams = MAPPER.createObjectNode();
         searchParams.put("query", "docx");
         coach.maybeAugment(
-            "capability_search",
+            "find_caps",
             searchParams,
-            ToolExecutionResult.text("capability_search: 1 条\n- [catalog_script] x"),
+            ToolExecutionResult.text("find_caps: 1 条\n- [catalog_script] x"),
             false
         );
         ObjectNode bashParams = MAPPER.createObjectNode();
@@ -289,7 +289,7 @@ class ProductivityCoachTest {
         params.put("file", "scripts/a.js");
         params.put("code", "ignored");
         ToolExecutionResult in = ToolExecutionResult.text("ok");
-        ToolExecutionResult out = coach.maybeAugment("execute_script", params, in, false);
+        ToolExecutionResult out = coach.maybeAugment("run_js", params, in, false);
         assertFalse(out.getText().contains("[coach] script.inline_long"));
     }
 }

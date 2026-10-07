@@ -156,7 +156,7 @@ fun CapabilitySearchScreen(
                     item {
                         Text("未启用的 MCP", style = MaterialTheme.typography.titleSmall)
                         Text(
-                            "未启用的服务器不会写入能力索引，模型的 capability_search 也找不到。",
+                            "未启用的服务器不会写入能力索引，模型的 find_caps 也找不到。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

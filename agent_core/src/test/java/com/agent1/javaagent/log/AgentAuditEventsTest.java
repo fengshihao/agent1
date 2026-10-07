@@ -22,7 +22,7 @@ class AgentAuditEventsTest {
     void writesCoachFiredWithRunContext(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
         RunLogContext ctx = new RunLogContext("sess-a", "run-b", "", "main");
-        AgentAuditEvents.coachFired(agentRoot, ctx, "script.fail_repeat", "execute_script", "tc1", "retry hint");
+        AgentAuditEvents.coachFired(agentRoot, ctx, "script.fail_repeat", "run_js", "tc1", "retry hint");
 
         String line = Files.readString(AgentDataPaths.eventsJsonl(agentRoot)).trim();
         assertTrue(line.contains("\"type\":\"coach_fired\""));

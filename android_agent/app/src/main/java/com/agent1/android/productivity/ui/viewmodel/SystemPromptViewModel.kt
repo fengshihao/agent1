@@ -117,7 +117,7 @@ class SystemPromptViewModel(
             "npm",
             "目录",
             "workspace",
-            "execute_script",
+            "run_js",
         )
     }
 }

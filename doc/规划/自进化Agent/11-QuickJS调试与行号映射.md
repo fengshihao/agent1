@@ -23,7 +23,7 @@ AI 常见问题：
 
 ## 目标输出（工具失败时 JSON 或固定格式文本）
 
-建议 `execute_script` 失败返回 **机器可读** 块（仍遵守 tool preview 上限时可截断 snippet）：
+建议 `run_js` 失败返回 **机器可读** 块（仍遵守 tool preview 上限时可截断 snippet）：
 
 ```json
 {

@@ -219,7 +219,7 @@ class CapabilityIndexStoreTest {
         Path agentRoot = temp.resolve("agentRoot");
         CapabilityIndexStore.ensure(agentRoot);
 
-        var hits = CapabilityIndexStore.search(agentRoot, "execute_script", List.of("agent_tool"), "any", 5);
+        var hits = CapabilityIndexStore.search(agentRoot, "run_js", List.of("agent_tool"), "any", 5);
         assertTrue(hits.isEmpty());
     }
 }

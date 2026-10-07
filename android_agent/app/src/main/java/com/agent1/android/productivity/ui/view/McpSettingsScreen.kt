@@ -65,7 +65,7 @@ fun McpSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                "添加服务器后，助手用 capability_search 查找接口，再在脚本里调用 \$mcp.名称.工具。工具参数不会写进模型的工具列表。",
+                "添加服务器后，助手用 find_caps 查找接口，再在脚本里调用 \$mcp.名称.工具。工具参数不会写进模型的工具列表。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

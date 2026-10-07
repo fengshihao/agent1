@@ -7,7 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-/** 将 {@code svg-raster.js} 同步到 {@code shared/catalog/scripts}，供 execute_script import。 */
+/** 将 {@code svg-raster.js} 同步到 {@code shared/catalog/scripts}，供 run_js import。 */
 public final class SvgRasterCatalogScripts {
 
     public static final String SCRIPT_NAME = "svg-raster.js";

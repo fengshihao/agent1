@@ -38,7 +38,7 @@ class ProductivityToolCapabilitiesTest {
         assertTrue(summary.contains("chat_history") || summary.contains("read_file"));
         assertTrue(summary.contains("read_url"));
         if (!ProductivityToolCapabilities.weizhiToolsOnClasspath()) {
-            assertFalse(summary.contains("execute_script"));
+            assertFalse(summary.contains("run_js"));
         }
     }
 }

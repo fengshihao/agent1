@@ -6,7 +6,7 @@
 
 1. 配置 `agent.manifest.json` → `catalog.manifestUrl`（或 MockWebServer / 静态样例，见 [README](./README.md)）。
 2. LLM 或手测：`catalog_sync_status` → `catalog_install`（`script.demo` + `lib.demo`）。
-3. `execute_script` 运行 workspace 内脚本，例如：
+3. `run_js` 运行 workspace 内脚本，例如：
 
    ```javascript
    loadScript("demo-lib.js");
@@ -21,7 +21,7 @@
 
 1. 同样配置 manifest（含 `native.echo_math.*` 条目；SO 来自本地 Weizhi `build/plugins/echo_math`，见 [CLOUD-E2E.md](./CLOUD-E2E.md)）。
 2. 用户一句话：「用 echo_math 算 20+22」。
-3. 单轮 `execute_script`：
+3. 单轮 `run_js`：
 
    ```javascript
    const p = await host.ensureNative("echo_math");

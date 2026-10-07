@@ -89,10 +89,10 @@ class ProductivityScriptedCoachTest {
         ScriptedLlmClient llm = ScriptedLlmClient.builder()
             .whenUserMessageContains(
                 "scripted-fail-repeat-uc05",
-                ScriptedResponses.toolCall("execute_script", "{\"code\":\"bad();\"}")
+                ScriptedResponses.toolCall("run_js", "{\"code\":\"bad();\"}")
             )
             .whenToolResultFailed(
-                ScriptedResponses.toolCall("execute_script", "{\"code\":\"bad();\"}")
+                ScriptedResponses.toolCall("run_js", "{\"code\":\"bad();\"}")
             )
             .whenToolResultFailed(ScriptedResponses.text("已记录 fail_repeat"))
             .build();

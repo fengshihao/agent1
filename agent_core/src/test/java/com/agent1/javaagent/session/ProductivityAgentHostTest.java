@@ -138,7 +138,7 @@ class ProductivityAgentHostTest {
             assertFalse(toolNames.get().contains("skill"));
             assertTrue(toolNames.get().contains("ask_user"));
             assertTrue(toolNames.get().contains("todo_write"));
-            assertTrue(toolNames.get().contains("capability_search"));
+            assertTrue(toolNames.get().contains("find_caps"));
             assertFalse(toolNames.get().contains("web_search"));
             assertFalse(host.runtime().getStateSnapshot().getSystemPrompt().contains("web_search"));
         }
@@ -185,8 +185,8 @@ class ProductivityAgentHostTest {
         )) {
             host.createSession();
             host.runUserMessage("ping");
-            assertTrue(toolNames.get().contains("execute_script"));
-            assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("execute_script"));
+            assertTrue(toolNames.get().contains("run_js"));
+            assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("run_js"));
             assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("沙盒契约片段"));
         }
     }
@@ -220,13 +220,13 @@ class ProductivityAgentHostTest {
             host.createSession();
             host.runUserMessage("ping");
             assertTrue(toolNames.get().contains("extra_search"));
-            assertTrue(toolNames.get().contains("execute_script"));
+            assertTrue(toolNames.get().contains("run_js"));
             assertTrue(toolNames.get().contains("read_url"));
             assertTrue(bridge.exposedNames().contains("extra_search"));
             assertTrue(bridge.exposedNames().contains("read_file"));
             assertTrue(bridge.exposedNames().contains("todo_write"));
             assertTrue(bridge.exposedNames().contains("read_url"));
-            assertFalse(bridge.exposedNames().contains("execute_script"));
+            assertFalse(bridge.exposedNames().contains("run_js"));
             assertEquals("hit", bridge.call("extra_search", java.util.Map.of()));
             assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("$tools"));
         }

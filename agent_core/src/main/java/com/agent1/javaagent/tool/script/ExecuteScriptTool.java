@@ -54,7 +54,7 @@ public final class ExecuteScriptTool implements AgentTool {
 
     @Override
     public String name() {
-        return "execute_script";
+        return "run_js";
     }
 
     @Override
@@ -63,8 +63,8 @@ public final class ExecuteScriptTool implements AgentTool {
             在 workspace 跑 QuickJS。不是 Node，不是浏览器，没有 document/window，不能 require。
             code 与 file 二选一。短一次性脚本用 code。超过 20 行或 1000 字符时，运行时会把 code 写入 jobs/ 再执行，并在结果里给出路径；后续用 edit_file 改该文件，再用 file。
             可以顶层 await。返回值是最后一条表达式，不要写顶层 return。
-            MCP：await $mcp.服务器.工具({...})，名字来自 capability_search 的 entry。
-            外层工具：await $tools.工具名({...})。已注册时可用 $tools.webview_exec 进入浏览器环境（与外层同名工具相同）。不能再调 execute_script。
+            MCP：await $mcp.服务器.工具({...})，名字来自 find_caps 的 entry。
+            外层工具：await $tools.工具名({...})。已注册时可用 $tools.webview_exec 进入浏览器环境（与外层同名工具相同）。不能再调 run_js。
             """.trim();
     }
 
@@ -119,8 +119,8 @@ public final class ExecuteScriptTool implements AgentTool {
 
         if (hasFile && !looksLikeJavaScriptFile(file)) {
             return ToolExecutionResult.text(
-                "错误：execute_script 的 file 必须是 workspace 内的 .js/.mjs/.cjs 脚本。"
-                    + " 读取 SVG/图片/数据文件请用 read_file；SVG 转 PNG/JPG 请 capability_search「svg png」，"
+                "错误：run_js 的 file 必须是 workspace 内的 .js/.mjs/.cjs 脚本。"
+                    + " 读取 SVG/图片/数据文件请用 read_file；SVG 转 PNG/JPG 请 find_caps「svg png」，"
                     + "再在 .js 里 import { svgToImage } from \"svg-raster.js\"。"
             );
         }

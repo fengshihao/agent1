@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Weizhi 引擎共享 IO 线程池：daemon 线程、空闲自动回收。
  *
- * 不共享时每个 {@link com.weizhi.WeizhiEngine}（即每次 execute_script）都会
+ * 不共享时每个 {@link com.weizhi.WeizhiEngine}（即每次 run_js）都会
  * new 一个 fixedThreadPool（默认 16 线程）并在 close 时销毁——高频脚本调用下
  * 线程创建/销毁成为主要开销。共享池保持相同的并发与排队语义
  * （core=max=maxAsyncIo、无界队列），但空闲线程 60s 后自动退出。

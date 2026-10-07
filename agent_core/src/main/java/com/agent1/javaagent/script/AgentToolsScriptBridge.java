@@ -14,9 +14,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 把当前 Run 的 {@link AgentTool} 暴露给脚本。{@code execute_script} 不暴露，避免递归。
+ * 把当前 Run 的 {@link AgentTool} 暴露给脚本。{@code run_js} 不暴露，避免递归。
  *
- * 调用发生在工具线程上（与 {@code execute_script} 同线程），因此：
+ * 调用发生在工具线程上（与 {@code run_js} 同线程），因此：
  * - 取消令牌取自 {@link ScriptToolRunContext}（AgentRuntime 在派发工具任务时绑定），
  *   用户停止 Run 后脚本内的工具调用同样可感知取消；
  * - 审计经 {@link RunAuditScope} 绑定的上下文写 {@code agent_tool_call} 事件，
@@ -24,7 +24,7 @@ import java.util.Set;
  */
 public final class AgentToolsScriptBridge implements ScriptToolBridge {
 
-    static final String EXCLUDED_TOOL = "execute_script";
+    static final String EXCLUDED_TOOL = "run_js";
     static final String EXCLUDED_ASK_USER = "ask_user";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();

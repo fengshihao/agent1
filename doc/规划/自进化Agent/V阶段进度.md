@@ -15,7 +15,7 @@
 
 ## V3 是否「做完」？
 
-- **工程能力（D4 / userLine / execute_script）**：✅ Mock 与 `WeizhiScriptEngineIntegrationTest` 已绿，视为 **REQ-052 集成过关**。
+- **工程能力（D4 / userLine / run_js）**：✅ Mock 与 `WeizhiScriptEngineIntegrationTest` 已绿，视为 **REQ-052 集成过关**。
 - **真实 LLM UC-04 全轮「AI 改对第 5 行」**：⚠️ 仍依赖 Tier-V3 脚本 + 人工扫 transcript；不比 Mock 更严时可记为 **V3 LLM 冒烟**。
 - **结论**：**V3 代码与 Mock 门禁已完成**；LLM 层用 **Tier-V3** 补齐，不阻塞 V4/V5。
 

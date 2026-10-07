@@ -33,7 +33,7 @@ public final class PromoteRequestTool implements AgentTool {
         return """
             把 workspace/staging 晋升到 shared/local。
             Skill：staging/skills/<name>/SKILL.md，frontmatter 含 name、description。
-            脚本：staging/scripts/<name>.js。先 capability_search skill-creator，再调用本工具。
+            脚本：staging/scripts/<name>.js。先 find_caps skill-creator，再调用本工具。
             """.trim();
     }
 

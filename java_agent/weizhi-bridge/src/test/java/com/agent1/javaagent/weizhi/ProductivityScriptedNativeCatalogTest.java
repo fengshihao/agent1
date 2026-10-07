@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * UC-07 Scripted：单次 execute_script 内 auto-install + ensureNative（同 Session 刷新 native 目录）。
+ * UC-07 Scripted：单次 run_js 内 auto-install + ensureNative（同 Session 刷新 native 目录）。
  */
 class ProductivityScriptedNativeCatalogTest {
 
@@ -110,7 +110,7 @@ class ProductivityScriptedNativeCatalogTest {
             ScriptedLlmClient llm = ScriptedLlmClient.builder()
                 .whenUserMessageContains(
                     "scripted-uc07-native",
-                    ScriptedResponses.toolCall("execute_script", scriptJson)
+                    ScriptedResponses.toolCall("run_js", scriptJson)
                 )
                 .whenToolResultSucceeded(ScriptedResponses.text("native 已跑通"))
                 .build();

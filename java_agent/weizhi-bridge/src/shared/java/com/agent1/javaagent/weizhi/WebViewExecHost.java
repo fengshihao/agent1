@@ -26,7 +26,7 @@ public final class WebViewExecHost {
     private static final String WEB_RUNTIME =
         "code 跑在标准 Web 环境，只有浏览器 Web API（document、window、fetch 等）。"
             + "不是 Node、不是 QuickJS，没有 fs/require。"
-            + "也可从 execute_script 里 await $tools.webview_exec({...}) 调用，与本工具相同。"
+            + "也可从 run_js 里 await $tools.webview_exec({...}) 调用，与本工具相同。"
             + "读工作区文件用 input_path（全局 input 是 Uint8Array）；写回用 writeFile(相对路径, 数据)。\n"
             + "code 在函数中执行，顶层 return 才是结果；异步写成 return (async () => { ... })()。"
             + "图片传纯 Base64 或 data URL（解码为字节），文本按 UTF-8 写入。\n"

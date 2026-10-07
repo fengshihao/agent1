@@ -74,7 +74,7 @@ class ProductivityAgentGateway(
 
     fun getActiveSessionId(): String? = execute { ensureHost().activeSessionId }
 
-    /** 与模型 {@code capability_search} 同一参数和正文，并带上当前平台不可用、未启用 MCP。 */
+    /** 与模型 {@code find_caps} 同一参数和正文，并带上当前平台不可用、未启用 MCP。 */
     fun searchCapabilities(
         query: String,
         kinds: List<String>,

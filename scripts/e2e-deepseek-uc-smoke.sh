@@ -199,8 +199,8 @@ verify_uc02() {
 verify_uc03() {
   local events="${AGENT1_AGENT_ROOT}/logs/events.jsonl"
   [[ -f "${events}" ]] || { echo "UC-03: 无 events" >&2; return 1; }
-  grep -q '"tool_name":"execute_script"' "${events}" || { echo "UC-03: 无 execute_script" >&2; return 1; }
-  echo "UC-03 验证: execute_script 已调用（结果=3 请人工看 transcript）"
+  grep -q '"tool_name":"run_js"' "${events}" || { echo "UC-03: 无 run_js" >&2; return 1; }
+  echo "UC-03 验证: run_js 已调用（结果=3 请人工看 transcript）"
   return 0
 }
 
@@ -282,14 +282,14 @@ for uc in "${UCS[@]}"; do
     03)
       require_weizhi || fail=1
       run_uc "03" \
-        "请用 execute_script 的 code 参数计算 1+2，把数值结果告诉我。" \
+        "请用 run_js 的 code 参数计算 1+2，把数值结果告诉我。" \
         "3" || fail=1
       verify_uc03 || fail=1
       ;;
     04)
       require_weizhi || fail=1
       run_uc "04" \
-        "在 workspace 创建 bug.js：第1–4行 console.log(1)..(4)，第5行故意单独写 } 造成语法错，第6行 console.log(6)。先 write_file，再 execute_script file=bug.js，确认错误 userLine 是否为 5。" \
+        "在 workspace 创建 bug.js：第1–4行 console.log(1)..(4)，第5行故意单独写 } 造成语法错，第6行 console.log(6)。先 write_file，再 run_js file=bug.js，确认错误 userLine 是否为 5。" \
         "6" || fail=1
       verify_uc04 || fail=1
       ;;
@@ -297,7 +297,7 @@ for uc in "${UCS[@]}"; do
       require_weizhi || fail=1
       export AGENT1_COACH_SCRIPT_FAIL_REPEAT=2
       run_uc "05" \
-        "请连续两次用 execute_script 的 code 参数执行 bad();（不要用 file）。看第二次失败后是否出现 script.fail_repeat Coach。" \
+        "请连续两次用 run_js 的 code 参数执行 bad();（不要用 file）。看第二次失败后是否出现 script.fail_repeat Coach。" \
         "5" || fail=1
       verify_uc05 || fail=1
       ;;

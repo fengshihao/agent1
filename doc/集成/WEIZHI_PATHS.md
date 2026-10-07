@@ -11,7 +11,7 @@
 | **Java 工具** | `agent_core` 的 `read_file` / `write_file` / `grep` / `bash` 等 | `WorkspaceSandbox`：工作区相对或「落在 workspace/agent 文档区」的绝对路径，收成逻辑路径 |
 | **平台 Caps** | 脚本内 `android.files.*`、`intent.start({ path })` 等 | **仅**工作区相对路径 |
 
-引擎已统一处理 workspace 内绝对路径与 `..` 归一化；Agent1 **不再**在调用 `runJs` 前把脚本里的 `fs` 路径强行改成相对路径。`execute_script` 的 `file` 仍传 workspace 逻辑路径（如 `jobs/run.js`），便于 `./` 相对 import。
+引擎已统一处理 workspace 内绝对路径与 `..` 归一化；Agent1 **不再**在调用 `runJs` 前把脚本里的 `fs` 路径强行改成相对路径。`run_js` 的 `file` 仍传 workspace 逻辑路径（如 `jobs/run.js`），便于 `./` 相对 import。
 
 ## Agent1 装配
 

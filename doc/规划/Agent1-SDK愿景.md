@@ -7,7 +7,7 @@
 **一个可嵌入的「编程型 ReAct 智能体」运行时**，而不是一个必须带固定 UI 的 App。
 
 - **核心制品**：Maven / AAR **`java-agent-core`**（代码）+ 首次启动落地的 **`agentRoot`**（数据与能力目录）。
-- **推荐执行引擎**：Weizhi QuickJS（`execute_script` + Caps + catalog 脚本）；宿主可按平台替换 `ScriptEngineFactory`。
+- **推荐执行引擎**：Weizhi QuickJS（`run_js` + Caps + catalog 脚本）；宿主可按平台替换 `ScriptEngineFactory`。
 - **开箱行为**：创建 `ProductivityAgentHost` → 会话 / Run / 工具循环 / JSONL 审计 / 默认 productivity 提示词 → 三方只需接 **LLM 客户端** 与（可选）**UI**。
 
 三方 **不应** 需要理解 classpath 上的 `agent-home` 资源包名；那是 SDK 内嵌模板，经 `AgentHomeBootstrap.ensure(agentRoot)` 拷贝到磁盘。
@@ -26,9 +26,9 @@
 
 长期默认策略（与能力检索规划一致）：
 
-1. **主路径**：模型写 **workspace 内 JS orchestrator**（`execute_script` file 模式），调用 Caps、`fs`、catalog 脚本、`host.ensureNative`、`$tools` 白名单等。
+1. **主路径**：模型写 **workspace 内 JS orchestrator**（`run_js` file 模式），调用 Caps、`fs`、catalog 脚本、`host.ensureNative`、`$tools` 白名单等。
 2. **Java Tool 极简**：工作区 I/O、脚本执行、用户澄清（`ask_user`）、**能力检索**、必要的 catalog/skill 只读与区外写入 API。
-3. **能力不灌进系统提示**：提示词只给 **大类地图 + 必须先检索**；细节走 `capability_search` + `read_agent_doc` / skill 正文。
+3. **能力不灌进系统提示**：提示词只给 **大类地图 + 必须先检索**；细节走 `find_caps` + `read_agent_doc` / skill 正文。
 
 ## 4. 三方最小集成面（目标 API，稳定后文档化）
 

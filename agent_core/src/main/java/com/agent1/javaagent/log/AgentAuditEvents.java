@@ -67,7 +67,7 @@ public final class AgentAuditEvents {
             return;
         }
         Map<String, Object> fields = new LinkedHashMap<>();
-        fields.put("source", "execute_script_auto_native");
+        fields.put("source", "run_js_auto_native");
         fields.put("plugin_name", pluginName.trim());
         fields.put("applied_ids", appliedIds == null ? List.of() : appliedIds);
         write(agentRoot, context, "catalog_sync_completed", fields);
@@ -170,7 +170,7 @@ public final class AgentAuditEvents {
 
     /**
      * 脚本内 {@code $tools.*} 调用的审计事件（与外层 tool_call/tool_result 对应）。
-     * 外层只记 execute_script 一条整体事件；不记这个的话脚本内部行为不可回放。
+     * 外层只记 run_js 一条整体事件；不记这个的话脚本内部行为不可回放。
      */
     public static void agentToolCall(
         Path agentRoot,

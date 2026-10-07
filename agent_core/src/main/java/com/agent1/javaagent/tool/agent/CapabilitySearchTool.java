@@ -24,7 +24,7 @@ import java.util.Set;
 /** 检索 agentRoot SQLite 能力索引（FTS5）。命中 Skill 时直接附上正文。 */
 public final class CapabilitySearchTool implements AgentTool {
 
-    public static final String TOOL_NAME = "capability_search";
+    public static final String TOOL_NAME = "find_caps";
 
     private static final int LOADED_SKILL_CHARS = 8_000;
 
@@ -76,7 +76,7 @@ public final class CapabilitySearchTool implements AgentTool {
             无翻页：只返回前 limit 条（默认 8，可设 1–20）。不够就改 query 或提高 limit。
             同一轮不必并行多次；不够再下一轮再搜。
             默认检索全部类型（mcp、skill、catalog_script、caps 等）。前两条 MCP 命中带参数，其余给出名称和调用示例。命中 Skill 会直接带上正文。
-            结果里的调用示例可以直接写进 execute_script。
+            结果里的调用示例可以直接写进 run_js。
             """.trim();
     }
 
@@ -145,7 +145,7 @@ public final class CapabilitySearchTool implements AgentTool {
             }
             shown++;
         }
-        text.append("capability_search: ").append(shown).append(" 条\n");
+        text.append("find_caps: ").append(shown).append(" 条\n");
         ArrayNode details = MAPPER.createArrayNode();
         for (AgentSkill skill : loadedSkills) {
             appendLoadedSkill(text, details, skill);

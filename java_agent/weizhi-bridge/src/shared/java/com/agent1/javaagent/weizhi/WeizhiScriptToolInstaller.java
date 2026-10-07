@@ -13,7 +13,7 @@ import java.util.Set;
 /** 在 caps 安装之后链式挂上 {@code $tools}。用户脚本必须单独 eval，不能和 prelude 拼成一次。 */
 public final class WeizhiScriptToolInstaller {
 
-    /** 与引擎 host call 约定的 op。脚本内禁止再调 execute_script。 */
+    /** 与引擎 host call 约定的 op。脚本内禁止再调 run_js。 */
     static final String TOOL_OP = "agent.tool";
 
     /** 与 {@link #preludeStatic} 同步；Agent1 行号扣减用。 */
@@ -200,7 +200,7 @@ public final class WeizhiScriptToolInstaller {
         if (name.isEmpty()) {
             return MiniJson.error("bad argument: agent.tool: name required");
         }
-        if ("run_js".equals(name) || "execute_script".equals(name)) {
+        if ("run_js".equals(name)) {
             return MiniJson.error("unsupported: $tools." + name + " (use the host script tool)");
         }
         Set<String> exposed = bridge.exposedNames();

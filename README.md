@@ -38,9 +38,9 @@
 | --- | --- |
 | **为嵌入而生** | 不是「只能在我们 App 里聊」的黑盒聊天；宿主接入 `ProductivityAgentHost` + LLM 即可拥有完整生产力循环 |
 | **极小内核** | `java-agent-core` 专注 ReAct、Session、workspace、事件落盘；整体约 **3MB** 量级，便于与业务 APK 同包分发 |
-| **编程型助手** | 主路径是写 **JavaScript**（QuickJS / `execute_script`）编排任务，而不是把几十种工具名塞进系统提示 |
+| **编程型助手** | 主路径是写 **JavaScript**（QuickJS / `run_js`）编排任务，而不是把几十种工具名塞进系统提示 |
 | **能干活** | 读写工作区、检索历史、拉网页、跑脚本、调 WebView、接 MCP、加载 Skill；面向真实文档/表格/流程类工作 |
-| **可进化** | Skill 沉淀、`capability_search` 按需发现能力、晋升到公共 catalog；Session 沙箱 + 审计日志支撑长期演进 |
+| **可进化** | Skill 沉淀、`find_caps` 按需发现能力、晋升到公共 catalog；Session 沙箱 + 审计日志支撑长期演进 |
 | **双端验证** | Android 是首要宿主；macOS / Ubuntu 上的 `./agent1` 用于联调、CI 与无屏环境 |
 
 桌面 **生产力 CLI**（`./agent1`）与 **Android 生产力 App** 共用同一内核，能力对照见 [doc/CLI与Android-Agent能力对照.md](doc/CLI与Android-Agent能力对照.md)。
@@ -52,17 +52,17 @@
 Agent1 要成为 **Android / 嵌入式 JVM 宿主** 里的默认 **生产力编程智能体**：
 
 1. **用户说人话，助手写 JS**  
-   在 Session `workspace/` 里用一段脚本编排任务（`execute_script`），通过 Weizhi QuickJS 调用 `fs`、平台 **Caps**、catalog 脚本、以及白名单内的 `$tools` 桥。多步工作写在同一段脚本里，而不是一轮轮硬调零散 Java Tool。
+   在 Session `workspace/` 里用一段脚本编排任务（`run_js`），通过 Weizhi QuickJS 调用 `fs`、平台 **Caps**、catalog 脚本、以及白名单内的 `$tools` 桥。多步工作写在同一段脚本里，而不是一轮轮硬调零散 Java Tool。
 
 2. **工具少而精，细节靠检索**  
-   Java 层只保留工作区 I/O、脚本执行、用户澄清等「内核工具」。具体怎么做 Word、分享、画图、调外部服务，先走 **`capability_search`**：结果里的调用示例可以直接写进脚本。Skill 命中时附上正文。API 手册不打进 APK。
+   Java 层只保留工作区 I/O、脚本执行、用户澄清等「内核工具」。具体怎么做 Word、分享、画图、调外部服务，先走 **`find_caps`**：结果里的调用示例可以直接写进脚本。Skill 命中时附上正文。API 手册不打进 APK。
 
 3. **Skill：可加载、可自创、可晋升**  
    - **加载**：`load_skill` 从 workspace `skills/`、App `assets`（Android）或项目目录（桌面联编）拉取 SKILL.md 工作流。  
    - **自创**：运行中在 workspace 沉淀可重复流程，经总结与 **`promote_request`**（及后续审查 API）进入 `shared/local/skills/`，供后续 Session 复用（自进化路线见 [doc/规划/自进化Agent/README.md](doc/规划/自进化Agent/README.md)）。
 
 4. **MCP：外接能力而不膨胀内核**  
-   通过 `agentRoot/mcp_servers.json` 配置 MCP Server；索引进入 `capability_search`（kind=mcp），脚本内用 **`$mcp.<server>.<tool>`** 调用，不把每个 MCP 工具都注册成 Java `@Tool`。
+   通过 `agentRoot/mcp_servers.json` 配置 MCP Server；索引进入 `find_caps`（kind=mcp），脚本内用 **`$mcp.<server>.<tool>`** 调用，不把每个 MCP 工具都注册成 Java `@Tool`。
 
 5. **WebView：在设备上「看得见」的结果**  
    - **Android**：系统 WebView + `webview_exec`，适合渲染脚本页、图表、表单总结等（见 `android_agent/doc/webview-draw-e2e.md`）。  
@@ -84,10 +84,10 @@ Agent1 的脚本、设备能力和 WebView 依赖独立开源项目 **[Weizhi / 
 | | **Agent1（`java-agent-core`）** | **Weizhi** |
 | --- | --- | --- |
 | **定位** | 生产力 **编排层**：ReAct、Session、模型可见的 Java 工具、能力检索、JSONL 审计 | **脚本引擎**：在设备里跑 QuickJS |
-| **LLM 可见** | 工作区读写、`grep` / `glob` / `zip` / `bash`、`load_skill_through_path`、`execute_script`、`webview_exec` | 脚本内 `fs`、`$tools`、`$mcp`、Caps。这些不是单独的模型工具 |
+| **LLM 可见** | 工作区读写、`grep` / `glob` / `zip` / `bash`、`load_skill_through_path`、`run_js`、`webview_exec` | 脚本内 `fs`、`$tools`、`$mcp`、Caps。这些不是单独的模型工具 |
 | **集成方式** | 发布 `java-agent-core` | 源码联编或 Maven AAR；经 `weizhi-bridge` 与 Android `WeizhiHostLoader` 接入 |
 
-**典型分工**：用户描述任务 → Agent1 用 Java 工具改文件、搜索、跑白名单命令、加载 Skill → 需要编排时用 **`execute_script`** 交给 Weizhi → 脚本里调 `fs`、Caps、MCP，或 `webview_exec` 出图 → 事件写回 `events.jsonl`。
+**典型分工**：用户描述任务 → Agent1 用 Java 工具改文件、搜索、跑白名单命令、加载 Skill → 需要编排时用 **`run_js`** 交给 Weizhi → 脚本里调 `fs`、Caps、MCP，或 `webview_exec` 出图 → 事件写回 `events.jsonl`。
 
 ### 在本仓库里怎么带上 Weizhi
 
@@ -114,8 +114,8 @@ Weizhi 自身文档：[README](https://github.com/fengshihao/weizhi) · [AI 集�
 
 | 类别 | 说明 |
 |------|------|
-| **JS / 脚本** | `execute_script`、QuickJS、`$tools` / `$mcp` 桥、workspace 内多文件工程 |
-| **检索** | `capability_search` — 按关键词查 Skill、文档、MCP 工具摘要等 |
+| **JS / 脚本** | `run_js`、QuickJS、`$tools` / `$mcp` 桥、workspace 内多文件工程 |
+| **检索** | `find_caps` — 按关键词查 Skill、文档、MCP 工具摘要等 |
 | **Skill** | `load_skill` + workspace / assets 下的 SKILL.md |
 | **MCP** | `mcp_servers.json` + 脚本内 MCP 调用 |
 | **WebView** | `webview_exec`（Android WebView / 桌面 Chromium） |
@@ -191,7 +191,7 @@ flowchart TB
   Gateway --> Core[java-agent-core]
   Core --> LLM[OpenAI 兼容 LLM]
   Core --> WS[Session workspace]
-  Core --> Search[capability_search]
+  Core --> Search[find_caps]
   Core --> Audit[events.jsonl]
   Core --> Bridge[weizhi-bridge]
   Bridge --> WZ[微智 Weizhi QuickJS]
@@ -241,8 +241,8 @@ Agent1 is a **compact, embeddable programming agent** for **Android and other JV
 
 ### How it works
 
-- **JavaScript-first**: orchestrate tasks with `execute_script` (Weizhi QuickJS) in the session workspace; call Caps, catalog scripts, `$tools`, and `$mcp.*` from JS.
-- **Discovery, not prompt bloat**: use **`capability_search`** to get a callable example for skills, APIs, and MCP tools; load workflows with **`load_skill`**. API manuals are not shipped in the app.
+- **JavaScript-first**: orchestrate tasks with `run_js` (Weizhi QuickJS) in the session workspace; call Caps, catalog scripts, `$tools`, and `$mcp.*` from JS.
+- **Discovery, not prompt bloat**: use **`find_caps`** to get a callable example for skills, APIs, and MCP tools; load workflows with **`load_skill`**. API manuals are not shipped in the app.
 - **WebView tools**: render script-driven pages on device (Android WebView; desktop Chromium for dev).
 - **MCP**: configure servers under `agentRoot`; invoke from scripts without registering every tool in Java.
 - **Self-evolution**: session sandboxes, promotion to shared catalog, full event trail—see `doc/规划/自进化Agent/`.

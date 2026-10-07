@@ -1,4 +1,4 @@
-# 17 — 能力检索（capability_search）
+# 17 — 能力检索（find_caps）
 
 > 状态：**需求 + 详细设计 + 实施安排**（2026-09-30）。  
 > 背景：Agent 定位为 **编程智能体**（JS 为主、Java Tool 极简）；内置 Caps、catalog 脚本、Skill、MCP、$tools 桥等能力数量大，**不能**全部写入系统提示词。
@@ -19,7 +19,7 @@
 
 | 目标 | 说明 |
 |------|------|
-| **G1** | 单一工具 **`capability_search`**（或同名稳定 ID）作为能力发现主入口 |
+| **G1** | 单一工具 **`find_caps`**（或同名稳定 ID）作为能力发现主入口 |
 | **G2** | 索引覆盖：builtin Caps、catalog 脚本/js_lib/native、Skill 摘要、MCP tool、$tools 桥、关键 system 文档条目 |
 | **G3** | 搜索结果 **短摘要 + 指针**（doc 路径 / script 叶子名 / skill 名 / mcp 限定名），正文仍 `read_agent_doc` / `skill(read)` |
 | **G4** | 系统提示词改为 **JS 优先 + 能力大类 + 必须先 search**（见 §6） |
@@ -28,7 +28,7 @@
 ### 1.3 非目标（本期）
 
 - 向量 / embedding 检索（Phase C 可选）
-- 用检索替代 `execute_script` 或 Weizhi 错误关键词自纠
+- 用检索替代 `run_js` 或 Weizhi 错误关键词自纠
 - 云端集中式能力 DB（仍 **agentRoot 本地** 为主）
 
 ---
@@ -47,7 +47,7 @@
 | **可执行体** | `shared/catalog/**`、workspace scripts | sync / promote |
 | **Skill** | `.claude/skills`、`shared/*/skills` | 项目 + catalog + local |
 
-索引一行一条 **CapabilityRecord**（见 §3）。`capability_search` 只读索引 + 可选读 manifest；**不写** shared/docs/system。
+索引一行一条 **CapabilityRecord**（见 §3）。`find_caps` 只读索引 + 可选读 manifest；**不写** shared/docs/system。
 
 ---
 
@@ -60,7 +60,7 @@
   "id": "caps.android.share.send",
   "kind": "caps",
   "title": "Android 文本分享",
-  "summary": "execute_script 内 android.share.send({title,text})；文件分享走 App UI 或后续 host 扩展。",
+  "summary": "run_js 内 android.share.send({title,text})；文件分享走 App UI 或后续 host 扩展。",
   "tags": ["android", "share", "微信"],
   "platforms": ["android"],
   "entry": "android.share.send",
@@ -85,7 +85,7 @@
 | `agent_tool` | 外层 Java Tool（**宜不入 seed**） | 仅 Phase B 扫描且不在系统提示中重复者 |
 | `doc` | 纯文档条目 | `read_agent_doc:office-docx.md` |
 
-**索引范围（Phase A seed）**：`execute_script`、`capability_search`、`ask_user`、`read_agent_doc`、`skill` 等已在 `ProductivitySystemPromptBuilder` 写明的 **外层基础 Tool 不收录**，避免检索噪声；索引侧重 **caps / catalog_script / bridge_tool / builtin 细节 / doc 指针**（以及后续 catalog、skill、MCP 扫描）。
+**索引范围（Phase A seed）**：`run_js`、`find_caps`、`ask_user`、`read_agent_doc`、`skill` 等已在 `ProductivitySystemPromptBuilder` 写明的 **外层基础 Tool 不收录**，避免检索噪声；索引侧重 **caps / catalog_script / bridge_tool / builtin 细节 / doc 指针**（以及后续 catalog、skill、MCP 扫描）。
 
 ### 3.2 字段约束
 
@@ -95,12 +95,12 @@
 
 ---
 
-## 4. 工具设计：`capability_search`
+## 4. 工具设计：`find_caps`
 
 ### 4.1 注册
 
 - 位置：`agent_core` → `ProductivityAgentHost.buildTools`
-- 名称：`capability_search`（固定，进 SDK 默认 productivity 集）
+- 名称：`find_caps`（固定，进 SDK 默认 productivity 集）
 
 ### 4.2 参数 schema
 
@@ -167,9 +167,9 @@
 
 在 `ProductivitySystemPromptBuilder` 增加固定段（示意）：
 
-1. **编程智能体**：优先 `execute_script`（file orchestrator）；外层 Tool 仅编排。
+1. **编程智能体**：优先 `run_js`（file orchestrator）；外层 Tool 仅编排。
 2. **能力地图（大类）**：沙箱 fs、平台 Caps、host/native、fetch、catalog 脚本、Skill 流程、MCP、$tools 桥 — **各一行**。
-3. **强制协议**：除 trivial 读写外，**先 `capability_search`**，再读 doc/skill，再写 JS。
+3. **强制协议**：除 trivial 读写外，**先 `find_caps`**，再读 doc/skill，再写 JS。
 4. **Weizhi  sandbox 长文**：不内嵌；指向 `read_agent_doc` → `docs/system/tools-and-quickjs.md` 或外链摘要。
 
 Android hostAppend（`WeizhiHostLoader`）补充：Caps 仅脚本内；文件分享用 UI / 后续 host 扩展。
@@ -188,13 +188,13 @@ Android hostAppend（`WeizhiHostLoader`）补充：Caps 仅脚本内；文件分
 | **单测** | 空 agentRoot bootstrap 后文件存在、行数 ≥ N、JSON 合法 |
 | **Covers** | UC-能力-01 |
 
-### REQ-111 capability_search 工具
+### REQ-111 find_caps 工具
 
 | 项 | 内容 |
 |----|------|
 | **做** | 工具实现 + Host 注册 + 参数校验 |
 | **单测** | 关键词「docx」「share」「grep」命中预期 kind；platform 过滤 |
-| **Scripted** | ProductivityAgentHostTest：fake LLM 调 search → 再 execute_script（二期） |
+| **Scripted** | ProductivityAgentHostTest：fake LLM 调 search → 再 run_js（二期） |
 | **Covers** | UC-能力-02 |
 
 ### REQ-112 提示词 JS 优先 + 必须先检索
@@ -227,7 +227,7 @@ Android hostAppend（`WeizhiHostLoader`）补充：Caps 仅脚本内；文件分
 | UC | 场景 | 期望 |
 |----|------|------|
 | **UC-能力-01** | 新 agentRoot 首次启动 | index 存在，含 docx、caps.share 等种子 |
-| **UC-能力-02** | 「把 md 转 word」 | search → docx 条目 → read doc → execute_script |
+| **UC-能力-02** | 「把 md 转 word」 | search → docx 条目 → read doc → run_js |
 | **UC-能力-03** | 「分享到微信」 | search → 说明 caps 文本分享 + App 文件分享 UI，不臆造 Java Intent tool |
 | **UC-能力-04** | catalog 新装脚本 | rebuild 后 search 命中 |
 
@@ -237,7 +237,7 @@ Android hostAppend（`WeizhiHostLoader`）补充：Caps 仅脚本内；文件分
 
 | 阶段 | 内容 | 交付 |
 |------|------|------|
-| **Phase A** | seed JSONL + Builder（静态）+ `capability_search` + REQ-110/111 + 提示词 REQ-112 | 1 PR |
+| **Phase A** | seed JSONL + Builder（静态）+ `find_caps` + REQ-110/111 + 提示词 REQ-112 | 1 PR |
 | **Phase B** | catalog/skill/MCP 扫描 + install 后 rebuild + CLI rebuild + REQ-113/114 | 1 PR |
 | **Phase C**（可选） | 别名表、中文 tags 扩展、embedding | 规划后续 |
 
@@ -247,12 +247,12 @@ Android hostAppend（`WeizhiHostLoader`）补充：Caps 仅脚本内；文件分
 
 ## 10. 讨论记录
 
-- **2026-09-30**：编程智能体 + 混合存储（JSONL 索引 + Markdown 正文）；统一 `capability_search`；SDK 愿景另见 [Agent1-SDK愿景.md](../Agent1-SDK愿景.md)。
+- **2026-09-30**：编程智能体 + 混合存储（JSONL 索引 + Markdown 正文）；统一 `find_caps`；SDK 愿景另见 [Agent1-SDK愿景.md](../Agent1-SDK愿景.md)。
 
 ---
 
 ## 11. 开放问题
 
 1. seed 由 **core 资源** 还是 **agent-home 目录** 携带？（建议：`agent-home/capabilities/search-index.seed.jsonl` 与 bootstrap 一致）
-2. 是否在 JSONL 事件里记 `capability_search` 调用（便于分析模型是否遵守「先搜」）？
+2. 是否在 JSONL 事件里记 `find_caps` 调用（便于分析模型是否遵守「先搜」）？
 3. 三方 SDK 是否允许 **替换 IndexBuilder**（插件式追加条目）？

@@ -31,7 +31,7 @@
 | `list_sessions` | 列出会话元数据 | ✅ | ✅ | |
 | `ask_user` | 向用户提问（等待回复） | ✅ | ✅ | |
 | `todo_write` | 会话短清单，整表替换；未完成项在每轮开头回注系统提示 | ✅ | ✅ | 存在 `sessions/<id>/todos.json`；脚本内 `$tools.todo_write` |
-| `capability_search` | 检索 `capabilities.db` 与 MCP 缓存 | ✅ | ✅ | Android 按平台过滤 `android` |
+| `find_caps` | 检索 `capabilities.db` 与 MCP 缓存 | ✅ | ✅ | Android 按平台过滤 `android` |
 | `catalog_sync_status` | 目录 sync 状态 | ✅ | ✅ | 依赖 `agent.manifest.json` / `sync/` |
 | `catalog_install` | 远程 manifest 安装（sync apply） | ✅ | ✅ | 需配置 catalog URL |
 | `promote_request` | `workspace/staging` → `shared/local` | ✅ | ✅ | `PromotionService` |
@@ -44,8 +44,8 @@
 | `grep` / `glob` / `zip_extract` / `zip_create` | `agent_core` `@Tool`，由 `WeizhiWorkspaceTools` 注册 | 同左，由 `WeizhiAgentTools` 注册 | 行为对齐 |
 | `bash` | 同上，白名单、无 shell | 同左 | **PATH 上的命令不同**（桌面系统命令，设备多为 toybox） |
 | `load_skill_through_path` | 仓库 `.claude/skills` + workspace `skills/` | `assets/agent_skills` + workspace `skills/` | **Skill 来源不同**；读取逻辑在 `agent_core` |
-| `execute_script` | Weizhi QuickJS + `$tools` 桥 | 同左 | 两侧系统提示都只要求用脚本完成任务；沙盒细则走 `capability_search` |
-| MCP | `mcp_servers.json` + `capability_search`；脚本 `$mcp` 走 weizhi `mcp.connect`，不写 workspace `.mcp` | 同一 `agentRoot`（`filesDir/agent1`） | **已对齐** |
+| `run_js` | Weizhi QuickJS + `$tools` 桥 | 同左 | 两侧系统提示都只要求用脚本完成任务；沙盒细则走 `find_caps` |
+| MCP | `mcp_servers.json` + `find_caps`；脚本 `$mcp` 走 weizhi `mcp.connect`，不写 workspace `.mcp` | 同一 `agentRoot`（`filesDir/agent1`） | **已对齐** |
 | Web 渲染 / 脚本页 | `webview_exec`：**Headless Chromium + CDP**（`DesktopWebViewExecTool`） | `WebViewAgentExtension`：**系统 WebView** | **实现不同**；协议与 skill（如 `webview-canvas-draw`）尽量对齐 |
 | 脚本超时 | `AGENT1_SCRIPT_TIMEOUT_MS`（默认 600s） | 固定 `600_000` ms（`WeizhiHostLoader`） | Android **未暴露**超时配置 UI/env |
 
@@ -55,7 +55,7 @@
 |------|-----|---------|
 | 工具摘要 | `ProductivityToolCapabilities.summaryForCli(false)` | `ProductivityToolCapabilities.summaryForUi()`（`WEIZHI_INTEGRATED=false`） |
 | 可用工具 | 2.1 节表格 | 同左 |
-| 不可用 | grep/glob/zip/bash/load_skill_through_path/MCP/webview/execute_script | 同左 |
+| 不可用 | grep/glob/zip/bash/load_skill_through_path/MCP/webview/run_js | 同左 |
 
 集成条件对照：
 
@@ -98,7 +98,7 @@
 | 优先级 | CLI 已有、Android 仍缺或较弱 | 说明 |
 |:------:|-------------------------------|------|
 | P0 | **事件日志查询 UI 或导出入口** | 数据已在 `events.jsonl`，CLI 有 `ProductivityLogsCommand` |
-| P1 | **`execute_script` 超时与脚本提示可配置** | CLI 有 env；Android 写死 600s，sandbox 提示仅内置 WebView 图片说明 |
+| P1 | **`run_js` 超时与脚本提示可配置** | CLI 有 env；Android 写死 600s，sandbox 提示仅内置 WebView 图片说明 |
 | P1 | **与仓库 `.claude/skills` 同步** | 桌面 load_skill 可读项目 skill；Android 仅 assets + workspace |
 | P2 | **非交互单次 Run API** | 便于自动化 / Shortcut |
 | P2 | **`./agent1 --help` 与默认 `agentRoot` 文案** | 代码默认 `$HOME/files/agent`；help 若仍写 `.agent1` 需单独修正 |

@@ -17,7 +17,7 @@ Gradle 默认跑，类名 ↔ UC 映射：
 | 7.1 catalog Skill | `ProductivityScriptedCatalogSkillTest#readCatalogSkillViaSkillTool` + `AgentSkillLoaderTest#mergedCatalogBetweenProjectAndLocal` |
 | UC-12 | `ProductivityScriptedCoachTest#uc12OutsideWriteAppendsPathOutsideCoach` |
 | UC-04 | `ProductivityScriptedScriptLineTest#uc04SyntaxErrorReportsUserLineFive`（需 Weizhi native） |
-| UC-07 | `CatalogSyncServiceNativeTest` + `WeizhiNativeCatalogIntegrationTest` + `ProductivityScriptedNativeCatalogTest#uc07ScriptedInstallNativeThenEnsureNative`（单次 execute_script 内 auto-install + ensureNative；Mock + echo_math，**无需 COS**） |
+| UC-07 | `CatalogSyncServiceNativeTest` + `WeizhiNativeCatalogIntegrationTest` + `ProductivityScriptedNativeCatalogTest#uc07ScriptedInstallNativeThenEnsureNative`（单次 run_js 内 auto-install + ensureNative；Mock + echo_math，**无需 COS**） |
 | 7.2 / 7.4 | `WeizhiCatalogScriptFolderIntegrationTest`；端到端故事见 [dev/catalog-sample/DEMO-7.4.md](../../../dev/catalog-sample/DEMO-7.4.md) |
 | P.4 审计 | `AgentAuditEventsTest`；UC-06/08/Coach Scripted 测断言 `catalog_sync_*` / `promotion_*` / `coach_fired` |
 | 读写环 | `ProductivityScriptedReadWriteTest` / `ProductivityScriptedToolFailureTest` |

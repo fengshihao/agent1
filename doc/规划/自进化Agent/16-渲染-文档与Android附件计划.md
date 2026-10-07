@@ -13,7 +13,7 @@
 
 | 原则 | 说明 |
 |------|------|
-| **双车道** | **QuickJS**（`execute_script` file/code）：无 DOM、偏计算/文本/调用 `$tools`。**WebView**（`webview_exec`）：DOM、Canvas、SVG、Mermaid、Three.js、Markdown 排版渲染。 |
+| **双车道** | **QuickJS**（`run_js` file/code）：无 DOM、偏计算/文本/调用 `$tools`。**WebView**（`webview_exec`）：DOM、Canvas、SVG、Mermaid、Three.js、Markdown 排版渲染。 |
 | **库不落 APK 胖包** | 常用库走 **CDN 下载 → agentRoot 本地缓存**，WebView HTML 用 `file://` 或 inline importmap；QuickJS 只加载 **纯 JS、无 DOM** 的 bundle（或预置在 `shared/catalog/libs/qjs`）。 |
 | **Skill 不硬编码 canvas 教程** | 删除 `assets/agent_skills/webview-canvas-draw`；改为 **仓库级 skill + docs/system** 描述「SVG 模板 + 栅格化 API」。 |
 | **Android 分层** | UI 只渲染与发 Intent；路径解析、`FileProvider`、MIME 映射放在 `logic.business`（可 `platform` 子包）；禁止在 `ui.view` 里直接 IO。 |
@@ -35,7 +35,7 @@ agentRoot/
 
 1. 需要 Mermaid / Three / 某库 → 调用 **`vendor_fetch`**（新工具，或扩展 `catalog_install` + manifest 条目）→ 写入 `shared/vendor/...`。
 2. **WebView**：`webview_exec` 内嵌 HTML 模板，`script src` 指向缓存路径（或 `loadHtml` + baseUrl）。
-3. **QuickJS**：`execute_script` `file=transform/md-to-doc.js`，内部 `require` 指向 `shared/vendor/qjs/...`（需 Weizhi 模块加载约定，与现有 `js_lib` 搜索路径统一，见 7.2）。
+3. **QuickJS**：`run_js` `file=transform/md-to-doc.js`，内部 `require` 指向 `shared/vendor/qjs/...`（需 Weizhi 模块加载约定，与现有 `js_lib` 搜索路径统一，见 7.2）。
 
 **CDN 策略**
 

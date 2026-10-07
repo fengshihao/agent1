@@ -39,11 +39,11 @@ class ProductivitySystemPromptBuilderTest {
     void mentionsMcpCallFormWhenScriptHostToolsEnabled() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), null, true, true);
-        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("find_caps"));
         assertTrue(prompt.contains("webview_exec"));
         assertTrue(prompt.contains("$tools.webview_exec"));
-        assertTrue(prompt.contains("execute_script"));
-        assertTrue(prompt.contains("一段 execute_script"));
+        assertTrue(prompt.contains("run_js"));
+        assertTrue(prompt.contains("一段 run_js"));
         assertTrue(prompt.contains("不要在外层单独调 webview_exec"));
         assertTrue(prompt.contains("宿主系统能力"));
         assertFalse(prompt.contains("不操作手机界面"));
@@ -64,8 +64,8 @@ class ProductivitySystemPromptBuilderTest {
     void mentionsJsFirstAndCapabilitySearchWhenScriptEnabled() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
-        assertTrue(prompt.contains("execute_script"));
-        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("run_js"));
+        assertTrue(prompt.contains("find_caps"));
         assertTrue(prompt.contains("写成一段程序"));
         assertFalse(prompt.contains("webview_exec"));
         assertFalse(prompt.contains("bash"));
@@ -76,7 +76,7 @@ class ProductivitySystemPromptBuilderTest {
     void describesProductionFlowWithDirectAndJsPaths() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
-        assertTrue(prompt.contains("execute_script"));
+        assertTrue(prompt.contains("run_js"));
         assertTrue(prompt.contains("写成一段程序"));
         assertFalse(prompt.contains("直接生产"));
         assertFalse(prompt.contains("编程生产"));
@@ -106,7 +106,7 @@ class ProductivitySystemPromptBuilderTest {
         String withScript = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(withScript.contains("编程型生产力智能体"));
-        assertTrue(withScript.contains("一段 execute_script 里串行完成"));
+        assertTrue(withScript.contains("一段 run_js 里串行完成"));
         assertTrue(withScript.contains("不要拆成多轮 Run"));
         assertTrue(withScript.contains("不要在外层逐个调用"));
         assertTrue(withScript.contains("失败就改这一段"));
@@ -127,9 +127,9 @@ class ProductivitySystemPromptBuilderTest {
     void mentionsCapabilitySearchWithoutScriptEngine() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
-        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("find_caps"));
         assertTrue(prompt.contains("编程型生产力智能体"));
-        assertFalse(prompt.contains("execute_script"));
+        assertFalse(prompt.contains("run_js"));
     }
 
     @Test
@@ -138,7 +138,7 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(workspace, false);
 
-        assertFalse(prompt.contains("execute_script"));
+        assertFalse(prompt.contains("run_js"));
         assertTrue(prompt.contains("read_file"));
         assertTrue(prompt.contains("read_url"));
     }
@@ -148,7 +148,7 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
 
-        assertTrue(prompt.contains("execute_script"));
+        assertTrue(prompt.contains("run_js"));
     }
 
     @Test
@@ -183,7 +183,7 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(temp.resolve("ws"), false);
         assertFalse(prompt.contains("skill-creator"));
         assertFalse(prompt.contains("skill(action=read"));
-        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("find_caps"));
         String promote = new com.agent1.javaagent.tool.agent.PromoteRequestTool(
             temp.resolve("agentRoot"),
             temp.resolve("ws")
@@ -224,9 +224,9 @@ class ProductivitySystemPromptBuilderTest {
         assertFalse(prompt.contains("office-docx.md"));
         assertFalse(prompt.contains("HTML"));
         assertFalse(prompt.contains("toDataURL"));
-        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("find_caps"));
         assertTrue(prompt.contains("调用示例"));
-        assertTrue(prompt.contains("execute_script"));
+        assertTrue(prompt.contains("run_js"));
     }
 
     @Test
@@ -234,7 +234,7 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder().buildExploreSubagentPrompt();
         assertFalse(prompt.contains("write_file"));
         assertTrue(prompt.contains("只读"));
-        assertTrue(prompt.contains("capability_search"));
+        assertTrue(prompt.contains("find_caps"));
         assertTrue(prompt.contains("不必对每个关键词各搜一轮"));
     }
 
@@ -242,7 +242,7 @@ class ProductivitySystemPromptBuilderTest {
     void mainPromptBatchCapabilitySearchGuidance() {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
-        assertTrue(prompt.contains("capability_search 一次"));
+        assertTrue(prompt.contains("find_caps 一次"));
         assertTrue(prompt.contains("现成接口或同类脚本"));
         assertTrue(prompt.contains("query 写全"));
         assertTrue(prompt.contains("不要 glob、list_dir 或 catalog_sync"));

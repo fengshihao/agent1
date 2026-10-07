@@ -16,7 +16,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 7.1 / UC：catalog skill 经 capability_search 直接带上正文。 */
+/** 7.1 / UC：catalog skill 经 find_caps 直接带上正文。 */
 class ProductivityScriptedCatalogSkillTest {
 
     @Test
@@ -29,7 +29,7 @@ class ProductivityScriptedCatalogSkillTest {
         ScriptedLlmClient llm = ScriptedLlmClient.builder()
             .whenUserMessageContains(
                 "scripted-catalog-skill-71",
-                ScriptedResponses.toolCall("capability_search", "{\"query\":\"catalog-demo\"}")
+                ScriptedResponses.toolCall("find_caps", "{\"query\":\"catalog-demo\"}")
             )
             .whenToolResultContains("Catalog skill body", ScriptedResponses.text("已读 catalog skill"))
             .build();

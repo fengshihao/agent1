@@ -3,7 +3,7 @@ package com.agent1.javaagent.coach;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** 从 execute_script 失败与源码中识别 ensureNative 缺插件场景（5.8 catalog.missing_native）。 */
+/** 从 run_js 失败与源码中识别 ensureNative 缺插件场景（5.8 catalog.missing_native）。 */
 public final class CatalogMissingNativeHints {
 
     private static final Pattern ENSURE_NATIVE_CODE =

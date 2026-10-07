@@ -10,7 +10,7 @@ Agent1 **不实现** JS 运行时和设备 Caps。二者通过 **`java_agent/wei
 
 | 层级 | 仓库 | 典型能力 |
 |------|------|----------|
-| 编排与模型工具 | **agent1** | `ProductivityAgentHost`、工作区读写、`grep` / `glob` / `zip` / `bash`、`load_skill_through_path`、`capability_search`、审计 |
+| 编排与模型工具 | **agent1** | `ProductivityAgentHost`、工作区读写、`grep` / `glob` / `zip` / `bash`、`load_skill_through_path`、`find_caps`、审计 |
 | 脚本与端能力 | **weizhi** | `WeizhiEngine.runJs`、脚本内 `fs` / `$mcp` / Caps；`webview_exec` 的平台执行体由宿主接上 |
 
 **重要边界**：Weizhi 的 `android.*` 等 **Caps 只在 QuickJS 脚本内可用**，不会逐个注册成 LLM 的 Java `@Tool`，以免提示词与权限面失控。模型应写脚本或在检索后调用已暴露的 Agent 工具。

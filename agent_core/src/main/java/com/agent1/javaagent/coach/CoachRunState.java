@@ -1,6 +1,6 @@
 package com.agent1.javaagent.coach;
 
-/** 单次 Run 内 Coach 计数（如 script.fail_repeat、capability_search）。 */
+/** 单次 Run 内 Coach 计数（如 script.fail_repeat、find_caps）。 */
 public final class CoachRunState {
 
     private final java.util.Map<String, Integer> scriptFailureCounts = new java.util.LinkedHashMap<>();
@@ -26,7 +26,7 @@ public final class CoachRunState {
         return next;
     }
 
-    /** @return 本 Run 内 capability_search 累计调用次数 */
+    /** @return 本 Run 内 find_caps 累计调用次数 */
     public int recordCapabilitySearch(boolean emptyResult) {
         capabilitySearchUsed = true;
         capabilitySearchCalls++;

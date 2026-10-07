@@ -22,7 +22,7 @@
 | [10-运行时钩子与Coach提示.md](./10-运行时钩子与Coach提示.md) | 条件触发、告诉 AI 可做什么 |
 | [11-QuickJS调试与行号映射.md](./11-QuickJS调试与行号映射.md) | 错误行号、去掉 prelude 偏移 |
 | [12-catalog安装与AI按需拉取.md](./12-catalog安装与AI按需拉取.md) | SO 与 script 等同套 sync；AI 按文档安装 |
-| [17-能力检索-capability-search.md](./17-能力检索-capability-search.md) | **编程智能体能力索引 + capability_search 设计与 REQ** |
+| [17-能力检索-capability-search.md](./17-能力检索-capability-search.md) | **编程智能体能力索引 + find_caps 设计与 REQ** |
 | [../Agent1-SDK愿景.md](../Agent1-SDK愿景.md) | **三方嵌入式 SDK 愿景（后续实现）** |
 
 ## 讨论记录

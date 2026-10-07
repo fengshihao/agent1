@@ -40,7 +40,7 @@ class ProductivityScriptedScriptLineTest {
                     "write_file",
                     "{\"path\":\"bug.js\",\"content\":\"line1\\nline2\\nline3\\nline4\\n}\\n\"}"
                 ),
-                ScriptedResponses.toolCall("execute_script", "{\"file\":\"bug.js\"}"),
+                ScriptedResponses.toolCall("run_js", "{\"file\":\"bug.js\"}"),
                 ScriptedResponses.text("已看到行号")
             )
             .build();

@@ -11,8 +11,8 @@ import java.time.ZoneId;
 
 /**
  * 生产力助手系统提示词。
- * 默认把任务写成一段程序：检索一次，再用 execute_script 做完；外层工具不逐个接力。
- * API 与脚本引擎细则留在工具说明和 capability_search 结果里，不写进提示词。
+ * 默认把任务写成一段程序：检索一次，再用 run_js 做完；外层工具不逐个接力。
+ * API 与脚本引擎细则留在工具说明和 find_caps 结果里，不写进提示词。
  */
 public final class ProductivitySystemPromptBuilder {
 
@@ -33,7 +33,7 @@ public final class ProductivitySystemPromptBuilder {
         1. 闲聊、解释、只要建议：直接回答。
         2. 缺了会做错的关键信息：ask_user，然后结束本轮。
         3. 只动一个已知文件：一次 read_file、write_file 或 edit_file。
-        4. 其余：capability_search 一次，query 写全本任务要用的能力，按结果里的调用示例做，不要猜。然后用尽量少的步骤一次做完，不要把一件事拆成许多轮试探。
+        4. 其余：find_caps 一次，query 写全本任务要用的能力，按结果里的调用示例做，不要猜。然后用尽量少的步骤一次做完，不要把一件事拆成许多轮试探。
         写文件还可配合 glob。辅助：bash、grep、read_url。
         """.trim();
 
@@ -42,8 +42,8 @@ public final class ProductivitySystemPromptBuilder {
         默认把用户任务写成一段程序，一次做完。不要在外层逐个调用工具或 API，也不要边试边换路线。
 
         按这个顺序，不要拆成多轮 Run：
-        1. 检索：capability_search 一次。query 写全本任务要用的能力，先看有没有现成接口或同类脚本；按结果里的调用示例写，不要猜函数。
-        2. 执行：在一段 execute_script 里串行完成整件事。宿主系统能力（平台 API）只在脚本里，没有对应的外层工具；与 $tools、工作区读写、import 已有脚本一起在这一段里 await。
+        1. 检索：find_caps 一次。query 写全本任务要用的能力，先看有没有现成接口或同类脚本；按结果里的调用示例写，不要猜函数。
+        2. 执行：在一段 run_js 里串行完成整件事。宿主系统能力（平台 API）只在脚本里，没有对应的外层工具；与 $tools、工作区读写、import 已有脚本一起在这一段里 await。
         3. 修正：失败就改这一段再跑。不要改成外层逐个工具去补步骤。
 
         只有这三种情况可以不写程序：
@@ -52,7 +52,7 @@ public final class ProductivitySystemPromptBuilder {
         - 纯文本、且只动一个已知文件：一次 read_file、write_file 或 edit_file
         只要涉及格式转换、网络、系统能力、已有脚本，或两步以上，就必须写程序。
 
-        脚本路径：fs 与 workspace 内 import 可用相对或绝对路径，须在 workspace 根下（引擎归一化）。catalog 用 from "文件名.js"（不要 ./）；./ 只表示与当前脚本同目录的 workspace 文件。编排入口用 execute_script 的 file（如 jobs/run.js）。平台 Caps 的 path 仅相对路径。
+        脚本路径：fs 与 workspace 内 import 可用相对或绝对路径，须在 workspace 根下（引擎归一化）。catalog 用 from "文件名.js"（不要 ./）；./ 只表示与当前脚本同目录的 workspace 文件。编排入口用 run_js 的 file（如 jobs/run.js）。平台 Caps 的 path 仅相对路径。
         不要 glob、list_dir 或 catalog_sync 去找脚本库。外层 read_file、write_file、edit_file 只用工作区相对路径查看和改脚本，不要 workspace/ 前缀。
         """.trim();
 
@@ -61,9 +61,9 @@ public final class ProductivitySystemPromptBuilder {
         """.trim();
 
     static final String EXPLORE_SUBAGENT = """
-        你是 explore 子智能体，只执行只读任务：阅读工作区文件、列目录、capability_search、read_file 文档与汇总信息。
+        你是 explore 子智能体，只执行只读任务：阅读工作区文件、列目录、find_caps、read_file 文档与汇总信息。
         不要创建、修改或删除文件。
-        父智能体让你调研能力时：用 capability_search，query 里并列任务所需关键词。按结果里的调用示例回报。不必对每个关键词各搜一轮。
+        父智能体让你调研能力时：用 find_caps，query 里并列任务所需关键词。按结果里的调用示例回报。不必对每个关键词各搜一轮。
         完成后向父智能体回报：简明结论，以及条目清单（kind、title、调用示例）；Skill 可摘要要点，勿贴无关长文。
         """.trim();
 
