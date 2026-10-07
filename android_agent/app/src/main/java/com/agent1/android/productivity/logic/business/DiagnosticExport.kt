@@ -11,18 +11,30 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** 打包会话、事件日志、崩溃和 logcat，供分享给云端诊断。不含 API Key。 */
+/**
+ * 打包会话、事件日志、崩溃和 logcat，供分享给云端诊断。不含 API Key。
+ * Zip 仅落在 [cacheDir]/diagnostics/ 临时目录；分享后删除，启动时清理超时残留。
+ */
 object DiagnosticExport {
 
     private const val CACHE_DIR = "diagnostics"
-    private const val KEEP_ZIPS = 3
+    private const val ZIP_SUFFIX = ".zip"
+
+    /** 分享 chooser 返回后，留给目标应用读取 zip 的宽限（毫秒）。 */
+    const val SHARE_DELETE_DELAY_MS = 5L * 60L * 1000L
+
+    /** 启动时删除超过该年龄的残留诊断 zip（进程被杀、未走分享回调等）。 */
+    private const val STALE_MAX_AGE_MS = 24L * 60L * 60L * 1000L
+
+    fun diagnosticsDir(context: Context): File =
+        File(context.applicationContext.cacheDir, CACHE_DIR)
 
     fun exportZip(context: Context): File {
         val app = context.applicationContext
+        val outDir = diagnosticsDir(app).apply { mkdirs() }
+        deleteAllDiagnosticZips(outDir)
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-        val outDir = File(app.cacheDir, CACHE_DIR)
-        pruneOldZips(outDir)
-        val zip = File(outDir, "agent1-diag-$stamp.zip")
+        val zip = File(outDir, "agent1-diag-$stamp$ZIP_SUFFIX")
         val agentRoot = ProductivityGatewayProvider.agentRoot(app).toFile()
         val summary = runCatching { AndroidRuntimeNote.from(app) }.getOrElse {
             "运行时摘要读取失败: ${it.message}"
@@ -44,11 +56,40 @@ object DiagnosticExport {
         return zip
     }
 
-    private fun pruneOldZips(dir: File) {
-        val zips = dir.listFiles { file -> file.isFile && file.name.endsWith(".zip") }
-            ?.sortedByDescending { it.lastModified() }
-            .orEmpty()
-        zips.drop(KEEP_ZIPS - 1).forEach { it.delete() }
+    /** 应用启动时调用：删掉过期的诊断 zip，避免 cache 长期堆积。 */
+    fun cleanupStaleDiagnosticExports(context: Context) {
+        cleanupStaleDiagnosticExports(diagnosticsDir(context), STALE_MAX_AGE_MS)
+    }
+
+    fun cleanupStaleDiagnosticExports(dir: File, maxAgeMs: Long) {
+        if (!dir.isDirectory) {
+            return
+        }
+        val cutoff = System.currentTimeMillis() - maxAgeMs
+        dir.listFiles { file -> file.isFile && file.name.endsWith(ZIP_SUFFIX) }
+            ?.filter { it.lastModified() < cutoff }
+            ?.forEach { it.delete() }
+    }
+
+    fun deleteAllDiagnosticZips(context: Context) {
+        deleteAllDiagnosticZips(diagnosticsDir(context))
+    }
+
+    fun deleteAllDiagnosticZips(dir: File) {
+        if (!dir.isDirectory) {
+            return
+        }
+        dir.listFiles { file -> file.isFile && file.name.endsWith(ZIP_SUFFIX) }
+            ?.forEach { it.delete() }
+    }
+
+    /** 分享完成后删除本次导出的 zip（路径须在 diagnostics 目录下）。 */
+    fun deleteExportZip(zip: File) {
+        val parent = zip.parentFile ?: return
+        if (parent.name != CACHE_DIR || !zip.name.endsWith(ZIP_SUFFIX)) {
+            return
+        }
+        zip.delete()
     }
 
     private fun deviceNote(context: Context, runtimeNote: String): String {

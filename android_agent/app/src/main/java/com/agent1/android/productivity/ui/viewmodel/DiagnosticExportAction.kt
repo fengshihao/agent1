@@ -15,6 +15,7 @@ import com.agent1.android.productivity.logic.business.DiagnosticExport
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -31,21 +32,24 @@ internal fun ViewModel.launchDiagnosticExport(
                 DiagnosticExport.exportZip(activity.applicationContext)
             }
         }
-        zip.fold(
-            onSuccess = { file ->
-                val shared = runCatching { activity.startActivity(diagnosticShareIntent(activity, file)) }
-                onBusy(false)
-                onMessage(
-                    if (shared.isSuccess) {
-                        "已打开分享，把压缩包发给诊断 Agent"
-                    } else {
-                        "已打包，但无法打开分享：${shared.exceptionOrNull()?.message ?: "未知错误"}"
-                    },
-                )
-            },
-            onFailure = { error ->
-                onBusy(false)
-                onMessage("导出失败：${error.message ?: error.javaClass.simpleName}")
+        val file = zip.getOrNull()
+        if (file == null) {
+            onBusy(false)
+            onMessage("导出失败：${zip.exceptionOrNull()?.message ?: "未知错误"}")
+            return@launch
+        }
+        val shared = runCatching { activity.startActivity(diagnosticShareIntent(activity, file)) }
+        if (shared.isSuccess) {
+            scheduleDiagnosticZipCleanup(file)
+        } else {
+            withContext(Dispatchers.IO) { DiagnosticExport.deleteExportZip(file) }
+        }
+        onBusy(false)
+        onMessage(
+            if (shared.isSuccess) {
+                "已打开分享，把压缩包发给诊断 Agent"
+            } else {
+                "已打包，但无法打开分享：${shared.exceptionOrNull()?.message ?: "未知错误"}"
             },
         )
     }
@@ -99,6 +103,13 @@ internal fun ViewModel.launchBriefChatExport(
                 onMessage("导出失败：${error.message ?: error.javaClass.simpleName}")
             },
         )
+    }
+}
+
+private fun ViewModel.scheduleDiagnosticZipCleanup(zip: File) {
+    viewModelScope.launch(Dispatchers.IO) {
+        delay(DiagnosticExport.SHARE_DELETE_DELAY_MS)
+        DiagnosticExport.deleteExportZip(zip)
     }
 }
 

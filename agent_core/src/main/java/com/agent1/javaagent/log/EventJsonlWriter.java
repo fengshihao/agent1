@@ -35,6 +35,7 @@ public final class EventJsonlWriter {
 
     public synchronized void write(RunLogContext context, String type, Map<String, Object> payload) {
         try {
+            EventJsonlRetention.maybePrune(eventsPath, mapper);
             Map<String, Object> fields = payload == null ? Map.of() : payload;
             ObjectNode root = mapper.createObjectNode();
             root.put("ts", Instant.now().toString());

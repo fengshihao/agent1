@@ -11,6 +11,8 @@ import com.agent1.javaagent.llm.LlmClient;
 import com.agent1.javaagent.log.AgentEventJsonlBridge;
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
 import com.agent1.javaagent.log.AgentDataPaths;
+import com.agent1.javaagent.log.EventJsonlRetention;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.agent1.javaagent.mcp.McpCapabilitySync;
 import com.agent1.javaagent.log.RunLogContext;
 import com.agent1.javaagent.model.AgentMessage;
@@ -143,6 +145,7 @@ public final class ProductivityAgentHost implements Closeable {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
         this.projectRoot = AgentDataPaths.projectRoot(this.agentRoot);
         AgentHomeBootstrap.ensure(this.agentRoot);
+        EventJsonlRetention.pruneOnStartup(AgentDataPaths.eventsJsonl(this.agentRoot), new ObjectMapper());
         this.sessionStore = new FileSessionStore(this.agentRoot);
         this.runStore = new FileRunStore(sessionStore);
         this.scriptEngineFactory = scriptEngineFactory;
