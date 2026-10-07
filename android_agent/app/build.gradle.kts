@@ -19,6 +19,8 @@ val weizhiPrebuiltBase = rootProject.file("weizhi-prebuilt").takeIf {
 
 val weizhiIntegrated = weizhiAndroidRoot != null || weizhiPrebuiltBase != null
 
+val releaseSigningPropertiesFile = rootProject.file("release-signing.properties")
+
 /**
  * 单调递增的 versionCode，避免反复打 debug 包时因 versionCode 仍为 1 而无法覆盖安装。
  * 可覆盖：环境变量 VERSION_CODE / VERSION_NAME；CI 需 checkout fetch-depth: 0 以保证 git 计数正确。
@@ -103,6 +105,21 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        if (releaseSigningPropertiesFile.isFile) {
+            create("release") {
+                val props = Properties().apply {
+                    releaseSigningPropertiesFile.inputStream().use { load(it) }
+                }
+                val storePath = props.getProperty("storeFile")?.trim().orEmpty()
+                require(storePath.isNotEmpty()) {
+                    "release-signing.properties 缺少 storeFile"
+                }
+                storeFile = rootProject.file(storePath)
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -110,7 +127,11 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            if (releaseSigningPropertiesFile.isFile) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

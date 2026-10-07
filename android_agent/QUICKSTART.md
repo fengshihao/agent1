@@ -32,6 +32,17 @@ chmod +x run.sh   # 首次可选
 
 等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk`、启动 `com.agent1.android` 的主界面。
 
+### Release（R8 混淆 + 独立签名）
+
+```bash
+chmod +x run-release.sh bin/init-release-keystore   # 首次可选
+./run-release.sh
+```
+
+- 首次会生成 **`release.keystore`** 与 **`release-signing.properties`**（已 gitignore，与 debug 签名分离；默认密码可通过 `RELEASE_STORE_PASSWORD` / `RELEASE_KEY_PASSWORD` 覆盖）。
+- 仅编译、不装设备：`./bin/init-release-keystore && ./gradlew :app:assembleRelease` → `app/build/outputs/apk/release/agent1-android-release.apk`；混淆映射见 `app/build/outputs/mapping/release/mapping.txt`。
+- Release 与 Debug **签名不同**：无法直接覆盖安装，需 `adb uninstall com.agent1.android` 后再装 Release。
+
 ### 覆盖安装与 versionCode（含 GitHub Actions CI 包）
 
 Android **只认 `versionCode` 数字**（不是 APK 文件名）。从 **CI Artifacts** 下载 `agent1-android-debug.apk` 安装时，推荐：

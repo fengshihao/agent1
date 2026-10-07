@@ -20,3 +20,4 @@ captures/
 *.jks
 *.keystore
 !debug.keystore
+release-signing.properties
