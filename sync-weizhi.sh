@@ -54,6 +54,22 @@ if [[ ! -d "${TARGET}/android" ]]; then
   exit 1
 fi
 
+apply_weizhi_patches() {
+  local patch="${REPO_ROOT}/scripts/patches/weizhi-ndk-realpath-path-max.patch"
+  local test_c="${TARGET}/tests/test_engine.c"
+  if [[ ! -f "${patch}" ]] || [[ ! -f "${test_c}" ]]; then
+    return 0
+  fi
+  if grep -q 'folder_real\[PATH_MAX\]' "${test_c}"; then
+    echo "==> weizhi NDK realpath 补丁已应用，跳过"
+    return 0
+  fi
+  echo "==> apply weizhi patch: NDK realpath 需 PATH_MAX 缓冲区（Android NDK fortify）"
+  patch -p1 -d "${TARGET}" < "${patch}"
+}
+
+apply_weizhi_patches
+
 PUBLISH_GRADLE="${TARGET}/android/weizhi-maven-publish.gradle"
 AGENT_PUBLISH="${REPO_ROOT}/android_agent/weizhi-maven-publish.gradle"
 if [[ -f "${PUBLISH_GRADLE}" ]]; then
