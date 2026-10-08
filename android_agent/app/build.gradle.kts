@@ -129,8 +129,12 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            if (releaseSigningPropertiesFile.isFile) {
-                signingConfig = signingConfigs.getByName("release")
+            // 本机有 release-signing.properties 时用独立 release 签名。
+            // CI 没有这份私钥，退回仓库内共用 debug 签名，打出来的 Release 仍可安装。
+            signingConfig = if (releaseSigningPropertiesFile.isFile) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
             }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

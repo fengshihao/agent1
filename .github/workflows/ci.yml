@@ -155,3 +155,29 @@ jobs:
           path: android_agent/app/build/outputs/apk/debug/agent1-android-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Assemble Release APK (no API key baked in)
+        working-directory: android_agent
+        env:
+          DASHSCOPE_API_KEY: ""
+          QWEN_API_KEY: ""
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon :app:assembleRelease
+          cfg=app/build/generated/source/buildConfig/release/com/agent1/android/BuildConfig.java
+          if grep -E '(QWEN_API_KEY|DASHSCOPE_API_KEY) = "[^"]' "$cfg"; then
+            echo "Release BuildConfig 写入了 API Key，拒绝上传" >&2
+            exit 1
+          fi
+          echo "Release BuildConfig API keys are empty"
+          if [ -d ../weizhi/android ]; then
+            unzip -l app/build/outputs/apk/release/agent1-android-release.apk | grep 'lib/arm64-v8a/libweizhijni.so'
+          fi
+
+      - name: Upload Release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent1-android-release-apk
+          path: android_agent/app/build/outputs/apk/release/agent1-android-release.apk
+          if-no-files-found: error
+          retention-days: 14
