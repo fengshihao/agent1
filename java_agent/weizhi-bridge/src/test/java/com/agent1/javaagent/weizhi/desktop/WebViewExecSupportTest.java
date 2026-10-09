@@ -253,6 +253,6 @@ class WebViewExecSupportTest {
             12L
         );
         String explicit = outputRel != null && !outputRel.isEmpty() ? outputRel : null;
-        return WebViewExecSupport.renderOk(sandbox, outcome, explicit);
+        return WebViewExecSupport.renderOk(sandbox, outcome, explicit, false);
     }
 }

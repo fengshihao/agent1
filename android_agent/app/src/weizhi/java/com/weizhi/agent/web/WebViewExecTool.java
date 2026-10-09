@@ -138,20 +138,26 @@ public class WebViewExecTool {
             inputB64 = Base64.getEncoder().encodeToString(bytes);
         }
 
+        WebViewTask.PreparedCode prepared = WebViewTask.prepareCode(code);
+        code = prepared.code;
+        if (prepared.autoAsyncWrapped) {
+            WebLog.i("webview_exec auto-wrapped code with async IIFE (await detected)");
+        }
+
         WebViewTask task = new WebViewTask(code, inputB64, wasmB64, timeout);
         WebViewRuntime.ExecOutcome o = runtime.execute(task, null);
 
         if (!o.ok) {
             return errJson(o.error);
         }
-        return renderOk(o, outputRel.isEmpty() ? null : outputRel);
+        return renderOk(o, outputRel.isEmpty() ? null : outputRel, prepared.autoAsyncWrapped);
     }
 
     /**
      * 组回执。图片 Base64、超过 64KB、或调用方给了 outputRel 时落盘。
      * JSON null 为 ok:false,不写文件。落盘后的 resultPreview 不含正文。
      */
-    String renderOk(WebViewRuntime.ExecOutcome o, String outputRel) {
+    String renderOk(WebViewRuntime.ExecOutcome o, String outputRel, boolean autoAsyncWrapped) {
         WebViewResult parsed = WebViewResult.parse(o.payloadJson);
         if (parsed.parseError != null) {
             WebLog.w("webview_exec payload parse failed: " + parsed.parseError);
@@ -170,8 +176,9 @@ public class WebViewExecTool {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("ok", true);
         m.put("elapsedMs", o.elapsedMs);
-        if (parsed.unserializable) {
-            m.put("note", "结果不可 JSON 序列化,已降级为字符串形态");
+        String note = receiptNote(parsed.unserializable, autoAsyncWrapped);
+        if (note != null) {
+            m.put("note", note);
         }
         if (spill) {
             try {
@@ -210,6 +217,19 @@ public class WebViewExecTool {
             }
         }
         throw new IOException("无法分配 tmp/webview_exec/*.b64");
+    }
+
+    private static String receiptNote(boolean unserializable, boolean autoAsyncWrapped) {
+        String note = null;
+        if (unserializable) {
+            note = "结果不可 JSON 序列化,已降级为字符串形态";
+        }
+        if (autoAsyncWrapped) {
+            note = note == null
+                ? WebViewTask.AUTO_ASYNC_WRAP_NOTE
+                : note + " " + WebViewTask.AUTO_ASYNC_WRAP_NOTE;
+        }
+        return note;
     }
 
     private static String errJson(String msg) {

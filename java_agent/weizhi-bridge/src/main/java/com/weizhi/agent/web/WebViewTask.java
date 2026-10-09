@@ -1,5 +1,7 @@
 package com.weizhi.agent.web;
 
+import java.util.regex.Pattern;
+
 /**
  * SR15 P1:webview_exec 一次执行的参数快照与静态校验(纯 JVM 可单测)。
  *
@@ -21,6 +23,12 @@ public final class WebViewTask {
     public static final long MIN_TIMEOUT_MS = 1_000L;
     public static final long MAX_TIMEOUT_MS = 600_000L;
 
+    /** 自动 async IIFE 包装时写入成功回执 {@code note}，提醒模型下次手写。 */
+    public static final String AUTO_ASYNC_WRAP_NOTE =
+        "code 含 await，已自动包成 return (async () => { ... })()；下次请直接这样写。";
+
+    private static final Pattern AWAIT_WORD = Pattern.compile("\\bawait\\b");
+
     final String code;
     /** input_path 内容 base64(可空)。 */
     final String inputB64;
@@ -33,6 +41,41 @@ public final class WebViewTask {
         this.inputB64 = inputB64;
         this.wasmB64 = wasmB64;
         this.timeoutMs = timeoutMs;
+    }
+
+    /** {@link #prepareCode(String)} 的结果。 */
+    public static final class PreparedCode {
+        public final String code;
+        public final boolean autoAsyncWrapped;
+
+        PreparedCode(String code, boolean autoAsyncWrapped) {
+            this.code = code;
+            this.autoAsyncWrapped = autoAsyncWrapped;
+        }
+    }
+
+    /**
+     * 执行前规范化 user code。顶层 {@code await} 在 {@code new Function} 里会 SyntaxError，
+     * 自动包一层 {@code return (async () => { ... })()}。
+     */
+    public static PreparedCode prepareCode(String code) {
+        if (code == null || code.isEmpty()) {
+            return new PreparedCode(code, false);
+        }
+        if (returnsAsyncWrapper(code) || !containsAwait(code)) {
+            return new PreparedCode(code, false);
+        }
+        String wrapped = "return (async () => {\n" + code + "\n})();";
+        return new PreparedCode(wrapped, true);
+    }
+
+    static boolean returnsAsyncWrapper(String code) {
+        String trimmed = code.stripLeading();
+        return trimmed.startsWith("return (async") || trimmed.startsWith("return(async");
+    }
+
+    static boolean containsAwait(String code) {
+        return AWAIT_WORD.matcher(code).find();
     }
 
     /** 静态校验(native 侧可判的入参):返回带原因错误串,null=通过。 */

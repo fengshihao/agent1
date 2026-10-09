@@ -92,18 +92,23 @@ public final class WebViewExecSupport {
             inputB64 = Base64.getEncoder().encodeToString(bytes);
         }
 
+        WebViewTask.PreparedCode prepared = WebViewTask.prepareCode(code);
+        code = prepared.code;
+        boolean autoAsyncWrapped = prepared.autoAsyncWrapped;
+
         WebViewTask task = new WebViewTask(code, inputB64, wasmB64, timeout);
         CdpWebViewRuntime.WebViewRuntimeOutcome outcome = runtime.execute(task);
         if (!outcome.ok()) {
             return errJson(outcome.error());
         }
-        return renderOk(sandbox, outcome, outputRel.isEmpty() ? null : outputRel);
+        return renderOk(sandbox, outcome, outputRel.isEmpty() ? null : outputRel, autoAsyncWrapped);
     }
 
     static String renderOk(
         WorkspaceSandbox sandbox,
         CdpWebViewRuntime.WebViewRuntimeOutcome o,
-        String outputRel
+        String outputRel,
+        boolean autoAsyncWrapped
     ) {
         WebViewSpillResult parsed = WebViewSpillResult.parse(o.payloadJson());
         if (parsed.parseError != null) {
@@ -122,8 +127,9 @@ public final class WebViewExecSupport {
         Map<String, Object> receipt = new LinkedHashMap<>();
         receipt.put("ok", true);
         receipt.put("elapsedMs", o.elapsedMs());
-        if (parsed.unserializable) {
-            receipt.put("note", "结果不可 JSON 序列化,已降级为字符串形态");
+        String note = receiptNote(parsed.unserializable, autoAsyncWrapped);
+        if (note != null) {
+            receipt.put("note", note);
         }
         if (spill) {
             try {
@@ -160,6 +166,19 @@ public final class WebViewExecSupport {
             }
         }
         throw new IOException("无法分配 tmp/webview_exec/*.b64");
+    }
+
+    static String receiptNote(boolean unserializable, boolean autoAsyncWrapped) {
+        String note = null;
+        if (unserializable) {
+            note = "结果不可 JSON 序列化,已降级为字符串形态";
+        }
+        if (autoAsyncWrapped) {
+            note = note == null
+                ? WebViewTask.AUTO_ASYNC_WRAP_NOTE
+                : note + " " + WebViewTask.AUTO_ASYNC_WRAP_NOTE;
+        }
+        return note;
     }
 
     public static String errJson(String msg) {
