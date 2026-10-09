@@ -14,23 +14,18 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * 写入完整 HTML 页后，宿主用已注册的 {@code webview_exec} 在 iframe 里打开并回报指标。
- * 模型不需要再记得去测。没有 WebView 时只附加跳过说明，不把写入标成失败。
+ * HTML 交付冒烟（18 号规划 Phase C 优化：检测时机从「每笔写入」改为「run 收尾统一」）。
+ *
+ * 每笔 write/edit 只收集路径（无浏览器调用，~0ms）；
+ * {@code AgentRuntime} 在 run 交付前对本轮改动过的 html 各跑一次
+ * {@link #smokeFile}（宿主用已注册的 {@code webview_exec} 在 iframe 里打开并回报指标）。
+ * 这样编辑反馈循环回到 ~100ms 级，白屏拦截仍保留在交付边界。
  */
 public final class HtmlHarnessSmoke {
 
-    static final int LARGE_HTML_CHARS = 6_000;
-    static final int FAT_STYLE_CHARS = 1_500;
-
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final Pattern STYLE_BLOCK = Pattern.compile("(?is)<style[^>]*>(.*?)</style>");
-    private static final String COACH_MISSING_SOURCE =
-        "HTML 壳应保持很短。正文放到同目录的 Markdown、Mermaid 或 JSON，再用 find_caps 的 web_lib 示例渲染。"
-            + "样式用条目里的 CSS URL，不要内联大段 style。";
 
     /**
      * 在引导页里开 iframe 写 srcdoc。不能 document.write，否则会拆掉 WebView 与宿主的桥。
@@ -68,35 +63,45 @@ public final class HtmlHarnessSmoke {
     }
 
     /**
-     * @return {@code null} 表示这次写入不是 HTML 页，调用方保持原回执
+     * 写入参数里的 html/htm 路径；供 run 收尾收集「本轮改过哪些页面」。
+     *
+     * @return {@code null} 表示这次写入不是 html 页
      */
-    public static Outcome augment(
-        AgentTool webview,
-        WorkspaceSandbox sandbox,
-        JsonNode writeParams,
-        String writeResultText,
-        CancellationToken token
-    ) {
-        if (writeParams == null) {
+    public static String htmlPathOf(JsonNode params) {
+        if (params == null) {
             return null;
         }
-        String path = writeParams.path("path").asText("").trim();
-        String content = contentFor(writeParams, sandbox, path);
+        String path = params.path("path").asText("").trim();
+        if (path.isEmpty()) {
+            return null;
+        }
+        String normalized = path.replace('\\', '/').toLowerCase(Locale.ROOT);
+        return (normalized.endsWith(".html") || normalized.endsWith(".htm")) ? path : null;
+    }
+
+    /**
+     * run 收尾对单个 html 跑冒烟（iframe 打开 + 指标回报）。
+     *
+     * @return {@code null} 表示该文件已不是 harness 页，调用方安静跳过
+     */
+    public static Outcome smokeFile(
+        AgentTool webview,
+        WorkspaceSandbox sandbox,
+        String path,
+        CancellationToken token
+    ) {
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+        String content = contentFor(null, sandbox, path);
         if (!isHarness(path, content)) {
             return null;
         }
-        String base = writeResultText == null ? "" : writeResultText;
-        StringBuilder out = new StringBuilder(base);
-        String sourceAdvice = missingSourceAdvice(sandbox, path, content);
-        if (sourceAdvice != null) {
-            out.append("\n\n---\n[coach] html.missing_source: ").append(sourceAdvice);
-        }
         if (token != null && token.isCancelled()) {
-            return new Outcome(out.toString(), false);
+            return new Outcome("[html_smoke] " + path + " 取消", false);
         }
         if (webview == null) {
-            out.append("\nhtml_smoke: 跳过（没有 webview_exec），未在浏览器里打开。");
-            return new Outcome(out.toString(), false);
+            return new Outcome("[html_smoke] " + path + " 跳过（没有 webview_exec）", false);
         }
         String receipt;
         try {
@@ -113,16 +118,14 @@ public final class HtmlHarnessSmoke {
             receipt = probed == null ? "" : probed.getText();
         } catch (Exception e) {
             String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-            out.append("\nhtml_smoke: 失败。webview_exec 异常：").append(clip(message, 240));
-            return new Outcome(out.toString(), true);
+            return new Outcome("[html_smoke] " + path + " 失败。webview_exec 异常：" + clip(message, 240), true);
         }
         Verdict verdict = interpret(content, receipt);
-        out.append("\n").append(verdict.summary());
-        return new Outcome(out.toString(), !verdict.ok());
+        return new Outcome("[html_smoke] " + path + " " + verdict.summary(), !verdict.ok());
     }
 
     private static String contentFor(JsonNode params, WorkspaceSandbox sandbox, String path) {
-        if (params.has("content") && !params.get("content").isNull()) {
+        if (params != null && params.has("content") && !params.get("content").isNull()) {
             return params.path("content").asText("");
         }
         if (sandbox == null || path == null || path.isBlank()) {
@@ -167,17 +170,6 @@ public final class HtmlHarnessSmoke {
             || lower.contains("cytoscape")
             || lower.contains("vis-network")
             || lower.contains("vega");
-    }
-
-    static String missingSourceAdvice(WorkspaceSandbox sandbox, String path, String content) {
-        if (content == null) {
-            return null;
-        }
-        boolean fat = content.length() >= LARGE_HTML_CHARS || inlineStyleChars(content) >= FAT_STYLE_CHARS;
-        if (!fat || hasStructuredSibling(sandbox, path)) {
-            return null;
-        }
-        return COACH_MISSING_SOURCE;
     }
 
     static Verdict interpret(String html, String receipt) {
@@ -287,47 +279,6 @@ public final class HtmlHarnessSmoke {
             || lower.contains("syntaxerror")
             || lower.contains("referenceerror")
             || lower.contains("typeerror");
-    }
-
-    private static int inlineStyleChars(String content) {
-        int total = 0;
-        Matcher matcher = STYLE_BLOCK.matcher(content);
-        while (matcher.find()) {
-            total += matcher.group(1).length();
-        }
-        return total;
-    }
-
-    private static boolean hasStructuredSibling(WorkspaceSandbox sandbox, String htmlPath) {
-        if (sandbox == null || htmlPath == null || htmlPath.isBlank()) {
-            return false;
-        }
-        final Path file;
-        try {
-            file = sandbox.resolveWrite(htmlPath);
-        } catch (SecurityException e) {
-            return false;
-        }
-        Path dir = file.getParent();
-        if (dir == null || !Files.isDirectory(dir)) {
-            return false;
-        }
-        try (var stream = Files.list(dir)) {
-            return stream.anyMatch(path -> {
-                if (path.equals(file) || !Files.isRegularFile(path)) {
-                    return false;
-                }
-                String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-                return name.endsWith(".md")
-                    || name.endsWith(".mmd")
-                    || name.endsWith(".json")
-                    || name.endsWith(".csv")
-                    || name.endsWith(".yml")
-                    || name.endsWith(".yaml");
-            });
-        } catch (IOException e) {
-            return false;
-        }
     }
 
     private static String clip(String text, int max) {
