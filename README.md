@@ -197,6 +197,7 @@ Agent1 要成为 **Android / 嵌入式 JVM 宿主** 里的默认 **生产力编�
 5. **WebView:在设备上「看得见」的结果**
    - **Android**:系统 WebView + `webview_exec`,适合渲染脚本页、图表、表单总结等(见 `android_agent/doc/webview-draw-e2e.md`)。
    - **桌面联调**:Headless Chromium + CDP,协议与 Skill 尽量与 Android 对齐。
+   - **网页图**:`find_caps` 的 `web_lib` 给出按库锁定的 CDN 和薄 HTML 壳。同一批壳安装在 `shared/catalog/templates/`。先写 Markdown / Mermaid / JSON,再套壳。`write_file` 或 `edit_file` 写入 `.html` 后宿主自动用 `webview_exec` 打开检查,失败会回到工具回执。
 
 6. **自进化数据面**
    Session 隔离的可写沙箱;可复用产出晋升到 **shared/**;`events.jsonl` 全链路审计;catalog 与云端资源同步(规划中)。目标:越用越懂你的流程,而不是每次从零科普工具列表。
@@ -249,7 +250,7 @@ Agent1 is a **compact, embeddable programming agent** for **Android and other JV
 
 - **JavaScript-first**: orchestrate tasks with `run_js` (Weizhi QuickJS) in the session workspace; call Caps, catalog scripts, `$tools`, and `$mcp.*` from JS.
 - **Discovery, not prompt bloat**: use **`find_caps`** to get a callable example for skills, APIs, and MCP tools; load workflows with **`load_skill`**. API manuals are not shipped in the app.
-- **WebView tools**: render script-driven pages on device (Android WebView; desktop Chromium for dev).
+- **WebView tools**: render script-driven pages on device (Android WebView; desktop Chromium for dev). `find_caps` kind `web_lib` lists pinned CDN URLs. After `write_file` of an HTML page, the host opens it in WebView and returns a short smoke result.
 - **MCP**: configure servers under `agentRoot`; invoke from scripts without registering every tool in Java.
 - **Self-evolution**: session sandboxes, promotion to shared catalog, full event trail — see `doc/规划/自进化Agent/`.
 

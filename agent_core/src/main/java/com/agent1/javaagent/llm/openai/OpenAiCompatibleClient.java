@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -95,6 +96,8 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 if (attempt == maxRetries || !shouldRetry(e)) {
                     throw e;
                 }
+                // 手机上上一轮 SSE 被拆掉后，连接池里的 socket 经常是坏的，下一轮开头会直接 abort。
+                httpClient.connectionPool().evictAll();
                 streamListener.onRetryAttempt();
                 sleepBackoff(attempt);
             }
@@ -151,6 +154,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
         StreamAccumulator acc = new StreamAccumulator();
         CountDownLatch done = new CountDownLatch(1);
         List<Exception> errors = new ArrayList<>();
+        AtomicBoolean sawDone = new AtomicBoolean(false);
 
         EventSource eventSource = EventSources.createFactory(httpClient).newEventSource(
             httpRequest,
@@ -162,6 +166,9 @@ public final class OpenAiCompatibleClient implements LlmClient {
                         return;
                     }
                     if ("[DONE]".equals(data)) {
+                        // 先标记完成再 cancel。cancel 会让 OkHttp 以 stream was reset: CANCEL 回调 onFailure，
+                        // 那是本地收尾，不是网关失败。
+                        sawDone.set(true);
                         done.countDown();
                         eventSource.cancel();
                         return;
@@ -179,7 +186,7 @@ public final class OpenAiCompatibleClient implements LlmClient {
                 @Override
                 public void onFailure(EventSource eventSource, Throwable t, okhttp3.Response response) {
                     try {
-                        if (!cancellationToken.isCancelled()) {
+                        if (!cancellationToken.isCancelled() && !sawDone.get()) {
                             errors.add(toFailure(t, response));
                         }
                     } catch (Throwable handlerFailure) {
@@ -212,10 +219,31 @@ public final class OpenAiCompatibleClient implements LlmClient {
         if (cancellationToken.isCancelled()) {
             throw new LlmCancelledException();
         }
-        if (!errors.isEmpty()) {
+        if (!errors.isEmpty()
+            && !suppressTerminalFailure(sawDone.get(), acc.finishReason, errors.get(0).getMessage())) {
             throw errors.get(0);
         }
         return acc.toResponse();
+    }
+
+    /**
+     * 收到 {@code [DONE]} 后主动 cancel，或正文已经带 finish_reason 时连接被拆掉，
+     * 都不应把已经收齐的回复丢掉。空回复上的 abort 仍然抛出，交给重试。
+     */
+    static boolean suppressTerminalFailure(boolean sawDone, String finishReason, String errorMessage) {
+        if (sawDone) {
+            return true;
+        }
+        if (finishReason == null || finishReason.isBlank() || errorMessage == null) {
+            return false;
+        }
+        String lower = errorMessage.toLowerCase();
+        return lower.contains("connection abort")
+            || lower.contains("stream was reset")
+            || lower.contains("canceled")
+            || lower.contains("cancelled")
+            || lower.contains("socket closed")
+            || lower.contains("unexpected end of stream");
     }
 
     private Exception toFailure(Throwable t, okhttp3.Response response) {

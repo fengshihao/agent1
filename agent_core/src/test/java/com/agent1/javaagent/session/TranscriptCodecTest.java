@@ -1,6 +1,8 @@
 package com.agent1.javaagent.session;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.ToolCall;
@@ -38,5 +40,22 @@ class TranscriptCodecTest {
         assertEquals(1, restored.getToolCalls().size());
         assertEquals("read_file", restored.getToolCalls().get(0).getName());
         assertEquals("{\"path\":\"a.txt\"}", restored.getToolCalls().get(0).getArgumentsJson());
+    }
+
+    @Test
+    void fromLine_assignsUniqueIdsWhenTranscriptHasBlankOrNullLiteralIds() {
+        String line = """
+            {"role":"assistant","content":"x","createdAt":1,"runId":"r1","error":false,\
+            "toolCalls":[\
+            {"id":"","name":"read_file","argumentsJson":"{}"},\
+            {"id":"null","name":"write_file","argumentsJson":"{}"}\
+            ]}""";
+        AgentMessage restored = codec.fromLine(line);
+        assertEquals(2, restored.getToolCalls().size());
+        String id0 = restored.getToolCalls().get(0).getId();
+        String id1 = restored.getToolCalls().get(1).getId();
+        assertTrue(id0.startsWith("tool_call_"));
+        assertTrue(id1.startsWith("tool_call_"));
+        assertNotEquals(id0, id1);
     }
 }

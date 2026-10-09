@@ -20,8 +20,10 @@ public final class CapabilitySeedLoader {
     private static final String WEIZHI_CARDS_RESOURCE = "/agent-home/capabilities/weizhi-api-cards.jsonl";
     /** Word / PPT 调用卡。真源在本仓库，不随 Weizhi 发布。 */
     private static final String OFFICE_CARDS_RESOURCE = "/agent-home/capabilities/office-api-cards.jsonl";
+    /** 浏览器 JS/CSS 库：按库策展稳定 CDN，不按业务场景拆条。 */
+    private static final String WEB_LIB_CARDS_RESOURCE = "/agent-home/capabilities/web-lib-cards.jsonl";
     private static final String[] SEED_RESOURCES = {
-        SEED_RESOURCE, WEIZHI_CARDS_RESOURCE, OFFICE_CARDS_RESOURCE
+        SEED_RESOURCE, WEIZHI_CARDS_RESOURCE, OFFICE_CARDS_RESOURCE, WEB_LIB_CARDS_RESOURCE
     };
 
     private static volatile String fingerprintCache;
@@ -66,6 +68,7 @@ public final class CapabilitySeedLoader {
         out.addAll(loadResource(SEED_RESOURCE, false));
         out.addAll(loadResource(WEIZHI_CARDS_RESOURCE, true));
         out.addAll(loadResource(OFFICE_CARDS_RESOURCE, true));
+        out.addAll(loadResource(WEB_LIB_CARDS_RESOURCE, false));
         return out;
     }
 

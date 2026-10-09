@@ -75,8 +75,9 @@ public final class CapabilitySearchTool implements AgentTool {
             query 用空格分隔关键词，一次写全；命中越多越靠前。
             无翻页：只返回前 limit 条（默认 8，可设 1–20）。不够就改 query 或提高 limit。
             同一轮不必并行多次；不够再下一轮再搜。
-            默认检索全部类型（mcp、skill、catalog_script、caps 等）。前两条 MCP 命中带参数，其余给出名称和调用示例。命中 Skill 会直接带上正文。
+            默认检索全部类型（mcp、skill、catalog_script、caps、web_lib 等）。前两条 MCP 命中带参数，其余给出名称和调用示例。命中 Skill 会直接带上正文。
             结果里的调用示例可以直接写进 run_js。
+            流程图、思维导图、统计图和页面样式的稳定 CDN 在 web_lib 条目里。script 与 link 只用条目中的 URL，不要自造地址或猜全局变量。
             """.trim();
     }
 
