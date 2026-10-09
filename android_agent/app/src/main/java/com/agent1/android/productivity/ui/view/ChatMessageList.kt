@@ -45,6 +45,7 @@ internal fun ChatMessageList(
     onPickFiles: () -> Unit,
     pickFilesEnabled: Boolean,
     modifier: Modifier = Modifier,
+    onOpenInApp: ((String) -> Unit)? = null,
 ) {
     val visibleLines = state.lines.filterNot { it.hideInChat }
     val listState = rememberLazyListState()
@@ -150,6 +151,7 @@ internal fun ChatMessageList(
                 reasoningStateKey = line.stableKey.ifBlank { "line-$index" },
                 onPickFiles = onPickFiles,
                 pickFilesEnabled = pickFilesEnabled,
+                onOpenInApp = onOpenInApp,
             )
         }
         itemsIndexed(
@@ -170,6 +172,7 @@ internal fun ChatMessageList(
                         reasoningStateKey = item.id,
                         onPickFiles = onPickFiles,
                         pickFilesEnabled = false,
+                        onOpenInApp = onOpenInApp,
                     )
                 }
                 is ChatRunTimelineItem.ToolPart -> {
@@ -207,6 +210,7 @@ internal fun ChatMessageList(
                     reasoningStateKey = "assistant-streaming-${state.sessionId}",
                     onPickFiles = onPickFiles,
                     pickFilesEnabled = false,
+                    onOpenInApp = onOpenInApp,
                 )
             }
         }

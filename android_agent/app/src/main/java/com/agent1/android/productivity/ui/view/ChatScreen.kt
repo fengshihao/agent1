@@ -53,6 +53,8 @@ fun ChatScreen(
     onOpenMcp: () -> Unit,
     onOpenCapabilities: () -> Unit,
     onOpenSystemPrompt: () -> Unit,
+    /** 传入且文件可内置预览（html）时，点「打开」走 app 内预览路由。 */
+    onOpenInApp: ((String) -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
@@ -174,6 +176,7 @@ fun ChatScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
+                    onOpenInApp = onOpenInApp,
                 )
                 state.pendingAskUser?.let { form ->
                     AskUserFormPanel(

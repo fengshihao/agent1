@@ -21,6 +21,8 @@ fun WorkspaceChatBody(
     workspaceFilePaths: List<String>,
     modifier: Modifier = Modifier,
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
+    /** 传入且文件可内置预览（html）时，点「打开」走 app 内预览路由。 */
+    onOpenInApp: ((String) -> Unit)? = null,
 ) {
     if (content.isBlank()) return
     val root = remember(workspaceAbsolutePath) {
@@ -36,27 +38,40 @@ fun WorkspaceChatBody(
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         when {
             useMarkdown -> {
+                val inlineImagePaths = remember(logicalContent, root) {
+                    ChatTranscriptFormatting.extractMarkdownImagePaths(logicalContent)
+                        .map { ChatTranscriptFormatting.normalizeWorkspacePath(it, root) }
+                        .toSet()
+                }
                 WorkspaceMarkdown(
                     content = ChatTranscriptFormatting.rewriteWorkspaceMarkdownHrefs(
                         ChatTranscriptFormatting.linkifyBareWorkspacePaths(logicalContent, paths),
                     ),
                     workspaceAbsolutePath = workspaceAbsolutePath,
+                    onOpenInApp = onOpenInApp,
                 )
                 // 流式阶段（非 markdown 渲染）会对图片路径显示预览；完成后切到 markdown
                 // 渲染时只有超链接，图片会“消失”。这里补渲染正文引用的图片预览，保持一致。
                 // ![](path) 内联图已由 WorkspaceMarkdown 的 ImageTransformer 渲染，跳过避免重复。
                 if (workspaceAbsolutePath.isNotBlank()) {
-                    val inlineImagePaths = remember(logicalContent, root) {
-                        ChatTranscriptFormatting.extractMarkdownImagePaths(logicalContent)
-                            .map { ChatTranscriptFormatting.normalizeWorkspacePath(it, root) }
-                            .toSet()
-                    }
                     paths.filter {
                         ChatTranscriptFormatting.isImageWorkspacePath(it) && it !in inlineImagePaths
                     }.forEach { rel ->
                         WorkspaceImagePreview(
                             workspaceAbsolutePath = workspaceAbsolutePath,
                             workspaceRelativePath = rel,
+                        )
+                    }
+                    // Markdown 正文已是可点链接；另起一行仅保留打开/分享（54ee3b3 整段 Markdown 后曾丢失）。
+                    val actionPaths = paths.filter { rel ->
+                        !ChatTranscriptFormatting.isImageWorkspacePath(rel) || rel !in inlineImagePaths
+                    }
+                    if (actionPaths.isNotEmpty()) {
+                        WorkspaceFileAttachments(
+                            workspaceAbsolutePath = workspaceAbsolutePath,
+                            relativePaths = actionPaths,
+                            showPathLabels = false,
+                            onOpenInApp = onOpenInApp,
                         )
                     }
                 }
@@ -69,6 +84,7 @@ fun WorkspaceChatBody(
                     textStyle = textStyle,
                     linkStyle = textStyle.copy(color = MaterialTheme.colorScheme.primary),
                     markdown = false,
+                    onOpenInApp = onOpenInApp,
                 )
             }
             else -> {

@@ -3,6 +3,7 @@ package com.agent1.android.productivity.ui.view
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import android.net.Uri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -23,6 +24,9 @@ private object Routes {
     const val MCP = "mcp-settings"
     const val CAPABILITIES = "capabilities"
     const val PROMPT = "system-prompt/{sessionId}"
+
+    /** path 为 URL 编码后的 workspace 相对路径（含 `/`），Navigation 会自动解码。 */
+    const val PREVIEW = "preview/{sessionId}/{path}"
 }
 
 @Composable
@@ -44,6 +48,9 @@ fun ProductivityNavHost() {
                 onOpenSystemPrompt = { sessionId ->
                     val id = sessionId.ifBlank { "-" }
                     nav.navigate("system-prompt/$id")
+                },
+                onOpenHtmlPreview = { sessionId, relativePath ->
+                    nav.navigate("preview/${Uri.encode(sessionId)}/${Uri.encode(relativePath)}")
                 },
             )
         }
@@ -89,6 +96,21 @@ fun ProductivityNavHost() {
             )
             SystemPromptScreen(
                 viewModel = vm,
+                onBack = { nav.popBackStack() },
+            )
+        }
+        composable(
+            route = Routes.PREVIEW,
+            arguments = listOf(
+                navArgument("sessionId") { type = NavType.StringType },
+                navArgument("path") { type = NavType.StringType },
+            ),
+        ) { entry ->
+            val sessionId = entry.arguments?.getString("sessionId").orEmpty()
+            val relativePath = entry.arguments?.getString("path").orEmpty()
+            HtmlPreviewScreen(
+                sessionId = sessionId,
+                relativePath = relativePath,
                 onBack = { nav.popBackStack() },
             )
         }

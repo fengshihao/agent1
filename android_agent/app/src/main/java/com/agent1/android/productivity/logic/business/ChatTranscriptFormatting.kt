@@ -26,6 +26,8 @@ object ChatTranscriptFormatting {
 
     private val attachmentExt = setOf(
         "docx", "doc", "pdf", "xlsx", "xls", "pptx", "ppt", "md", "txt", "csv", "svg",
+        // html 走 app 内置预览（见 doc/规划/自进化Agent/18-内置HTML预览与点选审查.md）
+        "html", "htm",
     )
 
     fun formatToolResult(raw: String, workspaceRoot: Path?): ToolResultDisplay {

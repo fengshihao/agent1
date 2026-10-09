@@ -38,6 +38,8 @@ fun WorkspaceInlineLinkifiedText(
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     linkStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     markdown: Boolean = false,
+    /** 传入时 html 等可内置预览的文件改走 app 内预览路由。 */
+    onOpenInApp: ((String) -> Unit)? = null,
 ) {
     if (workspaceAbsolutePath.isBlank()) {
         Text(content, modifier = modifier, style = textStyle, color = MaterialTheme.colorScheme.onSurface)
@@ -62,6 +64,7 @@ fun WorkspaceInlineLinkifiedText(
                 root = root,
                 textStyle = textStyle,
                 linkStyle = linkStyle,
+                onOpenInApp = onOpenInApp,
             )
         }
     } else {
@@ -77,6 +80,7 @@ fun WorkspaceInlineLinkifiedText(
                 root = root,
                 textStyle = textStyle,
                 linkStyle = linkStyle,
+                onOpenInApp = onOpenInApp,
             )
         }
     }
@@ -90,6 +94,7 @@ private fun RenderLinkifiedSegments(
     root: Path,
     textStyle: TextStyle,
     linkStyle: TextStyle,
+    onOpenInApp: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val shownImagePaths = remember(segments) { mutableSetOf<String>() }
@@ -122,6 +127,7 @@ private fun RenderLinkifiedSegments(
                     relativePath = path,
                     onOpen = { WorkspaceFileActions.openWorkspaceFile(context, root, path) },
                     onShare = { WorkspaceFileActions.shareWorkspaceFile(context, root, path) },
+                    onOpenInApp = onOpenInApp,
                     linkStyle = linkStyle,
                     labelOverride = segment.text.ifBlank { null },
                 )
@@ -139,9 +145,13 @@ internal fun WorkspaceFileLinkRow(
     linkStyle: TextStyle = MaterialTheme.typography.bodySmall,
     showLabel: Boolean = true,
     labelOverride: String? = null,
+    /** 传入且文件可内置预览（html）时，点「打开」走 app 内预览路由。 */
+    onOpenInApp: ((String) -> Unit)? = null,
 ) {
     val label = labelOverride?.takeIf { it.isNotBlank() }
         ?: relativePath.substringAfterLast('/').ifEmpty { relativePath }
+    val inAppOpener = onOpenInApp?.takeIf { WorkspaceFileActions.isPreviewableInApp(relativePath) }
+    val openAction = { if (inAppOpener != null) inAppOpener(relativePath) else onOpen() }
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
@@ -149,7 +159,7 @@ internal fun WorkspaceFileLinkRow(
         if (showLabel) {
             Text(
                 text = label,
-                modifier = Modifier.clickable(onClick = onOpen),
+                modifier = Modifier.clickable(onClick = openAction),
                 style = linkStyle,
                 color = MaterialTheme.colorScheme.primary,
                 textDecoration = TextDecoration.Underline,
@@ -157,7 +167,7 @@ internal fun WorkspaceFileLinkRow(
             )
         }
         IconButton(
-            onClick = onOpen,
+            onClick = openAction,
             modifier = Modifier.size(32.dp),
         ) {
             Icon(
