@@ -212,4 +212,33 @@ class ChatTranscriptFormattingTest {
         assertEquals("hello tool", display.summary)
         assertNull(display.workspaceImagePath)
     }
+
+    @Test
+    fun formatToolResult_parsesHtmlOutputPath() {
+        val raw = """{"ok":true,"path":"out/index.html","bytes":512}"""
+        val display = ChatTranscriptFormatting.formatToolResult(raw, null)
+        assertEquals(listOf("out/index.html"), display.workspaceFilePaths)
+        assert(display.summary.contains("index.html"))
+    }
+
+    @Test
+    fun extractMarkdownFileLinks_findsHtmlLink() {
+        val paths = ChatTranscriptFormatting.extractMarkdownFileLinks("预览 [页面](out/index.html)")
+        assertEquals(listOf("out/index.html"), paths)
+    }
+
+    @Test
+    fun extractPlainWorkspacePaths_findsBareHtml() {
+        val paths = ChatTranscriptFormatting.extractPlainWorkspacePaths("见 out/index.html 与 demo.htm")
+        assertEquals(listOf("out/index.html", "demo.htm"), paths)
+    }
+
+    @Test
+    fun splitLinkifiedSegments_htmlLinkIsWorkspacePath() {
+        val segments = ChatTranscriptFormatting.splitLinkifiedSegments(
+            "已生成 [预览页](out/index.html)",
+            emptyList(),
+        )
+        assertEquals("out/index.html", segments.last().workspacePath)
+    }
 }

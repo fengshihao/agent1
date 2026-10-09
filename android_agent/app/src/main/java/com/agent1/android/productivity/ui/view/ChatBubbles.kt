@@ -46,6 +46,7 @@ internal fun MessageBubble(
     reasoningStateKey: String,
     onPickFiles: () -> Unit,
     pickFilesEnabled: Boolean,
+    onOpenInApp: ((String) -> Unit)? = null,
 ) {
     val bubbles = chatBubbleColors()
     val isUser = line.role == "user" && !line.isTool
@@ -103,6 +104,7 @@ internal fun MessageBubble(
                                         workspaceAbsolutePath = workspacePath,
                                         markdown = markdown,
                                         workspaceFilePaths = line.workspaceFilePaths,
+                                        onOpenInApp = onOpenInApp,
                                     )
                                 }
                                 if (line.requestUserPickFiles) {

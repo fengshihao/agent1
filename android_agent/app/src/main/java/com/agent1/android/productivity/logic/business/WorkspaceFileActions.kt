@@ -11,6 +11,15 @@ import java.nio.file.Path
 /** 打开 / 分享 workspace 内用户文件（logic.business，无 Compose 依赖）。 */
 object WorkspaceFileActions {
 
+    /**
+     * 是否改为 app 内置 WebView 预览（不外跳）。
+     * 当前仅 html；由 ui 层决定具体预览路由（本类不依赖 Activity/UI 类型）。
+     */
+    fun isPreviewableInApp(relativePath: String): Boolean {
+        val ext = relativePath.substringAfterLast('.', "").lowercase()
+        return ext == "html" || ext == "htm"
+    }
+
     fun mimeTypeForRelativePath(relativePath: String): String {
         val ext = relativePath.substringAfterLast('.', "").lowercase()
         return when (ext) {
@@ -24,6 +33,7 @@ object WorkspaceFileActions {
             "md" -> "text/markdown"
             "txt" -> "text/plain"
             "csv" -> "text/csv"
+            "html", "htm" -> "text/html"
             "svg" -> "image/svg+xml"
             "png" -> "image/png"
             "jpg", "jpeg" -> "image/jpeg"

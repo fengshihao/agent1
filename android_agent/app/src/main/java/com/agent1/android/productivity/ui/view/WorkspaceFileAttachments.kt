@@ -19,6 +19,8 @@ fun WorkspaceFileAttachments(
     modifier: Modifier = Modifier,
     /** Markdown 正文已展示链接时，仅保留打开/分享按钮行。 */
     showPathLabels: Boolean = true,
+    /** 传入且文件可内置预览（html）时，点「打开」走 app 内预览路由。 */
+    onOpenInApp: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     if (workspaceAbsolutePath.isBlank()) return
@@ -31,6 +33,7 @@ fun WorkspaceFileAttachments(
                 relativePath = relative,
                 onOpen = { WorkspaceFileActions.openWorkspaceFile(context, root, relative) },
                 onShare = { WorkspaceFileActions.shareWorkspaceFile(context, root, relative) },
+                onOpenInApp = onOpenInApp,
                 showLabel = showPathLabels,
                 modifier = if (showPathLabels) {
                     Modifier.fillMaxWidth()

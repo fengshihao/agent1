@@ -27,6 +27,8 @@ fun WorkspaceMarkdown(
     content: String,
     workspaceAbsolutePath: String,
     modifier: Modifier = Modifier,
+    /** 传入且文件可内置预览（html）时，点击链接走 app 内预览路由。 */
+    onOpenInApp: ((String) -> Unit)? = null,
 ) {
     val root = workspaceAbsolutePath
     val context = LocalContext.current
@@ -46,7 +48,7 @@ fun WorkspaceMarkdown(
         }
     }
     val defaultUriHandler = LocalUriHandler.current
-    val uriHandler = remember(defaultUriHandler, workspaceRoot, context) {
+    val uriHandler = remember(defaultUriHandler, workspaceRoot, context, onOpenInApp) {
         object : UriHandler {
             override fun openUri(uri: String) {
                 val trimmed = uri.trim()
@@ -58,7 +60,11 @@ fun WorkspaceMarkdown(
                 ) {
                     val normalized = SessionWorkspacePaths.normalizeWorkspaceRelativePath(href)
                     if (SessionWorkspacePaths.resolveFile(workspaceRoot, normalized) != null) {
-                        WorkspaceFileActions.openWorkspaceFile(context, workspaceRoot, normalized)
+                        if (onOpenInApp != null && WorkspaceFileActions.isPreviewableInApp(normalized)) {
+                            onOpenInApp.invoke(normalized)
+                        } else {
+                            WorkspaceFileActions.openWorkspaceFile(context, workspaceRoot, normalized)
+                        }
                         return
                     }
                     if (hadWorkspacePrefix) {

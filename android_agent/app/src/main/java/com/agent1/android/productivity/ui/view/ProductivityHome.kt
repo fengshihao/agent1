@@ -42,6 +42,8 @@ fun ProductivityHome(
     onOpenMcp: () -> Unit,
     onOpenCapabilities: () -> Unit,
     onOpenSystemPrompt: (String) -> Unit,
+    /** 打开 app 内置 HTML 预览（sessionId + workspace 相对路径）。 */
+    onOpenHtmlPreview: (sessionId: String, relativePath: String) -> Unit,
 ) {
     val listState by sessionListViewModel.state.collectAsState()
     val context = LocalContext.current
@@ -172,6 +174,7 @@ fun ProductivityHome(
                 onOpenMcp = onOpenMcp,
                 onOpenCapabilities = onOpenCapabilities,
                 onOpenSystemPrompt = { onOpenSystemPrompt(sessionId) },
+                onOpenHtmlPreview = onOpenHtmlPreview,
             )
         }
     }
@@ -188,6 +191,7 @@ private fun ChatPane(
     onOpenMcp: () -> Unit,
     onOpenCapabilities: () -> Unit,
     onOpenSystemPrompt: () -> Unit,
+    onOpenHtmlPreview: (sessionId: String, relativePath: String) -> Unit,
 ) {
     val viewModel: ChatViewModel = viewModel(
         key = "chat-$sessionId",
@@ -202,6 +206,8 @@ private fun ChatPane(
         onOpenMcp = onOpenMcp,
         onOpenCapabilities = onOpenCapabilities,
         onOpenSystemPrompt = onOpenSystemPrompt,
+        // 会话工作区路径由 sessionId 在预览路由内解析，这里只需注入当前会话 id。
+        onOpenInApp = { relativePath -> onOpenHtmlPreview(sessionId, relativePath) },
     )
 }
 
