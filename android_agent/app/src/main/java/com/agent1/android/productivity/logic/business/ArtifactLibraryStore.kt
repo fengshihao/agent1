@@ -43,7 +43,7 @@ object ArtifactLibraryStore {
     fun listArtifacts(context: Context): List<ArtifactEntry> =
         listArtifacts(sessionsRoot(context))
 
-    /** 纯 Path 版扫描（便于 JVM 单测）：sessions/<id>/workspace/** 常规文件，按修改时间倒序。 */
+    /** 纯 Path 版扫描（便于 JVM 单测）：sessions/<id>/workspace 下所有常规文件，按修改时间倒序。 */
     fun listArtifacts(sessionsRoot: Path): List<ArtifactEntry> {
         if (!Files.isDirectory(sessionsRoot)) return emptyList()
         val entries = mutableListOf<ArtifactEntry>()
