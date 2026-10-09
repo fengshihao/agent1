@@ -118,13 +118,13 @@ class ChatViewModel(
     }
 
     @Suppress("TooGenericExceptionCaught")
-    fun sendMessage(text: String) {
+    fun sendMessage(text: String): Boolean {
         val trimmed = text.trim()
-        if (trimmed.isEmpty() || _state.value.isRunning) return
+        if (trimmed.isEmpty() || _state.value.isRunning) return false
         val err = gateway.configurationError()
         if (err != null) {
             _state.value = _state.value.copy(configError = err)
-            return
+            return false
         }
         resetStreamBuffers()
         resetRunUsageAccumulators()
@@ -189,6 +189,7 @@ class ChatViewModel(
                 loadTranscriptIntoState(initialLoad = false)
             }
         }
+        return true
     }
 
     fun stopRun() {

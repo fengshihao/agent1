@@ -112,9 +112,34 @@ fun ProductivityNavHost() {
                 sessionId = sessionId,
                 relativePath = relativePath,
                 onBack = { nav.popBackStack() },
+                onSendFeedback = { draft ->
+                    // 不退出预览页：直接复用 HOME 的 ViewModelStore 里同一 ChatViewModel
+                    // 实例（同 key），发送后留在预览页等文件热更新。
+                    sendToHomeChat(nav, Routes.HOME, appContext, sessionId, draft)
+                },
             )
         }
     }
+}
+
+private fun sendToHomeChat(
+    nav: androidx.navigation.NavController,
+    homeRoute: String,
+    appContext: android.content.Context,
+    sessionId: String,
+    draft: String,
+): Boolean {
+    return runCatching {
+        // 预览只从聊天页 push，HOME 必在栈中；复用其 ViewModelStore 中的
+        // ChatViewModel（同 key），与聊天页共享同一会话状态与 run 队列。
+        val homeEntry = nav.getBackStackEntry(homeRoute)
+        val provider = androidx.lifecycle.ViewModelProvider(
+            homeEntry.viewModelStore,
+            simpleFactory { com.agent1.android.productivity.ui.viewmodel.ChatViewModel(appContext, sessionId, "") },
+        )
+        val vm = provider.get("chat-$sessionId", com.agent1.android.productivity.ui.viewmodel.ChatViewModel::class.java)
+        vm.sendMessage(draft)
+    }.getOrDefault(false)
 }
 
 private fun <T : androidx.lifecycle.ViewModel> simpleFactory(
