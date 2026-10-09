@@ -48,6 +48,24 @@ object HtmlInspectScript {
       classes: Array.prototype.slice.call(el.classList || []),
       textPreview: (el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 80),
       outerHtml: (el.outerHTML || '').slice(0, 400),
+      // 渲染快照：AI 拿到实际 computed style/尺寸即可定位“颜色深/字号小”类问题，
+      // 省去先跑一轮 webview 诊断。
+      render: (function() {
+        try {
+          var cs = getComputedStyle(el);
+          var rect = el.getBoundingClientRect();
+          return {
+            color: cs.color || '',
+            backgroundColor: cs.backgroundColor || '',
+            fontSize: cs.fontSize || '',
+            display: cs.display || '',
+            width: Math.round(rect.width) || 0,
+            height: Math.round(rect.height) || 0
+          };
+        } catch (e) {
+          return null;
+        }
+      })(),
       ancestors: ancestors
     };
   }

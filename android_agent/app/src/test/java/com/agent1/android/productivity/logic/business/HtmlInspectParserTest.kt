@@ -17,6 +17,14 @@ class HtmlInspectParserTest {
               "classes": ["checkout", "primary"],
               "textPreview": "立即支付",
               "outerHtml": "<button id=\"checkout-btn\">立即支付</button>",
+              "render": {
+                "color": "rgb(91, 98, 112)",
+                "backgroundColor": "rgb(250, 251, 252)",
+                "fontSize": "11px",
+                "display": "block",
+                "width": 302,
+                "height": 18
+              },
               "ancestors": [
                 {"tag": "DIV", "id": "cart", "classes": ["card"], "nth": 2},
                 {"tag": "SECTION", "id": "", "classes": [], "nth": 1}
@@ -28,10 +36,38 @@ class HtmlInspectParserTest {
         assertEquals("checkout-btn", element.id)
         assertEquals(listOf("checkout", "primary"), element.classes)
         assertEquals("立即支付", element.textPreview)
+        val render = checkNotNull(element.render)
+        assertEquals("rgb(91, 98, 112)", render.color)
+        assertEquals("rgb(250, 251, 252)", render.backgroundColor)
+        assertEquals("11px", render.fontSize)
+        assertEquals(302, render.width)
+        assertEquals(18, render.height)
         assertEquals(2, element.ancestors.size)
         assertEquals("div", element.ancestors[0].tag)
         assertEquals("cart", element.ancestors[0].id)
         assertEquals(2, element.ancestors[0].nth)
+    }
+
+    @Test
+    fun parse_toleratesMissingRender() {
+        val element = checkNotNull(HtmlInspectParser.parse("""{"tag":"div"}"""))
+        assertEquals(null, element.render)
+    }
+
+    @Test
+    fun parse_toleratesBrokenRenderFields() {
+        // render 字段类型损坏/负尺寸时降级为默认值，不影响整体解析。
+        // 注意：Android org.json 的 optString 会把标量强转（123 → "123"），
+        // 仅结构体类型（对象/数组）与负数/非法尺寸回落到默认值。
+        val element = checkNotNull(
+            HtmlInspectParser.parse(
+                """{"tag":"p","render":{"color":{"r":1},"width":-5,"height":"x"}}""",
+            ),
+        )
+        val render = checkNotNull(element.render)
+        assertEquals("", render.color)
+        assertEquals(null, render.width)
+        assertEquals(null, render.height)
     }
 
     @Test

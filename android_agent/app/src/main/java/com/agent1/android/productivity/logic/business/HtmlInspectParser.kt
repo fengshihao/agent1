@@ -11,8 +11,20 @@ data class InspectedElement(
     val textPreview: String = "",
     /** 截断后的 outerHTML（JS 侧 400 字上限）。 */
     val outerHtml: String = "",
+    /** 渲染快照（computed style + 尺寸）；取不到时为 null。 */
+    val render: InspectRenderInfo? = null,
     /** 祖先链，近 → 远；每层含 nth-of-type 序号。 */
     val ancestors: List<InspectAncestor> = emptyList(),
+)
+
+/** 选中元素的渲染快照，帮助 AI 不跑 webview 诊断即可定位颜色/字号/尺寸类问题。 */
+data class InspectRenderInfo(
+    val color: String = "",
+    val backgroundColor: String = "",
+    val fontSize: String = "",
+    val display: String = "",
+    val width: Int? = null,
+    val height: Int? = null,
 )
 
 data class InspectAncestor(
@@ -43,7 +55,22 @@ object HtmlInspectParser {
             classes = parseStringList(json.optJSONArray("classes")),
             textPreview = json.optString("textPreview").trim(),
             outerHtml = json.optString("outerHtml").trim(),
+            render = parseRenderInfo(json.optJSONObject("render")),
             ancestors = parseAncestors(json.optJSONArray("ancestors")),
+        )
+    }
+
+    private fun parseRenderInfo(json: JSONObject?): InspectRenderInfo? {
+        if (json == null) return null
+        // Android org.json 的 optString 会把任意类型强转成字符串（对象→JSON 串），
+        // 这里用严格字符串判断，损坏字段一律回落默认值。
+        return InspectRenderInfo(
+            color = json.opt("color") as? String ?: "",
+            backgroundColor = json.opt("backgroundColor") as? String ?: "",
+            fontSize = json.opt("fontSize") as? String ?: "",
+            display = json.opt("display") as? String ?: "",
+            width = json.optInt("width", -1).takeIf { it >= 0 },
+            height = json.optInt("height", -1).takeIf { it >= 0 },
         )
     }
 
