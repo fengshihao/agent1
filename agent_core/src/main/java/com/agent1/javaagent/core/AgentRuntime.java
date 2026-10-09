@@ -31,7 +31,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.Closeable;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -65,6 +68,12 @@ public final class AgentRuntime implements Closeable {
     private volatile Path runAuditAgentRoot;
     private volatile RunLogContext runAuditLogContext;
     private volatile boolean stopRunWaitingUser;
+
+    /** 本轮 run 改动过、待收尾冒烟的 html 路径；run 异常中止时保留到下一个 run 再检。 */
+    private final Set<String> pendingHtmlSmokePaths = new LinkedHashSet<>();
+    /** 收尾冒烟失败后的修复反馈轮数（每 run 重置），防止「改坏→修复」无限循环。 */
+    private int htmlSmokeFixRounds;
+    private static final int MAX_HTML_SMOKE_FIX_ROUNDS = 2;
 
     public AgentRuntime(AgentOptions options, LlmClient llmClient) {
         this(options, llmClient, new ObjectMapper());
@@ -203,6 +212,7 @@ public final class AgentRuntime implements Closeable {
         emit(AgentEventType.AGENT_START, state.snapshot());
         int turnIndex = 0;
         int toolCallCount = 0;
+        htmlSmokeFixRounds = 0;
         stopRunWaitingUser = false;
 
         try {
@@ -248,6 +258,14 @@ public final class AgentRuntime implements Closeable {
                     break;
                 }
                 if (assistantResponse.getToolCalls().isEmpty()) {
+                    // 交付点：对本轮改动过的 html 统一冒烟；未过则注入修复反馈让 AI 修完再交付
+                    AgentMessage smokeFeedback = runHtmlSmokeAtDelivery(token);
+                    if (smokeFeedback != null) {
+                        state.appendMessage(smokeFeedback);
+                        emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(smokeFeedback));
+                        turnIndex += 1;
+                        continue;
+                    }
                     break;
                 }
                 turnIndex += 1;
@@ -299,6 +317,73 @@ public final class AgentRuntime implements Closeable {
         );
         state.appendMessage(assistantMessage);
         emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(assistantMessage));
+    }
+
+    /**
+     * 交付点收尾冒烟：对本轮改动过的 html 各跑一次 {@link HtmlHarnessSmoke#smokeFile}。
+     * 有失败且修复反馈未超限时，返回 user 消息让 AI 修复后再交付；
+     * 全过 / 超限 / 取消时返回 {@code null}，结果以注记形式进入 transcript。
+     */
+    private AgentMessage runHtmlSmokeAtDelivery(CancellationToken token) {
+        if (pendingHtmlSmokePaths.isEmpty()) {
+            return null;
+        }
+        StringBuilder failures = new StringBuilder();
+        StringBuilder notes = new StringBuilder();
+        Iterator<String> pending = pendingHtmlSmokePaths.iterator();
+        while (pending.hasNext()) {
+            if (token != null && token.isCancelled()) {
+                break; // 剩余未检路径保留到下一个 run
+            }
+            String path = pending.next();
+            pending.remove();
+            HtmlHarnessSmoke.Outcome outcome;
+            try {
+                outcome = HtmlHarnessSmoke.smokeFile(
+                    state.getTool("webview_exec"),
+                    workspaceSandbox,
+                    path,
+                    token
+                );
+            } catch (Throwable smokeFailure) {
+                // 兜底捕获 Throwable（Android 低 API 会抛 Error）：收尾冒烟不能把 run 打崩
+                String message = smokeFailure.getMessage() == null ? "html_smoke 异常" : smokeFailure.getMessage();
+                failures.append("[html_smoke] ").append(path).append(" 失败。宿主检查异常（").append(message).append("）\n");
+                continue;
+            }
+            if (outcome == null) {
+                continue; // 已不是 harness 页，安静跳过
+            }
+            if (outcome.failed()) {
+                failures.append(outcome.text()).append('\n');
+            } else {
+                notes.append(outcome.text()).append('\n');
+            }
+        }
+        if (failures.length() == 0 && notes.length() == 0) {
+            return null;
+        }
+        if (failures.length() == 0) {
+            appendSmokeNote(notes.toString().trim());
+            return null;
+        }
+        if (htmlSmokeFixRounds >= MAX_HTML_SMOKE_FIX_ROUNDS) {
+            // 修复轮超限：不再让 AI 重试，但失败详情必须留在 transcript 里供下一轮与人工审查
+            appendSmokeNote(failures.append(notes).toString().trim());
+            return null;
+        }
+        htmlSmokeFixRounds += 1;
+        return AgentMessage.user(
+            "交付前 html_smoke 检查未通过，请修复以下页面后重新交付（必须实际修改文件，不要只口头解释）：\n"
+                + failures.toString().trim()
+        );
+    }
+
+    /** 收尾冒烟注记：进入 transcript 供下一轮上下文与人工审查，不触发额外模型调用。 */
+    private void appendSmokeNote(String note) {
+        AgentMessage smokeNote = AgentMessage.user(note);
+        state.appendMessage(smokeNote);
+        emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(smokeNote));
     }
 
     private AssistantResponse runSingleTurn(CancellationToken token) throws Exception {
@@ -472,29 +557,16 @@ public final class AgentRuntime implements Closeable {
             result = ToolResultSpill.maybeSpill(workspaceSandbox, toolCall.getName(), result);
         }
 
-        if (!isError && isHtmlDelivery(toolCall.getName()) && parameters != null && result != null) {
+        if (!isError && isHtmlDelivery(toolCall.getName()) && parameters != null) {
+            // 每笔只收集 html 路径；浏览器冒烟移到 run 收尾统一执行
+            //（旧实现每笔 edit 内嵌 ~10s 冒烟，真机日志显示编辑反馈循环被拖慢到 ~20s/笔）。
             try {
-                CancellationToken smokeToken = token == null ? new CancellationToken() : token;
-                HtmlHarnessSmoke.Outcome smoke = HtmlHarnessSmoke.augment(
-                    state.getTool("webview_exec"),
-                    workspaceSandbox,
-                    parameters,
-                    result.getText(),
-                    smokeToken
-                );
-                if (smoke != null) {
-                    result = ToolExecutionResult.text(smoke.text());
-                    if (smoke.failed()) {
-                        isError = true;
-                        errorMessage = "html_smoke 未通过";
-                    }
+                String htmlPath = HtmlHarnessSmoke.htmlPathOf(parameters);
+                if (htmlPath != null) {
+                    pendingHtmlSmokePaths.add(htmlPath);
                 }
-            } catch (Throwable smokeFailure) {
-                // 兜底必须捕获 Throwable：Android 低 API 上会抛 NoSuchMethodError 等 Error（非 Exception），
-                // 不能让冒烟检查把整个 run 打崩。
-                isError = true;
-                errorMessage = smokeFailure.getMessage() == null ? "html_smoke 异常" : smokeFailure.getMessage();
-                result = ToolExecutionResult.text(result.getText() + "\nhtml_smoke: 宿主检查异常（" + errorMessage + "）");
+            } catch (Throwable collectFailure) { // NOPMD EmptyCatchBlock — 有意吞掉：路径收集失败只损失收尾冒烟覆盖面，不能打崩工具回执
+                // 兜底捕获 Throwable（Android 低 API 上会抛 NoSuchMethodError 等 Error（非 Exception））。
             }
         }
 
