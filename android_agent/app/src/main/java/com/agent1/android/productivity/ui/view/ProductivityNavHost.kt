@@ -12,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.agent1.android.productivity.logic.business.McpSettingsCoordinator
 import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
+import com.agent1.android.productivity.ui.viewmodel.ArtifactLibraryViewModel
 import com.agent1.android.productivity.ui.viewmodel.CapabilitySearchViewModel
 import com.agent1.android.productivity.ui.viewmodel.McpSettingsViewModel
 import com.agent1.android.productivity.ui.viewmodel.ModelSettingsViewModel
@@ -24,6 +25,8 @@ private object Routes {
     const val MCP = "mcp-settings"
     const val CAPABILITIES = "capabilities"
     const val PROMPT = "system-prompt/{sessionId}"
+    /** sessionId 为 "-" 表示无活动会话（落位页进入，禁用「插入会话」）。 */
+    const val ARTIFACTS = "artifact-library/{sessionId}"
 
     /** path 为 URL 编码后的 workspace 相对路径（含 `/`），Navigation 会自动解码。 */
     const val PREVIEW = "preview/{sessionId}/{path}"
@@ -51,6 +54,10 @@ fun ProductivityNavHost() {
                 },
                 onOpenHtmlPreview = { sessionId, relativePath ->
                     nav.navigate("preview/${Uri.encode(sessionId)}/${Uri.encode(relativePath)}")
+                },
+                onOpenArtifacts = { sessionId ->
+                    val id = sessionId.ifBlank { "-" }
+                    nav.navigate("artifact-library/${Uri.encode(id)}")
                 },
             )
         }
@@ -82,6 +89,37 @@ fun ProductivityNavHost() {
             CapabilitySearchScreen(
                 viewModel = vm,
                 onBack = { nav.popBackStack() },
+            )
+        }
+        composable(
+            route = Routes.ARTIFACTS,
+            arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
+        ) { entry ->
+            val raw = entry.arguments?.getString("sessionId").orEmpty()
+            val sessionId = if (raw == "-") "" else raw
+            val vm: ArtifactLibraryViewModel = viewModel(
+                key = "artifacts-$sessionId",
+                factory = simpleFactory { ArtifactLibraryViewModel(appContext, sessionId) },
+            )
+            // 与聊天页共享同一 ChatViewModel 实例（HOME 的 ViewModelStore，同 key）：
+            // 插入产物后刷新聊天页 transcript 与「已选文件」条。
+            val chatVm = remember(sessionId) {
+                if (sessionId.isBlank()) {
+                    null
+                } else {
+                    resolveHomeChatViewModel(nav, Routes.HOME, appContext, sessionId)
+                }
+            }
+            ArtifactLibraryScreen(
+                viewModel = vm,
+                currentSessionId = sessionId,
+                onBack = { nav.popBackStack() },
+                onInserted = { chatVm?.reloadTranscript() },
+                onOpenHtmlPreview = { previewSessionId, relativePath ->
+                    nav.navigate(
+                        "preview/${Uri.encode(previewSessionId)}/${Uri.encode(relativePath)}",
+                    )
+                },
             )
         }
         composable(

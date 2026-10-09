@@ -44,6 +44,8 @@ fun ProductivityHome(
     onOpenSystemPrompt: (String) -> Unit,
     /** 打开 app 内置 HTML 预览（sessionId + workspace 相对路径）。 */
     onOpenHtmlPreview: (sessionId: String, relativePath: String) -> Unit,
+    /** 打开产物库；sessionId 为空表示当前没有活动会话（落位页）。 */
+    onOpenArtifacts: (sessionId: String) -> Unit = { _ -> },
 ) {
     val listState by sessionListViewModel.state.collectAsState()
     val context = LocalContext.current
@@ -158,6 +160,7 @@ fun ProductivityHome(
                 onOpenMcp = onOpenMcp,
                 onOpenCapabilities = onOpenCapabilities,
                 onExportDiagnostics = { sessionListViewModel.exportDiagnostics(context) },
+                onOpenArtifacts = { onOpenArtifacts("") },
             )
         } else {
             ChatPane(
@@ -175,6 +178,7 @@ fun ProductivityHome(
                 onOpenCapabilities = onOpenCapabilities,
                 onOpenSystemPrompt = { onOpenSystemPrompt(sessionId) },
                 onOpenHtmlPreview = onOpenHtmlPreview,
+                onOpenArtifacts = { onOpenArtifacts(sessionId) },
             )
         }
     }
@@ -192,6 +196,7 @@ private fun ChatPane(
     onOpenCapabilities: () -> Unit,
     onOpenSystemPrompt: () -> Unit,
     onOpenHtmlPreview: (sessionId: String, relativePath: String) -> Unit,
+    onOpenArtifacts: () -> Unit,
 ) {
     val viewModel: ChatViewModel = viewModel(
         key = "chat-$sessionId",
@@ -206,6 +211,7 @@ private fun ChatPane(
         onOpenMcp = onOpenMcp,
         onOpenCapabilities = onOpenCapabilities,
         onOpenSystemPrompt = onOpenSystemPrompt,
+        onOpenArtifacts = onOpenArtifacts,
         // 会话工作区路径由 sessionId 在预览路由内解析，这里只需注入当前会话 id。
         onOpenInApp = { relativePath -> onOpenHtmlPreview(sessionId, relativePath) },
     )
