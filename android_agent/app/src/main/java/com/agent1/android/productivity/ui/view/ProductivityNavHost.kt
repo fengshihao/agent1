@@ -108,38 +108,41 @@ fun ProductivityNavHost() {
         ) { entry ->
             val sessionId = entry.arguments?.getString("sessionId").orEmpty()
             val relativePath = entry.arguments?.getString("path").orEmpty()
+            // 与聊天页共享同一 ChatViewModel 实例（HOME 的 ViewModelStore，同 key）：
+            // 预览页直接发送反馈并实时展示 AI 运行状态。
+            val chatVm = remember(sessionId) {
+                resolveHomeChatViewModel(nav, Routes.HOME, appContext, sessionId)
+            }
             HtmlPreviewScreen(
                 sessionId = sessionId,
                 relativePath = relativePath,
                 onBack = { nav.popBackStack() },
-                onSendFeedback = { draft ->
-                    // 不退出预览页：直接复用 HOME 的 ViewModelStore 里同一 ChatViewModel
-                    // 实例（同 key），发送后留在预览页等文件热更新。
-                    sendToHomeChat(nav, Routes.HOME, appContext, sessionId, draft)
-                },
+                chatViewModel = chatVm,
+                onSendFeedback = { draft -> chatVm?.sendMessage(draft) == true },
             )
         }
     }
 }
 
-private fun sendToHomeChat(
+/** 复用 HOME 的 ViewModelStore 中同 key 的 ChatViewModel；HOME 不在栈中（异常场景）返回 null。 */
+private fun resolveHomeChatViewModel(
     nav: androidx.navigation.NavController,
     homeRoute: String,
     appContext: android.content.Context,
     sessionId: String,
-    draft: String,
-): Boolean {
+): com.agent1.android.productivity.ui.viewmodel.ChatViewModel? {
     return runCatching {
-        // 预览只从聊天页 push，HOME 必在栈中；复用其 ViewModelStore 中的
-        // ChatViewModel（同 key），与聊天页共享同一会话状态与 run 队列。
+        // 预览只从聊天页 push，HOME 必在栈中
         val homeEntry = nav.getBackStackEntry(homeRoute)
         val provider = androidx.lifecycle.ViewModelProvider(
             homeEntry.viewModelStore,
             simpleFactory { com.agent1.android.productivity.ui.viewmodel.ChatViewModel(appContext, sessionId, "") },
         )
-        val vm = provider.get("chat-$sessionId", com.agent1.android.productivity.ui.viewmodel.ChatViewModel::class.java)
-        vm.sendMessage(draft)
-    }.getOrDefault(false)
+        provider.get(
+            "chat-$sessionId",
+            com.agent1.android.productivity.ui.viewmodel.ChatViewModel::class.java,
+        )
+    }.getOrNull()
 }
 
 private fun <T : androidx.lifecycle.ViewModel> simpleFactory(
