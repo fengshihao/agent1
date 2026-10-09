@@ -1,22 +1,24 @@
 package com.agent1.android.productivity.logic.business
 
 /**
- * 审查模式反馈草稿组装（18 号规划 Phase B / REQ-122）。
- * 草稿回填输入框但不自动发送：用户补充问题描述后手动发送。
+ * 审查模式反馈消息组装（18 号规划 Phase B / REQ-122）。
+ * 预览页内直接发送给 AI（不回填输入框、不自动跳转），
+ * 用户意见在预览面板输入，随结构化元素信息一并发出。
  */
 object InspectFeedbackComposer {
 
-    /** 面板/草稿里 outerHtml 的展示与回传上限。 */
+    /** 发送消息里 outerHtml 的截断上限。 */
     private const val OUTER_HTML_DRAFT_MAX_CHARS = 200
 
     /**
-     * 组装反馈草稿：文件路径 + selector + 元素片段，供 AI 直接定位源码修改。
-     * 「问题:」行留空由用户补充。
+     * 组装发送给 AI 的消息：文件路径 + selector + 元素片段 + 用户意见，
+     * 供 AI 直接定位源码修改。
      */
-    fun compose(relativePath: String, element: InspectedElement): String {
+    fun compose(relativePath: String, element: InspectedElement, problem: String): String {
         val selector = ElementSelectorBuilder.build(element)
         val outerHtml = element.outerHtml.take(OUTER_HTML_DRAFT_MAX_CHARS).trimEnd()
         val outerSuffix = if (element.outerHtml.length > OUTER_HTML_DRAFT_MAX_CHARS) "…" else ""
+        val opinion = problem.trim()
         return buildString {
             append("请修改工作区文件 ").append(relativePath).append(" 中这个元素：\n")
             append("- 选择器: ").append(selector).append('\n')
@@ -26,16 +28,7 @@ object InspectFeedbackComposer {
             if (element.textPreview.isNotEmpty()) {
                 append("- 可见文本: ").append(element.textPreview).append('\n')
             }
-            append("- 问题: ")
+            append("- 问题: ").append(opinion)
         }.trimEnd()
-    }
-
-    /**
-     * 草稿回填输入框：保留用户已输入内容（避免覆盖打断中的输入），空则直接回填。
-     */
-    fun mergeDraft(currentInput: String, draft: String): String {
-        if (draft.isBlank()) return currentInput
-        if (currentInput.isBlank()) return draft
-        return currentInput.trimEnd() + "\n" + draft
     }
 }

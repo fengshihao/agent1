@@ -44,10 +44,6 @@ fun ProductivityHome(
     onOpenSystemPrompt: (String) -> Unit,
     /** 打开 app 内置 HTML 预览（sessionId + workspace 相对路径）。 */
     onOpenHtmlPreview: (sessionId: String, relativePath: String) -> Unit,
-    /** 预览审查回传的反馈草稿；空串表示无待回填。 */
-    htmlPreviewFeedback: String = "",
-    /** 草稿已回填输入框后回调（清空 savedStateHandle，防重组重复回填）。 */
-    onHtmlPreviewFeedbackConsumed: () -> Unit = {},
 ) {
     val listState by sessionListViewModel.state.collectAsState()
     val context = LocalContext.current
@@ -179,8 +175,6 @@ fun ProductivityHome(
                 onOpenCapabilities = onOpenCapabilities,
                 onOpenSystemPrompt = { onOpenSystemPrompt(sessionId) },
                 onOpenHtmlPreview = onOpenHtmlPreview,
-                htmlPreviewFeedback = htmlPreviewFeedback,
-                onHtmlPreviewFeedbackConsumed = onHtmlPreviewFeedbackConsumed,
             )
         }
     }
@@ -198,8 +192,6 @@ private fun ChatPane(
     onOpenCapabilities: () -> Unit,
     onOpenSystemPrompt: () -> Unit,
     onOpenHtmlPreview: (sessionId: String, relativePath: String) -> Unit,
-    htmlPreviewFeedback: String = "",
-    onHtmlPreviewFeedbackConsumed: () -> Unit = {},
 ) {
     val viewModel: ChatViewModel = viewModel(
         key = "chat-$sessionId",
@@ -216,8 +208,6 @@ private fun ChatPane(
         onOpenSystemPrompt = onOpenSystemPrompt,
         // 会话工作区路径由 sessionId 在预览路由内解析，这里只需注入当前会话 id。
         onOpenInApp = { relativePath -> onOpenHtmlPreview(sessionId, relativePath) },
-        htmlPreviewFeedback = htmlPreviewFeedback,
-        onHtmlPreviewFeedbackConsumed = onHtmlPreviewFeedbackConsumed,
     )
 }
 
