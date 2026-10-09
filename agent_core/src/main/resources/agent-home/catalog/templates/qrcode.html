@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+
+</head>
+<body>
+<h1>二维码</h1>
+<div id='q'></div>
+<script src='https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'></script>
+<script>
+const qr = qrcode(0, 'M');
+qr.addData('agent1');
+qr.make();
+document.getElementById('q').innerHTML = qr.createImgTag(4);
+</script>
+</body>
+</html>

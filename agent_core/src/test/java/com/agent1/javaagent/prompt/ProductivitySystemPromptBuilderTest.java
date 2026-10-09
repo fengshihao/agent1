@@ -94,6 +94,8 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("run_js"));
         assertTrue(prompt.contains("find_caps"));
         assertTrue(prompt.contains("一次性写代码到文件"));
+        assertTrue(prompt.contains("先写结构化源"));
+        assertTrue(prompt.contains("web_lib"));
         assertFalse(prompt.contains("webview_exec"));
         assertFalse(prompt.contains("bash"));
         assertFalse(prompt.contains("docx_markdown_to_word"));
@@ -311,8 +313,10 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(temp.resolve("ws"), temp.resolve("ar"), true, true, "");
         assertFalse(prompt.contains("docx_markdown_to_word"));
         assertFalse(prompt.contains("office-docx.md"));
-        assertFalse(prompt.contains("HTML"));
+        assertFalse(prompt.contains("jsdelivr"));
+        assertFalse(prompt.contains("markmap"));
         assertFalse(prompt.contains("toDataURL"));
+        assertTrue(prompt.contains("先写结构化源"));
         assertTrue(prompt.contains("find_caps"));
         assertTrue(prompt.contains("调用示例"));
         assertTrue(prompt.contains("run_js"));

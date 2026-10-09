@@ -47,7 +47,7 @@ class CapabilitySearchToolTest {
         AgentHomeBootstrap.ensure(agentRoot);
         CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot, "android", null, true);
         ObjectNode params = new ObjectMapper().createObjectNode();
-        params.put("query", "markdown word docx");
+        params.put("query", "headingStyles");
         params.putArray("kinds").add("skill").add("builtin");
 
         ToolExecutionResult result = tool.execute("t-kinds-filter", params, new CancellationToken(), u -> {

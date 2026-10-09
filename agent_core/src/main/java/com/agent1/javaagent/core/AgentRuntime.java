@@ -22,6 +22,7 @@ import com.agent1.javaagent.log.AgentAuditEvents;
 import com.agent1.javaagent.log.RunAuditScope;
 import com.agent1.javaagent.log.RunLogContext;
 import com.agent1.javaagent.script.ScriptToolRunContext;
+import com.agent1.javaagent.tool.workspace.HtmlHarnessSmoke;
 import com.agent1.javaagent.workspace.ToolResultSpill;
 import java.nio.file.Path;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
@@ -458,6 +459,24 @@ public final class AgentRuntime implements Closeable {
             result = ToolResultSpill.maybeSpill(workspaceSandbox, toolCall.getName(), result);
         }
 
+        if (!isError && isHtmlDelivery(toolCall.getName()) && parameters != null && result != null) {
+            CancellationToken smokeToken = token == null ? new CancellationToken() : token;
+            HtmlHarnessSmoke.Outcome smoke = HtmlHarnessSmoke.augment(
+                state.getTool("webview_exec"),
+                workspaceSandbox,
+                parameters,
+                result.getText(),
+                smokeToken
+            );
+            if (smoke != null) {
+                result = ToolExecutionResult.text(smoke.text());
+                if (smoke.failed()) {
+                    isError = true;
+                    errorMessage = "html_smoke 未通过";
+                }
+            }
+        }
+
         ProductivityCoach coach = productivityCoach;
         ToolExecutionResult toolResult = result;
         if (coach != null && toolResult != null) {
@@ -491,6 +510,10 @@ public final class AgentRuntime implements Closeable {
             new EventPayloads.ToolExecutionEnd(toolCall.getId(), toolResult, isError, errorMessage)
         );
         return toolResultMessage;
+    }
+
+    private static boolean isHtmlDelivery(String toolName) {
+        return "write_file".equals(toolName) || "edit_file".equals(toolName);
     }
 
     private ToolExecutionUpdate sanitizeUpdate(ToolExecutionUpdate update) {

@@ -51,6 +51,13 @@ public final class ProductivitySystemPromptBuilder {
         5. 完成后输出 markdown 总结，描述产出物路径；再给出下一步建议。
         """.trim();
 
+    /**
+     * 文档与可视化的路由。库 URL 和薄壳示例留在 find_caps（web_lib / docx / pptx），不写进提示词。
+     */
+    static final String RENDER_PIPELINE = """
+        文档和可视化先写结构化源（Markdown、Mermaid 或 JSON），再 find_caps 查 web_lib、docx、pptx。script 和 link 只用结果里的稳定 URL，不要自造 CDN，不要手写大段 HTML 或 CSS。写入 .html 后宿主会自动检查页面，失败按回执改。
+        """.trim();
+
     /** 仅 scriptHostTools（Weizhi $tools 桥）时追加到工作流程段。 */
     static final String WEBVIEW_FROM_SCRIPT = """
         浏览器放进同一段脚本：await $tools.webview_exec({...})。不要在外层单独调 webview_exec。
@@ -158,7 +165,7 @@ public final class ProductivitySystemPromptBuilder {
         if (scriptToolRegistered && scriptHostTools) {
             workflow = workflow + "\n" + WEBVIEW_FROM_SCRIPT;
         }
-        sb.append(workflow).append("\n\n");
+        sb.append(workflow).append("\n").append(RENDER_PIPELINE).append("\n\n");
         sb.append(buildEnvironmentSection(
             workspaceRoot,
             agentRoot,
