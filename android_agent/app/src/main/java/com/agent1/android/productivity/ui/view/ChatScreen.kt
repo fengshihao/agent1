@@ -53,6 +53,8 @@ fun ChatScreen(
     onOpenMcp: () -> Unit,
     onOpenCapabilities: () -> Unit,
     onOpenSystemPrompt: () -> Unit,
+    /** 打开产物库（右上角文件夹图标）。 */
+    onOpenArtifacts: () -> Unit,
     /** 传入且文件可内置预览（html）时，点「打开」走 app 内预览路由。 */
     onOpenInApp: ((String) -> Unit)? = null,
 ) {
@@ -113,6 +115,11 @@ fun ChatScreen(
                                 icon = Icons.Filled.Add,
                                 contentDescription = "新建对话",
                                 onClick = onNewChat,
+                            )
+                            TopBarIconButton(
+                                icon = AgentIcons.Folder,
+                                contentDescription = "产物库",
+                                onClick = onOpenArtifacts,
                             )
                         },
                     )

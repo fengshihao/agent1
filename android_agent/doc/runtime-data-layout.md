@@ -47,6 +47,8 @@
 
 助手请用户选文件：回复中的 `[需要用户选文件]` 标记 + 聊天页「选择文件」按钮（见 `UserFileRequestMarkers`）。
 
+产物库（聊天页右上角文件夹图标）：汇总 **所有会话** workspace 内 AI 生成的文件（排除 `imports/`、`tmp/` 与隐藏文件），支持搜索、多选删除、分享与「插入当前会话」——插入即复制进当前会话 `workspace/imports/` 并登记 `accessible-files.json`，与附件按钮同效（`ArtifactLibraryStore` / `ProductivityAgentGateway.importArtifactsIntoSession`）。
+
 MCP 配置与缓存在 **`$AGENT` 根**，**不**写入 `workspace/.mcp`。
 
 ## $CACHE — 临时

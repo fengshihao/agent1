@@ -147,6 +147,46 @@ class ProductivityAgentGateway(
         paths
     }
 
+    /**
+     * 把其他会话的 AI 产物复制进当前会话 `workspace/imports/`（产物库「插入会话」），
+     * 登记与提示注入与 [importUserPickedFiles] 完全一致，不触发 LLM。
+     */
+    fun importArtifactsIntoSession(
+        sessionId: String,
+        sources: List<ArtifactLibraryStore.ArtifactRef>,
+    ): List<String> = execute {
+        if (sources.isEmpty()) return@execute emptyList()
+        val agentHost = ensureHost()
+        prepareSession(sessionId)
+        val workspace = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
+            ?: throw IllegalStateException("workspace missing for session $sessionId")
+        val imported = sources.mapNotNull { ref ->
+            val source = ArtifactLibraryStore.resolveArtifactFile(appContext, ref)
+                ?: return@mapNotNull null
+            WorkspaceFileImport.copyLocalFileToImports(
+                workspace,
+                source.toPath(),
+                source.name,
+            )
+        }
+        if (imported.isEmpty()) {
+            return@execute emptyList()
+        }
+        SessionAccessibleFilesStore.addEntries(
+            appContext,
+            sessionId,
+            imported.map { it.workspaceRelativePath },
+            imported.map { it.displayName },
+        )
+        agentHost.setSessionEnvironmentSupplement(
+            SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
+        )
+        agentHost.switchSession(sessionId)
+        val paths = imported.map { it.workspaceRelativePath }
+        agentHost.appendUserMessageToTranscript("[已添加附件] ${paths.joinToString(", ")}")
+        paths
+    }
+
     fun readTranscriptWithoutSwitch(sessionId: String): List<AgentMessage> = execute {
         val agentHost = ensureHost()
         val previous = agentHost.activeSessionId

@@ -28,6 +28,8 @@ internal fun ChatLanding(
     onOpenMcp: () -> Unit,
     onOpenCapabilities: () -> Unit,
     onExportDiagnostics: () -> Unit,
+    /** 打开产物库（右上角文件夹图标；无活动会话时「插入会话」禁用）。 */
+    onOpenArtifacts: () -> Unit = {},
 ) {
     var moreMenu by rememberSaveable { mutableStateOf(false) }
     Scaffold(
@@ -55,6 +57,11 @@ internal fun ChatLanding(
                             onOpenMcp = onOpenMcp,
                             onOpenCapabilities = onOpenCapabilities,
                             onExportDiagnostics = onExportDiagnostics,
+                        )
+                        TopBarIconButton(
+                            icon = AgentIcons.Folder,
+                            contentDescription = "产物库",
+                            onClick = onOpenArtifacts,
                         )
                     },
                 )
