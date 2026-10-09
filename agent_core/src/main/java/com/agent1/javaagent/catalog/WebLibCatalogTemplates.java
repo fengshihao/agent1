@@ -42,10 +42,12 @@ public final class WebLibCatalogTemplates {
     }
 
     private static String readIndex() {
-        try (InputStream in = WebLibCatalogTemplates.class.getResourceAsStream(INDEX)) {
-            if (in == null) {
-                return "";
-            }
+        // null 检查放在 try-with-resources 之外，避免隐式 close 读取已知 null 的资源句柄
+        InputStream source = WebLibCatalogTemplates.class.getResourceAsStream(INDEX); // NOPMD CloseResource：source 是下一行 try-with-resources 的资源，块结束即关闭
+        if (source == null) {
+            return "";
+        }
+        try (InputStream in = source) {
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new IllegalStateException("read web lib template index failed", e);
@@ -54,10 +56,11 @@ public final class WebLibCatalogTemplates {
 
     private static void copy(String name, Path target) {
         String resource = "/agent-home/catalog/templates/" + name;
-        try (InputStream in = WebLibCatalogTemplates.class.getResourceAsStream(resource)) {
-            if (in == null) {
-                return;
-            }
+        InputStream source = WebLibCatalogTemplates.class.getResourceAsStream(resource); // NOPMD CloseResource：source 是下一行 try-with-resources 的资源，块结束即关闭
+        if (source == null) {
+            return;
+        }
+        try (InputStream in = source) {
             Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new IllegalStateException("copy web lib template failed: " + target, e);

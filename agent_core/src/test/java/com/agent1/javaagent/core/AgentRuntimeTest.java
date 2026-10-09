@@ -324,4 +324,93 @@ class AgentRuntimeTest {
         assertTrue(types.contains(AgentEventType.USAGE));
         runtime.close();
     }
+
+    @Test
+    void runCrashWithError_synthesizesToolResultSoNextRequestStaysPaired() {
+        // 模拟 Android 主线程崩溃路径：工具元数据访问抛 Error（如 NoSuchMethodError），
+        // 穿透 executeToolCall 后 run 失败，pending toolCall 必须补合成回执。
+        AgentTool boom = new AgentTool() {
+            @Override
+            public String name() {
+                return "boom";
+            }
+
+            @Override
+            public String description() {
+                return "boom";
+            }
+
+            @Override
+            public JsonNode parametersSchema() {
+                throw new NoSuchMethodError("simulated Files.readString");
+            }
+
+            @Override
+            public ToolExecutionResult execute(
+                String toolCallId,
+                JsonNode parameters,
+                CancellationToken cancellationToken,
+                ToolUpdateListener onUpdate
+            ) {
+                return ToolExecutionResult.text("ok");
+            }
+        };
+
+        List<ChatRequest> requests = new CopyOnWriteArrayList<>();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            requests.add(request);
+            if (requests.size() == 1) {
+                return new AssistantResponse("", List.of(new ToolCall("tc-crash", "boom", "{}")));
+            }
+            streamListener.onTextDelta("继续ok");
+            return new AssistantResponse("继续ok", List.of());
+        };
+
+        AgentRuntime runtime = new AgentRuntime(
+            AgentOptions.builder("test-model")
+                .tools(List.of(boom))
+                .maxTurnsPerRun(5)
+                .build(),
+            fake
+        );
+
+        runtime.prompt("go").join();
+        runtime.waitForIdle();
+
+        AgentStateSnapshot snapshot = runtime.getStateSnapshot();
+        assertTrue(snapshot.getError() != null && snapshot.getError().contains("simulated"));
+
+        // transcript 尾部：无回执的 tool_call 必须已补上配对的 toolResult
+        List<AgentMessage> messages = snapshot.getMessages();
+        boolean assistantHasCrashCall = messages.stream()
+            .anyMatch(m -> m.getToolCalls().stream().anyMatch(tc -> "tc-crash".equals(tc.getId())));
+        assertTrue(assistantHasCrashCall);
+        boolean hasPairedResult = messages.stream()
+            .anyMatch(m -> AgentMessage.ROLE_TOOL_RESULT.equals(m.getRole())
+                && "tc-crash".equals(m.getToolCallId())
+                && m.isError());
+        assertTrue(hasPairedResult, "run 崩溃后必须为 pending toolCall 补合成 toolResult");
+
+        // 下一轮请求不再报 insufficient tool messages：每个 toolCall id 都有配对 toolResult
+        runtime.prompt("继续").join();
+        runtime.waitForIdle();
+        assertEquals(2, requests.size());
+        ChatRequest second = requests.get(1);
+        List<String> callIds = new ArrayList<>();
+        List<String> resultIds = new ArrayList<>();
+        for (AgentMessage m : second.getMessages()) {
+            for (ToolCall tc : m.getToolCalls()) {
+                callIds.add(tc.getId());
+            }
+            if (AgentMessage.ROLE_TOOL_RESULT.equals(m.getRole()) && m.getToolCallId() != null) {
+                resultIds.add(m.getToolCallId());
+            }
+        }
+        assertTrue(resultIds.containsAll(callIds), "下一轮请求中 tool_call 与 tool_result 必须配对完整");
+
+        // 会话仍可用：第二轮 run 正常完成并给出回复
+        assertTrue(runtime.getStateSnapshot().getMessages().stream()
+            .anyMatch(m -> "继续ok".equals(m.getContent())));
+        runtime.close();
+    }
 }

@@ -3,11 +3,14 @@ package com.agent1.javaagent.tool.workspace;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
+import com.agent1.javaagent.util.PathIo;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -130,7 +133,7 @@ public final class HtmlHarnessSmoke {
             if (!Files.isRegularFile(file)) {
                 return "";
             }
-            return Files.readString(file);
+            return PathIo.readString(file, StandardCharsets.UTF_8);
         } catch (IOException | SecurityException e) {
             return "";
         }
@@ -244,7 +247,7 @@ public final class HtmlHarnessSmoke {
             if (parsed.isObject() && (parsed.has("svg") || parsed.has("textLen") || parsed.has("reason"))) {
                 return parsed;
             }
-        } catch (Exception ignored) {
+        } catch (JsonProcessingException ignored) {
             return null;
         }
         return null;

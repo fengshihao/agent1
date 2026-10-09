@@ -266,13 +266,16 @@ public final class AgentRuntime implements Closeable {
         } catch (LlmCancelledException cancelled) {
             state.setError(RunOutcome.CANCELLED_MESSAGE);
             return;
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            // 捕获 Throwable（含 NoSuchMethodError 等 Error）：run 中途崩溃时不能让会话进入
+            // 「tool_call 无回执」的不可恢复状态，否则之后每轮请求都会被服务端拒绝。
             if (token.isCancelled()) {
                 state.setError(RunOutcome.CANCELLED_MESSAGE);
                 return;
             }
             String message = e.getMessage() == null ? e.toString() : e.getMessage();
             state.setError(message);
+            appendInterruptedToolResults();
             AgentMessage errorMessage = AgentMessage.assistant("错误: " + message, List.of());
             state.appendMessage(errorMessage);
             emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(errorMessage));
@@ -386,6 +389,18 @@ public final class AgentRuntime implements Closeable {
         return toolResult;
     }
 
+    /** run 中途崩溃（含 Error）时为无回执的 tool_call 补合成 toolResult，保证 transcript 配对完整、会话可继续。 */
+    private void appendInterruptedToolResults() {
+        for (String pendingId : state.getPendingToolCalls()) {
+            String note = "宿主执行中断，本次调用无结果，请重发";
+            state.appendMessage(AgentMessage.toolResult(pendingId, note, true));
+            emit(
+                AgentEventType.TOOL_EXECUTION_END,
+                new EventPayloads.ToolExecutionEnd(pendingId, ToolExecutionResult.text(note), true, note)
+            );
+        }
+    }
+
     private AgentMessage executeToolCall(ToolCall toolCall, CancellationToken token) {
         state.addPendingToolCall(toolCall.getId());
         emit(AgentEventType.TOOL_EXECUTION_START, new EventPayloads.ToolExecutionStart(toolCall));
@@ -451,8 +466,6 @@ public final class AgentRuntime implements Closeable {
             isError = true;
             errorMessage = e.getMessage() == null ? "Tool execution failed" : e.getMessage();
             result = ToolExecutionResult.text(errorMessage);
-        } finally {
-            state.removePendingToolCall(toolCall.getId());
         }
 
         if (!isError && workspaceSandbox != null) {
@@ -460,20 +473,28 @@ public final class AgentRuntime implements Closeable {
         }
 
         if (!isError && isHtmlDelivery(toolCall.getName()) && parameters != null && result != null) {
-            CancellationToken smokeToken = token == null ? new CancellationToken() : token;
-            HtmlHarnessSmoke.Outcome smoke = HtmlHarnessSmoke.augment(
-                state.getTool("webview_exec"),
-                workspaceSandbox,
-                parameters,
-                result.getText(),
-                smokeToken
-            );
-            if (smoke != null) {
-                result = ToolExecutionResult.text(smoke.text());
-                if (smoke.failed()) {
-                    isError = true;
-                    errorMessage = "html_smoke 未通过";
+            try {
+                CancellationToken smokeToken = token == null ? new CancellationToken() : token;
+                HtmlHarnessSmoke.Outcome smoke = HtmlHarnessSmoke.augment(
+                    state.getTool("webview_exec"),
+                    workspaceSandbox,
+                    parameters,
+                    result.getText(),
+                    smokeToken
+                );
+                if (smoke != null) {
+                    result = ToolExecutionResult.text(smoke.text());
+                    if (smoke.failed()) {
+                        isError = true;
+                        errorMessage = "html_smoke 未通过";
+                    }
                 }
+            } catch (Throwable smokeFailure) {
+                // 兜底必须捕获 Throwable：Android 低 API 上会抛 NoSuchMethodError 等 Error（非 Exception），
+                // 不能让冒烟检查把整个 run 打崩。
+                isError = true;
+                errorMessage = smokeFailure.getMessage() == null ? "html_smoke 异常" : smokeFailure.getMessage();
+                result = ToolExecutionResult.text(result.getText() + "\nhtml_smoke: 宿主检查异常（" + errorMessage + "）");
             }
         }
 
@@ -505,6 +526,9 @@ public final class AgentRuntime implements Closeable {
 
         AgentMessage toolResultMessage = AgentMessage.toolResult(toolCall.getId(), toolResult.getText(), isError);
         state.appendMessage(toolResultMessage);
+        // pending 只在本次调用拿到回执后才清除：中途抛 Error 穿透时保留 pending，
+        // 让 run 层兜底补合成 toolResult，保证 transcript 配对完整。
+        state.removePendingToolCall(toolCall.getId());
         emit(
             AgentEventType.TOOL_EXECUTION_END,
             new EventPayloads.ToolExecutionEnd(toolCall.getId(), toolResult, isError, errorMessage)

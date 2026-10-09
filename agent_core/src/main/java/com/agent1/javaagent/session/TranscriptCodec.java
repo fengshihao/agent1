@@ -2,7 +2,6 @@ package com.agent1.javaagent.session;
 
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.ToolCall;
-import com.agent1.javaagent.model.ToolCallIds;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -56,13 +55,21 @@ final class TranscriptCodec {
             String reasoning = root.path("reasoning").asText("");
             long createdAt = root.path("createdAt").asLong(System.currentTimeMillis());
             String toolCallId = root.hasNonNull("toolCallId") ? root.get("toolCallId").asText() : null;
+            // decode 不改写 id（两侧对称保留原值）：运行时 PartialToolCall 已保证 id 非空，
+            // 这里再各自 normalize 会生成不同 id，把 assistant.toolCalls 与 toolResult.toolCallId
+            // 错配，导致之后每轮请求都被服务端以 insufficient tool messages 拒绝。
+            // 仅当 toolResult 行缺失 toolCallId 时归一为 ""，与 assistant 侧 null→"" 对称，
+            // 保证坏数据两侧仍然配对一致。
+            if (toolCallId == null && AgentMessage.ROLE_TOOL_RESULT.equals(role)) {
+                toolCallId = "";
+            }
             boolean error = root.path("error").asBoolean(false);
             List<ToolCall> toolCalls = new ArrayList<>();
             if (root.has("toolCalls") && root.get("toolCalls").isArray()) {
                 for (JsonNode n : root.get("toolCalls")) {
                     String rawId = n.hasNonNull("id") ? n.get("id").asText() : null;
                     toolCalls.add(new ToolCall(
-                        ToolCallIds.normalize(rawId),
+                        rawId == null ? "" : rawId,
                         n.path("name").asText(""),
                         n.path("argumentsJson").asText("{}")
                     ));
