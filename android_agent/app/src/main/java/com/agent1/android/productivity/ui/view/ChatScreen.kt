@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +40,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.agent1.android.productivity.logic.business.InspectFeedbackComposer
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import androidx.compose.ui.unit.dp
 
@@ -55,6 +57,9 @@ fun ChatScreen(
     onOpenSystemPrompt: () -> Unit,
     /** 传入且文件可内置预览（html）时，点「打开」走 app 内预览路由。 */
     onOpenInApp: ((String) -> Unit)? = null,
+    /** 预览审查回传的反馈草稿；非空时回填输入框（不自动发送）。 */
+    htmlPreviewFeedback: String = "",
+    onHtmlPreviewFeedbackConsumed: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
@@ -68,6 +73,14 @@ fun ChatScreen(
     }
     val launchPickFiles = {
         pickFilesLauncher.launch(arrayOf("*/*"))
+    }
+
+    // 预览审查反馈草稿回填：追加而不覆盖用户已输入内容；回填后立即消费，防重复。
+    LaunchedEffect(htmlPreviewFeedback) {
+        if (htmlPreviewFeedback.isNotBlank()) {
+            input = InspectFeedbackComposer.mergeDraft(input, htmlPreviewFeedback)
+            onHtmlPreviewFeedbackConsumed()
+        }
     }
 
     DisposableEffect(lifecycleOwner) {

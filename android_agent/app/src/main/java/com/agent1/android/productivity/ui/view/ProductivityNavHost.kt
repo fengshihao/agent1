@@ -1,6 +1,8 @@
 package com.agent1.android.productivity.ui.view
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import android.net.Uri
@@ -27,6 +29,9 @@ private object Routes {
 
     /** path 为 URL 编码后的 workspace 相对路径（含 `/`），Navigation 会自动解码。 */
     const val PREVIEW = "preview/{sessionId}/{path}"
+
+    /** 预览审查草稿经 previousBackStackEntry 的 savedStateHandle 回传给 HOME。 */
+    const val KEY_HTML_PREVIEW_FEEDBACK = "html_preview_feedback"
 }
 
 @Composable
@@ -36,10 +41,13 @@ fun ProductivityNavHost() {
     val nav = rememberNavController()
 
     NavHost(navController = nav, startDestination = Routes.HOME) {
-        composable(Routes.HOME) {
+        composable(Routes.HOME) { homeEntry ->
             val vm: SessionListViewModel = viewModel(
                 factory = simpleFactory { SessionListViewModel(appContext) },
             )
+            val htmlPreviewFeedback by homeEntry.savedStateHandle
+                .getStateFlow(Routes.KEY_HTML_PREVIEW_FEEDBACK, "")
+                .collectAsState()
             ProductivityHome(
                 sessionListViewModel = vm,
                 onOpenSettings = { nav.navigate(Routes.SETTINGS) },
@@ -51,6 +59,10 @@ fun ProductivityNavHost() {
                 },
                 onOpenHtmlPreview = { sessionId, relativePath ->
                     nav.navigate("preview/${Uri.encode(sessionId)}/${Uri.encode(relativePath)}")
+                },
+                htmlPreviewFeedback = htmlPreviewFeedback,
+                onHtmlPreviewFeedbackConsumed = {
+                    homeEntry.savedStateHandle[Routes.KEY_HTML_PREVIEW_FEEDBACK] = ""
                 },
             )
         }
@@ -112,6 +124,11 @@ fun ProductivityNavHost() {
                 sessionId = sessionId,
                 relativePath = relativePath,
                 onBack = { nav.popBackStack() },
+                onSendFeedback = { draft ->
+                    nav.previousBackStackEntry?.savedStateHandle
+                        ?.set(Routes.KEY_HTML_PREVIEW_FEEDBACK, draft)
+                    nav.popBackStack()
+                },
             )
         }
     }
