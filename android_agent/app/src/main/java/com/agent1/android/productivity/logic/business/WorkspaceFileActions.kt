@@ -78,4 +78,42 @@ object WorkspaceFileActions {
         }
         return runCatching { context.startActivity(chooser) }.isSuccess
     }
+
+    /** 多选分享（产物库）：全部文件扩展名相同时带具体 MIME，否则回退通用二进制。 */
+    fun shareFiles(context: Context, files: List<File>): Boolean {
+        val regular = files.filter { it.isFile }
+        if (regular.isEmpty()) return false
+        val authority = "${context.packageName}.fileprovider"
+        val uris = ArrayList(
+            regular.map { file -> FileProvider.getUriForFile(context, authority, file) },
+        )
+        val extensions = regular.map { it.extension.lowercase() }.toSet()
+        val type = if (extensions.size == 1) {
+            mimeTypeForRelativePath(regular.first().name)
+        } else {
+            "application/octet-stream"
+        }
+        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            setType(type)
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(intent, "分享 ${regular.size} 个文件").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return runCatching { context.startActivity(chooser) }.isSuccess
+    }
+
+    /** 多选分享产物库条目：UI 层只传 ArtifactRef，文件解析留在本层（ui.view 禁 java.io.File）。 */
+    fun shareArtifactFiles(
+        context: Context,
+        refs: List<ArtifactLibraryStore.ArtifactRef>,
+    ): Boolean {
+        val files = refs.mapNotNull { ref -> ArtifactLibraryStore.resolveArtifactFile(context, ref) }
+        if (files.isEmpty()) {
+            Toast.makeText(context, "文件不存在或已被移动", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        return shareFiles(context, files)
+    }
 }

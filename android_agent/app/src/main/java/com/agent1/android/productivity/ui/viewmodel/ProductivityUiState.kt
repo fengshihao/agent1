@@ -137,3 +137,35 @@ data class ChatUiState(
     /** 上一轮 Run 结束后的 token / 缓存统计；运行中不展示。 */
     val lastRunTokenSummary: RunTokenSummary? = null,
 )
+
+/** 产物库列表项：会话 workspace 内 AI 生成的文件 + 所属会话标题。 */
+data class ArtifactUiItem(
+    val sessionId: String,
+    val sessionTitle: String,
+    val workspaceRelativePath: String,
+    val fileName: String,
+    val sizeBytes: Long,
+    val lastModifiedMillis: Long,
+) {
+    /** LazyColumn 稳定 key 与多选标识（sessionId + workspace 相对路径）。 */
+    val stableKey: String
+        get() = "$sessionId/$workspaceRelativePath"
+}
+
+data class ArtifactLibraryUiState(
+    /** 打开产物库时的活动会话；为空（落位页）时禁用「插入会话」。 */
+    val currentSessionId: String = "",
+    val isLoading: Boolean = true,
+    /** 全量产物（按修改时间倒序）。 */
+    val items: List<ArtifactUiItem> = emptyList(),
+    /** 按搜索词过滤后的展示列表。 */
+    val filteredItems: List<ArtifactUiItem> = emptyList(),
+    val query: String = "",
+    /** 多选模式：任一长按进入，清空选择后退出。 */
+    val selectionMode: Boolean = false,
+    val selectedKeys: Set<String> = emptySet(),
+    /** 删除 / 插入进行中，按钮防重入。 */
+    val busy: Boolean = false,
+    val message: String? = null,
+    val error: String? = null,
+)

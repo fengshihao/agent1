@@ -8,6 +8,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,9 +17,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -26,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +49,9 @@ import com.agent1.android.productivity.logic.business.HtmlInspectScript
 import com.agent1.android.productivity.logic.business.InspectFeedbackComposer
 import com.agent1.android.productivity.logic.business.InspectedElement
 import com.agent1.android.productivity.logic.business.WorkspaceFileWatcher
+import com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem
+import com.agent1.android.productivity.ui.viewmodel.ChatUiState
+import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.HtmlPreviewViewModel
 
 /**
@@ -59,6 +67,8 @@ fun HtmlPreviewScreen(
     sessionId: String,
     relativePath: String,
     onBack: () -> Unit,
+    /** 当前会话的 ChatViewModel（与聊天页同实例）；null 时无 AI 活动条、发送会失败。 */
+    chatViewModel: ChatViewModel? = null,
     /** 直接发送草稿给当前会话 AI；返回是否成功（被拒如 isRunning/配置错误）。 */
     onSendFeedback: (draft: String) -> Boolean = { false },
 ) {
@@ -76,6 +86,7 @@ fun HtmlPreviewScreen(
     var webView by remember { mutableStateOf<WebView?>(null) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val scope = rememberCoroutineScope()
+    val chatState = chatViewModel?.state?.collectAsState()?.value
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -113,6 +124,17 @@ fun HtmlPreviewScreen(
                     },
                 )
                 AgentHairline()
+                // AI 工作过程可见：运行中显示当前动作（工具名/连接模型/思考），
+                // 点击状态条跳回聊天页看完整过程。
+                AnimatedVisibility(visible = chatState?.isRunning == true) {
+                    val running = chatState
+                    if (running != null) {
+                        Column {
+                            AgentHairline()
+                            AiActivityStrip(state = running, onOpenChat = onBack)
+                        }
+                    }
+                }
             }
         },
         bottomBar = {
@@ -266,6 +288,46 @@ fun HtmlPreviewScreen(
         } else {
             // resolve() 只有 error 或 file 两种结果；防御分支。
             PreviewErrorBox("无法预览：$relativePath", Modifier.fillMaxSize().padding(innerPadding))
+        }
+    }
+}
+
+@Composable
+private fun AiActivityStrip(state: ChatUiState, onOpenChat: () -> Unit, modifier: Modifier = Modifier) {
+    val tool = state.runTimeline.lastOrNull { it is ChatRunTimelineItem.ToolPart } as? ChatRunTimelineItem.ToolPart
+    val label = when {
+        tool != null && !tool.finished -> "正在执行 ${tool.toolName}…"
+        !state.runActivityLabel.isNullOrBlank() -> state.runActivityLabel
+        tool != null -> "正在执行 ${tool.toolName}…"
+        state.streamingReasoning.isNotEmpty() -> "AI 正在思考…"
+        else -> "AI 正在工作中…"
+    }
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenChat)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(14.dp),
+                strokeWidth = 1.5.dp,
+            )
+            Text(
+                label,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "查看对话",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
     }
 }

@@ -32,6 +32,34 @@ object WorkspaceFileImport {
         }
     }
 
+    /**
+     * 从本地已存在的文件（如其他会话的 AI 产物）复制进 `workspace/imports/`，
+     * 与系统选择器导入同一落点与命名规则，使「插入会话」与底部附件按钮效果一致。
+     */
+    fun copyLocalFileToImports(
+        workspaceRoot: Path,
+        source: Path,
+        displayName: String,
+    ): Result? {
+        if (!Files.isRegularFile(source)) return null
+        val importsDir = workspaceRoot.resolve(IMPORT_DIR)
+        Files.createDirectories(importsDir)
+        val root = workspaceRoot.toAbsolutePath().normalize()
+        val name = displayName.ifBlank {
+            source.fileName?.toString().orEmpty().ifBlank { "file" }
+        }
+        val target = uniqueFile(importsDir, sanitizeFileName(name))
+        val normalized = target.toAbsolutePath().normalize()
+        if (!normalized.startsWith(root)) return null
+        Files.copy(source, normalized)
+        if (!Files.isRegularFile(normalized) || Files.size(normalized) <= 0L) {
+            Files.deleteIfExists(normalized)
+            return null
+        }
+        val relative = root.relativize(normalized).toString().replace('\\', '/')
+        return Result(relative, name)
+    }
+
     private fun copyOne(
         context: Context,
         importsDir: Path,

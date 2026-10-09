@@ -106,7 +106,6 @@ flowchart TB
     Core --> WS[Session workspace]
     Core --> Search[find_caps]
     Core --> Audit[events.jsonl]
-    Core --> JavaTools["grep · glob · zip · bash · skill"]
   end
 
   Core --> Bridge[weizhi-bridge]
