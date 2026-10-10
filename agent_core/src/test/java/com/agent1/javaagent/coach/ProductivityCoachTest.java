@@ -133,6 +133,32 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void runJsWebviewReceiptStillCoaches() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "const fs = require('fs'); const r = await $tools.webview_exec({code:'return null'}); r");
+        ToolExecutionResult in = ToolExecutionResult.text(
+            "{\"ok\":false,\"error\":\"没有可落盘的返回值:脚本返回了 null 或 undefined。不会写入文件。\"}"
+        );
+        ToolExecutionResult out = coach.maybeAugment("run_js", params, in, true);
+        assertTrue(out.getText().contains("[coach] webview.null_return"));
+        assertFalse(out.getText().contains("[coach] webview.not_web_api"));
+        assertFalse(out.getText().contains("[coach] script.not_node"));
+    }
+
+    @Test
+    void runJsPlainReceiptDoesNotScanOuterFs() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "import fs from 'fs'; fs.readFileSync('a.txt')");
+        ToolExecutionResult in = ToolExecutionResult.text(
+            "{\"ok\":true,\"resultPreview\":{\"svg\":1,\"textLen\":20}}"
+        );
+        ToolExecutionResult out = coach.maybeAugment("run_js", params, in, false);
+        assertFalse(out.getText().contains("[coach]"));
+    }
+
+    @Test
     void webviewNullReturnCoach() {
         ProductivityCoach coach = new ProductivityCoach();
         ToolExecutionResult in = ToolExecutionResult.text(

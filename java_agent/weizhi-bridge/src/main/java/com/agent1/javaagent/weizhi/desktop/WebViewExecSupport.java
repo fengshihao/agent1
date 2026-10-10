@@ -140,7 +140,10 @@ public final class WebViewExecSupport {
             }
         }
         receipt.put("resultType", parsed.resultType);
-        receipt.put("resultPreview", spill ? SPILL_PREVIEW : parsed.text);
+        receipt.put(
+            "resultPreview",
+            spill ? SPILL_PREVIEW : BridgeCodec.embedPreview(parsed.resultType, parsed.text)
+        );
         List<String> console = o.console();
         if (console != null && !console.isEmpty()) {
             receipt.put("console", console);

@@ -132,7 +132,16 @@ public final class WeizhiScriptToolInstaller {
             + "      var r = __caps(req);\n"
             + "      if (typeof r === 'string') { try { r = JSON.parse(r); } catch (e) {} }\n"
             + "      if (r && r.error) throw new Error(r.error);\n"
-            + "      return (r && r.result !== undefined) ? r.result : r;\n"
+            + "      var out = (r && r.result !== undefined) ? r.result : r;\n"
+            + "      if (String(name) === 'webview_exec' && typeof out === 'string') {\n"
+            + "        var t = out.trim();\n"
+            + "        var head = t.charAt(0);\n"
+            + "        var tail = t.charAt(t.length - 1);\n"
+            + "        if ((head === '{' && tail === '}') || (head === '[' && tail === ']')) {\n"
+            + "          try { out = JSON.parse(t); } catch (e2) {}\n"
+            + "        }\n"
+            + "      }\n"
+            + "      return out;\n"
             + "    };\n"
             + "  }\n"
             + "});\n"
@@ -185,6 +194,45 @@ public final class WeizhiScriptToolInstaller {
         return lines;
     }
 
+    /**
+     * {@code webview_exec} 的回执已是 JSON 对象或数组时原样嵌入 {@code result}，
+     * 其它工具结果仍是 JSON 字符串。避免 run_js 再 stringify 一层。
+     */
+    static String encodeToolResult(String toolName, String result) {
+        if (result == null) {
+            return "\"\"";
+        }
+        if ("webview_exec".equals(toolName)) {
+            String embedded = embedJsonContainer(result);
+            if (embedded != null) {
+                return embedded;
+            }
+        }
+        return MiniJson.quote(result);
+    }
+
+    private static String embedJsonContainer(String result) {
+        String trimmed = result.trim();
+        int length = trimmed.length();
+        if (length < 2) {
+            return null;
+        }
+        char head = trimmed.charAt(0);
+        char tail = trimmed.charAt(length - 1);
+        if (!((head == '{' && tail == '}') || (head == '[' && tail == ']'))) {
+            return null;
+        }
+        try {
+            Object parsed = MiniJson.parse(trimmed);
+            if (parsed instanceof Map || parsed instanceof List) {
+                return trimmed;
+            }
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+        return null;
+    }
+
     @SuppressWarnings("unchecked")
     private static String dispatch(String argsJson, ScriptToolBridge bridge, WeizhiEngine.HostCall inner) {
         Map<String, Object> args;
@@ -211,7 +259,7 @@ public final class WeizhiScriptToolInstaller {
         Map<String, Object> map = input instanceof Map ? (Map<String, Object>) input : Map.of();
         try {
             String result = bridge.call(name, map);
-            return "{\"result\":" + MiniJson.quote(result == null ? "" : result) + "}";
+            return "{\"result\":" + encodeToolResult(name, result) + "}";
         } catch (RuntimeException e) {
             String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
             return MiniJson.error(message);

@@ -176,6 +176,21 @@ class WebViewExecSupportTest {
     }
 
     @Test
+    void jsonPreviewIsEmbeddedObject(@TempDir Path workspace) {
+        String json = render(workspace, null, "{\"result\":{\"svg\":1,\"textLen\":4}}");
+        JsonObject receipt = JsonParser.parseString(json).getAsJsonObject();
+        assertEquals("object", receipt.get("resultType").getAsString());
+        assertTrue(receipt.get("resultPreview").isJsonObject());
+        assertEquals(1, receipt.getAsJsonObject("resultPreview").get("svg").getAsInt());
+
+        String stringified = render(workspace, null, jsonString("{\"svg\":0,\"canvas\":0,\"textLen\":12}"));
+        JsonObject fromString = JsonParser.parseString(stringified).getAsJsonObject();
+        assertEquals("string", fromString.get("resultType").getAsString());
+        assertTrue(fromString.get("resultPreview").isJsonObject());
+        assertEquals(12, fromString.getAsJsonObject("resultPreview").get("textLen").getAsInt());
+    }
+
+    @Test
     void objectAndArrayResultTypes() {
         WebViewSpillResult object = WebViewSpillResult.parse("{\"result\":{\"a\":1}}");
         assertEquals("object", object.resultType);

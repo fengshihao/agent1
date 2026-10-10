@@ -60,7 +60,7 @@ public final class ProductivitySystemPromptBuilder {
 
     /** 仅 scriptHostTools（Weizhi $tools 桥）时追加到工作流程段。 */
     static final String WEBVIEW_FROM_SCRIPT = """
-        浏览器放进同一段脚本：await $tools.webview_exec({...})。不要在外层单独调 webview_exec。
+        浏览器放进同一段脚本：await $tools.webview_exec({...})，返回值已是回执对象。不要 JSON.parse，也不要再 JSON.stringify。不要在外层单独调 webview_exec。
         """.trim();
 
     static final String TOOLS_DIRECT = """
