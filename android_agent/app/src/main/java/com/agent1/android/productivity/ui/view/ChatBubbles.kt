@@ -52,7 +52,14 @@ internal fun MessageBubble(
     onOpenInApp: ((String) -> Unit)? = null,
     /** 系统提示卡上「设置页」链接的跳转；null 时不展示链接。 */
     onOpenSettings: (() -> Unit)? = null,
+    skipTrailingImagePreviews: Boolean = false,
+    /** 长消息拆段时只渲染该片段；null 表示整段 [line.content]。 */
+    contentSlice: String? = null,
+    showReasoning: Boolean = true,
+    showPickFiles: Boolean = true,
+    modifier: Modifier = Modifier,
 ) {
+    val bodyText = contentSlice ?: line.content
     val bubbles = chatBubbleColors()
     val isUser = line.role == "user" && !line.isTool && !line.isSystemNotice
     val isTool = line.isTool
@@ -91,8 +98,11 @@ internal fun MessageBubble(
             )
         }
         else -> {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (line.reasoning.isNotBlank()) {
+            Column(
+                modifier = modifier,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (showReasoning && line.reasoning.isNotBlank()) {
                     CollapsibleReasoningBlock(
                         reasoning = line.reasoning,
                         stateKey = reasoningStateKey,
@@ -100,7 +110,7 @@ internal fun MessageBubble(
                             line.content.isBlank(),
                     )
                 }
-                if (line.content.isNotBlank() || line.requestUserPickFiles) {
+                if (bodyText.isNotBlank() || (showPickFiles && line.requestUserPickFiles)) {
                     BubbleShell(
                         alignEnd = false,
                         wide = true,
@@ -109,16 +119,17 @@ internal fun MessageBubble(
                     ) {
                         SelectionContainer {
                             Column {
-                                if (line.content.isNotBlank()) {
+                                if (bodyText.isNotBlank()) {
                                     WorkspaceChatBody(
-                                        content = line.content,
+                                        content = bodyText,
                                         workspaceAbsolutePath = workspacePath,
                                         markdown = markdown,
                                         workspaceFilePaths = line.workspaceFilePaths,
                                         onOpenInApp = onOpenInApp,
+                                        skipTrailingImagePreviews = skipTrailingImagePreviews,
                                     )
                                 }
-                                if (line.requestUserPickFiles) {
+                                if (showPickFiles && line.requestUserPickFiles) {
                                     IconButton(
                                         onClick = onPickFiles,
                                         enabled = pickFilesEnabled,
@@ -140,6 +151,26 @@ internal fun MessageBubble(
                 }
             }
         }
+    }
+}
+
+/** 多图消息拆出的单张预览，仍用助手气泡样式，但单独占一条 Lazy item。 */
+@Composable
+internal fun DetachedWorkspaceImageBubble(
+    workspacePath: String,
+    relativePath: String,
+) {
+    val bubbles = chatBubbleColors()
+    BubbleShell(
+        alignEnd = false,
+        wide = true,
+        background = bubbles.assistantBackground,
+        borderColor = bubbles.assistantBorder,
+    ) {
+        WorkspaceImagePreview(
+            workspaceAbsolutePath = workspacePath,
+            workspaceRelativePath = relativePath,
+        )
     }
 }
 

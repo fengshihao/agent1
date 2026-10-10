@@ -21,6 +21,16 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
+    fun trailingImagePreviewPaths_excludesInlineMarkdownImages() {
+        val paths = ChatTranscriptFormatting.trailingImagePreviewPaths(
+            "看 ![内联](a.png) 与附件",
+            listOf("a.png", "b.png"),
+            null,
+        )
+        assertEquals(listOf("b.png"), paths)
+    }
+
+    @Test
     fun extractMarkdownImagePaths_findsRelativePath() {
         val paths = ChatTranscriptFormatting.extractMarkdownImagePaths("看图 ![小猫](cat.png) 结束")
         assertEquals(listOf("cat.png"), paths)

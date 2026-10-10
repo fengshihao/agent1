@@ -293,6 +293,22 @@ object ChatTranscriptFormatting {
         }
     }
 
+    /** 正文下方单独预览的图片（非 Markdown 内联 `![](path)`）。 */
+    fun trailingImagePreviewPaths(
+        content: String,
+        workspaceFilePaths: List<String>,
+        workspaceRoot: java.nio.file.Path?,
+    ): List<String> {
+        if (content.isBlank() && workspaceFilePaths.isEmpty()) return emptyList()
+        val logical = SessionWorkspacePaths.scrubWorkspaceAbsolute(content, workspaceRoot)
+        val paths = mergeWorkspaceFilePaths(logical, workspaceFilePaths, workspaceRoot)
+        val inline = extractMarkdownImagePaths(logical)
+            .map { normalizeWorkspacePath(it, workspaceRoot) }
+            .filter { it.isNotEmpty() && isImagePath(it) }
+            .toSet()
+        return paths.filter { isImageWorkspacePath(it) && it !in inline }
+    }
+
     fun isWorkspaceFilePath(path: String): Boolean = isAttachmentPath(path) || isImagePath(path)
 
     fun isImageWorkspacePath(path: String): Boolean = isImagePath(path)

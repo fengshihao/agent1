@@ -23,6 +23,8 @@ fun WorkspaceChatBody(
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     /** 传入且文件可内置预览（html）时，点「打开」走 app 内预览路由。 */
     onOpenInApp: ((String) -> Unit)? = null,
+    /** 为 true 时不渲染正文下方的多图预览（已拆成独立 Lazy item）。 */
+    skipTrailingImagePreviews: Boolean = false,
 ) {
     if (content.isBlank()) return
     val root = remember(workspaceAbsolutePath) {
@@ -53,7 +55,7 @@ fun WorkspaceChatBody(
                 // 流式阶段（非 markdown 渲染）会对图片路径显示预览；完成后切到 markdown
                 // 渲染时只有超链接，图片会“消失”。这里补渲染正文引用的图片预览，保持一致。
                 // ![](path) 内联图已由 WorkspaceMarkdown 的 ImageTransformer 渲染，跳过避免重复。
-                if (workspaceAbsolutePath.isNotBlank()) {
+                if (workspaceAbsolutePath.isNotBlank() && !skipTrailingImagePreviews) {
                     paths.filter {
                         ChatTranscriptFormatting.isImageWorkspacePath(it) && it !in inlineImagePaths
                     }.forEach { rel ->

@@ -1,6 +1,5 @@
 package com.agent1.android.productivity.ui.view
 
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,27 +7,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
@@ -36,9 +22,8 @@ import com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.RunTokenSummary
 import com.agent1.android.productivity.ui.viewmodel.shouldShowAssistantPending
-import kotlinx.coroutines.flow.distinctUntilChanged
 
-/** 会话消息区：历史行 + run 时间线 + 流式气泡 + 待处理/汇总行，粘底自动滚动。 */
+/** 会话消息区：普通 LazyColumn（无贴底/scrollToItem）；新消息时暂不自动滚到底，避免与浏览历史打架。 */
 @Composable
 internal fun ChatMessageList(
     state: ChatUiState,
@@ -50,66 +35,10 @@ internal fun ChatMessageList(
     onOpenSettings: (() -> Unit)? = null,
 ) {
     val visibleLines = state.lines.filterNot { it.hideInChat }
+    val lazyRows = remember(visibleLines, state.workspacePath) {
+        ChatLazyRowExpansion.expandTranscriptLines(visibleLines, state.workspacePath)
+    }
     val listState = rememberLazyListState()
-    val stickToBottomState = rememberSaveable(state.sessionId) { mutableStateOf(true) }
-    val stickToBottom = stickToBottomState.value
-
-    val userScrollConnection = remember(listState, stickToBottomState) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                // 任意向上的用户输入都立即脱离贴底，避免与自动滚动打架（用户被「弹回」）。
-                if (source == NestedScrollSource.UserInput && available.y > 0f) {
-                    stickToBottomState.value = false
-                }
-                return Offset.Zero
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource,
-            ): Offset {
-                if (source == NestedScrollSource.UserInput && !listState.canScrollForward) {
-                    stickToBottomState.value = true
-                }
-                return Offset.Zero
-            }
-        }
-    }
-
-    LaunchedEffect(listState, stickToBottomState) {
-        snapshotFlow {
-            val layout = listState.layoutInfo
-            val last = layout.visibleItemsInfo.lastOrNull()
-            ChatListAutoscroll.isAtBottom(
-                totalItems = layout.totalItemsCount,
-                lastVisibleIndex = last?.index ?: -1,
-                lastVisibleOffset = last?.offset ?: 0,
-                lastVisibleSize = last?.size ?: 0,
-                viewportEndOffset = layout.viewportEndOffset,
-            )
-        }.distinctUntilChanged().collect { atBottom ->
-            // 用户正在滚动（尤其向上拖动）时不重新贴底：贴底阈值内的往回拖
-            // 会被下一帧自动滚动强行拉回，形成「拉不上去、偶尔能通过」的打架。
-            if (atBottom && !listState.isScrollInProgress) {
-                stickToBottomState.value = true
-            }
-        }
-    }
-
-    LaunchedEffect(
-        visibleLines.size,
-        state.runTimeline.size,
-        state.streamingText.length,
-        state.streamingReasoning.length,
-        state.isRunning,
-        state.lastRunTokenSummary,
-        stickToBottom,
-    ) {
-        // 用户拖动/惯性滚动期间绝不自动滚动，避免抢滚动位置。
-        if (!stickToBottom || listState.isScrollInProgress) return@LaunchedEffect
-        listState.scrollToActualBottom()
-    }
     if (state.isLoadingTranscript && state.lines.isEmpty()) {
         Box(
             modifier = modifier.fillMaxWidth(),
@@ -134,33 +63,50 @@ internal fun ChatMessageList(
     }
     LazyColumn(
         state = listState,
-        modifier = modifier
-            .padding(horizontal = 4.dp)
-            .nestedScroll(userScrollConnection),
+        modifier = modifier.padding(horizontal = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
         contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
     ) {
         items(
-            count = visibleLines.size,
-            key = { index ->
-                visibleLines[index].stableKey.ifBlank { "line-$index" }
-            },
+            count = lazyRows.size,
+            key = { index -> lazyRows[index].key },
         ) { index ->
-            val line = visibleLines[index]
-            val useMarkdown = !line.isTool &&
-                !line.isSystemNotice &&
-                line.role != "user" &&
-                ChatTranscriptFormatting.shouldRenderAsMarkdown(line.content)
-            MessageBubble(
-                line = line,
-                workspacePath = state.workspacePath,
-                markdown = useMarkdown,
-                reasoningStateKey = line.stableKey.ifBlank { "line-$index" },
-                onPickFiles = onPickFiles,
-                pickFilesEnabled = pickFilesEnabled,
-                onOpenInApp = onOpenInApp,
-                onOpenSettings = onOpenSettings,
-            )
+            when (val row = lazyRows[index]) {
+                is ChatLazyRow.Message -> {
+                    val line = row.line
+                    val slice = row.contentSlice
+                    val bodyForMarkdown = slice ?: line.content
+                    val useMarkdown = !line.isTool &&
+                        !line.isSystemNotice &&
+                        line.role != "user" &&
+                        ChatTranscriptFormatting.shouldRenderAsMarkdown(bodyForMarkdown)
+                    MessageBubble(
+                        line = line,
+                        workspacePath = state.workspacePath,
+                        markdown = useMarkdown,
+                        reasoningStateKey = line.stableKey.ifBlank { "line-$index" },
+                        onPickFiles = onPickFiles,
+                        pickFilesEnabled = pickFilesEnabled,
+                        onOpenInApp = onOpenInApp,
+                        onOpenSettings = onOpenSettings,
+                        skipTrailingImagePreviews = row.skipTrailingImagePreviews,
+                        contentSlice = slice,
+                        showReasoning = row.showReasoning,
+                        showPickFiles = row.showPickFiles,
+                        modifier = if (row.tightTop) {
+                            Modifier.padding(top = (-6).dp)
+                        } else {
+                            Modifier
+                        },
+                    )
+                }
+                is ChatLazyRow.DetachedImage -> {
+                    DetachedWorkspaceImageBubble(
+                        workspacePath = state.workspacePath,
+                        relativePath = row.relativePath,
+                    )
+                }
+            }
         }
         itemsIndexed(
             items = state.runTimeline,
@@ -230,24 +176,6 @@ internal fun ChatMessageList(
                 }
             }
         }
-    }
-}
-
-private suspend fun LazyListState.scrollToActualBottom() {
-    val lastIndex = layoutInfo.totalItemsCount - 1
-    if (lastIndex < 0) return
-    // 最后一条已（至少部分）可见时只补滚溢出量；避免流式增量触发的
-    // scrollToItem 先把条目顶部对齐视口再翻回底部，造成“跳到开头又跳到末尾”的闪烁。
-    val visibleLast = layoutInfo.visibleItemsInfo.lastOrNull()
-    if (visibleLast == null || visibleLast.index != lastIndex) {
-        scrollToItem(lastIndex)
-        withFrameNanos { }
-    }
-    val last = layoutInfo.visibleItemsInfo.lastOrNull() ?: return
-    if (last.index != lastIndex) return
-    val overflow = (last.offset + last.size) - layoutInfo.viewportEndOffset
-    if (overflow > 0) {
-        scrollBy(overflow.toFloat())
     }
 }
 
