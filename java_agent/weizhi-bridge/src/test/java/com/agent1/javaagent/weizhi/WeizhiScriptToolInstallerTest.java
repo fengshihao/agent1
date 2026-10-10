@@ -85,6 +85,34 @@ class WeizhiScriptToolInstallerTest {
         assertTrue(prelude.contains("\"demo\""));
         assertTrue(prelude.contains("callTool(String(tool)"));
         assertTrue(prelude.contains("JSON.parse(out)"));
+        assertTrue(prelude.contains("webview_exec"));
+        assertTrue(prelude.contains("JSON.parse(t)"));
+    }
+
+    @Test
+    void webviewExecReceiptIsEmbeddedObject() {
+        String receipt = "{\"ok\":true,\"resultPreview\":{\"svg\":1,\"textLen\":4}}";
+        assertEquals(receipt, WeizhiScriptToolInstaller.encodeToolResult("webview_exec", "  " + receipt + "  "));
+        String envelope = "{\"result\":" + WeizhiScriptToolInstaller.encodeToolResult("webview_exec", receipt) + "}";
+        Object result = com.weizhi.platform.MiniJson.parse(envelope);
+        assertTrue(result instanceof java.util.Map);
+        Object inner = ((java.util.Map<?, ?>) result).get("result");
+        assertTrue(inner instanceof java.util.Map);
+        assertEquals(Boolean.TRUE, ((java.util.Map<?, ?>) inner).get("ok"));
+    }
+
+    @Test
+    void otherToolsStayQuotedEvenWhenJson() {
+        String body = "{\"ok\":true}";
+        String encoded = WeizhiScriptToolInstaller.encodeToolResult("read_file", body);
+        assertTrue(encoded.startsWith("\""));
+        assertFalse(encoded.equals(body));
+    }
+
+    @Test
+    void invalidWebviewTextStaysQuoted() {
+        String encoded = WeizhiScriptToolInstaller.encodeToolResult("webview_exec", "not-json");
+        assertEquals("\"not-json\"", encoded);
     }
 
     private static ScriptToolBridge bridge(String name) {

@@ -1,6 +1,8 @@
 package com.weizhi.agent.web;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 
 import java.io.IOException;
 import java.util.Base64;
@@ -24,6 +26,38 @@ public final class BridgeCodec {
     public static final int CHUNK_B64_CHARS = 48 * 1024;
 
     private BridgeCodec() {
+    }
+
+    /**
+     * 回执 {@code resultPreview}：对象、数组，或内容本身是 JSON 对象/数组的字符串，嵌成 JSON 值。
+     * 其它文本仍是字符串，避免校验结果再被 stringify 一层。
+     */
+    public static Object embedPreview(String resultType, String text) {
+        if (text == null) {
+            return "";
+        }
+        if (!"object".equals(resultType) && !"array".equals(resultType) && !"string".equals(resultType)) {
+            return text;
+        }
+        String trimmed = text.trim();
+        int length = trimmed.length();
+        if (length < 2) {
+            return text;
+        }
+        char head = trimmed.charAt(0);
+        char tail = trimmed.charAt(length - 1);
+        if (!((head == '{' && tail == '}') || (head == '[' && tail == ']'))) {
+            return text;
+        }
+        try {
+            JsonElement element = JsonParser.parseString(trimmed);
+            if (element.isJsonObject() || element.isJsonArray()) {
+                return element;
+            }
+        } catch (RuntimeException ignored) {
+            return text;
+        }
+        return text;
     }
 
     /** 任务下发 JSON:{"taskId":..,"code":..,"inputB64":..,"wasmB64":..}(可空字段省略)。 */

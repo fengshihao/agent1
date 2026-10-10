@@ -112,33 +112,22 @@ public final class ProductivityCoach {
                     "staging 已有内容；确认 SKILL.md 或脚本就绪后调用 promote_request 沉淀到 shared/local。";
             }
         } else if ("webview_exec".equals(toolName) && text != null) {
-            if (looksLikeNonWebApiInWebView(text, parameters)) {
-                hookId = "webview.not_web_api";
-                advice =
-                    "webview_exec 是标准 WebView 控件，只支持 Web API（document、fetch、DOM 等），没有 Node 的 fs/require。"
-                        + "读工作区文件用 input_path（全局 input 是 Uint8Array）；写回用 writeFile。";
-            } else if (text.contains("没有可落盘的返回值")) {
-                hookId = "webview.null_return";
-                advice =
-                    "脚本被包进函数执行，只有顶层 return 的值会落盘；运行时会等待这个 return 出来的 Promise。"
-                        + "请写成 return (async () => { ...; return 结果; })()。"
-                        + "或者不 return，在这个 Promise 里 writeFile('out.png', data)，宿主会把 Base64 图片解码写入工作区。"
-                        + "不要只写 (async () => {})()，也不要把 return 放在 img.onload 里。";
-            } else if (text.contains("await is only valid in async")) {
-                hookId = "webview.async_syntax";
-                advice =
-                    "webview_exec 的 code 需顶层 return 表达式；异步用 return (async () => { ... })()。"
-                        + "读工作区文件用 input_path，不要用 fetch('相对路径')，也没有 Node 的 fs。";
-            } else if (looksLikeTinyWebViewImage(text)) {
-                hookId = "webview.tiny_output";
-                advice =
-                    "输出文件过小，图片可能无效。这是标准 WebView，只支持 Web API。"
-                        + "同类转换可先 find_caps 看有没有现成脚本；读工作区文件用 input_path，不要用 Node 的 fs。";
+            WebViewHook hook = webViewHook(text, parameters, true);
+            if (hook != null) {
+                hookId = hook.id;
+                advice = hook.advice;
             }
         } else if ("run_js".equals(toolName) && parameters != null) {
+            if (text != null && looksLikeWebViewReceipt(text)) {
+                WebViewHook hook = webViewHook(text, parameters, false);
+                if (hook != null) {
+                    hookId = hook.id;
+                    advice = hook.advice;
+                }
+            }
             String file = parameters.path("file").asText("").trim();
             String code = parameters.path("code").asText("");
-            if (ScriptFailureFormatter.looksLikeFailureJson(text) || isScriptFailureLegacy(text)) {
+            if (hookId == null && (ScriptFailureFormatter.looksLikeFailureJson(text) || isScriptFailureLegacy(text))) {
                 if (!file.isEmpty() && looksLikeNonScriptDataFile(file) && text != null
                     && text.contains("unexpected token")) {
                     hookId = "script.wrong_file_type";
@@ -173,7 +162,7 @@ public final class ProductivityCoach {
                                 + "调用方式用 find_caps 返回的示例。";
                     }
                 }
-            } else if (file.isEmpty() && !code.isBlank()
+            } else if (hookId == null && file.isEmpty() && !code.isBlank()
                 && (text == null || !text.contains(InlineScriptSpill.MARKER))) {
                 int lines = countLines(code);
                 int bytes = code.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
@@ -235,6 +224,50 @@ public final class ProductivityCoach {
         }
         return lines;
     }
+
+    private record WebViewHook(String id, String advice) {
+    }
+
+    /** run_js 回执里出现 webview_exec 的字段时，套用同一套 WebView 提示。不扫描外层脚本源码。 */
+    private static boolean looksLikeWebViewReceipt(String text) {
+        return text.contains("没有可落盘的返回值")
+            || text.contains("resultPreview")
+            || text.contains("tmp/webview_exec/");
+    }
+
+    private static WebViewHook webViewHook(String text, JsonNode parameters, boolean scanSource) {
+        if (scanSource && looksLikeNonWebApiInWebView(text, parameters)) {
+            return new WebViewHook("webview.not_web_api", ADVICE_NOT_WEB_API);
+        }
+        if (!scanSource && looksLikeNodeModuleError(text)) {
+            return new WebViewHook("webview.not_web_api", ADVICE_NOT_WEB_API);
+        }
+        if (text.contains("没有可落盘的返回值")) {
+            return new WebViewHook("webview.null_return", ADVICE_NULL_RETURN);
+        }
+        if (text.contains("await is only valid in async")) {
+            return new WebViewHook("webview.async_syntax", ADVICE_ASYNC_SYNTAX);
+        }
+        if (looksLikeTinyWebViewImage(text)) {
+            return new WebViewHook("webview.tiny_output", ADVICE_TINY_OUTPUT);
+        }
+        return null;
+    }
+
+    private static final String ADVICE_NOT_WEB_API =
+        "webview_exec 是标准 WebView 控件，只支持 Web API（document、fetch、DOM 等），没有 Node 的 fs/require。"
+            + "读工作区文件用 input_path（全局 input 是 Uint8Array）；写回用 writeFile。";
+    private static final String ADVICE_NULL_RETURN =
+        "脚本被包进函数执行，只有顶层 return 的值会落盘；运行时会等待这个 return 出来的 Promise。"
+            + "请写成 return (async () => { ...; return 结果; })()。"
+            + "或者不 return，在这个 Promise 里 writeFile('out.png', data)，宿主会把 Base64 图片解码写入工作区。"
+            + "不要只写 (async () => {})()，也不要把 return 放在 img.onload 里。";
+    private static final String ADVICE_ASYNC_SYNTAX =
+        "webview_exec 的 code 需顶层 return 表达式；异步用 return (async () => { ... })()。"
+            + "读工作区文件用 input_path，不要用 fetch('相对路径')，也没有 Node 的 fs。";
+    private static final String ADVICE_TINY_OUTPUT =
+        "输出文件过小，图片可能无效。这是标准 WebView，只支持 Web API。"
+            + "同类转换可先 find_caps 看有没有现成脚本；读工作区文件用 input_path，不要用 Node 的 fs。";
 
     private static boolean looksLikeTinyWebViewImage(String text) {
         String lower = text.toLowerCase();
