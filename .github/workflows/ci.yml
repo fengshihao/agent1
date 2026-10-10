@@ -135,6 +135,12 @@ jobs:
       - name: Publish java-agent-core to local Maven
         run: ./java_agent/gradlew --no-daemon -p java_agent publishCoreToLocalRepo
 
+      - name: Android JVM unit tests
+        working-directory: android_agent
+        env:
+          DASHSCOPE_API_KEY: ""
+        run: ./gradlew --no-daemon :app:testDebugUnitTest
+
       - name: Assemble Debug APK (no API key baked in)
         working-directory: android_agent
         env:
