@@ -46,6 +46,8 @@ internal fun ChatMessageList(
     pickFilesEnabled: Boolean,
     modifier: Modifier = Modifier,
     onOpenInApp: ((String) -> Unit)? = null,
+    /** 系统提示卡（单轮往返上限等）「设置页」链接的跳转。 */
+    onOpenSettings: (() -> Unit)? = null,
 ) {
     val visibleLines = state.lines.filterNot { it.hideInChat }
     val listState = rememberLazyListState()
@@ -55,7 +57,8 @@ internal fun ChatMessageList(
     val userScrollConnection = remember(listState, stickToBottomState) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput && available.y > 1f) {
+                // 任意向上的用户输入都立即脱离贴底，避免与自动滚动打架（用户被「弹回」）。
+                if (source == NestedScrollSource.UserInput && available.y > 0f) {
                     stickToBottomState.value = false
                 }
                 return Offset.Zero
@@ -86,7 +89,9 @@ internal fun ChatMessageList(
                 viewportEndOffset = layout.viewportEndOffset,
             )
         }.distinctUntilChanged().collect { atBottom ->
-            if (atBottom) {
+            // 用户正在滚动（尤其向上拖动）时不重新贴底：贴底阈值内的往回拖
+            // 会被下一帧自动滚动强行拉回，形成「拉不上去、偶尔能通过」的打架。
+            if (atBottom && !listState.isScrollInProgress) {
                 stickToBottomState.value = true
             }
         }
@@ -101,7 +106,8 @@ internal fun ChatMessageList(
         state.lastRunTokenSummary,
         stickToBottom,
     ) {
-        if (!stickToBottom) return@LaunchedEffect
+        // 用户拖动/惯性滚动期间绝不自动滚动，避免抢滚动位置。
+        if (!stickToBottom || listState.isScrollInProgress) return@LaunchedEffect
         listState.scrollToActualBottom()
     }
     if (state.isLoadingTranscript && state.lines.isEmpty()) {
@@ -142,6 +148,7 @@ internal fun ChatMessageList(
         ) { index ->
             val line = visibleLines[index]
             val useMarkdown = !line.isTool &&
+                !line.isSystemNotice &&
                 line.role != "user" &&
                 ChatTranscriptFormatting.shouldRenderAsMarkdown(line.content)
             MessageBubble(
@@ -152,11 +159,13 @@ internal fun ChatMessageList(
                 onPickFiles = onPickFiles,
                 pickFilesEnabled = pickFilesEnabled,
                 onOpenInApp = onOpenInApp,
+                onOpenSettings = onOpenSettings,
             )
         }
         itemsIndexed(
             items = state.runTimeline,
-            key = { index, item -> "$index:${item.id}" },
+            // key 不能含 index：中途插入会让后续所有条目 key 变化，滚动锚点丢失导致跳动/闪烁。
+            key = { _, item -> item.id },
         ) { _, item ->
             when (item) {
                 is ChatRunTimelineItem.AssistantPart -> {
