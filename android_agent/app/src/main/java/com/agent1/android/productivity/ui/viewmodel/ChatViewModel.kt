@@ -519,6 +519,8 @@ class ChatViewModel(
         val askRequest = askCall?.let { AskUserFormatting.parseRequestFromToolCall(it) }
         val files = ChatTranscriptFormatting.mergeWorkspaceFilePaths(content, emptyList(), workspaceRoot)
         val pick = role == AgentMessage.ROLE_ASSISTANT && UserFileRequestMarkers.containsRequest(content)
+        val isSystemNotice = role == AgentMessage.ROLE_USER &&
+            content.trim() == com.agent1.javaagent.core.RunOutcome.progressSummaryUserPrompt()
         val baseDisplay = if (pick) {
             UserFileRequestMarkers.stripForDisplay(content)
         } else {
@@ -544,6 +546,7 @@ class ChatViewModel(
                 workspaceFilePaths = files,
                 requestUserPickFiles = pick,
                 askUserForm = askRequest,
+                isSystemNotice = isSystemNotice,
             ),
         )
     }

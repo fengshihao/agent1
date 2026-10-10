@@ -21,6 +21,16 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
+    fun trailingImagePreviewPaths_excludesInlineMarkdownImages() {
+        val paths = ChatTranscriptFormatting.trailingImagePreviewPaths(
+            "看 ![内联](a.png) 与附件",
+            listOf("a.png", "b.png"),
+            null,
+        )
+        assertEquals(listOf("b.png"), paths)
+    }
+
+    @Test
     fun extractMarkdownImagePaths_findsRelativePath() {
         val paths = ChatTranscriptFormatting.extractMarkdownImagePaths("看图 ![小猫](cat.png) 结束")
         assertEquals(listOf("cat.png"), paths)
@@ -79,6 +89,60 @@ class ChatTranscriptFormattingTest {
             listOf("out/x.docx"),
         )
         assertEquals("文件在 [x.docx](out/x.docx)", out)
+    }
+
+    @Test
+    fun linkifyBareWorkspacePaths_keepsExistingMarkdownLinkIntact() {
+        // 真机回归：短路径命中已有链接目标里的尾部子串，把 href 撕成
+        // out[特斯拉电动汽车简史.pptx](特斯拉电动汽车简史.pptx) 导致点击打不开
+        val content = "成品：**[特斯拉电动汽车简史.pptx](out/特斯拉电动汽车简史.pptx)**（约 14.7 MB）"
+        val out = ChatTranscriptFormatting.linkifyBareWorkspacePaths(
+            content,
+            listOf("特斯拉电动汽车简史.pptx", "out/特斯拉电动汽车简史.pptx"),
+        )
+        assertEquals(content, out)
+    }
+
+    @Test
+    fun linkifyBareWorkspacePaths_doesNotSplitLongerPathTail() {
+        // x.docx 只是 out/x.docx 的尾部；文件不在根下，撕开只会生成坏链接
+        val out = ChatTranscriptFormatting.linkifyBareWorkspacePaths(
+            "见 out/x.docx",
+            listOf("x.docx"),
+        )
+        assertEquals("见 out/x.docx", out)
+    }
+
+    @Test
+    fun extractPlainWorkspacePaths_ignoresMarkdownLinkLabel() {
+        // Markdown 链接 label 是显示文字，不是文件路径
+        val paths = ChatTranscriptFormatting.extractPlainWorkspacePaths("见 [报告.docx](out/报告.docx)")
+        assertEquals(emptyList<String>(), paths)
+    }
+
+    @Test
+    fun rewriteWorkspaceMarkdownHrefs_afterLinkify_keepsHref() {
+        // 端到端回归：渲染链路 linkify → rewrite 后 href 必须仍指向真实文件
+        val content = "成品：**[特斯拉电动汽车简史.pptx](out/特斯拉电动汽车简史.pptx)**"
+        val paths = ChatTranscriptFormatting.mergeWorkspaceFilePaths(content, emptyList())
+        val out = ChatTranscriptFormatting.rewriteWorkspaceMarkdownHrefs(
+            ChatTranscriptFormatting.linkifyBareWorkspacePaths(content, paths),
+        )
+        assertEquals(
+            "成品：**[特斯拉电动汽车简史.pptx](agent1-file:out/特斯拉电动汽车简史.pptx)**",
+            out,
+        )
+    }
+
+    @Test
+    fun splitLinkifiedSegments_doesNotSplitPathTail() {
+        val segments = ChatTranscriptFormatting.splitLinkifiedSegments(
+            "已生成 out/a.docx",
+            listOf("a.docx"),
+        )
+        assertEquals(1, segments.size)
+        assertNull(segments[0].workspacePath)
+        assertEquals("已生成 out/a.docx", segments[0].text)
     }
 
     @Test

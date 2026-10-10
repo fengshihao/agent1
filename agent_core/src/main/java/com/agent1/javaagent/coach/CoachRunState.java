@@ -8,6 +8,7 @@ public final class CoachRunState {
     private int capabilitySearchEmptyCalls;
     private boolean capabilitySearchUsed;
     private int bashHostToolProbeCoachCount;
+    private int libHuntCoachCount;
 
     public void clear() {
         scriptFailureCounts.clear();
@@ -15,6 +16,7 @@ public final class CoachRunState {
         capabilitySearchEmptyCalls = 0;
         capabilitySearchUsed = false;
         bashHostToolProbeCoachCount = 0;
+        libHuntCoachCount = 0;
     }
 
     public int recordScriptFailure(String scriptKey) {
@@ -48,5 +50,11 @@ public final class CoachRunState {
     public int recordBashHostToolProbeCoach() {
         bashHostToolProbeCoachCount++;
         return bashHostToolProbeCoachCount;
+    }
+
+    /** @return 本 Run 内因「找不到内置脚本库」而追加 coach 的次数 */
+    public int recordLibHuntCoach() {
+        libHuntCoachCount++;
+        return libHuntCoachCount;
     }
 }

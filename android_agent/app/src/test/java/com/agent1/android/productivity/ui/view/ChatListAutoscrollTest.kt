@@ -57,4 +57,51 @@ class ChatListAutoscrollTest {
             ),
         )
     }
+
+    @Test
+    fun shouldReleaseStickToBottom_whenDraggingTowardOlderMessages() {
+        assertTrue(ChatListAutoscroll.shouldReleaseStickToBottom(availableY = 8f))
+        assertFalse(ChatListAutoscroll.shouldReleaseStickToBottom(availableY = 0f))
+        assertFalse(ChatListAutoscroll.shouldReleaseStickToBottom(availableY = -12f))
+    }
+
+    @Test
+    fun shouldRestickToBottom_onlyWhenScrollingTowardNewerAndAlreadyAtEnd() {
+        assertTrue(
+            ChatListAutoscroll.shouldRestickToBottom(
+                consumedY = -20f,
+                canScrollForward = false,
+                atBottom = true,
+            ),
+        )
+        // 上滑停在超高最后一条内部：canScrollForward 仍 false，但底边未贴进视口，不能回贴。
+        assertFalse(
+            ChatListAutoscroll.shouldRestickToBottom(
+                consumedY = -20f,
+                canScrollForward = false,
+                atBottom = false,
+            ),
+        )
+        assertFalse(
+            ChatListAutoscroll.shouldRestickToBottom(
+                consumedY = 20f,
+                canScrollForward = false,
+                atBottom = true,
+            ),
+        )
+        assertFalse(
+            ChatListAutoscroll.shouldRestickToBottom(
+                consumedY = -20f,
+                canScrollForward = true,
+                atBottom = true,
+            ),
+        )
+        assertFalse(
+            ChatListAutoscroll.shouldRestickToBottom(
+                consumedY = 0f,
+                canScrollForward = false,
+                atBottom = true,
+            ),
+        )
+    }
 }

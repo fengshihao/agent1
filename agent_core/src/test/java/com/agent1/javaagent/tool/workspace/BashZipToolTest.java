@@ -65,4 +65,47 @@ class BashZipToolTest {
         assertTrue(text.contains("Extracted"));
         assertEquals("rocket", Files.readString(workspace.resolve("unpacked/a.txt")));
     }
+
+    /** 复现真机 bug：sandbox 带 agentRoot 时 relativize 回显 sessions/<id>/workspace/ 前缀，回转解析曾必然失败。 */
+    @Test
+    void zipExtractWithAgentRootDisplayPath(@TempDir Path agentRoot) throws Exception {
+        Path workspace = agentRoot.resolve("sessions/session-1/workspace");
+        Files.createDirectories(workspace);
+        Path zip = workspace.resolve("out.zip");
+        try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(zip))) {
+            zos.putNextEntry(new ZipEntry("a.txt"));
+            zos.write("echo".getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
+        }
+        var tool = AnnotatedTools.from(new ZipTools(new WorkspaceSandbox(workspace, agentRoot))).stream()
+            .filter(item -> "zip_extract".equals(item.name()))
+            .findFirst()
+            .orElseThrow();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("file", "out.zip");
+        params.put("dest", "unpacked");
+        String text = tool.execute("z", params, new CancellationToken(), update -> { }).getText();
+        assertTrue(text.startsWith("Extracted"), "expected extract success but got: " + text);
+        assertEquals("echo", Files.readString(workspace.resolve("unpacked/a.txt")));
+    }
+
+    /** 模型把回显的 sessions/<id>/workspace/ 前缀原样回传时也应能解压。 */
+    @Test
+    void zipExtractAcceptsEchoedDisplayPath(@TempDir Path workspace) throws Exception {
+        Path zip = workspace.resolve("deck.zip");
+        try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(zip))) {
+            zos.putNextEntry(new ZipEntry("slide.xml"));
+            zos.write("<slide/>".getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
+        }
+        var tool = AnnotatedTools.from(new ZipTools(new WorkspaceSandbox(workspace))).stream()
+            .filter(item -> "zip_extract".equals(item.name()))
+            .findFirst()
+            .orElseThrow();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("file", "sessions/session-1/workspace/deck.zip");
+        String text = tool.execute("z", params, new CancellationToken(), update -> { }).getText();
+        assertTrue(text.startsWith("Extracted"), "expected extract success but got: " + text);
+        assertEquals("<slide/>", Files.readString(workspace.resolve("tmp/deck/slide.xml")));
+    }
 }

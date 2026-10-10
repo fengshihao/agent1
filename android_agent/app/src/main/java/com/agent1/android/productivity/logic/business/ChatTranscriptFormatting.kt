@@ -22,6 +22,9 @@ object ChatTranscriptFormatting {
     /** Markdown 渲染器用此前缀，避免相对路径链接被当成纯文本。 */
     const val WORKSPACE_FILE_HREF_PREFIX = "agent1-file:"
 
+    /** Markdown 链接/图片结构（`[label](dest)` / `![label](dest)`），提取与替换时整体保护。 */
+    private val markdownLinkSpan = Regex("""!?\[[^\]]*]\([^)]*\)""")
+
     private val imageExt = setOf("png", "jpg", "jpeg", "webp", "gif")
 
     private val attachmentExt = setOf(
@@ -170,12 +173,14 @@ object ChatTranscriptFormatting {
     /** 从正文中的裸路径（如 `out/report.docx`、`已写入: notes.md`）提取工作区文件。 */
     fun extractPlainWorkspacePaths(content: String): List<String> {
         if (content.isBlank()) return emptyList()
-        val scan = content.replace('`', ' ')
         val extAlternation = (attachmentExt + imageExt).distinct().joinToString("|")
         val regex = Regex(
             """(?:\./|workspace/)?[\p{L}\p{N}][\p{L}\p{N}._/-]*\.(?:$extAlternation)\b""",
         )
-        return regex.findAll(scan)
+        // 只扫普通文本段：Markdown 链接 label 是显示文字，不是路径
+        return splitMarkdownProtectedSegments(content)
+            .filterNot { it.isMarkdownLink }
+            .flatMap { seg -> regex.findAll(seg.text.replace('`', ' ')) }
             .map { normalizeWorkspacePath(it.value) }
             .filter { path -> !path.contains("://") }
             .filter { isWorkspaceFilePath(it) }
@@ -204,23 +209,67 @@ object ChatTranscriptFormatting {
     /** 将尚未写成 Markdown 链接的工作区路径改为 `[文件名](path)`，便于渲染可点链接。 */
     fun linkifyBareWorkspacePaths(content: String, paths: List<String>): String {
         if (paths.isEmpty()) return content
-        var result = content
-        val normalized = paths.map { normalizeWorkspacePath(it) }.distinct()
-        for (path in normalized.sortedByDescending { it.length }) {
-            if (result.contains("($path)") || result.contains("($WORKSPACE_FILE_HREF_PREFIX$path)")) continue
-            val label = path.substringAfterLast('/').ifEmpty { path }
-            val variants = listOf(path, "./$path", "workspace/$path", "/$path").distinct()
-            for (variant in variants.sortedByDescending { it.length }) {
-                if (result.contains(variant) &&
-                    !result.contains("($path)") &&
-                    !result.contains("($WORKSPACE_FILE_HREF_PREFIX$path)")
-                ) {
-                    result = result.replace(variant, "[$label]($path)")
-                }
-            }
+        val normalized = paths.map { normalizeWorkspacePath(it) }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .sortedByDescending { it.length }
+        if (normalized.isEmpty()) return content
+        val aliases = normalized
+            .flatMap { path -> listOf(path, "./$path", "workspace/$path", "/$path") }
+            .distinct()
+            .sortedByDescending { it.length }
+        // 已有的 Markdown 链接整体保护，避免把 `[x](out/x.docx)` 的目标路径再替换撕碎
+        return splitMarkdownProtectedSegments(content).joinToString("") { seg ->
+            if (seg.isMarkdownLink) seg.text else linkifyPlainText(seg.text, aliases)
         }
-        return result
     }
+
+    /** 普通文本段内逐位匹配裸路径；带左边界，避免命中更长路径的尾部（如 `out/` 里的 `/x.docx`）。 */
+    private fun linkifyPlainText(text: String, aliases: List<String>): String {
+        if (text.isEmpty()) return text
+        val out = StringBuilder()
+        var index = 0
+        outer@ while (index < text.length) {
+            for (alias in aliases) {
+                if (!text.regionMatches(index, alias, 0, alias.length)) continue
+                if (index > 0 && isPathChar(text[index - 1])) continue
+                val path = normalizeWorkspacePath(alias)
+                if (path.isEmpty() || !isWorkspaceFilePath(path)) continue
+                val label = path.substringAfterLast('/').ifEmpty { path }
+                out.append("[$label]($path)")
+                index += alias.length
+                continue@outer
+            }
+            out.append(text[index])
+            index++
+        }
+        return out.toString()
+    }
+
+    /** 切成普通文本段与 Markdown 链接/图片结构段；结构段在提取/替换中原样保留。 */
+    private fun splitMarkdownProtectedSegments(content: String): List<ProtectedSegment> {
+        if (content.isEmpty()) return emptyList()
+        val out = mutableListOf<ProtectedSegment>()
+        var index = 0
+        while (index < content.length) {
+            val match = markdownLinkSpan.find(content, index)
+            if (match == null) {
+                out.add(ProtectedSegment(content.substring(index), isMarkdownLink = false))
+                break
+            }
+            if (match.range.first > index) {
+                out.add(ProtectedSegment(content.substring(index, match.range.first), isMarkdownLink = false))
+            }
+            out.add(ProtectedSegment(match.value, isMarkdownLink = true))
+            index = match.range.last + 1
+        }
+        return out
+    }
+
+    private data class ProtectedSegment(val text: String, val isMarkdownLink: Boolean)
+
+    private fun isPathChar(c: Char): Boolean =
+        c.isLetterOrDigit() || c == '.' || c == '_' || c == '-' || c == '/'
 
     /**
      * 把工作区文件 Markdown 链接改成带 scheme 的 href，供 Markdown 组件画成超链接。
@@ -242,6 +291,22 @@ object ChatTranscriptFormatting {
             val label = match.value.substringAfter('[').substringBefore(']')
             "[$label]($WORKSPACE_FILE_HREF_PREFIX$path)"
         }
+    }
+
+    /** 正文下方单独预览的图片（非 Markdown 内联 `![](path)`）。 */
+    fun trailingImagePreviewPaths(
+        content: String,
+        workspaceFilePaths: List<String>,
+        workspaceRoot: java.nio.file.Path?,
+    ): List<String> {
+        if (content.isBlank() && workspaceFilePaths.isEmpty()) return emptyList()
+        val logical = SessionWorkspacePaths.scrubWorkspaceAbsolute(content, workspaceRoot)
+        val paths = mergeWorkspaceFilePaths(logical, workspaceFilePaths, workspaceRoot)
+        val inline = extractMarkdownImagePaths(logical)
+            .map { normalizeWorkspacePath(it, workspaceRoot) }
+            .filter { it.isNotEmpty() && isImagePath(it) }
+            .toSet()
+        return paths.filter { isImageWorkspacePath(it) && it !in inline }
     }
 
     fun isWorkspaceFilePath(path: String): Boolean = isAttachmentPath(path) || isImagePath(path)
@@ -317,7 +382,8 @@ object ChatTranscriptFormatting {
                 continue
             }
             val matchedAlias = bareMatchAliases.firstOrNull { alias ->
-                content.regionMatches(index, alias, 0, alias.length)
+                content.regionMatches(index, alias, 0, alias.length) &&
+                    (index == 0 || !isPathChar(content[index - 1]))
             }
             if (matchedAlias != null) {
                 val canonical = normalizeWorkspacePath(matchedAlias, workspaceRoot)
@@ -341,7 +407,8 @@ object ChatTranscriptFormatting {
                         break
                     }
                     val hit = bareMatchAliases.any { alias ->
-                        content.regionMatches(index, alias, 0, alias.length)
+                        content.regionMatches(index, alias, 0, alias.length) &&
+                            (index == 0 || !isPathChar(content[index - 1]))
                     }
                     if (hit) break
                     index++

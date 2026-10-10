@@ -107,6 +107,8 @@ data class ChatLine(
     val requestUserPickFiles: Boolean = false,
     /** 历史消息中的 ask_user 摘要（只读）。 */
     val askUserForm: AskUserFormatting.Request? = null,
+    /** 运行时注入的系统提示（如单轮往返上限），渲染为醒目通知卡而非普通用户气泡。 */
+    val isSystemNotice: Boolean = false,
     /** 不在聊天气泡列表中展示（已由助手气泡承载）。 */
     val hideInChat: Boolean = false,
 )

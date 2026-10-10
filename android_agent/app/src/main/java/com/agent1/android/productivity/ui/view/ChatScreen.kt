@@ -184,6 +184,7 @@ fun ChatScreen(
                         .weight(1f)
                         .fillMaxWidth(),
                     onOpenInApp = onOpenInApp,
+                    onOpenSettings = onOpenSettings,
                 )
                 state.pendingAskUser?.let { form ->
                     AskUserFormPanel(

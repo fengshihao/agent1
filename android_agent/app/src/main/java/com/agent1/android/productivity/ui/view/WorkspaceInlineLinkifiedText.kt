@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -21,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.logic.business.LinkifiedSegment
@@ -128,7 +132,7 @@ private fun RenderLinkifiedSegments(
                     onOpen = { WorkspaceFileActions.openWorkspaceFile(context, root, path) },
                     onShare = { WorkspaceFileActions.shareWorkspaceFile(context, root, path) },
                     onOpenInApp = onOpenInApp,
-                    linkStyle = linkStyle,
+                    labelStyle = linkStyle,
                     labelOverride = segment.text.ifBlank { null },
                 )
             }
@@ -136,14 +140,17 @@ private fun RenderLinkifiedSegments(
     }
 }
 
+/**
+ * 工作区文件行：一张醒目卡片，单行展示「文件图标 + 文件名 + 打开图标 + 分享图标」。
+ * 文件名与打开图标都触发打开；之前 markdown 模式下曾渲染成无名图标行，用户无法辨识。
+ */
 @Composable
 internal fun WorkspaceFileLinkRow(
     relativePath: String,
     onOpen: () -> Unit,
     onShare: () -> Unit,
     modifier: Modifier = Modifier,
-    linkStyle: TextStyle = MaterialTheme.typography.bodySmall,
-    showLabel: Boolean = true,
+    labelStyle: TextStyle = MaterialTheme.typography.bodyMedium,
     labelOverride: String? = null,
     /** 传入且文件可内置预览（html）时，点「打开」走 app 内预览路由。 */
     onOpenInApp: ((String) -> Unit)? = null,
@@ -152,41 +159,55 @@ internal fun WorkspaceFileLinkRow(
         ?: relativePath.substringAfterLast('/').ifEmpty { relativePath }
     val inAppOpener = onOpenInApp?.takeIf { WorkspaceFileActions.isPreviewableInApp(relativePath) }
     val openAction = { if (inAppOpener != null) inAppOpener(relativePath) else onOpen() }
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
-        if (showLabel) {
-            Text(
-                text = label,
-                modifier = Modifier.clickable(onClick = openAction),
-                style = linkStyle,
-                color = MaterialTheme.colorScheme.primary,
-                textDecoration = TextDecoration.Underline,
-                maxLines = 2,
-            )
-        }
-        IconButton(
-            onClick = openAction,
-            modifier = Modifier.size(32.dp),
+        Row(
+            modifier = Modifier.padding(start = 10.dp, end = 2.dp, top = 2.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 AgentIcons.Description,
-                contentDescription = "打开 $label",
+                contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
-        }
-        IconButton(
-            onClick = onShare,
-            modifier = Modifier.size(32.dp),
-        ) {
-            Icon(
-                Icons.Default.Share,
-                contentDescription = "分享 $label",
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.primary,
+            Text(
+                text = label,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp)
+                    .clickable(onClick = openAction),
+                style = labelStyle,
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
+            IconButton(
+                onClick = openAction,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    AgentIcons.OpenInNew,
+                    contentDescription = "打开 $label",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            IconButton(
+                onClick = onShare,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    Icons.Default.Share,
+                    contentDescription = "分享 $label",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }

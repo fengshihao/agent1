@@ -38,10 +38,7 @@ public final class ZipTools {
         try {
             Path zipPath = sandbox.resolveRead(file);
             Path root = sandbox.getRoot();
-            String wsRel;
-            if (zipPath.startsWith(root)) {
-                wsRel = sandbox.relativize(zipPath);
-            } else {
+            if (!zipPath.startsWith(root)) {
                 Path zipName = zipPath.getFileName();
                 if (zipName == null) {
                     return "Error: bad zip path";
@@ -55,9 +52,12 @@ public final class ZipTools {
                     Files.createDirectories(parent);
                 }
                 Files.copy(zipPath, staging, StandardCopyOption.REPLACE_EXISTING);
-                wsRel = sandbox.relativize(staging);
+                zipPath = staging;
             }
-            return extractRelative(wsRel, dest);
+            // 注意：这里必须直接用已解析的 Path，不能再经 relativize 转成展示路径后重新
+            // resolveRead——展示路径是 agentRoot 相对（sessions/<id>/workspace/...），
+            // 回转后会拼到 workspace/sessions/... 下导致「zip file not found」。
+            return extractAt(zipPath, dest, file);
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -82,13 +82,9 @@ public final class ZipTools {
         }
     }
 
-    private String extractRelative(String file, String dest) throws IOException {
-        if (file == null || file.isBlank()) {
-            return "Error: file is required";
-        }
-        Path zip = sandbox.resolveRead(file);
+    private String extractAt(Path zip, String dest, String displayInput) throws IOException {
         if (!Files.isRegularFile(zip)) {
-            return "Error: zip file not found: " + file;
+            return "Error: zip file not found: " + displayInput;
         }
         Path zipName = zip.getFileName();
         String destDir = dest != null && !dest.isBlank()
