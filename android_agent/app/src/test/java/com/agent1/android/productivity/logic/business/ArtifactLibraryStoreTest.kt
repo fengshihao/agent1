@@ -3,6 +3,7 @@ package com.agent1.android.productivity.logic.business
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.FileTime
+import kotlin.io.path.writeText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,7 +12,9 @@ import org.junit.Test
 class ArtifactLibraryStoreTest {
 
     private fun sessionWorkspace(root: Path, sessionId: String): Path {
-        val ws = root.resolve("sessions").resolve(sessionId).resolve("workspace")
+        // listArtifacts 的入参是 sessions 根（见 sessionsRoot()），会话布局为 <id>/workspace，
+        // 这里不能再多套一层 sessions/
+        val ws = root.resolve(sessionId).resolve("workspace")
         Files.createDirectories(ws)
         return ws
     }
