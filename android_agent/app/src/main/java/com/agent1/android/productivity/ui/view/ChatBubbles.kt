@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -47,11 +50,19 @@ internal fun MessageBubble(
     onPickFiles: () -> Unit,
     pickFilesEnabled: Boolean,
     onOpenInApp: ((String) -> Unit)? = null,
+    /** 系统提示卡上「设置页」链接的跳转；null 时不展示链接。 */
+    onOpenSettings: (() -> Unit)? = null,
 ) {
     val bubbles = chatBubbleColors()
-    val isUser = line.role == "user" && !line.isTool
+    val isUser = line.role == "user" && !line.isTool && !line.isSystemNotice
     val isTool = line.isTool
     when {
+        line.isSystemNotice -> {
+            SystemNoticeBubble(
+                content = line.content,
+                onOpenSettings = onOpenSettings,
+            )
+        }
         isUser -> {
             BubbleShell(
                 alignEnd = true,
@@ -127,6 +138,49 @@ internal fun MessageBubble(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** 运行时注入的系统提示（如单轮往返上限）：整宽醒目卡片，「设置页」可点跳转。 */
+@Composable
+private fun SystemNoticeBubble(
+    content: String,
+    onOpenSettings: (() -> Unit)?,
+) {
+    val cs = MaterialTheme.colorScheme
+    val body = content.trim().removePrefix("【系统】").trim()
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = cs.primaryContainer,
+        border = BorderStroke(1.dp, cs.primary),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                "运行提示",
+                style = MaterialTheme.typography.titleSmall,
+                color = cs.primary,
+            )
+            Text(
+                body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onPrimaryContainer,
+            )
+            if (onOpenSettings != null) {
+                Text(
+                    "前往设置页调整单轮往返上限 →",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenSettings),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = cs.primary,
+                    textDecoration = TextDecoration.Underline,
+                )
             }
         }
     }

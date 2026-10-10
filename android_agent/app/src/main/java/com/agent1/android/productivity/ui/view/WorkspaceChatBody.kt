@@ -62,7 +62,7 @@ fun WorkspaceChatBody(
                             workspaceRelativePath = rel,
                         )
                     }
-                    // Markdown 正文已是可点链接；另起一行仅保留打开/分享（54ee3b3 整段 Markdown 后曾丢失）。
+                    // Markdown 正文已是可点链接；另起一行展示「文件名 + 打开 + 分享」卡片。
                     val actionPaths = paths.filter { rel ->
                         !ChatTranscriptFormatting.isImageWorkspacePath(rel) || rel !in inlineImagePaths
                     }
@@ -70,7 +70,6 @@ fun WorkspaceChatBody(
                         WorkspaceFileAttachments(
                             workspaceAbsolutePath = workspaceAbsolutePath,
                             relativePaths = actionPaths,
-                            showPathLabels = false,
                             onOpenInApp = onOpenInApp,
                         )
                     }
