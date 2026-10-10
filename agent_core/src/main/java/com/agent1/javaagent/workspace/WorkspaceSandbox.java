@@ -66,13 +66,19 @@ public final class WorkspaceSandbox {
     }
 
     /**
-     * 展示用相对路径：agent 文档保留 {@code docs/...}，工作区文件相对 workspace。
+     * 展示用相对路径：工作区文件相对 workspace（与模型输入的逻辑路径一致），
+     * agent 文档保留 {@code docs/...}。workspace 物理上在 agentRoot/sessions 下，
+     * 但回显不再带 {@code sessions/<id>/workspace/} 前缀，避免模型原样回传噪音。
      */
     public String displayPath(Path absolute) {
         if (absolute == null) {
             throw new SecurityException("path is null");
         }
         Path normalized = absolute.toAbsolutePath().normalize();
+        if (normalized.startsWith(root)) {
+            String rel = root.relativize(normalized).toString().replace('\\', '/');
+            return rel.isEmpty() ? "." : rel;
+        }
         if (agentRoot != null) {
             Path agent = agentRoot.toAbsolutePath().normalize();
             if (normalized.startsWith(agent)) {
@@ -150,6 +156,10 @@ public final class WorkspaceSandbox {
         return resolved;
     }
 
+    /** 工具回显的 agentRoot 相对前缀（sessions/&lt;id&gt;/workspace/），模型常原样回传。 */
+    private static final java.util.regex.Pattern SESSIONS_WORKSPACE_PREFIX =
+        java.util.regex.Pattern.compile("^sessions/[^/]+/workspace/");
+
     /**
      * 模型常把「工作区根」误写成路径前缀 {@code workspace/}（环境摘要里目录名也是 workspace），
      * 统一剥掉冗余前缀，避免 workspace/workspace/... 嵌套。
@@ -164,6 +174,12 @@ public final class WorkspaceSandbox {
         }
         while (p.startsWith("workspace/")) {
             p = p.substring("workspace/".length());
+        }
+        // 工具回显用 agentRoot 相对展示路径（sessions/<id>/workspace/...），
+        // 模型常原样回传；剥掉前缀让它解析回本会话 workspace 内文件。
+        java.util.regex.Matcher echo = SESSIONS_WORKSPACE_PREFIX.matcher(p);
+        if (echo.find()) {
+            p = p.substring(echo.end());
         }
         if (p.isEmpty()) {
             throw new SecurityException("path is empty");
