@@ -17,6 +17,7 @@ public final class ProductivityCoach {
     private static final Pattern BASH_WHICH_COMMAND =
         Pattern.compile("(^|\\s)which(\\s|$)", Pattern.CASE_INSENSITIVE);
     private static final int BASH_HOST_TOOL_PROBE_COACH_LIMIT = 2;
+    private static final int LIB_HUNT_COACH_LIMIT = 2;
     private static final int WEBVIEW_TINY_IMAGE_BYTES = 256;
 
     private final int largeWriteBytes;
@@ -64,9 +65,12 @@ public final class ProductivityCoach {
             hookId = "path.outside_attempt";
             advice =
                 "仅当前会话 workspace 可写。改 shared 用 promote_request / catalog_install，勿 write_file 越界。";
-        } else if ("bash".equals(toolName) && parameters != null) {
-            String command = parameters.path("command").asText("");
-            if (looksLikeHostToolWhich(command)
+        } else if (("bash".equals(toolName) || "glob".equals(toolName)) && parameters != null) {
+            String command = "bash".equals(toolName)
+                ? parameters.path("command").asText("")
+                : parameters.path("pattern").asText("");
+            if ("bash".equals(toolName)
+                && looksLikeHostToolWhich(command)
                 && !runState.capabilitySearchUsed()
                 && runState.recordBashHostToolProbeCoach() <= BASH_HOST_TOOL_PROBE_COACH_LIMIT) {
                 hookId = "bash.host_tool_probe";
@@ -75,6 +79,15 @@ public final class ProductivityCoach {
                         + "文档类任务先 find_caps（如 docx、pptx、markdown word、幻灯片），"
                         + "再用 run_js 按结果里的 catalog 示例调用（如 docx.js 的 markdownToDocx、pptx.js 的 renderPptx）。"
                         + "不要猜 Node 的 require/fs。";
+            } else if (looksLikeScriptLibHunt(command)
+                && looksLikeNoMatchResult(text)
+                && runState.recordLibHuntCoach() <= LIB_HUNT_COACH_LIMIT) {
+                // 真机案例：find_caps 已加载 pptx skill 后，模型仍 find/glob 找 pptx.js 文件浪费多轮。
+                hookId = "lib.hunt_missing";
+                advice =
+                    "pptx.js、docx.js、svg-raster.js 等是 run_js 的内置模块，直接 import 调用，例如："
+                        + "import { renderPptx } from \"pptx.js\"。"
+                        + "需要确认可用能力时用 find_caps。";
             }
         } else if ("find_caps".equals(toolName) && text != null) {
             boolean empty = text.startsWith("未找到匹配");
@@ -338,6 +351,40 @@ public final class ProductivityCoach {
             return false;
         }
         return BASH_WHICH_COMMAND.matcher(command.trim()).find();
+    }
+
+    /** 在 bash/glob 里寻找脚本库文件（pptx.js、find -name xxx.js、通配 .js 等）。 */
+    private static final java.util.regex.Pattern GLOB_JS =
+        java.util.regex.Pattern.compile("\\*[^\\s]*\\.js");
+
+    private static boolean looksLikeScriptLibHunt(String query) {
+        if (query == null || query.isBlank()) {
+            return false;
+        }
+        String lower = query.toLowerCase();
+        if (!lower.contains(".js")) {
+            return false;
+        }
+        return lower.contains("find")
+            || lower.contains("-name")
+            || lower.contains("ls")
+            || GLOB_JS.matcher(query).find();
+    }
+
+    /** bash/glob 结果为「没找到」（空、No matches、No such file、Error 开头）。 */
+    private static boolean looksLikeNoMatchResult(String text) {
+        if (text == null) {
+            return false;
+        }
+        String trimmed = text.trim();
+        if (trimmed.isEmpty()) {
+            return true;
+        }
+        String lower = trimmed.toLowerCase();
+        return lower.contains("no matches")
+            || lower.contains("no such file")
+            || lower.contains("not found")
+            || lower.startsWith("error");
     }
 
     private static boolean looksLikeNonScriptDataFile(String file) {
