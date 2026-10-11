@@ -28,6 +28,7 @@ object ProductivityHostAssembly {
                 .invoke(null, context.applicationContext, agentRoot, config) as ProductivityAgentHost
         }
         host.setImageResizer(BitmapImageResizer())
+        host.setMediaInspector(AndroidMediaInspector())
         return host
     }
 

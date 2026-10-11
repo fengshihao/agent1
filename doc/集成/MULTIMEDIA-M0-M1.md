@@ -55,10 +55,10 @@ await run({
 
 | 方法（`media.js` / `$tools`） | FFmpeg 类比 | Android 后端 |
 |------|-------------|------|
-| `probe(path)` | `ffprobe` 子集 | `MediaMetadataRetriever` + 文件 stat |
-| `extractFrame(path, out, { ss \| t })` | `-ss` + `-vframes 1` | `getFrameAtTime` |
+| `media_probe({ path })` | `ffprobe` 子集 | `AndroidMediaInspector`：`MediaMetadataRetriever`；图片读不出时用 `BitmapFactory` 看宽高。音频只报时长和 MIME |
+| `media_extract_frame({ path, output, ss })` | `-ss` + `-vframes 1` | `getFrameAtTime`。纯音频返回「没有画面」 |
 | `media_resize({ path, output, maxEdge })` | `-vf scale` | Android：`BitmapImageResizer`（`BitmapFactory`）。桌面调用返回「未实现」 |
-| 整段转码 | **不做** | 引导系统剪辑 App；桌面以后再接 FFmpeg |
+| 截取音轨、整段转码 | **不做** | 引导系统剪辑 App；桌面以后再接 FFmpeg |
 
 **limits（Native 路径，与 WebView 无关）**：
 
@@ -149,8 +149,9 @@ await run({
 | 图片 gray / CSS 白名单 | `media-image.js` + WebView | 同脚本 + CDP Chromium |
 | 图片 LUT | `applyLut(lutId)` + catalog 本地文件 | 同索引；桌面可额外 FFmpeg `lut3d`（未做） |
 | 大图 scale | Agent1 `media_resize`，Android 用 Bitmap | 同一工具名；桌面后端以后换 FFmpeg（当前返回未实现） |
-| 视频抽帧 | Agent1 `extractFrame`，Android 用 `MediaMetadataRetriever` | 同一入口，后端以后换 `ffmpeg -ss -vframes 1`（未做） |
-| 视频转码 / 音频转码 | 不支持（引导系统 App / 剪短） | FFmpeg |
+| 音视频探测 | Agent1 `media_probe`，Android 用 `MediaMetadataRetriever` | 同一工具名；桌面返回未实现 |
+| 视频抽帧 | Agent1 `media_extract_frame`，Android 用 `getFrameAtTime` | 同一工具名；桌面以后换 `ffmpeg -ss -vframes 1`（当前返回未实现） |
+| 截取音轨 / 转码 | 不支持（引导系统 App / 剪短） | FFmpeg |
 | APK / 依赖体积 | 无 FFmpeg | 可选系统 ffmpeg |
 
 **更新约定**：本表随实现变更；CLI 对照总表见 [CLI与Android-Agent能力对照.md](../CLI与Android-Agent能力对照.md)。
@@ -162,6 +163,20 @@ await run({
 - [ ] `agent-home/catalog/scripts/media.js` + `media-image.js`（含 `applyLut(lutId)`，校验 id ∈ 已安装 catalog）
 - [ ] `capabilities/filter-lut-cards.jsonl` + `find_caps` 索引；manifest **trusted URL** 仅维护者源
 - [x] Agent1 `media_resize`：Android `BitmapImageResizer` + 能力卡。桌面返回「未实现」
-- [ ] Agent1 宿主工具：`probe` / `extractFrame`
-- [ ] Coach：**禁止非 catalog URL 拉 LUT**；抽帧 / 探测走 `media.js`，不要猜 `android.media`
-- [ ] 验收：61MB MP4 在 imports → `extractVideoFrame` → `format=gray` → JPG 展示
+- [x] Agent1 `media_probe` / `media_extract_frame`：Android `AndroidMediaInspector`。桌面返回「未实现」。输入软上限 512MB
+- [ ] Coach：见 §8，**先记文档，不实现**
+- [ ] 验收：61MB MP4 在 imports → `media_extract_frame` → JPG 展示
+
+---
+
+## 8. Coach（已定稿，尚未实现）
+
+触发后在工具回执末尾追加一条 `[coach] hookId: …`。同一轮只挂一条，不与已有的 `script.fail_repeat`、`webview.async_syntax` 叠两段。LUT 相关的 Coach 等 catalog 有白名单条目后再写。
+
+| hookId | 何时触发 | 告诉模型什么 |
+|--------|----------|--------------|
+| `media.use_resize` | `run_js` 源码或报错出现 `android.media`、`media.resize`、`image_resize`、`resizeRgba` | 缩放用 `$tools.media_resize`。微智接口已删除，不要 `Object.keys(android.media)` |
+| `media.desktop_unimplemented` | `media_resize` / `media_probe` / `media_extract_frame` 回执含「未实现」 | 桌面还没有后端。不要改走 WebView 整文件，也不要再找微智 |
+| `media.not_video` | `media_resize` 报不是图片，且路径是 mp4/mov/webm 等 | 视频用 `media_probe` 与 `media_extract_frame`。不要把整文件塞进 `webview_exec` 的 `input_path` |
+| `webview.input_too_large` | `webview_exec` 失败且文本为超过 20MB / input too large | 按路径用 `media_resize` 或 `media_extract_frame`。不要重试把更大的文件注进 WebView |
+| `webview.manual_b64` | `run_js` 在读 `tmp/*.b64`，或源码手写 base64 解码 | 图片用 WebView 的 `writeFile`，宿主会解码。不要在 QuickJS 里解码 |
