@@ -8,10 +8,12 @@ import com.agent1.javaagent.event.AgentEventType
 import com.agent1.javaagent.event.EventPayloads
 import com.agent1.javaagent.model.AgentMessage
 import com.agent1.javaagent.model.ToolCall
+import com.agent1.android.productivity.logic.business.AgentRunKeepAliveClient
 import com.agent1.android.productivity.logic.business.AskUserFormatting
 import com.agent1.android.productivity.logic.business.AskUserPendingDetector
 import com.agent1.android.productivity.logic.business.AskUserReplyFormatter
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
+import com.agent1.android.productivity.logic.business.entry.AgentRunKeepAlive
 import org.json.JSONObject
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
@@ -31,6 +33,7 @@ class ChatViewModel(
     private val appContext: Context,
     private val sessionId: String,
     private val sessionTitle: String,
+    private val keepAlive: AgentRunKeepAliveClient = AgentRunKeepAlive,
 ) : ViewModel() {
 
     private val gateway: ProductivityAgentGateway
@@ -60,6 +63,9 @@ class ChatViewModel(
         refreshConfigSummary()
         viewModelScope.launch {
             loadTranscriptIntoState(initialLoad = true)
+        }
+        viewModelScope.launch {
+            _state.collect { publishKeepAlive() }
         }
     }
 
@@ -142,6 +148,8 @@ class ChatViewModel(
                 stableKey = "live-user-${System.nanoTime()}",
             ),
         )
+        // 用户还在前台时就升前台服务。拖到 onStop 再拉起，Android 12+ 会拒绝，SSE 已经断了。
+        publishKeepAlive()
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -186,6 +194,7 @@ class ChatViewModel(
                     runActivityLabel = null,
                     lastRunTokenSummary = buildRunTokenSummaryIfNeeded(),
                 )
+                publishKeepAlive()
                 loadTranscriptIntoState(initialLoad = false)
             }
         }
@@ -663,6 +672,10 @@ class ChatViewModel(
             onBusy = { busy -> _state.value = _state.value.copy(exportInProgress = busy) },
             onMessage = { message -> _state.value = _state.value.copy(exportMessage = message) },
         )
+    }
+
+    private fun publishKeepAlive() {
+        keepAlive.sync(appContext, sessionId, _state.value.toAgentWorkStatus())
     }
 
     private fun sessionWorkspacePath(): String {

@@ -68,6 +68,7 @@ fun ChatScreen(
     ) { uris ->
         viewModel.onUserPickedFiles(uris)
     }
+    AgentRunNotificationPermissionEffect(isRunning = state.isRunning)
     val launchPickFiles = {
         pickFilesLauncher.launch(arrayOf("*/*"))
     }
