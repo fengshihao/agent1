@@ -70,7 +70,8 @@
 |------|:---:|:-------:|------|
 | 多 Session 创建 / 切换 / 删除 | ✅ REPL：`/new` `/list` `/use` `/delete` | ✅ 会话列表 UI | **已对齐**（交互不同） |
 | 单次提问（非交互） | ✅ `./agent1 "问题"` | ❌ 无等价快捷方式 | CLI 独有 |
-| 中止当前 Run | ✅ `/stop`、Ctrl+C | ✅ 聊天页停止 | **已对齐** |
+| 中止当前 Run | ✅ `/stop`、Ctrl+C | ✅ 聊天页停止；进行中通知里也可停 | **已对齐** |
+| 切到后台继续当前 Run | 进程不被挂起 | 仅这一轮进行时升为 `dataSync` 前台服务，通知跟着当前步骤；结束后撤掉 | 桌面无 Doze。Android **空闲不保活** |
 | 流式输出 | ✅ 终端 `MESSAGE_UPDATE` | ✅ Compose 订阅事件 | **已对齐** |
 | `ProductivityCoach` | ✅ `agent.manifest.json` + env | ✅ 同（读 `agentRoot`） | **已对齐** |
 | Run / transcript 落盘 | ✅ `FileSessionStore` / `FileRunStore` | ✅ 同 | **已对齐** |
@@ -81,6 +82,8 @@
 | 诊断包导出 | ❌ 无一键 zip | ✅ `DiagnosticExport`（agent1 树 + crash + logcat） | **Android 独有** |
 | 工作区图片 Markdown 预览 | ❌ 终端无内联渲染 | ✅ `WorkspaceImagePreview` / `ChatTranscriptFormatting` | **Android 独有** |
 | WebView 绘图 E2E 文档 | ✅ `java_agent/doc/desktop-webview-cdp.md` | ✅ `android_agent/doc/webview-draw-e2e.md` | 各平台文档 |
+
+Android 切到后台后，Doze / App Standby 会挂起网络，进行中的模型 SSE 会被拆掉。单独的 WakeLock 不豁免断网；「忽略电池优化」会在空闲时也常驻，这里不用。用户发出消息时就把这一轮升成 `dataSync` 前台服务（同时持有 partial wake lock，Wi-Fi 上再加 WifiLock），通知标题是会话名，正文跟着当前步骤和正在生成的文字。Run 结束立即撤掉。空闲时放后台没有通知，也不保活。
 
 ## 4. 配置与环境
 
@@ -118,6 +121,7 @@
 | Weizhi 环 | `WeizhiWorkspaceTools.java` | `WeizhiAgentTools.kt` |
 | 能力摘要 | `ProductivityToolCapabilities.java` | `ProductivityToolCapabilities.kt` |
 | Gateway / UI | — | `ProductivityAgentGateway.kt`、`ChatViewModel.kt` |
+| 后台保活 | — | `AgentRunKeepAlive.kt` → `AgentRunForegroundService.kt` |
 | 日志查询 | `ProductivityLogsCommand.java` | — |
 
 ---

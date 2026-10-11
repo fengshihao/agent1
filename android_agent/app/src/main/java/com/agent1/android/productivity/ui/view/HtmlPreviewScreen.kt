@@ -87,6 +87,7 @@ fun HtmlPreviewScreen(
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val scope = rememberCoroutineScope()
     val chatState = chatViewModel?.state?.collectAsState()?.value
+    AgentRunNotificationPermissionEffect(isRunning = chatState?.isRunning == true)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
