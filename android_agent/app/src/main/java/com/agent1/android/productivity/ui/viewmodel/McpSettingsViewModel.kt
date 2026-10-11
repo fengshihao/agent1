@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.agent1.android.productivity.logic.business.McpServerForm
 import com.agent1.android.productivity.logic.business.McpSettingsCoordinator
 import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
+import com.agent1.android.productivity.logic.business.UserFacingError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -139,7 +140,7 @@ class McpSettingsViewModel(
                             statusMessage = if (warning == null) {
                                 "已保存，检索到 ${saved.toolCount} 个工具。脚本里用 \$mcp.名称.工具。"
                             } else {
-                                "已保存。$warning"
+                                "已保存。${UserFacingError.explain(warning)}"
                             },
                             errorMessage = null,
                         )
@@ -149,7 +150,7 @@ class McpSettingsViewModel(
                     _state.update {
                         it.copy(
                             busy = false,
-                            errorMessage = error.message ?: "保存失败",
+                            errorMessage = UserFacingError.explain(error.message ?: "保存失败"),
                         )
                     }
                 },

@@ -48,6 +48,7 @@ import com.agent1.android.productivity.logic.business.HtmlInspectParser
 import com.agent1.android.productivity.logic.business.HtmlInspectScript
 import com.agent1.android.productivity.logic.business.InspectFeedbackComposer
 import com.agent1.android.productivity.logic.business.InspectedElement
+import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.WorkspaceFileWatcher
 import com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
@@ -268,7 +269,7 @@ fun HtmlPreviewScreen(
                                     error: WebResourceError,
                                 ) {
                                     if (request.isForMainFrame) {
-                                        loadError = "页面加载失败：${error.description}"
+                                        loadError = UserFacingError.explain(error.description?.toString())
                                     }
                                 }
                             }

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.agent1.javaagent.session.SessionMeta
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
+import com.agent1.android.productivity.logic.business.UserFacingError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +38,7 @@ class SessionListViewModel(
                 _state.value = SessionListUiState(
                     sessions = sessions,
                     configSummary = gateway.configurationSummary(),
-                    configError = gateway.configurationError(),
+                    configError = gateway.configurationError()?.let { UserFacingError.explain(it) },
                     isLoading = false,
                     exportInProgress = current.exportInProgress,
                     exportMessage = current.exportMessage,
@@ -45,7 +46,7 @@ class SessionListViewModel(
             } catch (t: Exception) {
                 _state.value = current.copy(
                     isLoading = false,
-                    startupError = t.message ?: t.javaClass.simpleName,
+                    startupError = UserFacingError.explain(t.message ?: t.javaClass.simpleName),
                 )
             }
         }
@@ -79,7 +80,7 @@ class SessionListViewModel(
             } catch (t: Exception) {
                 _state.value = current.copy(
                     isLoading = false,
-                    startupError = t.message ?: t.javaClass.simpleName,
+                    startupError = UserFacingError.explain(t.message ?: t.javaClass.simpleName),
                 )
             }
         }

@@ -13,6 +13,7 @@ import androidx.lifecycle.viewModelScope
 import com.agent1.android.productivity.logic.business.BriefChatExport
 import com.agent1.android.productivity.logic.business.DiagnosticExport
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
+import com.agent1.android.productivity.logic.business.UserFacingError
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -35,7 +36,7 @@ internal fun ViewModel.launchDiagnosticExport(
         val file = zip.getOrNull()
         if (file == null) {
             onBusy(false)
-            onMessage("导出失败：${zip.exceptionOrNull()?.message ?: "未知错误"}")
+            onMessage(UserFacingError.explain(zip.exceptionOrNull()?.message))
             return@launch
         }
         val shared = runCatching { activity.startActivity(diagnosticShareIntent(activity, file)) }
@@ -49,7 +50,7 @@ internal fun ViewModel.launchDiagnosticExport(
             if (shared.isSuccess) {
                 "已打开分享，把压缩包发给诊断 Agent"
             } else {
-                "已打包，但无法打开分享：${shared.exceptionOrNull()?.message ?: "未知错误"}"
+                "已打包，但无法打开分享。${UserFacingError.explain(shared.exceptionOrNull()?.message)}"
             },
         )
     }
@@ -100,7 +101,7 @@ internal fun ViewModel.launchBriefChatExport(
             },
             onFailure = { error ->
                 onBusy(false)
-                onMessage("导出失败：${error.message ?: error.javaClass.simpleName}")
+                onMessage(UserFacingError.explain(error.message ?: error.javaClass.simpleName))
             },
         )
     }

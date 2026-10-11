@@ -37,8 +37,9 @@ object ChatTranscriptFormatting {
         val trimmed = SessionWorkspacePaths.scrubWorkspaceAbsolute(raw.trim(), workspaceRoot)
         if (!trimmed.startsWith("{")) {
             val paths = extractPlainWorkspacePaths(trimmed)
+            val summary = if (trimmed.startsWith("错误")) UserFacingError.explain(trimmed) else trimmed
             return ToolResultDisplay(
-                summary = truncatePlain(trimmed),
+                summary = truncatePlain(summary),
                 workspaceFilePaths = paths,
             )
         }
@@ -53,7 +54,8 @@ object ChatTranscriptFormatting {
         val ok = json.optBoolean("ok", true)
         if (!ok) {
             val error = json.optString("error", "").trim()
-            return ToolResultDisplay(summary = truncatePlain(if (error.isNotEmpty()) error else json.toString()))
+            val summary = UserFacingError.explain(if (error.isNotEmpty()) error else json.toString())
+            return ToolResultDisplay(summary = truncatePlain(summary))
         }
         val outputPath = normalizeWorkspacePath(json.optString("outputPath", "").trim())
         if (outputPath.isNotEmpty() && isImagePath(outputPath)) {

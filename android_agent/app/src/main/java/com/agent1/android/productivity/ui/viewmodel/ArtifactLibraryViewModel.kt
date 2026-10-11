@@ -7,6 +7,7 @@ import com.agent1.android.productivity.logic.business.ArtifactLibraryFilter
 import com.agent1.android.productivity.logic.business.ArtifactLibraryStore
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
+import com.agent1.android.productivity.logic.business.UserFacingError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,7 +67,7 @@ class ArtifactLibraryViewModel(
             } catch (t: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = t.message ?: t.javaClass.simpleName,
+                    error = UserFacingError.explain(t.message ?: t.javaClass.simpleName),
                 )
             }
         }
@@ -205,7 +206,7 @@ class ArtifactLibraryViewModel(
             } catch (t: Exception) {
                 _state.value = _state.value.copy(
                     busy = false,
-                    error = "插入失败：${t.message ?: t.javaClass.simpleName}",
+                    error = "插入失败：${UserFacingError.explain(t.message ?: t.javaClass.simpleName)}",
                 )
             }
         }

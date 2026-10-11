@@ -118,6 +118,7 @@
 | Weizhi 环 | `WeizhiWorkspaceTools.java` | `WeizhiAgentTools.kt` |
 | 能力摘要 | `ProductivityToolCapabilities.java` | `ProductivityToolCapabilities.kt` |
 | Gateway / UI | — | `ProductivityAgentGateway.kt`、`ChatViewModel.kt` |
+| 失败提示 | 终端打印原文 | 界面用 `UserFacingError` 收成一句白话；JSONL / 诊断包仍保留原文 |
 | 日志查询 | `ProductivityLogsCommand.java` | — |
 
 ---
