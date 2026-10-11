@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.ui.view
 
 import android.content.Context
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
@@ -16,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -56,6 +58,8 @@ fun ProductivityHome(
     var activeSessionId by rememberSaveable { mutableStateOf("") }
     var activeTitle by rememberSaveable { mutableStateOf("新对话") }
     var createRequested by rememberSaveable { mutableStateOf(false) }
+    var sessionLoading by remember { mutableStateOf(false) }
+    var sessionFresh by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -104,6 +108,13 @@ fun ProductivityHome(
 
     fun newChat() {
         closeDrawer()
+        if (activeSessionId.isNotBlank()) {
+            if (sessionLoading) return
+            if (sessionFresh) {
+                Toast.makeText(context, "当前已经是新会话", Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
         sessionListViewModel.createSession { meta ->
             activeSessionId = meta.sessionId
             activeTitle = meta.title.ifBlank { "新对话" }
@@ -161,6 +172,7 @@ fun ProductivityHome(
                 onOpenCapabilities = onOpenCapabilities,
                 onExportDiagnostics = { sessionListViewModel.exportDiagnostics(context) },
                 onOpenArtifacts = { onOpenArtifacts("") },
+                modelLabel = composerModelLabel(listState.configSummary),
             )
         } else {
             ChatPane(
@@ -179,6 +191,10 @@ fun ProductivityHome(
                 onOpenSystemPrompt = { onOpenSystemPrompt(sessionId) },
                 onOpenHtmlPreview = onOpenHtmlPreview,
                 onOpenArtifacts = { onOpenArtifacts(sessionId) },
+                onSessionFreshness = { loading, fresh ->
+                    sessionLoading = loading
+                    sessionFresh = fresh
+                },
             )
         }
     }
@@ -197,6 +213,7 @@ private fun ChatPane(
     onOpenSystemPrompt: () -> Unit,
     onOpenHtmlPreview: (sessionId: String, relativePath: String) -> Unit,
     onOpenArtifacts: () -> Unit,
+    onSessionFreshness: (loading: Boolean, fresh: Boolean) -> Unit,
 ) {
     val viewModel: ChatViewModel = viewModel(
         key = "chat-$sessionId",
@@ -214,6 +231,7 @@ private fun ChatPane(
         onOpenArtifacts = onOpenArtifacts,
         // 会话工作区路径由 sessionId 在预览路由内解析，这里只需注入当前会话 id。
         onOpenInApp = { relativePath -> onOpenHtmlPreview(sessionId, relativePath) },
+        onSessionFreshness = onSessionFreshness,
     )
 }
 

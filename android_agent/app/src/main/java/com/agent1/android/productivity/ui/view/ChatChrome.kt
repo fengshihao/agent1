@@ -29,6 +29,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,6 +79,24 @@ internal fun AgentTopBar(
             }
         }
     }
+}
+
+/** 顶栏下沿的渐变，让对话从栏底透出来，而不是被一条实边裁掉。 */
+@Composable
+internal fun AgentTopFade(modifier: Modifier = Modifier) {
+    val color = MaterialTheme.colorScheme.surface
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(32.dp)
+            .background(
+                Brush.verticalGradient(
+                    0f to color,
+                    0.4f to color.copy(alpha = 0.72f),
+                    1f to Color.Transparent,
+                ),
+            ),
+    )
 }
 
 @Composable

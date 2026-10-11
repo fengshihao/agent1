@@ -135,6 +135,14 @@ data class ChatUiState(
     val lastRunTokenSummary: RunTokenSummary? = null,
 )
 
+/** 当前会话还没有可展示的对话内容。加载中或正在跑都不算。 */
+internal fun ChatUiState.isFreshSession(): Boolean {
+    if (isLoadingTranscript || isRunning) return false
+    if (streamingText.isNotBlank() || streamingReasoning.isNotBlank()) return false
+    if (runTimeline.isNotEmpty() || pendingAskUser != null) return false
+    return lines.none { !it.hideInChat }
+}
+
 /** 产物库列表项：会话 workspace 内 AI 生成的文件 + 所属会话标题。 */
 data class ArtifactUiItem(
     val sessionId: String,

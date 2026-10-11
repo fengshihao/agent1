@@ -2,49 +2,72 @@ package com.agent1.android.productivity.ui.view
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
+import com.agent1.android.productivity.ui.viewmodel.isFreshSession
+import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** 单个会话的聊天屏：顶栏 + 消息列表 + ask-user 表单 + 输入条。 */
@@ -58,12 +81,17 @@ fun ChatScreen(
     onOpenMcp: () -> Unit,
     onOpenCapabilities: () -> Unit,
     onOpenSystemPrompt: () -> Unit,
-    /** 打开产物库（右上角文件夹图标）。 */
+    /** 打开产物库（顶栏文件夹，位于「更多」左侧）。 */
     onOpenArtifacts: () -> Unit,
     /** 传入且文件可内置预览（html）时，点「打开」走 app 内预览路由。 */
     onOpenInApp: ((String) -> Unit)? = null,
+    /** 当前会话是否还在加载、是否还没有任何对话。供「新对话」决定要不要再开一场。 */
+    onSessionFreshness: (loading: Boolean, fresh: Boolean) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.state.collectAsState()
+    SideEffect {
+        onSessionFreshness(state.isLoadingTranscript, state.isFreshSession())
+    }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var input by rememberSaveable { mutableStateOf("") }
@@ -104,6 +132,11 @@ fun ChatScreen(
                             )
                         },
                         actions = {
+                            TopBarIconButton(
+                                icon = AgentIcons.Folder,
+                                contentDescription = "产物库",
+                                onClick = onOpenArtifacts,
+                            )
                             ChatMoreMenu(
                                 expanded = moreMenu,
                                 exportInProgress = state.exportInProgress,
@@ -116,19 +149,8 @@ fun ChatScreen(
                                 onBrief = { viewModel.exportBriefTranscript(context) },
                                 onExportDiagnostics = { viewModel.exportDiagnostics(context) },
                             )
-                            TopBarIconButton(
-                                icon = Icons.Filled.Add,
-                                contentDescription = "新建对话",
-                                onClick = onNewChat,
-                            )
-                            TopBarIconButton(
-                                icon = AgentIcons.Folder,
-                                contentDescription = "产物库",
-                                onClick = onOpenArtifacts,
-                            )
                         },
                     )
-                    AgentHairline()
                     if (!state.exportMessage.isNullOrBlank()) {
                         Text(
                             state.exportMessage.orEmpty(),
@@ -152,45 +174,26 @@ fun ChatScreen(
                     }
                 }
             },
-            bottomBar = {
-                // 非 edge-to-edge（decorFitsSystemWindows）下由 adjustResize 抬升窗口；勿再叠 imePadding。
-                Column {
-                    if (state.accessibleFilePaths.isNotEmpty()) {
-                        AccessibleFilesStrip(paths = state.accessibleFilePaths)
-                        AgentHairline()
-                    }
-                    val pendingAsk = state.pendingAskUser
-                    ChatComposer(
-                        value = input,
-                        onValueChange = { input = it },
-                        isRunning = state.isRunning,
-                        canSend = state.configError == null &&
-                            input.isNotBlank() &&
-                            !state.isRunning &&
-                            pendingAsk == null,
-                        enabled = state.configError == null && pendingAsk == null,
-                        inputPlaceholder = if (pendingAsk == null) {
-                            "输入消息…"
-                        } else {
-                            "请在上方卡片中回答并提交"
-                        },
-                        onPickFiles = launchPickFiles,
-                        pickFilesEnabled = state.configError == null && !state.isRunning && pendingAsk == null,
-                        onSend = {
-                            if (viewModel.sendMessage(input)) input = ""
-                        },
-                        onStop = { viewModel.stopRun() },
-                    )
-                }
-            },
         ) { innerPadding ->
+            // 非 edge-to-edge（decorFitsSystemWindows）下由 adjustResize 抬升窗口；勿再叠 imePadding。
+            // 输入条浮在列表上，上沿渐变透出对话，而不是一条硬边裁切。
+            val density = LocalDensity.current
+            var composerHeight by remember { mutableStateOf(0.dp) }
+            val fade = 36.dp
+            val pendingAsk = state.pendingAskUser
+            val overlap = if (pendingAsk != null) 0.dp else fade
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
             ) {
                 val askCardHeight = minOf(312.dp, maxHeight)
-                Column(modifier = Modifier.fillMaxSize()) {
+                val contentBottom = (composerHeight - overlap).coerceAtLeast(0.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = contentBottom),
+                ) {
                     ChatMessageList(
                         state = state,
                         onPickFiles = launchPickFiles,
@@ -200,8 +203,9 @@ fun ChatScreen(
                             .fillMaxWidth(),
                         onOpenInApp = onOpenInApp,
                         onOpenSettings = onOpenSettings,
+                        topContentPadding = 16.dp,
                     )
-                    state.pendingAskUser?.let { form ->
+                    pendingAsk?.let { form ->
                         AskUserFormPanel(
                             form = form,
                             enabled = state.configError == null && !state.isRunning,
@@ -217,6 +221,41 @@ fun ChatScreen(
                         )
                     }
                 }
+                ChatComposer(
+                    value = input,
+                    onValueChange = { input = it },
+                    isRunning = state.isRunning,
+                    canSend = state.configError == null &&
+                        input.isNotBlank() &&
+                        !state.isRunning &&
+                        pendingAsk == null,
+                    enabled = state.configError == null && pendingAsk == null,
+                    inputPlaceholder = if (pendingAsk == null) {
+                        "输入消息…"
+                    } else {
+                        "请在上方卡片中回答并提交"
+                    },
+                    onPickFiles = launchPickFiles,
+                    pickFilesEnabled = state.configError == null && !state.isRunning && pendingAsk == null,
+                    onNewChat = onNewChat,
+                    modelLabel = composerModelLabel(state.configSummary),
+                    onOpenModel = onOpenSettings,
+                    onSend = {
+                        if (viewModel.sendMessage(input)) input = ""
+                    },
+                    onStop = { viewModel.stopRun() },
+                    header = if (state.accessibleFilePaths.isNotEmpty()) {
+                        { AccessibleFilesStrip(paths = state.accessibleFilePaths) }
+                    } else {
+                        null
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .onSizeChanged { size ->
+                            composerHeight = with(density) { size.height.toDp() }
+                        },
+                )
+                AgentTopFade(Modifier.align(Alignment.TopCenter))
             }
         }
     }
@@ -244,6 +283,13 @@ private fun AccessibleFilesStrip(paths: List<String>) {
     }
 }
 
+/**
+ * 底部输入条。
+ *
+ * 上方是一条胶囊输入框，发送钮在框内垂直居中。下方同一行放新对话、附件图标和当前模型。
+ * 上沿用渐变盖住对话列表，避免一条硬边。
+ * [onNewChat] 为空时不显示新对话（落位页没有活动会话）。
+ */
 @Composable
 internal fun ChatComposer(
     value: String,
@@ -254,88 +300,230 @@ internal fun ChatComposer(
     inputPlaceholder: String = "输入消息…",
     onPickFiles: () -> Unit,
     pickFilesEnabled: Boolean,
+    onNewChat: (() -> Unit)? = null,
+    modelLabel: String = "",
+    onOpenModel: (() -> Unit)? = null,
+    onSend: () -> Unit,
+    onStop: () -> Unit,
+    header: (@Composable () -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val bar = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f)
+    Column(modifier = modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.45f to bar.copy(alpha = 0.35f),
+                        1f to bar,
+                    ),
+                ),
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(bar)
+                .padding(bottom = 8.dp),
+        ) {
+            header?.invoke()
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    ComposerField(
+                        value = value,
+                        onValueChange = onValueChange,
+                        enabled = enabled,
+                        placeholder = inputPlaceholder,
+                        isRunning = isRunning,
+                        canSend = canSend,
+                        onSend = onSend,
+                        onStop = onStop,
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (onNewChat != null) {
+                            ComposerIconButton(
+                                icon = AgentIcons.NewChat,
+                                contentDescription = "新对话",
+                                onClick = onNewChat,
+                            )
+                        }
+                        ComposerIconButton(
+                            icon = AgentIcons.AttachFile,
+                            contentDescription = "添加附件",
+                            enabled = pickFilesEnabled,
+                            onClick = onPickFiles,
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        if (modelLabel.isNotBlank()) {
+                            ComposerModelChip(label = modelLabel, onClick = onOpenModel)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 目录里有展示名就用展示名，否则用模型 id。 */
+internal fun composerModelLabel(summary: RuntimeConfigSummary?): String {
+    if (summary == null) return ""
+    val named = summary.catalogMatch.orElse(null)?.displayName.orEmpty().trim()
+    return named.ifBlank { summary.modelId.trim() }
+}
+
+@Composable
+private fun ComposerIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    val tint = if (enabled) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    }
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.size(36.dp),
+    ) {
+        Icon(
+            icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(18.dp),
+            tint = tint,
+        )
+    }
+}
+
+@Composable
+private fun ComposerModelChip(
+    label: String,
+    onClick: (() -> Unit)?,
+) {
+    val tint = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier
+            .widthIn(max = 200.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
+            .semantics { contentDescription = "当前模型 $label，打开模型设置" }
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            modifier = Modifier.weight(1f, fill = false),
+            style = MaterialTheme.typography.titleMedium,
+            color = tint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = tint,
+        )
+    }
+}
+
+@Composable
+private fun ComposerField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    enabled: Boolean,
+    placeholder: String,
+    isRunning: Boolean,
+    canSend: Boolean,
     onSend: () -> Unit,
     onStop: () -> Unit,
 ) {
-    val fieldShape = RoundedCornerShape(22.dp)
-    Column(modifier = Modifier.fillMaxWidth()) {
-        AgentHairline()
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(
-                    onClick = onPickFiles,
-                    enabled = pickFilesEnabled,
-                    modifier = Modifier.size(40.dp),
-                ) {
-                    Icon(
-                        AgentIcons.AttachFile,
-                        contentDescription = "选择文件",
-                        modifier = Modifier.size(22.dp),
-                        tint = if (pickFilesEnabled) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        },
-                    )
-                }
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier.weight(1f),
-                    placeholder = {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val ink = MaterialTheme.colorScheme.onSurface
+    val borderColor = when {
+        focused && enabled -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+        else -> ink.copy(alpha = 0.14f)
+    }
+    val textColor = if (enabled) ink else ink.copy(alpha = 0.38f)
+    val shape = RoundedCornerShape(24.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clip(shape)
+            .background(ink.copy(alpha = if (enabled) 0.07f else 0.04f))
+            .border(1.dp, borderColor, shape)
+            .padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier
+                .weight(1f)
+                .padding(vertical = 10.dp),
+            enabled = enabled,
+            textStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(
+                onSend = {
+                    if (canSend) onSend()
+                },
+            ),
+            maxLines = 4,
+            interactionSource = interaction,
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            decorationBox = { inner ->
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    if (value.isEmpty()) {
                         Text(
-                            inputPlaceholder,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            placeholder,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                alpha = if (enabled) 0.75f else 0.4f,
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                    },
-                    enabled = enabled,
-                    shape = fieldShape,
-                    maxLines = 4,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(
-                        onSend = {
-                            if (canSend) onSend()
-                        },
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.outline,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        disabledBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        cursorColor = MaterialTheme.colorScheme.primary,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-                )
-                FilledIconButton(
-                    onClick = { if (isRunning) onStop() else onSend() },
-                    enabled = isRunning || canSend,
-                    modifier = Modifier.size(40.dp),
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                        disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
-                    ),
-                ) {
-                    Icon(
-                        if (isRunning) AgentIcons.Stop else Icons.Filled.Send,
-                        contentDescription = if (isRunning) "停止" else "发送",
-                        modifier = Modifier.size(if (isRunning) 16.dp else 20.dp),
-                    )
+                    }
+                    inner()
                 }
-            }
+            },
+        )
+        FilledIconButton(
+            onClick = { if (isRunning) onStop() else onSend() },
+            enabled = isRunning || canSend,
+            modifier = Modifier
+                .padding(vertical = 4.dp)
+                .size(40.dp),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f),
+                disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+            ),
+        ) {
+            Icon(
+                if (isRunning) AgentIcons.Stop else Icons.AutoMirrored.Filled.Send,
+                contentDescription = if (isRunning) "停止" else "发送",
+                modifier = Modifier.size(if (isRunning) 14.dp else 18.dp),
+            )
         }
     }
 }

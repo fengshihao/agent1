@@ -28,8 +28,10 @@ internal fun ChatLanding(
     onOpenMcp: () -> Unit,
     onOpenCapabilities: () -> Unit,
     onExportDiagnostics: () -> Unit,
-    /** 打开产物库（右上角文件夹图标；无活动会话时「插入会话」禁用）。 */
+    /** 打开产物库（顶栏文件夹，位于「更多」左侧；无活动会话时「插入会话」禁用）。 */
     onOpenArtifacts: () -> Unit = {},
+    /** 输入框右下角的当前模型名；空则不显示。 */
+    modelLabel: String = "",
 ) {
     var moreMenu by rememberSaveable { mutableStateOf(false) }
     Scaffold(
@@ -48,6 +50,11 @@ internal fun ChatLanding(
                         )
                     },
                     actions = {
+                        TopBarIconButton(
+                            icon = AgentIcons.Folder,
+                            contentDescription = "产物库",
+                            onClick = onOpenArtifacts,
+                        )
                         ChatMoreMenu(
                             expanded = moreMenu,
                             exportInProgress = exportInProgress,
@@ -58,14 +65,8 @@ internal fun ChatLanding(
                             onOpenCapabilities = onOpenCapabilities,
                             onExportDiagnostics = onExportDiagnostics,
                         )
-                        TopBarIconButton(
-                            icon = AgentIcons.Folder,
-                            contentDescription = "产物库",
-                            onClick = onOpenArtifacts,
-                        )
                     },
                 )
-                AgentHairline()
             }
         },
         bottomBar = {
@@ -77,6 +78,8 @@ internal fun ChatLanding(
                 enabled = false,
                 onPickFiles = {},
                 pickFilesEnabled = false,
+                modelLabel = modelLabel,
+                onOpenModel = onOpenSettings,
                 onSend = {},
                 onStop = {},
             )
@@ -85,23 +88,29 @@ internal fun ChatLanding(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(32.dp),
-            contentAlignment = Alignment.Center,
+                .padding(innerPadding),
         ) {
-            if (startupError.isNullOrBlank()) {
-                Text(
-                    "正在打开对话…",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Text(
-                    "暂时无法开始对话：$startupError",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (startupError.isNullOrBlank()) {
+                    Text(
+                        "正在打开对话…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Text(
+                        "暂时无法开始对话：$startupError",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
+            AgentTopFade(Modifier.align(Alignment.TopCenter))
         }
     }
 }

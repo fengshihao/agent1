@@ -24,6 +24,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
@@ -40,6 +41,8 @@ internal fun ChatMessageList(
     onOpenInApp: ((String) -> Unit)? = null,
     /** 系统提示卡（单轮往返上限等）「设置页」链接的跳转。 */
     onOpenSettings: (() -> Unit)? = null,
+    /** 列表顶部额外留白，给顶栏渐变让出位置。 */
+    topContentPadding: Dp = 8.dp,
 ) {
     val visibleLines = state.lines.filterNot { it.hideInChat }
     val lazyRows = remember(visibleLines, state.workspacePath) {
@@ -135,7 +138,7 @@ internal fun ChatMessageList(
             .padding(horizontal = 4.dp)
             .nestedScroll(followConnection),
         verticalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
+        contentPadding = PaddingValues(top = topContentPadding, bottom = 8.dp, start = 8.dp, end = 8.dp),
     ) {
         items(
             count = lazyRows.size,
