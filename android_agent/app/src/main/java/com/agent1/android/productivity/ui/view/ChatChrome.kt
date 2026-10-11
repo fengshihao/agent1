@@ -152,6 +152,7 @@ internal fun ChatMoreMenu(
     onExportDiagnostics: () -> Unit,
     onOpenSystemPrompt: (() -> Unit)? = null,
     onBrief: (() -> Unit)? = null,
+    onOpenAbout: () -> Unit = {},
 ) {
     Box {
         TopBarIconButton(
@@ -192,6 +193,10 @@ internal fun ChatMoreMenu(
             ) {
                 onDismiss()
                 onExportDiagnostics()
+            }
+            MoreMenuRow("关于", Icons.Filled.Info) {
+                onDismiss()
+                onOpenAbout()
             }
         }
     }

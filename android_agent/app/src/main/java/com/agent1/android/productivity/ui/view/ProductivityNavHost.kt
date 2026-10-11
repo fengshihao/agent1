@@ -24,6 +24,7 @@ private object Routes {
     const val SETTINGS = "model-settings"
     const val MCP = "mcp-settings"
     const val CAPABILITIES = "capabilities"
+    const val ABOUT = "about"
     const val PROMPT = "system-prompt/{sessionId}"
     /** sessionId 为 "-" 表示无活动会话（落位页进入，禁用「插入会话」）。 */
     const val ARTIFACTS = "artifact-library/{sessionId}"
@@ -59,6 +60,7 @@ fun ProductivityNavHost() {
                     val id = sessionId.ifBlank { "-" }
                     nav.navigate("artifact-library/${Uri.encode(id)}")
                 },
+                onOpenAbout = { nav.navigate(Routes.ABOUT) },
             )
         }
         composable(Routes.SETTINGS) {
@@ -81,6 +83,9 @@ fun ProductivityNavHost() {
                 viewModel = vm,
                 onBack = { nav.popBackStack() },
             )
+        }
+        composable(Routes.ABOUT) {
+            AboutScreen(onBack = { nav.popBackStack() })
         }
         composable(Routes.CAPABILITIES) {
             val vm: CapabilitySearchViewModel = viewModel(

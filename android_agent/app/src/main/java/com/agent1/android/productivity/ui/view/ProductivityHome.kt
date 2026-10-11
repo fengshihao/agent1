@@ -3,14 +3,18 @@ package com.agent1.android.productivity.ui.view
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.ui.draw.shadow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +52,7 @@ fun ProductivityHome(
     onOpenHtmlPreview: (sessionId: String, relativePath: String) -> Unit,
     /** 打开产物库；sessionId 为空表示当前没有活动会话（落位页）。 */
     onOpenArtifacts: (sessionId: String) -> Unit = { _ -> },
+    onOpenAbout: () -> Unit = {},
 ) {
     val listState by sessionListViewModel.state.collectAsState()
     val context = LocalContext.current
@@ -100,6 +105,15 @@ fun ProductivityHome(
         scope.launch { drawerState.close() }
     }
 
+    fun toggleDrawer() {
+        if (!drawerState.isOpen) {
+            sessionListViewModel.refreshUsage()
+        }
+        scope.launch {
+            if (drawerState.isOpen) drawerState.close() else drawerState.open()
+        }
+    }
+
     fun openSession(meta: SessionMeta) {
         activeSessionId = meta.sessionId
         activeTitle = meta.title.ifBlank { "新对话" }
@@ -125,35 +139,51 @@ fun ProductivityHome(
         closeDrawer()
     }
 
+    val drawerShape = RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp)
+    val drawerGlow = MaterialTheme.colorScheme.primary
     ModalNavigationDrawer(
         drawerState = drawerState,
+        scrimColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f),
         drawerContent = {
             ModalDrawerSheet(
                 modifier = Modifier
-                    .width(240.dp)
-                    .fillMaxHeight(),
+                    .width(252.dp)
+                    .fillMaxHeight()
+                    .shadow(
+                        elevation = 10.dp,
+                        shape = drawerShape,
+                        clip = false,
+                        ambientColor = drawerGlow.copy(alpha = 0.14f),
+                        spotColor = drawerGlow.copy(alpha = 0.20f),
+                    ),
+                drawerShape = drawerShape,
                 drawerContainerColor = MaterialTheme.colorScheme.surface,
+                drawerTonalElevation = 0.dp,
             ) {
-                SessionDrawer(
-                    state = listState,
-                    activeSessionId = activeSessionId,
-                    onNewChat = { newChat() },
-                    onOpenSession = { openSession(it) },
-                    onDeleteSession = { meta ->
-                        sessionListViewModel.deleteSession(meta.sessionId) { remaining ->
-                            if (activeSessionId != meta.sessionId) return@deleteSession
-                            val next = remaining.maxByOrNull { it.updatedAt }
-                            if (next != null) {
-                                activeSessionId = next.sessionId
-                                activeTitle = next.title.ifBlank { "新对话" }
-                            } else {
-                                createRequested = false
-                                activeSessionId = ""
-                                activeTitle = "新对话"
-                            }
-                        }
-                    },
-                )
+                Box(modifier = Modifier.fillMaxSize().drawerEdgeGlow()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        SessionDrawer(
+                            state = listState,
+                            activeSessionId = activeSessionId,
+                            onNewChat = { newChat() },
+                            onOpenSession = { openSession(it) },
+                            onDeleteSession = { meta ->
+                                sessionListViewModel.deleteSession(meta.sessionId) { remaining ->
+                                    if (activeSessionId != meta.sessionId) return@deleteSession
+                                    val next = remaining.maxByOrNull { it.updatedAt }
+                                    if (next != null) {
+                                        activeSessionId = next.sessionId
+                                        activeTitle = next.title.ifBlank { "新对话" }
+                                    } else {
+                                        createRequested = false
+                                        activeSessionId = ""
+                                        activeTitle = "新对话"
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
             }
         },
     ) {
@@ -162,16 +192,13 @@ fun ProductivityHome(
             ChatLanding(
                 startupError = listState.startupError,
                 exportInProgress = listState.exportInProgress,
-                onOpenDrawer = {
-                    scope.launch {
-                        if (drawerState.isOpen) drawerState.close() else drawerState.open()
-                    }
-                },
+                onOpenDrawer = { toggleDrawer() },
                 onOpenSettings = onOpenSettings,
                 onOpenMcp = onOpenMcp,
                 onOpenCapabilities = onOpenCapabilities,
                 onExportDiagnostics = { sessionListViewModel.exportDiagnostics(context) },
                 onOpenArtifacts = { onOpenArtifacts("") },
+                onOpenAbout = onOpenAbout,
                 modelLabel = composerModelLabel(listState.configSummary),
             )
         } else {
@@ -179,11 +206,7 @@ fun ProductivityHome(
                 appContext = appContext,
                 sessionId = sessionId,
                 title = activeTitle,
-                onOpenDrawer = {
-                    scope.launch {
-                        if (drawerState.isOpen) drawerState.close() else drawerState.open()
-                    }
-                },
+                onOpenDrawer = { toggleDrawer() },
                 onNewChat = { newChat() },
                 onOpenSettings = onOpenSettings,
                 onOpenMcp = onOpenMcp,
@@ -191,6 +214,7 @@ fun ProductivityHome(
                 onOpenSystemPrompt = { onOpenSystemPrompt(sessionId) },
                 onOpenHtmlPreview = onOpenHtmlPreview,
                 onOpenArtifacts = { onOpenArtifacts(sessionId) },
+                onOpenAbout = onOpenAbout,
                 onSessionFreshness = { loading, fresh ->
                     sessionLoading = loading
                     sessionFresh = fresh
@@ -213,6 +237,7 @@ private fun ChatPane(
     onOpenSystemPrompt: () -> Unit,
     onOpenHtmlPreview: (sessionId: String, relativePath: String) -> Unit,
     onOpenArtifacts: () -> Unit,
+    onOpenAbout: () -> Unit,
     onSessionFreshness: (loading: Boolean, fresh: Boolean) -> Unit,
 ) {
     val viewModel: ChatViewModel = viewModel(
@@ -229,6 +254,7 @@ private fun ChatPane(
         onOpenCapabilities = onOpenCapabilities,
         onOpenSystemPrompt = onOpenSystemPrompt,
         onOpenArtifacts = onOpenArtifacts,
+        onOpenAbout = onOpenAbout,
         // 会话工作区路径由 sessionId 在预览路由内解析，这里只需注入当前会话 id。
         onOpenInApp = { relativePath -> onOpenHtmlPreview(sessionId, relativePath) },
         onSessionFreshness = onSessionFreshness,

@@ -32,6 +32,7 @@ internal fun ChatLanding(
     onOpenArtifacts: () -> Unit = {},
     /** 输入框右下角的当前模型名；空则不显示。 */
     modelLabel: String = "",
+    onOpenAbout: () -> Unit = {},
 ) {
     var moreMenu by rememberSaveable { mutableStateOf(false) }
     Scaffold(
@@ -64,6 +65,7 @@ internal fun ChatLanding(
                             onOpenMcp = onOpenMcp,
                             onOpenCapabilities = onOpenCapabilities,
                             onExportDiagnostics = onExportDiagnostics,
+                            onOpenAbout = onOpenAbout,
                         )
                     },
                 )

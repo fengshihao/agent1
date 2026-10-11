@@ -3,6 +3,7 @@ package com.agent1.android.productivity.ui.viewmodel
 import com.agent1.android.productivity.logic.business.ArtifactLibraryFilter
 import com.agent1.android.productivity.logic.business.AskUserFormState
 import com.agent1.android.productivity.logic.business.AskUserFormatting
+import com.agent1.android.productivity.logic.business.UsageOverview
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
 
@@ -55,6 +56,8 @@ data class SessionListUiState(
     val exportMessage: String? = null,
     /** Agent 宿主初始化失败（Weizhi/SQLite 等）；详情见 last_crash_report.txt */
     val startupError: String? = null,
+    /** 全部会话累计用量；抽屉底部摘要，点开看分项。 */
+    val usage: UsageOverview = UsageOverview(),
 )
 
 /** 单次 Run 内按时间顺序展示的片段（助手正文 / 工具调用）。 */
