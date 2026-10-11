@@ -178,6 +178,7 @@ class ProductivityAgentHostTest {
             assertTrue(toolNames.get().contains("ask_user"));
             assertTrue(toolNames.get().contains("todo_write"));
             assertTrue(toolNames.get().contains("find_caps"));
+            assertTrue(toolNames.get().contains("media_resize"));
             assertFalse(toolNames.get().contains("web_search"));
             assertFalse(host.runtime().getStateSnapshot().getSystemPrompt().contains("web_search"));
         }

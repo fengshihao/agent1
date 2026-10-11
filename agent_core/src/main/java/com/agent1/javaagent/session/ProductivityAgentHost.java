@@ -48,6 +48,10 @@ import com.agent1.javaagent.capability.CapabilitySearchView;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
 import com.agent1.javaagent.tool.web.WebSearchTool;
+import com.agent1.javaagent.tool.anno.AnnotatedTools;
+import com.agent1.javaagent.tool.media.ImageResizer;
+import com.agent1.javaagent.tool.media.MediaResizeTool;
+import com.agent1.javaagent.tool.media.UnavailableImageResizer;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import java.io.Closeable;
@@ -84,6 +88,7 @@ public final class ProductivityAgentHost implements Closeable {
     /** find_caps 检索时按 Host 平台过滤（android / desktop），不由模型传参。 */
     private final String capabilitySearchPlatform;
     private final AgentRuntimeConfig runtimeConfig;
+    private volatile ImageResizer imageResizer = UnavailableImageResizer.INSTANCE;
     private volatile String sessionEnvironmentSupplement = "";
     private volatile HostEnvironmentProvider environmentProvider = DesktopEnvironmentProvider.INSTANCE;
     private ProductivityCoach productivityCoach;
@@ -241,6 +246,11 @@ public final class ProductivityAgentHost implements Closeable {
             extraTools,
             capabilitySearchPlatform
         );
+    }
+
+    /** Android 传入 {@code Bitmap} 实现。未设置时 {@code media_resize} 返回未实现。 */
+    public void setImageResizer(ImageResizer imageResizer) {
+        this.imageResizer = imageResizer == null ? UnavailableImageResizer.INSTANCE : imageResizer;
     }
 
     public Path agentRoot() {
@@ -573,6 +583,7 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new ReadFileTool(sandbox));
         tools.add(new ReadUrlTool());
         tools.add(new WriteFileTool(sandbox));
+        tools.addAll(AnnotatedTools.from(new MediaResizeTool(sandbox, imageResizer)));
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));
         tools.add(new CatalogSyncStatusTool(agentRoot));
