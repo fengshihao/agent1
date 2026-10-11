@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -27,8 +28,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,9 +47,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.agent1.android.productivity.logic.business.ArtifactLibraryFilter
 import com.agent1.android.productivity.logic.business.ArtifactLibraryStore
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.WorkspaceFileActions
+import com.agent1.android.productivity.ui.viewmodel.ArtifactLibraryUiState
 import com.agent1.android.productivity.ui.viewmodel.ArtifactLibraryViewModel
 import com.agent1.android.productivity.ui.viewmodel.ArtifactUiItem
 import java.text.SimpleDateFormat
@@ -71,6 +77,11 @@ fun ArtifactLibraryScreen(
     val context = LocalContext.current
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
+    val typeChoices = viewModel.typeFilterChoices()
+    val shelfTabIndex = when (state.shelf) {
+        ArtifactLibraryFilter.Shelf.PRIMARY -> 0
+        ArtifactLibraryFilter.Shelf.AUXILIARY -> 1
+    }
 
     fun selectedRefs(): List<ArtifactLibraryStore.ArtifactRef> = state.items
         .filter { it.stableKey in state.selectedKeys }
@@ -82,7 +93,10 @@ fun ArtifactLibraryScreen(
             subtitle = when {
                 state.isLoading -> "加载中…"
                 state.selectionMode -> "已选 ${state.selectedKeys.size} 项"
-                else -> "${state.filteredItems.size} 个产物"
+                else -> {
+                    val shelfLabel = state.shelf.label
+                    "${state.filteredItems.size} 个 · $shelfLabel"
+                }
             },
             leading = {
                 TopBarIconButton(
@@ -102,16 +116,42 @@ fun ArtifactLibraryScreen(
             },
         )
         AgentHairline()
+        PrimaryTabRow(selectedTabIndex = shelfTabIndex) {
+            Tab(
+                selected = state.shelf == ArtifactLibraryFilter.Shelf.PRIMARY,
+                onClick = { viewModel.onShelfChange(ArtifactLibraryFilter.Shelf.PRIMARY) },
+                text = { Text(ArtifactLibraryFilter.Shelf.PRIMARY.label) },
+            )
+            Tab(
+                selected = state.shelf == ArtifactLibraryFilter.Shelf.AUXILIARY,
+                onClick = { viewModel.onShelfChange(ArtifactLibraryFilter.Shelf.AUXILIARY) },
+                text = { Text(ArtifactLibraryFilter.Shelf.AUXILIARY.label) },
+            )
+        }
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            itemsIndexed(typeChoices, key = { _, choice -> choice.name }) { _, choice ->
+                FilterChip(
+                    selected = state.typeFilter == choice,
+                    onClick = { viewModel.onTypeFilterChange(choice) },
+                    label = { Text(choice.label) },
+                )
+            }
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OutlinedTextField(
                 value = state.query,
                 onValueChange = viewModel::onQueryChange,
-                placeholder = { Text("搜索文件名或会话") },
+                placeholder = { Text("搜索文件名或路径") },
                 leadingIcon = {
                     Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(18.dp))
                 },
@@ -158,7 +198,7 @@ fun ArtifactLibraryScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             state.filteredItems.isEmpty() -> Text(
-                if (state.query.isBlank()) "暂无产物。AI 在会话里生成的文件会出现在这里。" else "没有匹配「${state.query}」的产物",
+                artifactEmptyHint(state),
                 modifier = Modifier.padding(16.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -321,6 +361,31 @@ private fun ArtifactRow(
             }
         }
     }
+}
+
+private fun artifactEmptyHint(state: ArtifactLibraryUiState): String {
+    val hasAny = state.items.isNotEmpty()
+    val hasShelfItems = state.items.any {
+        ArtifactLibraryFilter.shelfFor(it.workspaceRelativePath) == state.shelf
+    }
+    if (!hasAny) {
+        return "暂无产物。AI 在会话里生成的文件会出现在这里。"
+    }
+    if (!hasShelfItems) {
+        return when (state.shelf) {
+            ArtifactLibraryFilter.Shelf.PRIMARY ->
+                "当前没有主要交付物（HTML、Office、PDF 等）。可切换到「细碎文件」查看脚本与配置。"
+            ArtifactLibraryFilter.Shelf.AUXILIARY ->
+                "当前没有细碎文件。主要交付物在「主要文件」分页。"
+        }
+    }
+    if (state.query.isNotBlank()) {
+        return "没有匹配「${state.query}」的产物"
+    }
+    if (state.typeFilter != ArtifactLibraryFilter.TypeFilter.ALL) {
+        return "没有「${state.typeFilter.label}」类型的产物，可试试「全部」或其它类型。"
+    }
+    return "没有可展示的产物"
 }
 
 private fun openArtifact(

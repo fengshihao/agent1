@@ -1,5 +1,6 @@
 package com.agent1.android.productivity.ui.viewmodel
 
+import com.agent1.android.productivity.logic.business.ArtifactLibraryFilter
 import com.agent1.android.productivity.logic.business.AskUserFormatting
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
@@ -160,8 +161,11 @@ data class ArtifactLibraryUiState(
     val isLoading: Boolean = true,
     /** 全量产物（按修改时间倒序）。 */
     val items: List<ArtifactUiItem> = emptyList(),
-    /** 按搜索词过滤后的展示列表。 */
+    /** 按分层 / 类型 / 搜索词过滤后的展示列表。 */
     val filteredItems: List<ArtifactUiItem> = emptyList(),
+    /** 主要交付物 vs 脚本/配置等细碎文件。 */
+    val shelf: ArtifactLibraryFilter.Shelf = ArtifactLibraryFilter.Shelf.PRIMARY,
+    val typeFilter: ArtifactLibraryFilter.TypeFilter = ArtifactLibraryFilter.TypeFilter.ALL,
     val query: String = "",
     /** 多选模式：任一长按进入，清空选择后退出。 */
     val selectionMode: Boolean = false,
