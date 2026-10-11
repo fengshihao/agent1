@@ -1,5 +1,6 @@
 package com.agent1.android.productivity.ui.view
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -101,6 +102,44 @@ class ChatListAutoscrollTest {
                 consumedY = 0f,
                 canScrollForward = false,
                 atBottom = true,
+            ),
+        )
+    }
+
+    @Test
+    fun followScrollByPx_catchesUpALittleWhenTailIsNotVisible() {
+        assertEquals(
+            96,
+            ChatListAutoscroll.followScrollByPx(
+                totalItems = 4,
+                lastVisibleIndex = 2,
+                lastVisibleOffset = 100,
+                lastVisibleSize = 40,
+                viewportEndOffset = 800,
+            ),
+        )
+    }
+
+    @Test
+    fun followScrollByPx_scrollsOnlyTheOverflowOfTheLastItem() {
+        assertEquals(
+            120,
+            ChatListAutoscroll.followScrollByPx(
+                totalItems = 3,
+                lastVisibleIndex = 2,
+                lastVisibleOffset = 400,
+                lastVisibleSize = 520,
+                viewportEndOffset = 800,
+            ),
+        )
+        assertEquals(
+            0,
+            ChatListAutoscroll.followScrollByPx(
+                totalItems = 3,
+                lastVisibleIndex = 2,
+                lastVisibleOffset = 200,
+                lastVisibleSize = 400,
+                viewportEndOffset = 800,
             ),
         )
     }

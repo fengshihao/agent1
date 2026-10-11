@@ -25,6 +25,7 @@ data class RunTokenSummary(
             "输出 ${formatCompactTokenCount(outputTokens)}",
         )
         cacheHitPercent?.let { parts.add("缓存命中 ${it}%") }
+        if (failed) parts.add("未完成")
         return parts.joinToString(" · ")
     }
 

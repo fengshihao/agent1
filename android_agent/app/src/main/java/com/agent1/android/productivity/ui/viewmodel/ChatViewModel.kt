@@ -144,6 +144,7 @@ class ChatViewModel(
             ),
         )
         viewModelScope.launch {
+            var sendFailure: String? = null
             try {
                 withContext(Dispatchers.IO) {
                     gateway.runUserMessage(sessionId, trimmed) { event ->
@@ -175,12 +176,7 @@ class ChatViewModel(
                 }
             } catch (e: Exception) {
                 runEndedWithFailure = true
-                _state.value = _state.value.copy(
-                    lines = _state.value.lines + ChatLine(
-                        "assistant",
-                        UserFacingError.explain(e.message ?: e.javaClass.simpleName),
-                    ),
-                )
+                sendFailure = UserFacingError.explain(e.message ?: e.javaClass.simpleName)
             } finally {
                 resetStreamBuffers()
                 _state.value = _state.value.copy(
@@ -191,9 +187,30 @@ class ChatViewModel(
                     lastRunTokenSummary = buildRunTokenSummaryIfNeeded(),
                 )
                 loadTranscriptIntoState(initialLoad = false)
+                // 失败发生在落盘之前时，刷新记录会把刚发出的消息和错误一起清掉。
+                if (sendFailure != null) {
+                    appendUnpersistedSendResult(trimmed, sendFailure)
+                }
             }
         }
         return true
+    }
+
+    private fun appendUnpersistedSendResult(text: String, failure: String) {
+        val lines = _state.value.lines.toMutableList()
+        if (lines.none { it.role == "user" && it.content.trim() == text }) {
+            lines += ChatLine(
+                role = "user",
+                content = text,
+                stableKey = "unpersisted-user",
+            )
+        }
+        lines += ChatLine(
+            role = "assistant",
+            content = failure,
+            stableKey = "unpersisted-error",
+        )
+        _state.value = _state.value.copy(lines = lines)
     }
 
     fun stopRun() {

@@ -12,6 +12,7 @@ import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
 import com.agent1.javaagent.run.FileRunStore;
+import com.agent1.javaagent.run.RunRecord;
 import com.agent1.javaagent.run.RunState;
 import com.agent1.javaagent.script.FakeScriptEngineFactory;
 import com.agent1.javaagent.script.MutableScriptToolBridge;
@@ -66,6 +67,44 @@ class ProductivityAgentHostTest {
 
             FileRunStore runs = new FileRunStore(store);
             assertEquals(RunState.SUCCEEDED, runs.read(host.getActiveSessionId(), runId).getState());
+        }
+    }
+
+    @Test
+    void interruptedRunningRecordDoesNotBlockNextMessage() {
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            streamListener.onTextDelta("继续完成");
+            return new AssistantResponse("继续完成", List.of());
+        };
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            host.createSession();
+            String sessionId = host.getActiveSessionId();
+            FileSessionStore store = new FileSessionStore(temp);
+            FileRunStore runs = new FileRunStore(store);
+            String started = "2026-10-11T07:04:55.547623Z";
+            runs.write(new RunRecord(
+                "stale-run",
+                sessionId,
+                RunState.RUNNING,
+                started,
+                started,
+                null,
+                1,
+                9
+            ));
+
+            String runId = host.runUserMessage("继续");
+
+            assertEquals(RunState.FAILED, runs.read(sessionId, "stale-run").getState());
+            assertEquals(
+                "上次运行因进程中断未结束",
+                runs.read(sessionId, "stale-run").getLastError().orElse("")
+            );
+            assertEquals(RunState.SUCCEEDED, runs.read(sessionId, runId).getState());
+            List<AgentMessage> transcript = store.loadTranscript(sessionId);
+            assertEquals("继续", transcript.get(0).getContent());
+            assertEquals("继续完成", transcript.get(1).getContent());
         }
     }
 

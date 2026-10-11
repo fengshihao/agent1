@@ -35,6 +35,14 @@ internal sealed class ChatLazyRow {
     ) : ChatLazyRow() {
         override val key: String = "$parentStableKey::img::$relativePath"
     }
+
+    /** 一轮的思考和工具调用合成一条 Lazy item。 */
+    data class TurnActivity(
+        val activityKey: String,
+        val pieces: List<TurnPiece>,
+    ) : ChatLazyRow() {
+        override val key: String = "turn::$activityKey"
+    }
 }
 
 internal object ChatLazyRowExpansion {
@@ -48,7 +56,38 @@ internal object ChatLazyRowExpansion {
         if (lines.isEmpty()) return emptyList()
         val root = if (workspaceAbsolutePath.isBlank()) null else Paths.get(workspaceAbsolutePath)
         val out = ArrayList<ChatLazyRow>(lines.size + 8)
-        for (line in lines) {
+        var index = 0
+        while (index < lines.size) {
+            if (ChatToolBatch.isTurnBoundary(lines[index])) {
+                appendMessage(out, lines[index], root, showReasoning = true)
+                index++
+                continue
+            }
+            val turn = ArrayList<ChatLine>()
+            while (index < lines.size && !ChatToolBatch.isTurnBoundary(lines[index])) {
+                turn.add(lines[index])
+                index++
+            }
+            val pieces = ChatToolBatch.piecesFromLines(turn)
+            if (pieces.isNotEmpty()) {
+                val anchor = turn.first().stableKey.ifBlank { "turn" }
+                out.add(ChatLazyRow.TurnActivity(activityKey = anchor, pieces = pieces))
+            }
+            for (line in turn) {
+                if (line.isTool) continue
+                if (line.content.isBlank() && !line.requestUserPickFiles) continue
+                appendMessage(out, line, root, showReasoning = false)
+            }
+        }
+        return out
+    }
+
+    private fun appendMessage(
+        out: MutableList<ChatLazyRow>,
+        line: ChatLine,
+        root: java.nio.file.Path?,
+        showReasoning: Boolean,
+    ) {
             val stable = line.stableKey.ifBlank { "line-${line.role}" }
             val assistantBody = line.role == "assistant" && !line.isTool && !line.isSystemNotice
             val useMarkdown = assistantBody &&
@@ -79,7 +118,7 @@ internal object ChatLazyRowExpansion {
                         segmentIndex = index,
                         segmentCount = bodyBlocks.size,
                         skipTrailingImagePreviews = !isLast || splitImages,
-                        showReasoning = index == 0,
+                        showReasoning = showReasoning && index == 0,
                         showPickFiles = isLast,
                         tightTop = index > 0,
                     ),
@@ -90,7 +129,5 @@ internal object ChatLazyRowExpansion {
                     out.add(ChatLazyRow.DetachedImage(parentStableKey = stable, relativePath = path))
                 }
             }
-        }
-        return out
     }
 }

@@ -367,6 +367,7 @@ public final class ProductivityAgentHost implements Closeable {
         }
         String sessionId = requireActiveSession();
         applySystemPrompt(sessionId);
+        recoverInterruptedRuns(sessionId);
         assertNoRunningMainRun(sessionId);
         if (productivityCoach != null) {
             productivityCoach.resetRun();
@@ -486,6 +487,38 @@ public final class ProductivityAgentHost implements Closeable {
     ) {
         for (int i = messageCountBefore; i < messages.size(); i++) {
             sessionStore.appendMessage(sessionId, runId, messages.get(i));
+        }
+    }
+
+    /**
+     * 进程被系统杀掉时，进行中的 Run 会永远停在 {@code running}，下一条消息会被拒绝。
+     * 当前进程并没有在跑这条 Run 时，把它收成失败，让用户可以继续发消息。
+     */
+    private void recoverInterruptedRuns(String sessionId) {
+        if (runtime.isRunning()) {
+            return;
+        }
+        Path runsDir = sessionStore.sessionDir(sessionId).resolve("runs");
+        if (!java.nio.file.Files.isDirectory(runsDir)) {
+            return;
+        }
+        String now = Instant.now().toString();
+        try (var stream = java.nio.file.Files.list(runsDir)) {
+            for (Path file : stream.filter(p -> p.getFileName().toString().endsWith(".json")).toList()) {
+                String name = file.getFileName().toString();
+                String runId = name.substring(0, name.length() - ".json".length());
+                runStore.readOptional(sessionId, runId).ifPresent(record -> {
+                    if (record.getState() == RunState.RUNNING) {
+                        runStore.write(record.withTerminal(
+                            RunState.FAILED,
+                            now,
+                            "上次运行因进程中断未结束"
+                        ));
+                    }
+                });
+            }
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("scan runs failed: " + runsDir, e);
         }
     }
 

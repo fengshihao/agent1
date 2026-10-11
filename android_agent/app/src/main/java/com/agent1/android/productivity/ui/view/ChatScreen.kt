@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
@@ -36,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -163,8 +166,7 @@ fun ChatScreen(
                         onPickFiles = launchPickFiles,
                         pickFilesEnabled = state.configError == null && !state.isRunning,
                         onSend = {
-                            viewModel.sendMessage(input)
-                            input = ""
+                            if (viewModel.sendMessage(input)) input = ""
                         },
                         onStop = { viewModel.stopRun() },
                     )
@@ -279,6 +281,12 @@ internal fun ChatComposer(
                     enabled = enabled,
                     shape = fieldShape,
                     maxLines = 4,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (canSend) onSend()
+                        },
+                    ),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.outline,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,

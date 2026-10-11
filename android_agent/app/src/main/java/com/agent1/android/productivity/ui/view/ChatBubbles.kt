@@ -252,14 +252,18 @@ internal fun CollapsibleToolCallBubble(
     isError: Boolean,
     resultSummary: String,
     progressLines: List<String>,
+    title: String = toolName,
 ) {
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val bubbles = chatBubbleColors()
-    val failed = finished && isError
+    val failed = finished && (
+        isError || resultSummary.trimStart().startsWith("错误")
+        )
     CollapsibleMetaBubble(
         expanded = expanded,
         onToggle = { expanded = !expanded },
-        title = toolName,
+        title = title,
+        titleColor = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
         borderColor = if (failed) MaterialTheme.colorScheme.error else bubbles.systemBorder,
         showSpinner = !finished,
         expandContentDescription = "展开工具结果",
@@ -297,11 +301,103 @@ internal fun CollapsibleToolCallBubble(
     }
 }
 
+/** 一轮一张卡。展开后每一段思考、每一次工具调用仍是各自的折叠项。 */
+@Composable
+internal fun TurnActivityBubble(
+    stateKey: String,
+    pieces: List<TurnPiece>,
+) {
+    if (pieces.isEmpty()) return
+    var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
+    val bubbles = chatBubbleColors()
+    val failed = pieces.any { it is TurnPiece.Tool && ChatToolBatch.showsFailure(it.entry) }
+    val running = ChatToolBatch.isRunning(pieces)
+    BubbleShell(
+        alignEnd = false,
+        wide = true,
+        background = bubbles.systemBackground,
+        borderColor = if (failed) MaterialTheme.colorScheme.error else bubbles.systemBorder,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowRight,
+                    contentDescription = if (expanded) "收起思考和执行" else "展开思考和执行",
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    ChatToolBatch.title(pieces),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (failed) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (running) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                ChatToolBatch.detail(pieces),
+                modifier = Modifier.padding(start = 26.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            AnimatedVisibility(visible = expanded) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    pieces.forEach { piece ->
+                        when (piece) {
+                            is TurnPiece.Reasoning -> {
+                                CollapsibleReasoningBlock(
+                                    reasoning = piece.text,
+                                    stateKey = "$stateKey::${piece.key}",
+                                    inProgress = piece.inProgress,
+                                    title = ChatToolBatch.pieceLabel(piece),
+                                )
+                            }
+                            is TurnPiece.Tool -> {
+                                CollapsibleToolCallBubble(
+                                    stateKey = "$stateKey::${piece.entry.key}",
+                                    toolName = piece.entry.toolName,
+                                    argsPreview = piece.entry.argsPreview,
+                                    finished = piece.entry.finished,
+                                    isError = piece.entry.isError,
+                                    resultSummary = piece.entry.resultSummary,
+                                    progressLines = piece.entry.progressLines,
+                                    title = ChatToolBatch.pieceLabel(piece),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun CollapsibleReasoningBlock(
     reasoning: String,
     stateKey: String,
     inProgress: Boolean = false,
+    title: String = "思考过程",
 ) {
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val trimmed = reasoning.trim().trimEnd('▌', ' ').trim()
@@ -310,7 +406,7 @@ private fun CollapsibleReasoningBlock(
     CollapsibleMetaBubble(
         expanded = expanded,
         onToggle = { expanded = !expanded },
-        title = "思考过程",
+        title = title,
         borderColor = bubbles.systemBorder,
         showSpinner = inProgress,
         expandContentDescription = "展开思考过程",
@@ -329,6 +425,7 @@ private fun CollapsibleMetaBubble(
     expanded: Boolean,
     onToggle: () -> Unit,
     title: String,
+    titleColor: Color = MaterialTheme.colorScheme.onSurface,
     borderColor: Color,
     showSpinner: Boolean,
     expandContentDescription: String,
@@ -360,7 +457,7 @@ private fun CollapsibleMetaBubble(
                 Text(
                     title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = titleColor,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

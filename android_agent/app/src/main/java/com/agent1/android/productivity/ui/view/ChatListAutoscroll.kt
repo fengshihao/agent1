@@ -38,6 +38,23 @@ object ChatListAutoscroll {
         )
     }
 
+    /**
+     * 贴底跟随时只返回应 `scrollBy` 的像素。
+     * 最后一条已经在视口里时补它超出底边的高度；还没露出来时只向前挪一小段，避免 `scrollToItem` 把超高条目顶对齐。
+     */
+    fun followScrollByPx(
+        totalItems: Int,
+        lastVisibleIndex: Int,
+        lastVisibleOffset: Int,
+        lastVisibleSize: Int,
+        viewportEndOffset: Int,
+        catchUpPx: Int = 96,
+    ): Int {
+        if (totalItems <= 0 || lastVisibleIndex < 0) return 0
+        if (lastVisibleIndex < totalItems - 1) return catchUpPx.coerceAtLeast(0)
+        return (lastVisibleOffset + lastVisibleSize - viewportEndOffset).coerceAtLeast(0)
+    }
+
     fun isAtBottom(
         totalItems: Int,
         lastVisibleIndex: Int,
