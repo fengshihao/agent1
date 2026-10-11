@@ -16,6 +16,7 @@ import org.json.JSONObject
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
+import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
@@ -66,7 +67,7 @@ class ChatViewModel(
     fun refreshConfigSummary() {
         _state.value = _state.value.copy(
             configSummary = gateway.configurationSummary(),
-            configError = gateway.configurationError(),
+            configError = gateway.configurationError()?.let { UserFacingError.explain(it) },
         )
     }
 
@@ -112,7 +113,7 @@ class ChatViewModel(
         } catch (e: Exception) {
             _state.value = _state.value.copy(
                 isLoadingTranscript = false,
-                transcriptLoadError = e.message ?: e.javaClass.simpleName,
+                transcriptLoadError = UserFacingError.explain(e.message ?: e.javaClass.simpleName),
             )
         }
     }
@@ -123,7 +124,7 @@ class ChatViewModel(
         if (trimmed.isEmpty() || _state.value.isRunning) return false
         val err = gateway.configurationError()
         if (err != null) {
-            _state.value = _state.value.copy(configError = err)
+            _state.value = _state.value.copy(configError = UserFacingError.explain(err))
             return false
         }
         resetStreamBuffers()
@@ -175,7 +176,10 @@ class ChatViewModel(
             } catch (e: Exception) {
                 runEndedWithFailure = true
                 _state.value = _state.value.copy(
-                    lines = _state.value.lines + ChatLine("assistant", "错误: ${e.message}"),
+                    lines = _state.value.lines + ChatLine(
+                        "assistant",
+                        UserFacingError.explain(e.message ?: e.javaClass.simpleName),
+                    ),
                 )
             } finally {
                 resetStreamBuffers()
@@ -465,8 +469,10 @@ class ChatViewModel(
             }
             AgentEventType.AGENT_ERROR -> {
                 runEndedWithFailure = true
-                val message = (event.payload as? EventPayloads.AgentError)?.message ?: "运行出错"
-                _state.value = _state.value.copy(runActivityLabel = message)
+                val message = (event.payload as? EventPayloads.AgentError)?.message
+                _state.value = _state.value.copy(
+                    runActivityLabel = UserFacingError.explain(message),
+                )
             }
             AgentEventType.USAGE -> {
                 val payload = event.payload as EventPayloads.Usage
@@ -540,7 +546,13 @@ class ChatViewModel(
         return listOf(
             ChatLine(
                 role = role,
-                content = ChatTranscriptFormatting.truncateForUiDisplay(merged),
+                content = ChatTranscriptFormatting.truncateForUiDisplay(
+                    if (role == AgentMessage.ROLE_ASSISTANT) {
+                        UserFacingError.explainAssistantFailure(merged)
+                    } else {
+                        merged
+                    },
+                ),
                 reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
                 isTool = false,
                 workspaceFilePaths = files,
@@ -639,7 +651,7 @@ class ChatViewModel(
                 loadTranscriptIntoState(initialLoad = false)
             }.onFailure { error ->
                 _state.value = _state.value.copy(
-                    fileImportMessage = "导入失败：${error.message ?: error.javaClass.simpleName}",
+                    fileImportMessage = UserFacingError.explain(error.message ?: error.javaClass.simpleName),
                 )
             }
         }

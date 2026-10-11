@@ -8,6 +8,7 @@ import com.agent1.android.productivity.logic.business.ModelSettingsForm
 import com.agent1.android.productivity.logic.business.ProviderOption
 import com.agent1.android.productivity.logic.business.RemoteModelOption
 import com.agent1.android.productivity.logic.business.PROVIDER_DASHSCOPE
+import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.providerOptions
 import com.agent1.android.productivity.logic.business.resolveProvider
 import kotlinx.coroutines.Dispatchers
@@ -78,7 +79,7 @@ class ModelSettingsViewModel(
             maxTurnsPerRun = form.maxTurnsPerRun.toString(),
             maxToolCallsPerRun = form.maxToolCallsPerRun.toString(),
             remoteModels = bundled,
-            configError = coordinator.configurationError(),
+            configError = coordinator.configurationError()?.let { UserFacingError.explain(it) },
             effectiveSummary = coordinator.configurationSummary(),
             savedInApp = form.savedInApp,
             statusMessage = null,
@@ -191,11 +192,12 @@ class ModelSettingsViewModel(
             persistJob?.cancel()
             val err = withContext(Dispatchers.IO) { coordinator.resetToBuildDefaults() }
             loadFromStore()
+            val shown = err?.let { UserFacingError.explain(it) }
             _state.value = _state.value.copy(
-                statusMessage = if (err == null) {
+                statusMessage = if (shown == null) {
                     "已恢复编译期默认（若 APK 未内置 Key 仍需在此填写）"
                 } else {
-                    "已恢复默认：$err"
+                    "已恢复默认：$shown"
                 },
             )
         }
@@ -214,12 +216,13 @@ class ModelSettingsViewModel(
         if (snapshot.isSaving) return
         _state.value = snapshot.copy(isSaving = true, statusMessage = null)
         val err = withContext(Dispatchers.IO) { persistForm(snapshot) }
+        val shown = err?.let { UserFacingError.explain(it) }
         _state.value = _state.value.copy(
             isSaving = false,
             savedInApp = true,
-            configError = err,
+            configError = shown,
             effectiveSummary = coordinator.configurationSummary(),
-            statusMessage = if (err == null) "已自动保存" else "已保存，但 $err",
+            statusMessage = if (shown == null) "已自动保存" else "已保存，但$shown",
         )
     }
 
