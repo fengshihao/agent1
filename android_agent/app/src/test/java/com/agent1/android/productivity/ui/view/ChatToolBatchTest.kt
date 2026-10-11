@@ -62,19 +62,22 @@ class ChatToolBatchTest {
     }
 
     @Test
-    fun errorTextCountsAsFailureEvenWithoutErrorFlag() {
-        val entry = ToolBatchEntry(
+    fun failureMarkComesFromTheToolFlagNotTheWording() {
+        val flagged = ToolBatchEntry(
             key = "u1",
             toolName = "read_url",
             argsPreview = "",
             finished = true,
-            isError = false,
-            resultSummary = "错误：未能抽出正文",
+            isError = true,
+            resultSummary = "未能抽出正文",
             progressLines = emptyList(),
         )
-        val pieces = listOf(TurnPiece.Tool(entry))
-        assertTrue(ChatToolBatch.showsFailure(entry))
-        assertEquals("调用了 read_url · 共 1 次 · 1 次失败", ChatToolBatch.title(pieces))
-        assertEquals("read_url 失败 · 错误：未能抽出正文", ChatToolBatch.pieceLabel(pieces.single()))
+        val wordingOnly = flagged.copy(key = "u2", isError = false, resultSummary = "错误：未能抽出正文")
+        assertTrue(ChatToolBatch.showsFailure(flagged))
+        assertEquals(false, ChatToolBatch.showsFailure(wordingOnly))
+        assertEquals(
+            "read_url 失败 · 未能抽出正文",
+            ChatToolBatch.pieceLabel(TurnPiece.Tool(flagged)),
+        )
     }
 }

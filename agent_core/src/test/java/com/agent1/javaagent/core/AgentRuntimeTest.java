@@ -75,6 +75,64 @@ class AgentRuntimeTest {
     }
 
     @Test
+    void toolErrorFlagIsStoredWithoutReadingTheText() {
+        assertEquals(true, toolResultErrorFlag(ToolExecutionResult.error("错误：未能抽出正文")));
+        assertEquals(false, toolResultErrorFlag(ToolExecutionResult.text("错误：这只是正文里的一句话")));
+    }
+
+    private static boolean toolResultErrorFlag(ToolExecutionResult toolResult) {
+        ToolCall call = new ToolCall("c1", "read_url", "{}");
+        ObjectMapper mapper = new ObjectMapper();
+        AgentTool tool = new AgentTool() {
+            @Override
+            public String name() {
+                return "read_url";
+            }
+
+            @Override
+            public String description() {
+                return "read";
+            }
+
+            @Override
+            public JsonNode parametersSchema() {
+                ObjectNode schema = mapper.createObjectNode();
+                schema.put("type", "object");
+                return schema;
+            }
+
+            @Override
+            public ToolExecutionResult execute(
+                String toolCallId,
+                JsonNode parameters,
+                CancellationToken cancellationToken,
+                ToolUpdateListener onUpdate
+            ) {
+                return toolResult;
+            }
+        };
+        ArrayDeque<AssistantResponse> queue = new ArrayDeque<>();
+        queue.add(new AssistantResponse("", List.of(call)));
+        queue.add(new AssistantResponse("done", List.of()));
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            if (tools.isEmpty()) {
+                return new AssistantResponse("done", List.of());
+            }
+            return queue.removeFirst();
+        };
+        AgentRuntime runtime = new AgentRuntime(
+            AgentOptions.builder("test-model").tools(List.of(tool)).build(),
+            fake
+        );
+        runtime.prompt("go").join();
+        runtime.waitForIdle();
+        boolean error = runtime.getStateSnapshot().getMessages().stream()
+            .anyMatch(message -> AgentMessage.ROLE_TOOL_RESULT.equals(message.getRole()) && message.isError());
+        runtime.close();
+        return error;
+    }
+
+    @Test
     void continueRun_shouldValidateLastMessageRole() {
         AgentRuntime runtime = new AgentRuntime(
             AgentOptions.builder("test-model")

@@ -150,21 +150,23 @@ class ReadUrlToolTest {
                 .setHeader("Location", "http://169.254.169.254/latest"));
             server.start();
 
-            String redirected = tool(true).execute(
+            ToolExecutionResult redirected = tool(true).execute(
                 "c1",
                 params(server.url("/go").toString(), 0),
                 new CancellationToken(),
                 null
-            ).getText();
-            String loopback = tool(false).execute(
+            );
+            ToolExecutionResult loopback = tool(false).execute(
                 "c2",
                 params("http://127.0.0.1/secret", 0),
                 new CancellationToken(),
                 null
-            ).getText();
+            );
 
-            assertTrue(redirected.contains("拒绝访问"), redirected);
-            assertTrue(loopback.contains("拒绝访问"), loopback);
+            assertTrue(redirected.isError());
+            assertTrue(loopback.isError());
+            assertTrue(redirected.getText().contains("拒绝访问"), redirected.getText());
+            assertTrue(loopback.getText().contains("拒绝访问"), loopback.getText());
             assertEquals(1, server.getRequestCount());
         }
     }

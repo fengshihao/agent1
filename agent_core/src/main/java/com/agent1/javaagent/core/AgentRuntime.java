@@ -553,6 +553,13 @@ public final class AgentRuntime implements Closeable {
             result = ToolExecutionResult.text(errorMessage);
         }
 
+        if (result != null && result.isError()) {
+            isError = true;
+            if (errorMessage == null || errorMessage.isBlank()) {
+                errorMessage = result.getText();
+            }
+        }
+
         if (!isError && workspaceSandbox != null) {
             result = ToolResultSpill.maybeSpill(workspaceSandbox, toolCall.getName(), result);
         }

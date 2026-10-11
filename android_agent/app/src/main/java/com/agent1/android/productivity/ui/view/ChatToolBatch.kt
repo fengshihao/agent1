@@ -215,12 +215,7 @@ internal object ChatToolBatch {
         }
     }
 
-    /** 工具回执以「错误」开头时，运行时未必把 isError 标上，界面仍要当成失败。 */
-    fun showsFailure(entry: ToolBatchEntry): Boolean {
-        if (!entry.finished) return false
-        if (entry.isError) return true
-        return entry.resultSummary.trimStart().startsWith("错误")
-    }
+    fun showsFailure(entry: ToolBatchEntry): Boolean = entry.finished && entry.isError
 
     private fun toolDetail(last: ToolBatchEntry): String {
         if (!last.finished) {

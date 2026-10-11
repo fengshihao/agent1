@@ -256,9 +256,7 @@ internal fun CollapsibleToolCallBubble(
 ) {
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val bubbles = chatBubbleColors()
-    val failed = finished && (
-        isError || resultSummary.trimStart().startsWith("错误")
-        )
+    val failed = finished && isError
     CollapsibleMetaBubble(
         expanded = expanded,
         onToggle = { expanded = !expanded },
