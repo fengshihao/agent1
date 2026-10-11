@@ -31,6 +31,8 @@ public final class AskUserTool implements AgentTool {
         return """
             Ask the user structured clarifying questions and pause the run until they reply.
             Use when required information is missing (e.g. travel origin, dates, budget).
+            Question types: text, single_choice, multi_choice (options required), rating (min/max integers for scores).
+            Host UI lets the user pick structured options or type a custom answer per question (either/or).
             Do not call other tools in the same turn after ask_user; do not invent answers.
             """.trim();
     }
@@ -63,8 +65,10 @@ public final class AskUserTool implements AgentTool {
             "type",
             MAPPER.createObjectNode()
                 .put("type", "string")
-                .put("description", "text | single_choice | multi_choice")
+                .put("description", "text | single_choice | multi_choice | rating (numeric scale)")
         );
+        qProps.set("min", MAPPER.createObjectNode().put("type", "integer").put("description", "rating 下限，默认 1"));
+        qProps.set("max", MAPPER.createObjectNode().put("type", "integer").put("description", "rating 上限，默认 5"));
         qProps.set(
             "options",
             MAPPER.createObjectNode()
@@ -124,13 +128,26 @@ public final class AskUserTool implements AgentTool {
             if (qType.isEmpty()) {
                 qType = "text";
             }
-            if (!qType.equals("text") && !qType.equals("single_choice") && !qType.equals("multi_choice")) {
+            if (!qType.equals("text")
+                && !qType.equals("single_choice")
+                && !qType.equals("multi_choice")
+                && !qType.equals("rating")) {
                 return ToolExecutionResult.text("错误：question id=" + id + " 的 type 无效: " + qType);
             }
             JsonNode options = q.get("options");
             if (("single_choice".equals(qType) || "multi_choice".equals(qType))
                 && (options == null || !options.isArray() || options.isEmpty())) {
                 return ToolExecutionResult.text("错误：question id=" + id + " 的选择题需要非空 options");
+            }
+            if ("rating".equals(qType)) {
+                int min = q.path("min").asInt(1);
+                int max = q.path("max").asInt(5);
+                if (min >= max) {
+                    return ToolExecutionResult.text("错误：question id=" + id + " 的 rating 需要 min < max");
+                }
+                if (max - min > 20) {
+                    return ToolExecutionResult.text("错误：question id=" + id + " 的 rating 区间过大（最多 21 档）");
+                }
             }
             ObjectNode copy = MAPPER.createObjectNode();
             copy.put("id", id);
@@ -144,6 +161,10 @@ public final class AskUserTool implements AgentTool {
             }
             if (q.has("default")) {
                 copy.put("default", q.path("default").asText(""));
+            }
+            if ("rating".equals(qType)) {
+                copy.put("min", q.path("min").asInt(1));
+                copy.put("max", q.path("max").asInt(5));
             }
             normalizedQuestions.add(copy);
         }

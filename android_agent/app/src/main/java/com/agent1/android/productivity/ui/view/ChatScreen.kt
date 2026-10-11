@@ -4,10 +4,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -157,14 +159,23 @@ fun ChatScreen(
                         AccessibleFilesStrip(paths = state.accessibleFilePaths)
                         AgentHairline()
                     }
+                    val pendingAsk = state.pendingAskUser
                     ChatComposer(
                         value = input,
                         onValueChange = { input = it },
                         isRunning = state.isRunning,
-                        canSend = state.configError == null && input.isNotBlank() && !state.isRunning,
-                        enabled = state.configError == null,
+                        canSend = state.configError == null &&
+                            input.isNotBlank() &&
+                            !state.isRunning &&
+                            pendingAsk == null,
+                        enabled = state.configError == null && pendingAsk == null,
+                        inputPlaceholder = if (pendingAsk == null) {
+                            "输入消息…"
+                        } else {
+                            "请在上方卡片中回答并提交"
+                        },
                         onPickFiles = launchPickFiles,
-                        pickFilesEnabled = state.configError == null && !state.isRunning,
+                        pickFilesEnabled = state.configError == null && !state.isRunning && pendingAsk == null,
                         onSend = {
                             if (viewModel.sendMessage(input)) input = ""
                         },
@@ -173,31 +184,38 @@ fun ChatScreen(
                 }
             },
         ) { innerPadding ->
-            Column(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
             ) {
-                ChatMessageList(
-                    state = state,
-                    onPickFiles = launchPickFiles,
-                    pickFilesEnabled = state.configError == null && !state.isRunning,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    onOpenInApp = onOpenInApp,
-                    onOpenSettings = onOpenSettings,
-                )
-                state.pendingAskUser?.let { form ->
-                    AskUserFormPanel(
-                        form = form,
-                        enabled = state.configError == null && !state.isRunning,
-                        validationError = form.validationError,
-                        onTextChange = viewModel::onAskUserTextChange,
-                        onSingleSelect = viewModel::onAskUserSingleSelect,
-                        onMultiToggle = viewModel::onAskUserMultiToggle,
-                        onSubmit = viewModel::submitAskUserForm,
+                val askCardHeight = minOf(312.dp, maxHeight)
+                Column(modifier = Modifier.fillMaxSize()) {
+                    ChatMessageList(
+                        state = state,
+                        onPickFiles = launchPickFiles,
+                        pickFilesEnabled = state.configError == null && !state.isRunning,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        onOpenInApp = onOpenInApp,
+                        onOpenSettings = onOpenSettings,
                     )
+                    state.pendingAskUser?.let { form ->
+                        AskUserFormPanel(
+                            form = form,
+                            enabled = state.configError == null && !state.isRunning,
+                            validationError = form.validationError,
+                            onTextChange = viewModel::onAskUserTextChange,
+                            onSingleSelect = viewModel::onAskUserSingleSelect,
+                            onMultiToggle = viewModel::onAskUserMultiToggle,
+                            onSubmit = viewModel::submitAskUserForm,
+                            onCustomAnswerChange = viewModel::onAskUserCustomAnswerChange,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(askCardHeight),
+                        )
+                    }
                 }
             }
         }
@@ -233,6 +251,7 @@ internal fun ChatComposer(
     isRunning: Boolean,
     canSend: Boolean,
     enabled: Boolean,
+    inputPlaceholder: String = "输入消息…",
     onPickFiles: () -> Unit,
     pickFilesEnabled: Boolean,
     onSend: () -> Unit,
@@ -274,7 +293,7 @@ internal fun ChatComposer(
                     modifier = Modifier.weight(1f),
                     placeholder = {
                         Text(
-                            "输入消息…",
+                            inputPlaceholder,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },

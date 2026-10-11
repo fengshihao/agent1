@@ -56,4 +56,26 @@ class AskUserToolTest {
         assertFalse(result.stopRunWaitingUser());
         assertTrue(result.getText().contains("options"));
     }
+
+    @Test
+    void ratingQuestionNormalizesMinMax() throws Exception {
+        ObjectNode params = MAPPER.createObjectNode();
+        ArrayNode questions = MAPPER.createArrayNode();
+        ObjectNode q1 = MAPPER.createObjectNode();
+        q1.put("id", "score");
+        q1.put("prompt", "满意度？");
+        q1.put("type", "rating");
+        q1.put("min", 1);
+        q1.put("max", 5);
+        q1.put("required", true);
+        questions.add(q1);
+        params.set("questions", questions);
+
+        ToolExecutionResult result = tool.execute("tc1", params, new CancellationToken(), u -> {
+        });
+
+        assertTrue(result.stopRunWaitingUser());
+        assertEquals(1, result.getDetails().path("questions").get(0).path("min").asInt());
+        assertEquals(5, result.getDetails().path("questions").get(0).path("max").asInt());
+    }
 }

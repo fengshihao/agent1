@@ -8,6 +8,7 @@ import com.agent1.javaagent.event.AgentEventType
 import com.agent1.javaagent.event.EventPayloads
 import com.agent1.javaagent.model.AgentMessage
 import com.agent1.javaagent.model.ToolCall
+import com.agent1.android.productivity.logic.business.AskUserFormState
 import com.agent1.android.productivity.logic.business.AskUserFormatting
 import com.agent1.android.productivity.logic.business.AskUserPendingDetector
 import com.agent1.android.productivity.logic.business.AskUserReplyFormatter
@@ -582,57 +583,35 @@ class ChatViewModel(
 
     fun onAskUserTextChange(questionId: String, value: String) {
         val form = _state.value.pendingAskUser ?: return
-        _state.value = _state.value.copy(
-            pendingAskUser = form.copy(
-                textAnswers = form.textAnswers + (questionId to value),
-                validationError = null,
-            ),
-        )
+        _state.value = _state.value.copy(pendingAskUser = form.withText(questionId, value))
     }
 
     fun onAskUserSingleSelect(questionId: String, option: String) {
         val form = _state.value.pendingAskUser ?: return
-        _state.value = _state.value.copy(
-            pendingAskUser = form.copy(
-                singleChoice = form.singleChoice + (questionId to option),
-                validationError = null,
-            ),
-        )
+        _state.value = _state.value.copy(pendingAskUser = form.withSingleChoice(questionId, option))
     }
 
     fun onAskUserMultiToggle(questionId: String, option: String) {
         val form = _state.value.pendingAskUser ?: return
-        val current = form.multiChoice[questionId].orEmpty()
-        val next = if (option in current) current - option else current + option
-        _state.value = _state.value.copy(
-            pendingAskUser = form.copy(
-                multiChoice = form.multiChoice + (questionId to next),
-                validationError = null,
-            ),
-        )
+        _state.value = _state.value.copy(pendingAskUser = form.withMultiToggle(questionId, option))
+    }
+
+    fun onAskUserCustomAnswerChange(questionId: String, value: String) {
+        val form = _state.value.pendingAskUser ?: return
+        _state.value = _state.value.copy(pendingAskUser = form.withCustomAnswer(questionId, value))
     }
 
     fun submitAskUserForm() {
         val form = _state.value.pendingAskUser ?: return
         if (_state.value.isRunning) return
-        val error = AskUserReplyFormatter.validateRequired(
-            form.request,
-            form.textAnswers,
-            form.singleChoice,
-            form.multiChoice,
-        )
+        val error = form.requiredError()
         if (error != null) {
             _state.value = _state.value.copy(
                 pendingAskUser = form.copy(validationError = error),
             )
             return
         }
-        val body = AskUserReplyFormatter.format(
-            form.request,
-            form.textAnswers,
-            form.singleChoice,
-            form.multiChoice,
-        )
+        val body = AskUserReplyFormatter.format(form)
         sendMessage(body)
     }
 
@@ -641,7 +620,7 @@ class ChatViewModel(
         val single = linkedMapOf<String, String>()
         for (q in request.questions) {
             when (q.type) {
-                "text" -> if (q.defaultValue.isNotEmpty()) text[q.id] = q.defaultValue
+                "text", "rating" -> if (q.defaultValue.isNotEmpty()) text[q.id] = q.defaultValue
                 "single_choice" -> if (q.defaultValue.isNotEmpty()) single[q.id] = q.defaultValue
             }
         }

@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.ui.viewmodel
 
 import com.agent1.android.productivity.logic.business.ArtifactLibraryFilter
+import com.agent1.android.productivity.logic.business.AskUserFormState
 import com.agent1.android.productivity.logic.business.AskUserFormatting
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
@@ -44,14 +45,6 @@ data class RunTokenSummary(
         }
     }
 }
-
-data class AskUserFormState(
-    val request: AskUserFormatting.Request,
-    val textAnswers: Map<String, String> = emptyMap(),
-    val singleChoice: Map<String, String> = emptyMap(),
-    val multiChoice: Map<String, Set<String>> = emptyMap(),
-    val validationError: String? = null,
-)
 
 data class SessionListUiState(
     val sessions: List<SessionMeta> = emptyList(),
