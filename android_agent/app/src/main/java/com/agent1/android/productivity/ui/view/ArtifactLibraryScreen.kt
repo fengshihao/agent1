@@ -28,6 +28,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
@@ -62,6 +63,7 @@ import java.util.Locale
  * 产物库页面：右上角文件夹入口打开。集中展示所有会话里 AI 生成的文件，
  * 支持搜索、多选、删除、分享与「插入当前会话」（与附件按钮同效）。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArtifactLibraryScreen(
     viewModel: ArtifactLibraryViewModel,
