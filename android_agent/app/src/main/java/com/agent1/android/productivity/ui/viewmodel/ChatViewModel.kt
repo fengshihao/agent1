@@ -18,6 +18,8 @@ import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.UserFacingError
+import com.agent1.android.productivity.logic.business.i18n.AppLocalization
+import com.agent1.android.R
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
@@ -135,7 +137,7 @@ class ChatViewModel(
             streamingText = "",
             streamingReasoning = "",
             runTimeline = emptyList(),
-            runActivityLabel = "正在连接模型…",
+            runActivityLabel = AppLocalization.getString(R.string.run_connecting),
             lastRunTokenSummary = null,
             pendingAskUser = null,
             lines = _state.value.lines + ChatLine(
@@ -337,7 +339,7 @@ class ChatViewModel(
             runTimeline = _state.value.runTimeline + segment,
             streamingText = "",
             streamingReasoning = "",
-            runActivityLabel = "准备下一步…",
+            runActivityLabel = AppLocalization.getString(R.string.run_preparing),
         )
     }
 
@@ -394,14 +396,20 @@ class ChatViewModel(
         when (event.type) {
             AgentEventType.MESSAGE_UPDATE, AgentEventType.REASONING_UPDATE -> Unit
             AgentEventType.AGENT_START -> {
-                _state.value = _state.value.copy(runActivityLabel = "助手运行中…")
+                _state.value = _state.value.copy(
+                    runActivityLabel = AppLocalization.getString(R.string.run_assistant),
+                )
             }
             AgentEventType.TURN_START -> {
-                _state.value = _state.value.copy(runActivityLabel = "思考中…")
+                _state.value = _state.value.copy(
+                    runActivityLabel = AppLocalization.getString(R.string.run_thinking),
+                )
             }
             AgentEventType.MESSAGE_START -> {
                 if (_state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()) {
-                    _state.value = _state.value.copy(runActivityLabel = "正在生成回复…")
+                    _state.value = _state.value.copy(
+                        runActivityLabel = AppLocalization.getString(R.string.run_generating),
+                    )
                 }
             }
             AgentEventType.TOOL_EXECUTION_START -> {
@@ -416,7 +424,7 @@ class ChatViewModel(
                     argsPreview = call.argumentsJson.trim().take(220),
                 )
                 _state.value = _state.value.copy(
-                    runActivityLabel = "调用工具 · $name",
+                    runActivityLabel = AppLocalization.getString(R.string.run_tool_call, name),
                     runTimeline = _state.value.runTimeline + segment,
                 )
             }
@@ -426,7 +434,7 @@ class ChatViewModel(
                 if (snippet.isNotEmpty()) {
                     val line = snippet.replace('\n', ' ')
                     _state.value = _state.value.copy(
-                        runActivityLabel = "工具执行中 · $line",
+                        runActivityLabel = AppLocalization.getString(R.string.run_tool_running, line),
                         runTimeline = updateToolTimeline(
                             toolCallId = payload.toolCallId,
                             appendProgress = line,
@@ -442,7 +450,7 @@ class ChatViewModel(
                 val rawResult = if (payload.isError) {
                     payload.errorMessage?.trim()
                         ?: payload.result?.text?.trim()
-                        ?: "工具执行失败"
+                        ?: AppLocalization.getString(R.string.run_tool_failed)
                 } else {
                     payload.result?.text?.trim().orEmpty()
                 }
@@ -458,9 +466,9 @@ class ChatViewModel(
                         _state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()
                     ) {
                         when {
-                            pending != null -> "等待您回答…"
-                            payload.isError -> "工具失败"
-                            else -> "工具已完成"
+                            pending != null -> AppLocalization.getString(R.string.run_waiting_user)
+                            payload.isError -> AppLocalization.getString(R.string.run_tool_failed_short)
+                            else -> AppLocalization.getString(R.string.run_tool_done)
                         }
                     } else {
                         null
@@ -529,7 +537,7 @@ class ChatViewModel(
                     content = display.summary,
                     reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
                     isTool = true,
-                    toolName = call?.name ?: "工具",
+                    toolName = call?.name ?: AppLocalization.getString(R.string.run_tool_default_name),
                     toolArgsPreview = call?.argumentsJson?.trim()?.take(220),
                     toolFinished = true,
                     toolIsError = isError,
@@ -638,10 +646,12 @@ class ChatViewModel(
             }
             result.onSuccess { paths ->
                 if (paths.isEmpty()) {
-                    _state.value = _state.value.copy(fileImportMessage = "未能导入所选文件")
+                    _state.value = _state.value.copy(
+                        fileImportMessage = AppLocalization.getString(R.string.file_import_failed),
+                    )
                 } else {
                     _state.value = _state.value.copy(
-                        fileImportMessage = "已添加 ${paths.size} 个文件",
+                        fileImportMessage = AppLocalization.getString(R.string.file_import_ok, paths.size),
                     )
                 }
                 loadTranscriptIntoState(initialLoad = false)

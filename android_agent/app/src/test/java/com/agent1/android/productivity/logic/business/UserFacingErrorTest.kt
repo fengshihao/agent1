@@ -1,82 +1,69 @@
 package com.agent1.android.productivity.logic.business
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UserFacingErrorTest {
 
     @Test
-    fun sseDropBecomesNetworkSentence() {
+    fun sseDropBecomesNetworkKind() {
         assertEquals(
-            UserFacingError.NETWORK,
-            UserFacingError.explain("SSE failed: Software caused connection abort"),
+            UserFacingError.Kind.NETWORK,
+            UserFacingError.classifyKind("SSE failed: Software caused connection abort"),
         )
         assertEquals(
-            UserFacingError.NETWORK,
-            UserFacingError.explain("错误: SSE failed: unknown"),
+            UserFacingError.Kind.NETWORK,
+            UserFacingError.classifyKind("错误: SSE failed: unknown"),
         )
         assertEquals(
-            UserFacingError.NETWORK,
-            UserFacingError.explain("错误: java.net.SocketException: Connection reset"),
+            UserFacingError.Kind.NETWORK,
+            UserFacingError.classifyKind("错误: java.net.SocketException: Connection reset"),
         )
     }
 
     @Test
-    fun httpStatusBecomesActionableCopy() {
-        assertEquals(UserFacingError.AUTH, UserFacingError.explain("SSE failed: HTTP 401 Unauthorized"))
-        assertEquals(UserFacingError.SEARCH_AUTH, UserFacingError.explain("错误：Tavily HTTP 401"))
-        assertEquals(UserFacingError.RATE, UserFacingError.explain("SSE failed: HTTP 429 Too Many Requests"))
-        assertEquals(UserFacingError.SERVER, UserFacingError.explain("SSE failed: HTTP 503"))
+    fun httpStatusBecomesActionableKind() {
+        assertEquals(UserFacingError.Kind.AUTH, UserFacingError.classifyKind("SSE failed: HTTP 401 Unauthorized"))
+        assertEquals(UserFacingError.Kind.SEARCH_AUTH, UserFacingError.classifyKind("错误：Tavily HTTP 401"))
+        assertEquals(UserFacingError.Kind.RATE, UserFacingError.classifyKind("SSE failed: HTTP 429 Too Many Requests"))
+        assertEquals(UserFacingError.Kind.SERVER, UserFacingError.classifyKind("SSE failed: HTTP 503"))
         assertEquals(
-            UserFacingError.AUTH,
-            UserFacingError.explain("DashScope error [InvalidApiKey]: Invalid API-key provided."),
+            UserFacingError.Kind.AUTH,
+            UserFacingError.classifyKind("DashScope error [InvalidApiKey]: Invalid API-key provided."),
         )
-        assertEquals(UserFacingError.QUOTA, UserFacingError.explain("DashScope error [Arrearage]: overdue"))
-        assertEquals(UserFacingError.RATE, UserFacingError.explain("DashScope error [Throttling.RateQuota]"))
-        assertEquals(UserFacingError.FILTER, UserFacingError.explain("DashScope error [DataInspectionFailed]"))
-        assertEquals(UserFacingError.MODEL, UserFacingError.explain("model_not_found: qwen-nope"))
+        assertEquals(UserFacingError.Kind.QUOTA, UserFacingError.classifyKind("DashScope error [Arrearage]: overdue"))
+        assertEquals(UserFacingError.Kind.RATE, UserFacingError.classifyKind("DashScope error [Throttling.RateQuota]"))
+        assertEquals(UserFacingError.Kind.FILTER, UserFacingError.classifyKind("DashScope error [DataInspectionFailed]"))
+        assertEquals(UserFacingError.Kind.MODEL, UserFacingError.classifyKind("model_not_found: qwen-nope"))
     }
 
     @Test
     fun connectionKindsStayDistinct() {
-        assertEquals(UserFacingError.TIMEOUT, UserFacingError.explain("SocketTimeoutException: timeout"))
-        assertEquals(UserFacingError.OFFLINE, UserFacingError.explain("UnknownHostException"))
-        assertEquals(UserFacingError.OFFLINE, UserFacingError.explain("net::ERR_INTERNET_DISCONNECTED"))
-        assertEquals(UserFacingError.SSL, UserFacingError.explain("PKIX path building failed"))
-        assertEquals(UserFacingError.SSL, UserFacingError.explain("net::ERR_SSL_PROTOCOL_ERROR"))
-        assertEquals(UserFacingError.PAGE, UserFacingError.explain("net::ERR_FAILED"))
-        assertEquals(UserFacingError.NO_KEY, UserFacingError.explain("未配置 API Key（请在 App「模型配置」中填写）"))
-    }
-
-    @Test
-    fun friendlyChineseAndNormalRepliesStay() {
-        assertEquals("文件不存在: notes.md", UserFacingError.explain("错误：文件不存在: notes.md"))
-        assertEquals("参数 timeout 不能为空", UserFacingError.explain("错误：参数 timeout 不能为空"))
+        assertEquals(UserFacingError.Kind.TIMEOUT, UserFacingError.classifyKind("SocketTimeoutException: timeout"))
+        assertEquals(UserFacingError.Kind.OFFLINE, UserFacingError.classifyKind("UnknownHostException"))
+        assertEquals(UserFacingError.Kind.OFFLINE, UserFacingError.classifyKind("net::ERR_INTERNET_DISCONNECTED"))
+        assertEquals(UserFacingError.Kind.SSL, UserFacingError.classifyKind("PKIX path building failed"))
+        assertEquals(UserFacingError.Kind.SSL, UserFacingError.classifyKind("net::ERR_SSL_PROTOCOL_ERROR"))
+        assertEquals(UserFacingError.Kind.PAGE, UserFacingError.classifyKind("net::ERR_FAILED"))
         assertEquals(
-            "名称只能包含字母、数字、下划线和连字符",
-            UserFacingError.explain("名称只能包含字母、数字、下划线和连字符"),
+            UserFacingError.Kind.NO_KEY,
+            UserFacingError.classifyKind("未配置 API Key（请在 App「模型配置」中填写）"),
         )
-        assertEquals(
-            "没有可落盘的返回值:脚本返回了 null 或 undefined。",
-            UserFacingError.explain("没有可落盘的返回值:脚本返回了 null 或 undefined。"),
-        )
-        val reply = "我先说明火箭的推进剂在燃烧室混合。"
-        assertEquals(reply, UserFacingError.explainAssistantFailure(reply))
-        assertEquals(UserFacingError.NETWORK, UserFacingError.explainAssistantFailure("错误: SSE failed: stream was reset: CANCEL"))
     }
 
     @Test
-    fun longReplyIsNotRewrittenBecauseItMentionsAnErrorWord() {
-        val reply = "下面是排查记录。\n" + "甲".repeat(280) + "\nSSE failed: connection abort"
-        assertEquals(reply, UserFacingError.explainAssistantFailure(reply))
+    fun friendlyChineseIsNotClassified() {
+        assertNull(UserFacingError.classifyKind("文件不存在: notes.md"))
+        assertNull(UserFacingError.classifyKind("名称只能包含字母、数字、下划线和连字符"))
     }
 
     @Test
-    fun bareExceptionBecomesGeneric() {
-        assertEquals(UserFacingError.GENERIC, UserFacingError.explain("IllegalStateException"))
-        assertEquals(UserFacingError.GENERIC, UserFacingError.explain(null))
-        assertEquals(UserFacingError.GENERIC, UserFacingError.explain("  "))
-        assertTrue(UserFacingError.explain("java.lang.IllegalStateException: boom").startsWith("出了点问题"))
+    fun bareExceptionHasNoKind() {
+        assertNull(UserFacingError.classifyKind("IllegalStateException"))
+        assertNull(UserFacingError.classifyKind(null))
+        assertNull(UserFacingError.classifyKind("  "))
+        assertTrue(UserFacingError.classifyKind("java.lang.IllegalStateException: boom") == null)
     }
 }

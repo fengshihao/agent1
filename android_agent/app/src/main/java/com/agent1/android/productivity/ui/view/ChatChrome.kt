@@ -28,6 +28,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.agent1.android.R
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -157,44 +159,48 @@ internal fun ChatMoreMenu(
     Box {
         TopBarIconButton(
             icon = Icons.Filled.MoreVert,
-            contentDescription = "更多",
+            contentDescription = stringResource(R.string.action_more),
             onClick = onOpen,
             busy = exportInProgress,
         )
         DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-            MoreMenuRow("模型设置", Icons.Filled.Settings) {
+            MoreMenuRow(stringResource(R.string.menu_model_settings), Icons.Filled.Settings) {
                 onDismiss()
                 onOpenSettings()
             }
-            MoreMenuRow("MCP & web搜索", AgentIcons.Hub) {
+            MoreMenuRow(stringResource(R.string.menu_mcp_web_search), AgentIcons.Hub) {
                 onDismiss()
                 onOpenMcp()
             }
-            MoreMenuRow("能力检索", Icons.Filled.Search) {
+            MoreMenuRow(stringResource(R.string.menu_capability_search), Icons.Filled.Search) {
                 onDismiss()
                 onOpenCapabilities()
             }
             if (onOpenSystemPrompt != null) {
-                MoreMenuRow("系统提示词", Icons.Filled.Info) {
+                MoreMenuRow(stringResource(R.string.menu_system_prompt), Icons.Filled.Info) {
                     onDismiss()
                     onOpenSystemPrompt()
                 }
             }
             if (onBrief != null) {
-                MoreMenuRow("会话简报", AgentIcons.Description, enabled = !exportInProgress) {
+                MoreMenuRow(stringResource(R.string.menu_session_brief), AgentIcons.Description, enabled = !exportInProgress) {
                     onDismiss()
                     onBrief()
                 }
             }
             MoreMenuRow(
-                label = if (exportInProgress) "正在打包…" else "诊断包",
+                label = if (exportInProgress) {
+                    stringResource(R.string.menu_diagnostic_packing)
+                } else {
+                    stringResource(R.string.menu_diagnostic_pack)
+                },
                 icon = Icons.Filled.Share,
                 enabled = !exportInProgress,
             ) {
                 onDismiss()
                 onExportDiagnostics()
             }
-            MoreMenuRow("关于", Icons.Filled.Info) {
+            MoreMenuRow(stringResource(R.string.menu_about), Icons.Filled.Info) {
                 onDismiss()
                 onOpenAbout()
             }

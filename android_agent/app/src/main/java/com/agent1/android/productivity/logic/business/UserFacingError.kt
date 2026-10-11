@@ -1,27 +1,34 @@
 package com.agent1.android.productivity.logic.business
 
+import android.content.Context
+import androidx.annotation.StringRes
+import com.agent1.android.R
+import com.agent1.android.productivity.logic.business.i18n.AppLocalization
+
 /**
- * 把模型连接、网络和异常原文收成普通用户能看懂的一句中文。
- * 日志和 JSONL 仍保留原文；这里只负责界面上的那句话。
+ * 把模型连接、网络和异常原文收成用户能看懂的一句。
+ * 日志和 JSONL 仍保留原文；界面文案走 [R.string] / 系统语言。
  */
 object UserFacingError {
 
-    const val GENERIC = "出了点问题，请再试一次。"
-    const val NETWORK = "网络中断了，这次回复没有传完。请再发一次。"
-    const val TIMEOUT = "等得太久，没有收到回复。请再试一次。"
-    const val OFFLINE = "连不上网络。请检查网络后再试。"
-    const val SSL = "安全连接失败。请检查网络，并确认手机时间是否正确。"
-    const val AUTH = "模型密钥无效或已过期。请打开「模型」，重新填写 API Key。"
-    const val SEARCH_AUTH = "联网搜索的密钥无效。请打开「模型」，检查搜索密钥。"
-    const val NO_KEY = "还没有填写模型密钥。请打开「模型」，填上 API Key。"
-    const val FORBIDDEN = "没有权限使用这个模型。请检查密钥和账号。"
-    const val RATE = "请求太频繁，请稍等一会儿再试。"
-    const val QUOTA = "模型额度不够，或账号欠费。请到服务商处检查余额。"
-    const val MODEL = "找不到当前模型。请打开「模型」，重新选一个。"
-    const val SERVER = "模型服务暂时不可用，请过一会儿再试。"
-    const val BAD_REQUEST = "这次请求没有被接受。请检查「模型」里的名称是否正确，或换种说法再试。"
-    const val FILTER = "这段内容没有通过安全检查，换种说法再试。"
-    const val PAGE = "页面没有打开。请再试一次。"
+    enum class Kind {
+        GENERIC,
+        NETWORK,
+        TIMEOUT,
+        OFFLINE,
+        SSL,
+        AUTH,
+        SEARCH_AUTH,
+        NO_KEY,
+        FORBIDDEN,
+        RATE,
+        QUOTA,
+        MODEL,
+        SERVER,
+        BAD_REQUEST,
+        FILTER,
+        PAGE,
+    }
 
     private val cjk = Regex("[\\u4e00-\\u9fff]")
     private val technical = Regex(
@@ -31,22 +38,73 @@ object UserFacingError {
         RegexOption.IGNORE_CASE,
     )
 
-    fun explain(raw: String?): String {
+    fun explain(raw: String?): String = explain(AppLocalization.requireContext(), raw)
+
+    fun explain(context: Context, raw: String?): String {
         val text = strip(raw)
-        if (text.isEmpty()) return GENERIC
-        return classify(text) ?: if (isFriendly(text)) text else GENERIC
+        if (text.isEmpty()) return context.getString(R.string.error_generic)
+        val kind = classifyKind(text)
+        if (kind != null) return message(context, kind)
+        return if (isFriendly(text)) text else context.getString(R.string.error_generic)
     }
 
-    /**
-     * 助手气泡里的正文。只有整段就是失败汇报时才改写，避免把正常回复里偶然出现的英文吞掉。
-     */
-    fun explainAssistantFailure(raw: String): String {
+    fun explainAssistantFailure(raw: String): String = explainAssistantFailure(AppLocalization.requireContext(), raw)
+
+    fun explainAssistantFailure(context: Context, raw: String): String {
         val trimmed = raw.trim()
-        if (trimmed.startsWith("错误:")) return explain(trimmed)
+        if (trimmed.startsWith("错误:") || trimmed.startsWith("Error:")) {
+            return explain(context, trimmed)
+        }
         if (trimmed.length <= 300) {
-            classify(strip(trimmed))?.let { return it }
+            classifyKind(strip(trimmed))?.let { return message(context, it) }
         }
         return raw
+    }
+
+    @StringRes
+    fun stringRes(kind: Kind): Int = when (kind) {
+        Kind.GENERIC -> R.string.error_generic
+        Kind.NETWORK -> R.string.error_network
+        Kind.TIMEOUT -> R.string.error_timeout
+        Kind.OFFLINE -> R.string.error_offline
+        Kind.SSL -> R.string.error_ssl
+        Kind.AUTH -> R.string.error_auth
+        Kind.SEARCH_AUTH -> R.string.error_search_auth
+        Kind.NO_KEY -> R.string.error_no_key
+        Kind.FORBIDDEN -> R.string.error_forbidden
+        Kind.RATE -> R.string.error_rate
+        Kind.QUOTA -> R.string.error_quota
+        Kind.MODEL -> R.string.error_model
+        Kind.SERVER -> R.string.error_server
+        Kind.BAD_REQUEST -> R.string.error_bad_request
+        Kind.FILTER -> R.string.error_filter
+        Kind.PAGE -> R.string.error_page
+    }
+
+    fun message(context: Context, kind: Kind): String = context.getString(stringRes(kind))
+
+    fun classifyKind(text: String?): Kind? {
+        if (text.isNullOrBlank()) return null
+        val lower = text.lowercase()
+        if (lower.contains("未配置 api key")) return Kind.NO_KEY
+        if (containsAny(lower, "datainspection", "data_inspection", "content filter", "inappropriate content")) {
+            return Kind.FILTER
+        }
+        if (containsAny(lower, "arrearage", "insufficient_quota", "insufficient quota", "allocationquota")) {
+            return Kind.QUOTA
+        }
+        if (isAuth(lower)) return if (lower.contains("tavily")) Kind.SEARCH_AUTH else Kind.AUTH
+        if (isRateLimit(lower)) return Kind.RATE
+        if (isModelMissing(lower)) return Kind.MODEL
+        if (isForbidden(lower)) return Kind.FORBIDDEN
+        if (isBadRequest(lower)) return Kind.BAD_REQUEST
+        if (isServer(lower)) return Kind.SERVER
+        if (isSsl(lower)) return Kind.SSL
+        if (isTimeout(lower)) return Kind.TIMEOUT
+        if (isOffline(lower)) return Kind.OFFLINE
+        if (isDroppedStream(lower)) return Kind.NETWORK
+        if (lower.contains("err_failed") || lower == "net::err_failed") return Kind.PAGE
+        return null
     }
 
     private fun strip(raw: String?): String {
@@ -54,34 +112,14 @@ object UserFacingError {
             .trim()
             .removePrefix("错误:")
             .removePrefix("错误：")
+            .removePrefix("Error:")
             .trim()
     }
 
     private fun isFriendly(text: String): Boolean {
-        return cjk.containsMatchIn(text) && !technical.containsMatchIn(text)
-    }
-
-    private fun classify(text: String): String? {
-        val lower = text.lowercase()
-        if (lower.contains("未配置 api key")) return NO_KEY
-        if (containsAny(lower, "datainspection", "data_inspection", "content filter", "inappropriate content")) {
-            return FILTER
-        }
-        if (containsAny(lower, "arrearage", "insufficient_quota", "insufficient quota", "allocationquota")) {
-            return QUOTA
-        }
-        if (isAuth(lower)) return if (lower.contains("tavily")) SEARCH_AUTH else AUTH
-        if (isRateLimit(lower)) return RATE
-        if (isModelMissing(lower)) return MODEL
-        if (isForbidden(lower)) return FORBIDDEN
-        if (isBadRequest(lower)) return BAD_REQUEST
-        if (isServer(lower)) return SERVER
-        if (isSsl(lower)) return SSL
-        if (isTimeout(lower)) return TIMEOUT
-        if (isOffline(lower)) return OFFLINE
-        if (isDroppedStream(lower)) return NETWORK
-        if (lower.contains("err_failed") || lower == "net::err_failed") return PAGE
-        return null
+        if (technical.containsMatchIn(text)) return false
+        if (cjk.containsMatchIn(text)) return true
+        return text.length <= 280 && !text.contains("Exception", ignoreCase = true)
     }
 
     private fun isDroppedStream(lower: String): Boolean {
@@ -165,7 +203,19 @@ object UserFacingError {
     }
 
     private fun isServer(lower: String): Boolean {
-        return containsAny(lower, "http 500", "http 502", "http 503", "http 504", "status=500", "status=502", "status=503", "internalerror", "bad gateway", "service unavailable")
+        return containsAny(
+            lower,
+            "http 500",
+            "http 502",
+            "http 503",
+            "http 504",
+            "status=500",
+            "status=502",
+            "status=503",
+            "internalerror",
+            "bad gateway",
+            "service unavailable",
+        )
     }
 
     private fun containsAny(text: String, vararg needles: String): Boolean {

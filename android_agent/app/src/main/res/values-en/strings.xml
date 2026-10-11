@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="action_back">Back</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_close">Close</string>
+    <string name="action_send">Send</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_more">More</string>
+
+    <string name="chat_new_session">New chat</string>
+    <string name="chat_input_hint">Message…</string>
+    <string name="chat_input_answer_card">Answer in the card above and submit</string>
+    <string name="chat_opening">Opening chat…</string>
+    <string name="chat_startup_error">Can’t start chat: %1$s</string>
+    <string name="chat_load_failed">Failed to load chat: %1$s</string>
+    <string name="chat_loading_transcript">Loading chat…</string>
+    <string name="chat_empty_title">Start with a message</string>
+    <string name="chat_empty_subtitle">Open past chats from the top-left</string>
+    <string name="chat_selected_files">Selected files (this chat)</string>
+    <string name="chat_drawer_loading">Loading…</string>
+    <string name="chat_drawer_empty">No chats yet</string>
+    <string name="chat_delete_session_title">Delete chat</string>
+    <string name="chat_delete_session_message">“%1$s” will be deleted permanently.</string>
+    <string name="chat_new_session_drawer">New chat</string>
+    <string name="chat_already_new_session">This is already a new chat</string>
+    <string name="chat_model_cd">Model %1$s — open model settings</string>
+    <string name="chat_add_attachment">Add attachment</string>
+    <string name="chat_select_file">Choose file</string>
+
+    <string name="cd_session_list">Chat list</string>
+    <string name="cd_artifact_library">Artifacts</string>
+    <string name="cd_new_chat">New chat</string>
+    <string name="cd_usage">Usage</string>
+
+    <string name="menu_model_settings">Model settings</string>
+    <string name="menu_capability_search">Find capabilities</string>
+    <string name="menu_system_prompt">System prompt</string>
+    <string name="menu_session_brief">Chat brief</string>
+    <string name="menu_diagnostic_pack">Diagnostic bundle</string>
+    <string name="menu_diagnostic_packing">Packing…</string>
+    <string name="menu_about">About</string>
+    <string name="menu_mcp_web_search">MCP &amp; web search</string>
+    <string name="usage_amount_with_cache">%1$s · cache %2$d%%</string>
+
+    <string name="usage_sheet_title">Usage</string>
+    <string name="usage_estimated_by_model">Estimated for current model</string>
+    <string name="usage_cache_hit">Cache hit %1$d%%</string>
+
+    <string name="run_connecting">Connecting to model…</string>
+    <string name="run_preparing">Preparing next step…</string>
+    <string name="run_assistant">Assistant running…</string>
+    <string name="run_thinking">Thinking…</string>
+    <string name="run_generating">Generating reply…</string>
+    <string name="run_tool_call">Tool · %1$s</string>
+    <string name="run_tool_running">Running tool · %1$s</string>
+    <string name="run_tool_failed">Tool failed</string>
+    <string name="run_waiting_user">Waiting for your answer…</string>
+    <string name="run_tool_failed_short">Tool error</string>
+    <string name="run_tool_done">Tool finished</string>
+    <string name="run_tool_default_name">Tool</string>
+    <string name="file_import_failed">Couldn’t import selected files</string>
+    <string name="file_import_ok">Added %1$d file(s)</string>
+
+    <string name="model_settings_title">Model settings</string>
+    <string name="model_settings_saving">Saving…</string>
+    <string name="model_settings_provider">Provider</string>
+    <string name="model_settings_model">Model</string>
+    <string name="model_settings_reset">Reset defaults</string>
+
+    <string name="provider_dashscope">Alibaba DashScope</string>
+    <string name="provider_deepseek">DeepSeek</string>
+    <string name="provider_zhipu_coding">Zhipu Coding</string>
+
+    <string name="about_title">About</string>
+    <string name="about_version">Version %1$s (%2$d)</string>
+    <string name="about_author_label">Author</string>
+    <string name="about_author_value">Feng Shihao</string>
+    <string name="about_website">Website</string>
+    <string name="about_source">Source code</string>
+    <string name="about_license_app">This app</string>
+    <string name="about_license_mit">MIT</string>
+    <string name="about_open_source_deps">Open-source dependencies</string>
+    <string name="about_open_source_notice">These libraries ship with the app. Apache-2.0 and MIT require keeping copyright notices and license names.</string>
+
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="error_network">The connection dropped before the reply finished. Send again.</string>
+    <string name="error_timeout">Timed out waiting for a reply. Please try again.</string>
+    <string name="error_offline">No network. Check your connection and try again.</string>
+    <string name="error_ssl">Secure connection failed. Check the network and that the device time is correct.</string>
+    <string name="error_auth">Invalid or expired API key. Open Model settings and update your key.</string>
+    <string name="error_search_auth">Web search key is invalid. Check it under Model settings.</string>
+    <string name="error_no_key">No API key yet. Add one in Model settings.</string>
+    <string name="error_forbidden">No permission to use this model. Check your key and account.</string>
+    <string name="error_rate">Too many requests. Wait a moment and try again.</string>
+    <string name="error_quota">Quota exceeded or account overdue. Check balance with your provider.</string>
+    <string name="error_model">Model not found. Pick another model in settings.</string>
+    <string name="error_server">Model service is temporarily unavailable. Try again later.</string>
+    <string name="error_bad_request">Request rejected. Check the model name in settings or rephrase.</string>
+    <string name="error_filter">Content didn’t pass safety checks. Try rephrasing.</string>
+    <string name="error_page">Page didn’t open. Try again.</string>
+</resources>

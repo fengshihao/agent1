@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="action_back">戻る</string>
+    <string name="action_cancel">キャンセル</string>
+    <string name="action_delete">削除</string>
+    <string name="action_close">閉じる</string>
+    <string name="action_send">送信</string>
+    <string name="action_stop">停止</string>
+    <string name="action_more">その他</string>
+
+    <string name="chat_new_session">新しいチャット</string>
+    <string name="chat_input_hint">メッセージを入力…</string>
+    <string name="chat_input_answer_card">上のカードで回答して送信してください</string>
+    <string name="chat_opening">チャットを開いています…</string>
+    <string name="chat_startup_error">チャットを開始できません：%1$s</string>
+    <string name="chat_load_failed">チャットの読み込みに失敗：%1$s</string>
+    <string name="chat_loading_transcript">チャットを読み込み中…</string>
+    <string name="chat_empty_title">メッセージから始めましょう</string>
+    <string name="chat_empty_subtitle">左上から過去のチャットを開けます</string>
+    <string name="chat_selected_files">選択したファイル（このチャット）</string>
+    <string name="chat_drawer_loading">読み込み中…</string>
+    <string name="chat_drawer_empty">チャットはまだありません</string>
+    <string name="chat_delete_session_title">チャットを削除</string>
+    <string name="chat_delete_session_message">「%1$s」は完全に削除されます。</string>
+    <string name="chat_new_session_drawer">新しいチャット</string>
+    <string name="chat_already_new_session">すでに新しいチャットです</string>
+    <string name="chat_model_cd">モデル %1$s — 設定を開く</string>
+    <string name="chat_add_attachment">添付を追加</string>
+    <string name="chat_select_file">ファイルを選択</string>
+
+    <string name="cd_session_list">チャット一覧</string>
+    <string name="cd_artifact_library">成果物</string>
+    <string name="cd_new_chat">新しいチャット</string>
+    <string name="cd_usage">使用量</string>
+
+    <string name="menu_model_settings">モデル設定</string>
+    <string name="menu_capability_search">機能を検索</string>
+    <string name="menu_system_prompt">システムプロンプト</string>
+    <string name="menu_session_brief">チャット概要</string>
+    <string name="menu_diagnostic_pack">診断パック</string>
+    <string name="menu_diagnostic_packing">パッケージ中…</string>
+    <string name="menu_about">情報</string>
+
+    <string name="usage_sheet_title">使用量</string>
+    <string name="usage_estimated_by_model">現在のモデルで概算</string>
+    <string name="usage_cache_hit">キャッシュヒット %1$d%%</string>
+
+    <string name="run_connecting">モデルに接続中…</string>
+    <string name="run_preparing">次のステップを準備中…</string>
+    <string name="run_assistant">アシスタント実行中…</string>
+    <string name="run_thinking">思考中…</string>
+    <string name="run_generating">返信を生成中…</string>
+    <string name="run_tool_call">ツール · %1$s</string>
+    <string name="run_tool_running">ツール実行中 · %1$s</string>
+    <string name="run_tool_failed">ツールが失敗しました</string>
+    <string name="run_waiting_user">回答を待っています…</string>
+    <string name="run_tool_failed_short">ツールエラー</string>
+    <string name="run_tool_done">ツール完了</string>
+    <string name="run_tool_default_name">ツール</string>
+    <string name="file_import_failed">選択したファイルを取り込めませんでした</string>
+    <string name="file_import_ok">%1$d 件のファイルを追加しました</string>
+
+    <string name="model_settings_title">モデル設定</string>
+    <string name="model_settings_saving">保存中…</string>
+    <string name="model_settings_provider">プロバイダー</string>
+    <string name="model_settings_model">モデル</string>
+    <string name="model_settings_reset">デフォルトに戻す</string>
+
+    <string name="provider_dashscope">Alibaba DashScope</string>
+    <string name="provider_deepseek">DeepSeek</string>
+    <string name="provider_zhipu_coding">Zhipu Coding</string>
+
+    <string name="about_title">情報</string>
+    <string name="about_version">バージョン %1$s（%2$d）</string>
+    <string name="about_author_label">作者</string>
+    <string name="about_author_value">Feng Shihao</string>
+    <string name="about_website">Web サイト</string>
+    <string name="about_source">ソースコード</string>
+    <string name="about_license_app">本アプリ</string>
+    <string name="about_license_mit">MIT</string>
+    <string name="about_open_source_deps">オープンソース依存</string>
+    <string name="about_open_source_notice">これらのライブラリはアプリに同梱されています。Apache-2.0 と MIT では著作権表示とライセンス名の保持が必要です。</string>
+
+    <string name="error_generic">問題が発生しました。もう一度お試しください。</string>
+    <string name="error_network">接続が切れ、返信が完了しませんでした。もう一度送信してください。</string>
+    <string name="error_timeout">返信がタイムアウトしました。もう一度お試しください。</string>
+    <string name="error_offline">ネットワークに接続できません。接続を確認してください。</string>
+    <string name="error_ssl">安全な接続に失敗しました。ネットワークと端末の時刻を確認してください。</string>
+    <string name="error_auth">API キーが無効または期限切れです。モデル設定で更新してください。</string>
+    <string name="error_search_auth">Web 検索キーが無効です。モデル設定を確認してください。</string>
+    <string name="error_no_key">API キーが未設定です。モデル設定で入力してください。</string>
+    <string name="error_forbidden">このモデルを使用する権限がありません。キーとアカウントを確認してください。</string>
+    <string name="error_rate">リクエストが多すぎます。しばらく待ってから再試行してください。</string>
+    <string name="error_quota">クォータ不足または未払いの可能性があります。プロバイダーで残高を確認してください。</string>
+    <string name="error_model">モデルが見つかりません。設定で別のモデルを選んでください。</string>
+    <string name="error_server">モデルサービスが一時的に利用できません。後でもう一度お試しください。</string>
+    <string name="error_bad_request">リクエストが拒否されました。モデル名を確認するか、言い換えてください。</string>
+    <string name="error_filter">安全チェックを通過しませんでした。言い換えてください。</string>
+    <string name="error_page">ページを開けませんでした。もう一度お試しください。</string>
+</resources>

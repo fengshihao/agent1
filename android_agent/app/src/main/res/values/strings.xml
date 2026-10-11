@@ -1,3 +1,104 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 默认简体；未匹配 locale 时回退到此文件 -->
+
+    <string name="action_back">返回</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_delete">删除</string>
+    <string name="action_close">关闭</string>
+    <string name="action_send">发送</string>
+    <string name="action_stop">停止</string>
+    <string name="action_more">更多</string>
+
+    <string name="chat_new_session">新对话</string>
+    <string name="chat_input_hint">输入消息…</string>
+    <string name="chat_input_answer_card">请在上方卡片中回答并提交</string>
+    <string name="chat_opening">正在打开对话…</string>
+    <string name="chat_startup_error">暂时无法开始对话：%1$s</string>
+    <string name="chat_load_failed">对话加载失败：%1$s</string>
+    <string name="chat_loading_transcript">加载对话…</string>
+    <string name="chat_empty_title">从一条消息开始</string>
+    <string name="chat_empty_subtitle">左上角可以打开已有会话</string>
+    <string name="chat_selected_files">已选文件（本会话）</string>
+    <string name="chat_drawer_loading">加载中…</string>
+    <string name="chat_drawer_empty">还没有对话</string>
+    <string name="chat_delete_session_title">删除对话</string>
+    <string name="chat_delete_session_message">删除「%1$s」后无法恢复。</string>
+    <string name="chat_new_session_drawer">新建对话</string>
+    <string name="chat_already_new_session">当前已经是新会话</string>
+    <string name="chat_model_cd">当前模型 %1$s，打开模型设置</string>
+    <string name="chat_add_attachment">添加附件</string>
+    <string name="chat_select_file">选择文件</string>
+
+    <string name="cd_session_list">会话列表</string>
+    <string name="cd_artifact_library">产物库</string>
+    <string name="cd_new_chat">新对话</string>
+    <string name="cd_usage">用量统计</string>
+
+    <string name="menu_model_settings">模型设置</string>
+    <string name="menu_capability_search">能力检索</string>
+    <string name="menu_system_prompt">系统提示词</string>
+    <string name="menu_session_brief">会话简报</string>
+    <string name="menu_diagnostic_pack">诊断包</string>
+    <string name="menu_diagnostic_packing">正在打包…</string>
+    <string name="menu_about">关于</string>
+    <string name="menu_mcp_web_search">MCP 与联网搜索</string>
+    <string name="usage_amount_with_cache">%1$s · 缓存 %2$d%%</string>
+
+    <string name="usage_sheet_title">用量</string>
+    <string name="usage_estimated_by_model">按当前模型估算</string>
+    <string name="usage_cache_hit">缓存命中 %1$d%%</string>
+
+    <string name="run_connecting">正在连接模型…</string>
+    <string name="run_preparing">准备下一步…</string>
+    <string name="run_assistant">助手运行中…</string>
+    <string name="run_thinking">思考中…</string>
+    <string name="run_generating">正在生成回复…</string>
+    <string name="run_tool_call">调用工具 · %1$s</string>
+    <string name="run_tool_running">工具执行中 · %1$s</string>
+    <string name="run_tool_failed">工具执行失败</string>
+    <string name="run_waiting_user">等待您回答…</string>
+    <string name="run_tool_failed_short">工具失败</string>
+    <string name="run_tool_done">工具已完成</string>
+    <string name="run_tool_default_name">工具</string>
+    <string name="file_import_failed">未能导入所选文件</string>
+    <string name="file_import_ok">已添加 %1$d 个文件</string>
+
+    <string name="model_settings_title">模型配置</string>
+    <string name="model_settings_saving">正在保存…</string>
+    <string name="model_settings_provider">服务商</string>
+    <string name="model_settings_model">模型</string>
+    <string name="model_settings_reset">恢复默认</string>
+
+    <string name="provider_dashscope">阿里云 DashScope</string>
+    <string name="provider_deepseek">DeepSeek</string>
+    <string name="provider_zhipu_coding">智谱 Coding</string>
+
+    <string name="about_title">关于</string>
+    <string name="about_version">版本 %1$s（%2$d）</string>
+    <string name="about_author_label">作者</string>
+    <string name="about_author_value">冯世浩 fengshihao</string>
+    <string name="about_website">官网</string>
+    <string name="about_source">开源地址</string>
+    <string name="about_license_app">本软件</string>
+    <string name="about_license_mit">MIT</string>
+    <string name="about_open_source_deps">开源依赖</string>
+    <string name="about_open_source_notice">这些库随安装包分发。Apache-2.0 与 MIT 都要求保留版权声明和许可证名称。</string>
+
+    <string name="error_generic">出了点问题，请再试一次。</string>
+    <string name="error_network">网络中断了，这次回复没有传完。请再发一次。</string>
+    <string name="error_timeout">等得太久，没有收到回复。请再试一次。</string>
+    <string name="error_offline">连不上网络。请检查网络后再试。</string>
+    <string name="error_ssl">安全连接失败。请检查网络，并确认手机时间是否正确。</string>
+    <string name="error_auth">模型密钥无效或已过期。请打开「模型」，重新填写 API Key。</string>
+    <string name="error_search_auth">联网搜索的密钥无效。请打开「模型」，检查搜索密钥。</string>
+    <string name="error_no_key">还没有填写模型密钥。请打开「模型」，填上 API Key。</string>
+    <string name="error_forbidden">没有权限使用这个模型。请检查密钥和账号。</string>
+    <string name="error_rate">请求太频繁，请稍等一会儿再试。</string>
+    <string name="error_quota">模型额度不够，或账号欠费。请到服务商处检查余额。</string>
+    <string name="error_model">找不到当前模型。请打开「模型」，重新选一个。</string>
+    <string name="error_server">模型服务暂时不可用，请过一会儿再试。</string>
+    <string name="error_bad_request">这次请求没有被接受。请检查「模型」里的名称是否正确，或换种说法再试。</string>
+    <string name="error_filter">这段内容没有通过安全检查，换种说法再试。</string>
+    <string name="error_page">页面没有打开。请再试一次。</string>
 </resources>

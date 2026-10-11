@@ -16,6 +16,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.agent1.android.R
 import androidx.compose.ui.unit.dp
 
 /** 无活动会话时的落位页：顶栏 + 禁用态输入条 + 启动错误提示。 */
@@ -41,19 +43,19 @@ internal fun ChatLanding(
         topBar = {
             Column {
                 AgentTopBar(
-                    title = "新对话",
+                    title = stringResource(R.string.chat_new_session),
                     subtitle = null,
                     leading = {
                         TopBarIconButton(
                             icon = Icons.Filled.Menu,
-                            contentDescription = "会话列表",
+                            contentDescription = stringResource(R.string.cd_session_list),
                             onClick = onOpenDrawer,
                         )
                     },
                     actions = {
                         TopBarIconButton(
                             icon = AgentIcons.Folder,
-                            contentDescription = "产物库",
+                            contentDescription = stringResource(R.string.cd_artifact_library),
                             onClick = onOpenArtifacts,
                         )
                         ChatMoreMenu(
@@ -78,6 +80,7 @@ internal fun ChatLanding(
                 isRunning = false,
                 canSend = false,
                 enabled = false,
+                inputPlaceholder = stringResource(R.string.chat_input_hint),
                 onPickFiles = {},
                 pickFilesEnabled = false,
                 modelLabel = modelLabel,
@@ -100,13 +103,13 @@ internal fun ChatLanding(
             ) {
                 if (startupError.isNullOrBlank()) {
                     Text(
-                        "正在打开对话…",
+                        stringResource(R.string.chat_opening),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
                     Text(
-                        "暂时无法开始对话：$startupError",
+                        stringResource(R.string.chat_startup_error, startupError),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )

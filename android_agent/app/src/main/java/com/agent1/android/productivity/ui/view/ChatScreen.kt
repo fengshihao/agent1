@@ -47,6 +47,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
+import com.agent1.android.R
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -123,19 +125,19 @@ fun ChatScreen(
             topBar = {
                 Column {
                     AgentTopBar(
-                        title = title.ifBlank { state.title }.ifBlank { "新对话" },
+                        title = title.ifBlank { state.title }.ifBlank { stringResource(R.string.chat_new_session) },
                         subtitle = null,
                         leading = {
                             TopBarIconButton(
                                 icon = Icons.Filled.Menu,
-                                contentDescription = "会话列表",
+                                contentDescription = stringResource(R.string.cd_session_list),
                                 onClick = onOpenDrawer,
                             )
                         },
                         actions = {
                             TopBarIconButton(
                                 icon = AgentIcons.Folder,
-                                contentDescription = "产物库",
+                                contentDescription = stringResource(R.string.cd_artifact_library),
                                 onClick = onOpenArtifacts,
                             )
                             ChatMoreMenu(
@@ -164,7 +166,9 @@ fun ChatScreen(
                         ConfigErrorBanner(state.configError.orEmpty())
                     }
                     if (!state.transcriptLoadError.isNullOrBlank()) {
-                        ConfigErrorBanner("对话加载失败：${state.transcriptLoadError}")
+                        ConfigErrorBanner(
+                            stringResource(R.string.chat_load_failed, state.transcriptLoadError.orEmpty()),
+                        )
                     }
                     if (!state.fileImportMessage.isNullOrBlank()) {
                         Text(
@@ -233,9 +237,9 @@ fun ChatScreen(
                         pendingAsk == null,
                     enabled = state.configError == null && pendingAsk == null,
                     inputPlaceholder = if (pendingAsk == null) {
-                        "输入消息…"
+                        stringResource(R.string.chat_input_hint)
                     } else {
-                        "请在上方卡片中回答并提交"
+                        stringResource(R.string.chat_input_answer_card)
                     },
                     onPickFiles = launchPickFiles,
                     pickFilesEnabled = state.configError == null && !state.isRunning && pendingAsk == null,
@@ -271,7 +275,7 @@ private fun AccessibleFilesStrip(paths: List<String>) {
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(
-            "已选文件（本会话）",
+            stringResource(R.string.chat_selected_files),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -299,7 +303,7 @@ internal fun ChatComposer(
     isRunning: Boolean,
     canSend: Boolean,
     enabled: Boolean,
-    inputPlaceholder: String = "输入消息…",
+    inputPlaceholder: String,
     onPickFiles: () -> Unit,
     pickFilesEnabled: Boolean,
     onNewChat: (() -> Unit)? = null,
@@ -352,13 +356,13 @@ internal fun ChatComposer(
                         if (onNewChat != null) {
                             ComposerIconButton(
                                 icon = AgentIcons.NewChat,
-                                contentDescription = "新对话",
+                                contentDescription = stringResource(R.string.cd_new_chat),
                                 onClick = onNewChat,
                             )
                         }
                         ComposerIconButton(
                             icon = AgentIcons.AttachFile,
-                            contentDescription = "添加附件",
+                            contentDescription = stringResource(R.string.chat_add_attachment),
                             enabled = pickFilesEnabled,
                             onClick = onPickFiles,
                         )
@@ -412,6 +416,7 @@ private fun ComposerModelChip(
     onClick: (() -> Unit)?,
 ) {
     val tint = MaterialTheme.colorScheme.onSurfaceVariant
+    val modelCd = stringResource(R.string.chat_model_cd, label)
     Row(
         modifier = Modifier
             .widthIn(max = 200.dp)
@@ -423,7 +428,7 @@ private fun ComposerModelChip(
                     Modifier
                 },
             )
-            .semantics { contentDescription = "当前模型 $label，打开模型设置" }
+            .semantics { contentDescription = modelCd }
             .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -523,7 +528,11 @@ private fun ComposerField(
         ) {
             Icon(
                 if (isRunning) AgentIcons.Stop else Icons.AutoMirrored.Filled.Send,
-                contentDescription = if (isRunning) "停止" else "发送",
+                contentDescription = if (isRunning) {
+                    stringResource(R.string.action_stop)
+                } else {
+                    stringResource(R.string.action_send)
+                },
                 modifier = Modifier.size(if (isRunning) 14.dp else 18.dp),
             )
         }

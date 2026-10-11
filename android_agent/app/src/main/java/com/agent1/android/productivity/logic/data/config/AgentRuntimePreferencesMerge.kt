@@ -7,7 +7,7 @@ import java.util.Properties
 /** 合并 App 偏好与编译期 BuildConfig，供 {@link AgentRuntimeConfig#fromProperties} 使用。 */
 object AgentRuntimePreferencesMerge {
 
-    fun toProperties(prefs: AgentRuntimePreferences): Properties {
+    fun toProperties(prefs: AgentRuntimePreferences, appContext: android.content.Context? = null): Properties {
         val props = Properties()
         val apiKey = resolveApiKey(prefs)
         if (!apiKey.isNullOrBlank()) {
@@ -17,7 +17,7 @@ object AgentRuntimePreferencesMerge {
         if (!baseUrl.isNullOrBlank()) {
             props.setProperty("baseUrl", baseUrl)
         }
-        val model = resolveModel(prefs)
+        val model = resolveModel(prefs, appContext)
         if (!model.isNullOrBlank()) {
             props.setProperty("model", model)
         }
@@ -67,12 +67,14 @@ object AgentRuntimePreferencesMerge {
         )
     }
 
-    fun resolveModel(prefs: AgentRuntimePreferences): String? {
+    fun resolveModel(prefs: AgentRuntimePreferences, appContext: android.content.Context? = null): String? {
         if (prefs.savedInApp && prefs.modelId.isNotBlank()) {
             return prefs.modelId.trim()
         }
+        val marketDefault = appContext?.let { MarketRuntimeDefaults.defaultModelId(it) }
         return firstNonBlank(
             prefs.modelId,
+            marketDefault,
             BuildConfig.QWEN_MODEL,
             BuildConfig.DEFAULT_MODEL,
             AgentRuntimeDefaults.DEFAULT_MODEL,

@@ -2,6 +2,8 @@ package com.agent1.android.productivity.ui.view
 
 import android.content.Context
 import android.widget.Toast
+import com.agent1.android.R
+import com.agent1.android.productivity.logic.business.i18n.AppLocalization
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,7 +63,8 @@ fun ProductivityHome(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var activeSessionId by rememberSaveable { mutableStateOf("") }
-    var activeTitle by rememberSaveable { mutableStateOf("新对话") }
+    fun defaultChatTitle(): String = AppLocalization.getString(R.string.chat_new_session)
+    var activeTitle by rememberSaveable { mutableStateOf(defaultChatTitle()) }
     var createRequested by rememberSaveable { mutableStateOf(false) }
     var sessionLoading by remember { mutableStateOf(false) }
     var sessionFresh by remember { mutableStateOf(false) }
@@ -81,7 +84,7 @@ fun ProductivityHome(
         val current = activeSessionId
         if (current.isNotBlank() && listState.sessions.any { it.sessionId == current }) {
             val match = listState.sessions.first { it.sessionId == current }
-            val titled = match.title.ifBlank { "新对话" }
+            val titled = match.title.ifBlank { defaultChatTitle() }
             if (titled != activeTitle) activeTitle = titled
             return@LaunchedEffect
         }
@@ -89,14 +92,14 @@ fun ProductivityHome(
         val next = listState.sessions.maxByOrNull { it.updatedAt }
         if (next != null) {
             activeSessionId = next.sessionId
-            activeTitle = next.title.ifBlank { "新对话" }
+            activeTitle = next.title.ifBlank { defaultChatTitle() }
             return@LaunchedEffect
         }
         if (!createRequested) {
             createRequested = true
             sessionListViewModel.createSession { meta ->
                 activeSessionId = meta.sessionId
-                activeTitle = meta.title.ifBlank { "新对话" }
+                activeTitle = meta.title.ifBlank { defaultChatTitle() }
             }
         }
     }
@@ -116,7 +119,7 @@ fun ProductivityHome(
 
     fun openSession(meta: SessionMeta) {
         activeSessionId = meta.sessionId
-        activeTitle = meta.title.ifBlank { "新对话" }
+        activeTitle = meta.title.ifBlank { defaultChatTitle() }
         closeDrawer()
     }
 
@@ -125,13 +128,17 @@ fun ProductivityHome(
         if (activeSessionId.isNotBlank()) {
             if (sessionLoading) return
             if (sessionFresh) {
-                Toast.makeText(context, "当前已经是新会话", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    AppLocalization.getString(R.string.chat_already_new_session),
+                    Toast.LENGTH_SHORT,
+                ).show()
                 return
             }
         }
         sessionListViewModel.createSession { meta ->
             activeSessionId = meta.sessionId
-            activeTitle = meta.title.ifBlank { "新对话" }
+            activeTitle = meta.title.ifBlank { defaultChatTitle() }
         }
     }
 
@@ -173,11 +180,11 @@ fun ProductivityHome(
                                     val next = remaining.maxByOrNull { it.updatedAt }
                                     if (next != null) {
                                         activeSessionId = next.sessionId
-                                        activeTitle = next.title.ifBlank { "新对话" }
+                                        activeTitle = next.title.ifBlank { defaultChatTitle() }
                                     } else {
                                         createRequested = false
                                         activeSessionId = ""
-                                        activeTitle = "新对话"
+                                        activeTitle = defaultChatTitle()
                                     }
                                 }
                             },

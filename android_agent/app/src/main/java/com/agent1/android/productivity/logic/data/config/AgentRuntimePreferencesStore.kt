@@ -26,19 +26,28 @@ class AgentRuntimePreferencesStore(context: Context) {
     }
 
     fun read(): AgentRuntimePreferences {
-        val providerId = prefs.getString(KEY_PROVIDER, ModelProviderDefaults.PROVIDER_DASHSCOPE)
-            ?: ModelProviderDefaults.PROVIDER_DASHSCOPE
+        val savedInApp = prefs.getBoolean(KEY_SAVED_IN_APP, false)
+        val defaultProvider = if (savedInApp) {
+            ModelProviderDefaults.PROVIDER_DASHSCOPE
+        } else {
+            MarketRuntimeDefaults.defaultProviderId(appContext)
+        }
+        val providerId = prefs.getString(KEY_PROVIDER, defaultProvider) ?: defaultProvider
+        val defaultBaseUrl = if (savedInApp) {
+            ModelProviderDefaults.DEFAULT_BASE_URL
+        } else {
+            MarketRuntimeDefaults.defaultBaseUrl(providerId)
+        }
         return AgentRuntimePreferences(
             providerId = providerId,
             apiKey = readApiKeyForProvider(providerId),
-            baseUrl = prefs.getString(KEY_BASE_URL, ModelProviderDefaults.DEFAULT_BASE_URL)
-                ?: ModelProviderDefaults.DEFAULT_BASE_URL,
+            baseUrl = prefs.getString(KEY_BASE_URL, defaultBaseUrl) ?: defaultBaseUrl,
             modelId = prefs.getString(KEY_MODEL, "").orEmpty(),
             maxContextTurns = prefs.getInt(KEY_MAX_CONTEXT_TURNS, 0),
             maxContextMessages = prefs.getInt(KEY_MAX_CONTEXT_MESSAGES, 0),
             maxTurnsPerRun = prefs.getInt(KEY_MAX_TURNS_PER_RUN, 0),
             maxToolCallsPerRun = prefs.getInt(KEY_MAX_TOOL_CALLS_PER_RUN, 0),
-            savedInApp = prefs.getBoolean(KEY_SAVED_IN_APP, false),
+            savedInApp = savedInApp,
             webSearchApiKey = prefs.getString(KEY_WEB_SEARCH_API_KEY, "").orEmpty(),
             webSearchBaseUrl = prefs.getString(KEY_WEB_SEARCH_BASE_URL, "").orEmpty(),
         )
