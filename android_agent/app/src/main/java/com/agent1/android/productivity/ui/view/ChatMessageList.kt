@@ -29,7 +29,6 @@ import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.RunTokenSummary
-import com.agent1.android.productivity.ui.viewmodel.shouldShowAssistantPending
 
 /** 会话消息区。跟随输出时只 scrollBy 补底边，用户上滑看历史会立刻松开。 */
 @Composable
@@ -46,8 +45,12 @@ internal fun ChatMessageList(
     val lazyRows = remember(visibleLines, state.workspacePath) {
         ChatLazyRowExpansion.expandTranscriptLines(visibleLines, state.workspacePath)
     }
-    val timelineRows = remember(state.runTimeline, state.streamingReasoning) {
-        ChatToolBatch.groupTimeline(state.runTimeline, state.streamingReasoning)
+    val timelineRows = remember(state.runTimeline, state.streamingReasoning, state.isRunning) {
+        ChatToolBatch.groupTimeline(
+            items = state.runTimeline,
+            streamingReasoning = state.streamingReasoning,
+            isRunning = state.isRunning,
+        )
     }
     val listState = rememberLazyListState()
     val followTail = remember(state.sessionId) { mutableStateOf(true) }
@@ -100,7 +103,6 @@ internal fun ChatMessageList(
         state.streamingText,
         state.streamingReasoning,
         state.isRunning,
-        shouldShowAssistantPending(state),
     ) {
         if (!followTail.value || !didAnchor.value) return@LaunchedEffect
         listState.followBottomByScroll()
@@ -208,15 +210,9 @@ internal fun ChatMessageList(
                     TurnActivityBubble(
                         stateKey = row.key,
                         pieces = row.pieces,
+                        runInProgress = state.isRunning,
                     )
                 }
-            }
-        }
-        if (shouldShowAssistantPending(state)) {
-            item(key = "assistant-pending") {
-                AssistantPendingBubble(
-                    label = state.runActivityLabel ?: "等待助手…",
-                )
             }
         }
         if (state.streamingText.isNotEmpty()) {

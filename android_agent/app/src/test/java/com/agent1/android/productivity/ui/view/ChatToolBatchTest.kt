@@ -46,6 +46,17 @@ class ChatToolBatchTest {
     }
 
     @Test
+    fun groupTimeline_keepsActivityCardWhileRunIsEmpty() {
+        assertEquals(0, ChatToolBatch.groupTimeline(emptyList(), isRunning = false).size)
+        val rows = ChatToolBatch.groupTimeline(emptyList(), isRunning = true)
+        assertEquals(1, rows.size)
+        val activity = rows[0] as RunTimelineRow.Activity
+        assertEquals("live-turn-activity", activity.key)
+        assertTrue(activity.pieces.isEmpty())
+        assertEquals("思考与执行", ChatToolBatch.title(activity.pieces))
+    }
+
+    @Test
     fun title_namesCallsAndFailures() {
         val pieces = listOf(
             TurnPiece.Reasoning("r", "先看结构", false),

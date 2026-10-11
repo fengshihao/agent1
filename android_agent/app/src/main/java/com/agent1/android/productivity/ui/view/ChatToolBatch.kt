@@ -96,6 +96,7 @@ internal object ChatToolBatch {
     fun groupTimeline(
         items: List<ChatRunTimelineItem>,
         streamingReasoning: String = "",
+        isRunning: Boolean = false,
     ): List<RunTimelineRow> {
         val pieces = ArrayList<TurnPiece>()
         val assistants = ArrayList<ChatRunTimelineItem.AssistantPart>()
@@ -130,13 +131,13 @@ internal object ChatToolBatch {
             )
         }
         val out = ArrayList<RunTimelineRow>(assistants.size + 1)
-        if (pieces.isNotEmpty()) out.add(RunTimelineRow.Activity(pieces))
+        if (pieces.isNotEmpty() || isRunning) out.add(RunTimelineRow.Activity(pieces))
         assistants.forEach { out.add(RunTimelineRow.Assistant(it)) }
         return out
     }
 
     fun title(pieces: List<TurnPiece>): String {
-        if (pieces.isEmpty()) return "思考与工具"
+        if (pieces.isEmpty()) return "思考与执行"
         val tools = pieces.mapNotNull { (it as? TurnPiece.Tool)?.entry }
         val thoughts = pieces.filterIsInstance<TurnPiece.Reasoning>()
         val runningTools = tools.count { !it.finished }

@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
 
-/** 聊天气泡族：消息气泡、工具/思考折叠块、气泡外壳与待处理气泡。 */
+/** 聊天气泡族：消息气泡、工具/思考折叠块与气泡外壳。 */
 @Composable
 internal fun MessageBubble(
     line: ChatLine,
@@ -218,32 +218,6 @@ private fun SystemNoticeBubble(
 }
 
 @Composable
-internal fun AssistantPendingBubble(label: String) {
-    val bubbles = chatBubbleColors()
-    BubbleShell(
-        alignEnd = false,
-        wide = true,
-        background = bubbles.assistantBackground,
-        borderColor = bubbles.assistantBorder,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                strokeWidth = 2.dp,
-            )
-            Text(
-                label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
 internal fun CollapsibleToolCallBubble(
     stateKey: String,
     toolName: String,
@@ -304,12 +278,13 @@ internal fun CollapsibleToolCallBubble(
 internal fun TurnActivityBubble(
     stateKey: String,
     pieces: List<TurnPiece>,
+    runInProgress: Boolean = false,
 ) {
-    if (pieces.isEmpty()) return
+    if (pieces.isEmpty() && !runInProgress) return
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val bubbles = chatBubbleColors()
     val failed = pieces.any { it is TurnPiece.Tool && ChatToolBatch.showsFailure(it.entry) }
-    val running = ChatToolBatch.isRunning(pieces)
+    val running = runInProgress || ChatToolBatch.isRunning(pieces)
     BubbleShell(
         alignEnd = false,
         wide = true,
@@ -350,14 +325,17 @@ internal fun TurnActivityBubble(
                     )
                 }
             }
-            Text(
-                ChatToolBatch.detail(pieces),
-                modifier = Modifier.padding(start = 26.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            val detail = ChatToolBatch.detail(pieces)
+            if (detail.isNotBlank()) {
+                Text(
+                    detail,
+                    modifier = Modifier.padding(start = 26.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             AnimatedVisibility(visible = expanded) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     pieces.forEach { piece ->
