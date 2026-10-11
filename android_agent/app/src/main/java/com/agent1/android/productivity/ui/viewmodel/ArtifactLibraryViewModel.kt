@@ -3,6 +3,7 @@ package com.agent1.android.productivity.ui.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.agent1.android.productivity.logic.business.ArtifactLibraryFilter
 import com.agent1.android.productivity.logic.business.ArtifactLibraryStore
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
@@ -74,6 +75,23 @@ class ArtifactLibraryViewModel(
     fun onQueryChange(query: String) {
         _state.value = applyFilter(_state.value.copy(query = query))
     }
+
+    fun onShelfChange(shelf: ArtifactLibraryFilter.Shelf) {
+        val next = _state.value.copy(
+            shelf = shelf,
+            typeFilter = ArtifactLibraryFilter.TypeFilter.ALL,
+            selectedKeys = emptySet(),
+            selectionMode = false,
+        )
+        _state.value = applyFilter(next)
+    }
+
+    fun onTypeFilterChange(typeFilter: ArtifactLibraryFilter.TypeFilter) {
+        _state.value = applyFilter(_state.value.copy(typeFilter = typeFilter))
+    }
+
+    fun typeFilterChoices(): List<ArtifactLibraryFilter.TypeFilter> =
+        ArtifactLibraryFilter.typeFilterChoices(_state.value.shelf)
 
     fun enterSelection(stableKey: String) {
         if (_state.value.busy) return
@@ -227,16 +245,22 @@ class ArtifactLibraryViewModel(
     }
 
     private fun applyFilter(s: ArtifactLibraryUiState): ArtifactLibraryUiState {
-        val q = s.query.trim().lowercase()
-        val filtered = if (q.isEmpty()) {
-            s.items
+        val safeType = if (s.typeFilter in ArtifactLibraryFilter.typeFilterChoices(s.shelf)) {
+            s.typeFilter
         } else {
-            s.items.filter { item ->
-                item.fileName.lowercase().contains(q) ||
-                    item.sessionTitle.lowercase().contains(q) ||
-                    item.workspaceRelativePath.lowercase().contains(q)
-            }
+            ArtifactLibraryFilter.TypeFilter.ALL
         }
-        return s.copy(filteredItems = filtered)
+        val base = s.copy(typeFilter = safeType)
+        val filtered = base.items.filter { item ->
+            ArtifactLibraryFilter.matches(
+                workspaceRelativePath = item.workspaceRelativePath,
+                shelf = base.shelf,
+                typeFilter = base.typeFilter,
+                query = base.query,
+                sessionTitle = item.sessionTitle,
+                fileName = item.fileName,
+            )
+        }
+        return base.copy(filteredItems = filtered)
     }
 }
