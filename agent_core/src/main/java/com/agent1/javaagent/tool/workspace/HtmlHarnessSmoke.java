@@ -29,6 +29,7 @@ public final class HtmlHarnessSmoke {
 
     /**
      * 在引导页里开 iframe 写 srcdoc。不能 document.write，否则会拆掉 WebView 与宿主的桥。
+     * iframe 的 load 到了就读 DOM。普通页面立刻返回；Mermaid、图表一类最多再等 4 秒，图一出现就停。
      */
     static final String PROBE_JS = """
         return (async () => {
@@ -45,14 +46,30 @@ public final class HtmlHarnessSmoke {
             setTimeout(done, 12000);
             frame.srcdoc = html;
           });
-          await new Promise((r) => setTimeout(r, 4000));
-          let doc = null;
-          try { doc = frame.contentDocument; } catch (e) { doc = null; }
-          const svg = doc ? doc.querySelectorAll('svg').length : 0;
-          const canvas = doc ? doc.querySelectorAll('canvas').length : 0;
-          const text = doc && doc.body ? String(doc.body.innerText || '').replace(/\\s+/g, ' ').trim() : '';
+          const graphic = /markmap|mermaid|chart\\.js|chartjs|\\/npm\\/three@|three\\.module|echarts|plotly|\\/npm\\/d3@|p5(?:\\.min)?\\.js|cytoscape|vis-network|vega/i.test(html);
+          const metrics = await new Promise((resolve) => {
+            const start = Date.now();
+            const sample = () => {
+              let doc = null;
+              try { doc = frame.contentDocument; } catch (e) { doc = null; }
+              const svg = doc ? doc.querySelectorAll('svg').length : 0;
+              const canvas = doc ? doc.querySelectorAll('canvas').length : 0;
+              const text = doc && doc.body ? String(doc.body.innerText || '').replace(/\\s+/g, ' ').trim() : '';
+              const elapsed = Date.now() - start;
+              if (doc == null && elapsed < 500) {
+                setTimeout(sample, 50);
+                return;
+              }
+              if (graphic && svg === 0 && canvas === 0 && elapsed < 4000) {
+                setTimeout(sample, 100);
+                return;
+              }
+              resolve({svg:svg, canvas:canvas, textLen:text.length, textHead:text.slice(0, 60)});
+            };
+            sample();
+          });
           frame.remove();
-          return JSON.stringify({svg:svg, canvas:canvas, textLen:text.length, textHead:text.slice(0, 60)});
+          return metrics;
         })();
         """.trim();
 

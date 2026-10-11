@@ -104,6 +104,15 @@ class HtmlHarnessSmokeTest {
     }
 
     @Test
+    void probeReturnsWhenReadyInsteadOfFixedFourSeconds() {
+        String probe = HtmlHarnessSmoke.PROBE_JS;
+        assertFalse(probe.contains("setTimeout(r, 4000)"));
+        assertTrue(probe.contains("elapsed < 4000"));
+        assertTrue(probe.contains("mermaid"));
+        assertTrue(probe.contains("setTimeout(sample, 100)"));
+    }
+
+    @Test
     void htmlPathOfAcceptsHtmlAndHtm() {
         ObjectNode html = MAPPER.createObjectNode().put("path", "out/index.html");
         ObjectNode htm = MAPPER.createObjectNode().put("path", "Out\\Page.HTM");
