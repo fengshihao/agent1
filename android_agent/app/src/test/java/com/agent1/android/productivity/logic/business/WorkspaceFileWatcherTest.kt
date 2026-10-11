@@ -28,7 +28,8 @@ class WorkspaceFileWatcherTest {
         )
         try {
             watcher.start()
-            file.writeText("<html>2</html>")
+            // 与初值等长、且同一毫秒写完时，mtime 可能不变。轮询只看 mtime 和 length，所以这里必须改长度。
+            file.writeText("<html>22</html>")
             assertTrue("修改后应触发回调", latch.await(5, TimeUnit.SECONDS))
         } finally {
             watcher.stop()
@@ -89,8 +90,8 @@ class WorkspaceFileWatcherTest {
             // 同目录其他文件变更不应触发
             dir.resolve("other.html").writeText("<html>x</html>")
             assertTrue("其他文件变更不应触发回调", !latch.await(600, TimeUnit.MILLISECONDS))
-            // 目标文件变更触发
-            file.writeText("<html>2</html>")
+            // 目标文件变更触发。长度必须变化，避免与初值同一毫秒时 mtime 不变。
+            file.writeText("<html>22</html>")
             assertTrue(latch.await(5, TimeUnit.SECONDS))
 
             // 不存在的父目录 start 不抛异常
