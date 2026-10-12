@@ -19,9 +19,18 @@ class AndroidMediaInspector : MediaInspector {
         try {
             retriever.setDataSource(source.toString())
             return fromRetriever(retriever, size)
-        } catch (e: RuntimeException) {
+        } catch (e: IllegalArgumentException) {
             return probeStillImage(source, size)
-                ?: throw IllegalArgumentException("media_probe: 无法读取媒体: ${e.message ?: e.javaClass.simpleName}")
+                ?: throw IllegalArgumentException(
+                    "media_probe: 无法读取媒体: ${e.message ?: e.javaClass.simpleName}",
+                    e,
+                )
+        } catch (e: IllegalStateException) {
+            return probeStillImage(source, size)
+                ?: throw IllegalArgumentException(
+                    "media_probe: 无法读取媒体: ${e.message ?: e.javaClass.simpleName}",
+                    e,
+                )
         } finally {
             retriever.release()
         }
@@ -43,8 +52,16 @@ class AndroidMediaInspector : MediaInspector {
             return ImageResizer.ImageSize(frame.width, frame.height)
         } catch (e: IllegalArgumentException) {
             throw e
-        } catch (e: RuntimeException) {
-            throw IllegalArgumentException("media_extract_frame: ${e.message ?: e.javaClass.simpleName}")
+        } catch (e: IllegalStateException) {
+            throw IllegalArgumentException(
+                "media_extract_frame: ${e.message ?: e.javaClass.simpleName}",
+                e,
+            )
+        } catch (e: IOException) {
+            throw IllegalArgumentException(
+                "media_extract_frame: ${e.message ?: e.javaClass.simpleName}",
+                e,
+            )
         } finally {
             frame?.recycle()
             retriever.release()

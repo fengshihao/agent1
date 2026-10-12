@@ -8,12 +8,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.InputChip
-import androidx.compose.material3.InputChipDefaults
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -55,44 +56,56 @@ fun AccessibleFilesPanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             entries.forEach { entry ->
-                val label = AccessibleFileLabels.primaryLabel(
-                    entry.workspaceRelativePath,
-                    entry.displayName,
+                AccessibleFileChip(
+                    entry = entry,
+                    onRemove = { onRemove(entry.workspaceRelativePath) },
                 )
-                val hint = AccessibleFileLabels.parentHint(entry.workspaceRelativePath)
-                InputChip(
-                    selected = true,
-                    onClick = { },
-                    label = {
-                        Column {
-                            Text(
-                                text = label,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                            if (!hint.isNullOrBlank()) {
-                                Text(
-                                    text = hint,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    },
-                    trailingIcon = {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = stringResource(R.string.chat_remove_file_cd, label),
-                            modifier = Modifier.size(16.dp),
-                        )
-                    },
-                    onTrailingIconClick = { onRemove(entry.workspaceRelativePath) },
-                    colors = InputChipDefaults.inputChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    ),
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccessibleFileChip(
+    entry: SessionAccessibleFilesStore.Entry,
+    onRemove: () -> Unit,
+) {
+    val label = AccessibleFileLabels.primaryLabel(entry.workspaceRelativePath, entry.displayName)
+    val hint = AccessibleFileLabels.parentHint(entry.workspaceRelativePath)
+    val removeCd = stringResource(R.string.chat_remove_file_cd, label)
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 10.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.padding(end = 2.dp)) {
+                Text(
+                    text = label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                if (!hint.isNullOrBlank()) {
+                    Text(
+                        text = hint,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            IconButton(
+                onClick = onRemove,
+                modifier = Modifier.size(28.dp),
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = removeCd,
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
