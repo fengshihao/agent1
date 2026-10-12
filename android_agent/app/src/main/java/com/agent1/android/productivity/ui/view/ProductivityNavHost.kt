@@ -1,15 +1,25 @@
 package com.agent1.android.productivity.ui.view
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
 import android.net.Uri
+import androidx.activity.ComponentActivity
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.util.Consumer
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
+import com.agent1.android.productivity.logic.business.AgentAppLinks
 import com.agent1.android.productivity.logic.business.McpSettingsCoordinator
 import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
 import com.agent1.android.productivity.ui.viewmodel.ArtifactLibraryViewModel
@@ -38,6 +48,25 @@ fun ProductivityNavHost() {
     val context = LocalContext.current
     val appContext = context.applicationContext
     val nav = rememberNavController()
+    val activity = context as? ComponentActivity
+    var incomingApiKey by remember { mutableStateOf<String?>(null) }
+    fun takeIncomingKey(intent: Intent?) {
+        val key = AgentAppLinks.apiKeyFrom(intent?.data) ?: return
+        incomingApiKey = key
+        intent?.data = Uri.parse(AgentAppLinks.MODEL_SETTINGS)
+    }
+    DisposableEffect(nav, activity) {
+        if (activity == null) {
+            return@DisposableEffect onDispose { }
+        }
+        takeIncomingKey(activity.intent)
+        val listener = Consumer<Intent> { incoming ->
+            takeIncomingKey(incoming)
+            nav.handleDeepLink(incoming)
+        }
+        activity.addOnNewIntentListener(listener)
+        onDispose { activity.removeOnNewIntentListener(listener) }
+    }
 
     NavHost(navController = nav, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
@@ -63,11 +92,19 @@ fun ProductivityNavHost() {
                 onOpenAbout = { nav.navigate(Routes.ABOUT) },
             )
         }
-        composable(Routes.SETTINGS) {
+        composable(
+            route = Routes.SETTINGS,
+            deepLinks = listOf(navDeepLink { uriPattern = AgentAppLinks.MODEL_SETTINGS }),
+        ) {
             val coordinator = remember(appContext) { ModelSettingsCoordinator(appContext) }
             val vm: ModelSettingsViewModel = viewModel(
                 factory = simpleFactory { ModelSettingsViewModel(coordinator) },
             )
+            LaunchedEffect(incomingApiKey) {
+                val key = incomingApiKey ?: return@LaunchedEffect
+                incomingApiKey = null
+                vm.importIncomingKey(key)
+            }
             ModelSettingsScreen(
                 viewModel = vm,
                 onBack = { nav.popBackStack() },

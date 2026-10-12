@@ -95,6 +95,23 @@
       docsLiSite: " — 本地打开本官网",
       docsFine: "给 AI 的细则（人一般不用点）",
       docsBack: "← 回首页",
+      setupTitle: "申请 DeepSeek API · Agent1",
+      setupDescription: "按步骤申请 DeepSeek API Key，再填进 Agent1。",
+      setupH1: "申请 DeepSeek API",
+      setupStep1: "注册或登录。",
+      setupStep1Cta: "打开 DeepSeek",
+      setupStep2: "粗估大约能做几十份 3000 字的演示文稿，或上百份短周报。不是准账。",
+      setupStep2Cta: "去充值",
+      setupStep2Price: "查看费用",
+      setupStep3: "注意马上复制。只显示一次，一般是 sk- 开头。忘了就新建一把，删掉旧的。",
+      setupStep3Cta: "去创建 Key",
+      setupStep4Cta: "给 AgentOne 设置 Key",
+      setupStep4: "日常用 Flash，要更强选 V4 Pro。",
+      setupKeyPlaceholder: "把 Key 粘贴到这里",
+      setupKeyApply: "设置",
+      setupKeyEmpty: "请先粘贴 Key。",
+      setupKeyInvalid: "这不太像 API Key。一般是 sk- 开头。",
+      setupKeyOpening: "正在交给 AgentOne…",
     },
     en: {
       skip: "Skip to content",
@@ -181,6 +198,23 @@
       docsLiSite: " — open this site locally",
       docsFine: "The contract for agents (people can skip this)",
       docsBack: "← Home",
+      setupTitle: "Get a DeepSeek API key · Agent1",
+      setupDescription: "Get a DeepSeek API key and paste it into Agent1.",
+      setupH1: "Get a DeepSeek API key",
+      setupStep1: "Register or log in.",
+      setupStep1Cta: "Open DeepSeek",
+      setupStep2: "Roughly dozens of 3,000-character slide decks, or a hundred short memos. Estimate only.",
+      setupStep2Cta: "Add credit",
+      setupStep2Price: "See pricing",
+      setupStep3: "Copy it now. It is shown once and usually starts with sk-. If you lose it, create a new key and delete the old one.",
+      setupStep3Cta: "Create a key",
+      setupStep4Cta: "Set the key in AgentOne",
+      setupStep4: "Use Flash, or V4 Pro for a stronger model.",
+      setupKeyPlaceholder: "Paste the key here",
+      setupKeyApply: "Save",
+      setupKeyEmpty: "Paste a key first.",
+      setupKeyInvalid: "That does not look like an API key. It usually starts with sk-.",
+      setupKeyOpening: "Opening AgentOne…",
     },
   };
 
@@ -189,8 +223,9 @@
       var saved = localStorage.getItem(STORAGE);
       if (saved && T[saved]) return saved;
     } catch (e) {}
-    var nav = (navigator.language || "zh").toLowerCase();
-    return nav.indexOf("zh") === 0 ? "zh" : "en";
+    var pageDefault = document.documentElement.getAttribute("data-i18n-default");
+    if (pageDefault && T[pageDefault]) return pageDefault;
+    return "zh";
   }
 
   var current = detect();
@@ -214,6 +249,10 @@
     document.querySelectorAll("[data-i18n-aria]").forEach(function (el) {
       var key = el.getAttribute("data-i18n-aria");
       if (pack[key] != null) el.setAttribute("aria-label", pack[key]);
+    });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(function (el) {
+      var key = el.getAttribute("data-i18n-placeholder");
+      if (pack[key] != null) el.setAttribute("placeholder", pack[key]);
     });
     var titleKey = document.documentElement.getAttribute("data-i18n-title") || "title";
     if (pack[titleKey]) document.title = pack[titleKey];

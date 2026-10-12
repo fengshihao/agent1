@@ -7,8 +7,11 @@ import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
 import com.agent1.android.productivity.logic.business.ModelSettingsForm
 import com.agent1.android.productivity.logic.business.ProviderOption
 import com.agent1.android.productivity.logic.business.RemoteModelOption
-import com.agent1.android.productivity.logic.business.PROVIDER_DASHSCOPE
+import com.agent1.android.productivity.logic.business.DeepSeekKeyImportResult
+import com.agent1.android.productivity.logic.business.PROVIDER_DEEPSEEK
 import com.agent1.android.productivity.logic.business.UserFacingError
+import com.agent1.android.productivity.logic.business.i18n.AppLocalization
+import com.agent1.android.R
 import com.agent1.android.productivity.logic.business.providerOptions
 import com.agent1.android.productivity.logic.business.resolveProvider
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +41,7 @@ data class ModelSettingsUiState(
     val configError: String? = null,
     val effectiveSummary: RuntimeConfigSummary? = null,
     val savedInApp: Boolean = false,
+    val notice: String? = null,
 )
 
 class ModelSettingsViewModel(
@@ -58,11 +62,11 @@ class ModelSettingsViewModel(
     fun loadFromStore() {
         val form = coordinator.readForm()
         val known = providerOptions().firstOrNull { it.id == form.providerId }
-        val providerId = known?.id ?: PROVIDER_DASHSCOPE
+        val providerId = known?.id ?: PROVIDER_DEEPSEEK
         val baseUrl = if (known != null) {
             form.baseUrl.ifBlank { resolveProvider(providerId).defaultBaseUrl }
         } else {
-            resolveProvider(PROVIDER_DASHSCOPE).defaultBaseUrl
+            resolveProvider(PROVIDER_DEEPSEEK).defaultBaseUrl
         }
         val bundled = coordinator.bundledModelsFor(providerId)
         _state.value = _state.value.copy(
@@ -83,9 +87,31 @@ class ModelSettingsViewModel(
             effectiveSummary = coordinator.configurationSummary(),
             savedInApp = form.savedInApp,
             statusMessage = null,
+            notice = _state.value.notice,
         )
         loaded = true
         refreshModelCatalog()
+    }
+
+    fun importIncomingKey(raw: String) {
+        viewModelScope.launch {
+            persistJob?.cancel()
+            _state.value = _state.value.copy(
+                isSaving = true,
+                notice = AppLocalization.getString(R.string.setup_key_checking),
+            )
+            val result = withContext(Dispatchers.IO) { coordinator.importDeepSeekApiKey(raw) }
+            val notice = when (result) {
+                DeepSeekKeyImportResult.INVALID ->
+                    AppLocalization.getString(R.string.setup_key_invalid)
+                DeepSeekKeyImportResult.SAVED_OK ->
+                    AppLocalization.getString(R.string.setup_key_imported)
+                DeepSeekKeyImportResult.SAVED_UNVERIFIED ->
+                    AppLocalization.getString(R.string.setup_key_saved_unverified)
+            }
+            loadFromStore()
+            _state.value = _state.value.copy(isSaving = false, notice = notice)
+        }
     }
 
     fun onProviderSelected(providerId: String) {

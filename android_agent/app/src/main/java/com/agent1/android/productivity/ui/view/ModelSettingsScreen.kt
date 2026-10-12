@@ -29,7 +29,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.widget.Toast
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.agent1.android.R
@@ -54,11 +57,18 @@ fun ModelSettingsScreen(
     onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
     var revealKey by remember { mutableStateOf(false) }
     val statusLine = when {
+        !state.notice.isNullOrBlank() -> state.notice
         !state.configError.isNullOrBlank() -> state.configError
         state.isSaving -> stringResource(R.string.model_settings_saving)
         else -> null
+    }
+    LaunchedEffect(state.notice) {
+        val notice = state.notice ?: return@LaunchedEffect
+        if (notice == context.getString(R.string.setup_key_checking)) return@LaunchedEffect
+        Toast.makeText(context, notice, Toast.LENGTH_LONG).show()
     }
 
     Column(modifier = Modifier.fillMaxSize()) {

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-i18n-default="zh" data-i18n-title="setupTitle" data-i18n-desc="setupDescription">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>申请 DeepSeek API · Agent1</title>
+  <meta name="description" content="按步骤申请 DeepSeek API Key，再填进 Agent1。" />
+  <meta name="theme-color" content="#1C1914" />
+  <link rel="icon" href="../assets/app-icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Instrument+Serif&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/site.css" />
+  <link rel="stylesheet" href="../css/setup-api.css" />
+</head>
+<body class="howto-page">
+  <a class="skip" href="#main" data-i18n="skip">跳到正文</a>
+  <header class="shell-top">
+    <div class="frame shell-top-inner">
+      <a class="mark" href="../" data-i18n-aria="brandAria" aria-label="Agent1">
+        <img class="mark-icon" src="../assets/app-icon.svg" width="28" height="28" alt="" />
+        <span class="mark-word">Agent<span>1</span></span>
+      </a>
+      <div class="shell-actions">
+        <nav class="shell-nav" data-i18n-aria="navAria" aria-label="主导航">
+          <a href="../" data-i18n="docsBack">← 回首页</a>
+        </nav>
+        <label class="lang-switch">
+          <span class="visually-hidden" data-i18n="langAria">界面语言</span>
+          <select id="siteLang" data-i18n-aria="langAria" aria-label="界面语言"></select>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <div class="frame">
+    <main id="main" class="howto">
+      <h1 data-i18n="setupH1">申请 DeepSeek API</h1>
+
+      <ol class="howto-list">
+        <li>
+          <span class="howto-num" aria-hidden="true">1</span>
+          <div class="howto-copy">
+            <a class="howto-cta" href="https://platform.deepseek.com/" target="_blank" rel="noopener noreferrer" data-i18n="setupStep1Cta">打开 DeepSeek</a>
+            <p class="howto-note" data-i18n="setupStep1">注册或登录。</p>
+          </div>
+        </li>
+        <li>
+          <span class="howto-num" aria-hidden="true">2</span>
+          <div class="howto-copy">
+            <a class="howto-cta" href="https://platform.deepseek.com/top_up" target="_blank" rel="noopener noreferrer" data-i18n="setupStep2Cta">去充值</a>
+            <p class="howto-note">
+              <span data-i18n="setupStep2">粗估大约能做几十份 3000 字的演示文稿，或上百份短周报。不是准账。</span>
+              <a href="https://api-docs.deepseek.com/zh-cn/quick_start/pricing/" target="_blank" rel="noopener noreferrer" data-i18n="setupStep2Price">查看费用</a>
+            </p>
+          </div>
+        </li>
+        <li>
+          <span class="howto-num" aria-hidden="true">3</span>
+          <div class="howto-copy">
+            <a class="howto-cta" href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" data-i18n="setupStep3Cta">去创建 Key</a>
+            <p class="howto-note howto-note-warn" data-i18n="setupStep3">注意马上复制。只显示一次，一般是 sk- 开头。忘了就新建一把，删掉旧的。</p>
+          </div>
+        </li>
+        <li>
+          <span class="howto-num" aria-hidden="true">4</span>
+          <div class="howto-copy">
+            <p class="howto-cta-label" data-i18n="setupStep4Cta">给 AgentOne 设置 Key</p>
+            <input
+              id="setup-key"
+              class="howto-key"
+              type="text"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+              data-i18n-placeholder="setupKeyPlaceholder"
+              placeholder="把 Key 粘贴到这里"
+            />
+            <button type="button" id="setup-key-apply" class="howto-cta" data-i18n="setupKeyApply">设置</button>
+            <p id="setup-key-status" class="howto-status" role="status"></p>
+            <p class="howto-note" data-i18n="setupStep4">日常用 Flash，要更强选 V4 Pro。</p>
+          </div>
+        </li>
+      </ol>
+    </main>
+  </div>
+  <script src="../js/site-i18n.js"></script>
+  <script src="../js/setup-api.js"></script>
+</body>
+</html>

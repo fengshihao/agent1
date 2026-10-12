@@ -13,8 +13,8 @@ data class ProviderOption(
 )
 
 data class ModelSettingsForm(
-    val providerId: String = PROVIDER_DASHSCOPE,
-    val baseUrl: String = DEFAULT_DASHSCOPE_BASE_URL,
+    val providerId: String = PROVIDER_DEEPSEEK,
+    val baseUrl: String = DEFAULT_DEEPSEEK_BASE_URL,
     val apiKey: String = "",
     val modelId: String = "",
     val maxContextTurns: Int = AgentRuntimeDefaults.DEFAULT_MAX_CONTEXT_TURNS,
@@ -44,13 +44,13 @@ fun modelsDevProviderKeys(providerId: String): List<String> = when (providerId) 
 }
 
 fun providerOptions(): List<ProviderOption> = listOf(
-    ProviderOption(PROVIDER_DASHSCOPE, R.string.provider_dashscope, DEFAULT_DASHSCOPE_BASE_URL),
     ProviderOption(
         PROVIDER_DEEPSEEK,
         R.string.provider_deepseek,
         DEFAULT_DEEPSEEK_BASE_URL,
         DEFAULT_DEEPSEEK_MODEL,
     ),
+    ProviderOption(PROVIDER_DASHSCOPE, R.string.provider_dashscope, DEFAULT_DASHSCOPE_BASE_URL),
     ProviderOption(
         PROVIDER_ZHIPU_CODING,
         R.string.provider_zhipu_coding,

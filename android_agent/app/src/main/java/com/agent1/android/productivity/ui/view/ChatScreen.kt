@@ -107,7 +107,9 @@ fun ChatScreen(
     ) { uris ->
         viewModel.onUserPickedFiles(uris)
     }
-    val attachmentsEnabled = state.configError == null && !state.isRunning && state.pendingAskUser == null
+    val needsUserKeySetup = state.needsUserKeySetup
+    val composerBlocked = state.configError != null && !needsUserKeySetup
+    val attachmentsEnabled = !composerBlocked && !state.isRunning && state.pendingAskUser == null
     val openAttachments: (UserFileRequestMarkers.Hint?) -> Unit = { hint ->
         attachmentAssistantHint = hint
         attachmentSheetVisible = true
@@ -170,7 +172,7 @@ fun ChatScreen(
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    if (state.configError != null) {
+                    if (state.configError != null && !state.needsUserKeySetup) {
                         ConfigErrorBanner(state.configError.orEmpty())
                     }
                     if (!state.transcriptLoadError.isNullOrBlank()) {
@@ -211,19 +213,21 @@ fun ChatScreen(
                     ChatMessageList(
                         state = state,
                         onOpenAttachments = openAttachments,
-                        attachmentsActionEnabled = state.configError == null && !state.isRunning,
+                        attachmentsActionEnabled = !composerBlocked && !state.isRunning,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth(),
                         onOpenInApp = onOpenInApp,
                         onOpenSettings = onOpenSettings,
                         topContentPadding = 16.dp,
+                        onSetupKeyDraftChange = viewModel::onSetupKeyDraftChange,
+                        onSubmitSetupKey = viewModel::applySetupKey,
                     )
                     pendingAsk?.let { form ->
                         AskUserFormPanel(
                             form = form,
                             workspaceAbsolutePath = state.workspacePath,
-                            enabled = state.configError == null && !state.isRunning,
+                            enabled = !composerBlocked && !state.isRunning,
                             validationError = form.validationError,
                             onTextChange = viewModel::onAskUserTextChange,
                             onSingleSelect = viewModel::onAskUserSingleSelect,
@@ -242,11 +246,11 @@ fun ChatScreen(
                     value = input,
                     onValueChange = { input = it },
                     isRunning = state.isRunning,
-                    canSend = state.configError == null &&
+                    canSend = !composerBlocked &&
                         input.isNotBlank() &&
                         !state.isRunning &&
                         pendingAsk == null,
-                    enabled = state.configError == null && pendingAsk == null,
+                    enabled = !composerBlocked && pendingAsk == null,
                     inputPlaceholder = if (pendingAsk == null) {
                         stringResource(R.string.chat_input_hint)
                     } else {

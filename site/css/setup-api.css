@@ -1,0 +1,169 @@
+/* 申请 API：按钮最大，说明做小字。默认简体中文。 */
+
+.howto-page {
+  font-family: "Noto Sans SC", "PingFang SC", var(--sans);
+}
+
+.howto {
+  width: min(38rem, 100%);
+  padding: 2.2rem 0 3.2rem;
+}
+
+.howto h1 {
+  margin: 0 0 1.25rem;
+  font-family: "Noto Sans SC", "PingFang SC", var(--sans);
+  font-weight: 600;
+  font-size: clamp(1.7rem, 5.5vw, 2.1rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+}
+
+.howto-list {
+  margin: 0;
+  padding: 0.2rem 0;
+  list-style: none;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(212, 119, 59, 0.07), transparent 28%),
+    rgba(0, 0, 0, 0.22);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+}
+
+.howto-list li {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 0.7rem 0.9rem;
+  align-items: start;
+  padding: 1.05rem 1.1rem 1.1rem;
+}
+
+.howto-list li + li {
+  border-top: 1px solid var(--hairline);
+}
+
+.howto-num {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(232, 160, 106, 0.35);
+  color: var(--accent-bright);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.howto-copy {
+  min-width: 0;
+}
+
+.howto-cta-label {
+  margin: 0 0 0.65rem;
+  color: var(--paper);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.howto-key {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 0.7rem;
+  min-height: 2.9rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 0.92rem;
+}
+
+.howto-key:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.howto-status {
+  min-height: 1.3rem;
+  margin: 0.55rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.howto-status.is-error {
+  color: #e07a6a;
+}
+
+.howto-status.is-ok {
+  color: #b7c9a4;
+}
+
+.howto-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3.1rem;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-deep);
+  text-decoration: none;
+  font: inherit;
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+}
+
+.howto-cta:hover {
+  background: #fff;
+}
+
+.howto-note {
+  margin: 0.45rem 0 0;
+  color: var(--fog-dim);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  max-width: 32rem;
+}
+
+.howto-note-warn {
+  color: #e07a6a;
+}
+
+.howto-note a {
+  color: var(--accent-bright);
+  text-underline-offset: 0.18em;
+}
+
+.howto-note a:hover {
+  color: var(--paper);
+}
+
+@media (max-width: 720px) {
+  .howto {
+    padding: 1.4rem 0 2.4rem;
+  }
+
+  .howto-list li {
+    padding: 0.95rem 0.85rem 1rem;
+  }
+
+  .howto-cta {
+    min-height: 2.9rem;
+    font-size: 1.05rem;
+  }
+
+  .shell-nav {
+    display: none;
+  }
+}

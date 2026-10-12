@@ -14,6 +14,10 @@ import com.agent1.android.productivity.logic.business.AskUserPendingDetector
 import com.agent1.android.productivity.logic.business.AskUserReplyFormatter
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import org.json.JSONObject
+import com.agent1.android.productivity.logic.business.ApiSetupGate
+import com.agent1.android.productivity.logic.business.DeepSeekApiKeyFormat
+import com.agent1.android.productivity.logic.business.DeepSeekKeyImportResult
+import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
 import com.agent1.android.productivity.logic.business.SessionAccessibleFilesStore
@@ -41,6 +45,8 @@ class ChatViewModel(
     private val gateway: ProductivityAgentGateway
         get() = ProductivityGatewayProvider.get(appContext.applicationContext)
 
+    private val modelSettings = ModelSettingsCoordinator(appContext.applicationContext)
+
     private val _state = MutableStateFlow(
         ChatUiState(
             sessionId = sessionId,
@@ -55,6 +61,7 @@ class ChatViewModel(
     private var streamGeneration = 0
     @Volatile
     private var flushJob: Job? = null
+    private var setupKeyPersistJob: Job? = null
 
     private var runInputTokens = 0L
     private var runOutputTokens = 0L
@@ -69,9 +76,85 @@ class ChatViewModel(
     }
 
     fun refreshConfigSummary() {
+        val summary = gateway.configurationSummary()
+        val keyConfigured = summary?.isApiKeyConfigured == true
+        val savedInApp = modelSettings.readForm().savedInApp
+        val needsSetup = ApiSetupGate.needsUserKeySetup(savedInApp, keyConfigured)
+        val explained = gateway.configurationError()?.let { UserFacingError.explain(it) }
+        val showInline = when {
+            !needsSetup -> false
+            !keyConfigured -> true
+            else -> _state.value.inlineApiSetupVisible
+        }
         _state.value = _state.value.copy(
-            configSummary = gateway.configurationSummary(),
-            configError = gateway.configurationError()?.let { UserFacingError.explain(it) },
+            configSummary = summary,
+            needsUserKeySetup = needsSetup,
+            configError = if (needsSetup) null else explained,
+            inlineApiSetupVisible = showInline,
+        )
+    }
+
+    fun onSetupKeyDraftChange(value: String) {
+        _state.value = _state.value.copy(
+            setupKeyDraft = value,
+            setupKeyFieldHighlight = false,
+            setupKeyFieldError = null,
+        )
+        if (!DeepSeekApiKeyFormat.isPlausible(value)) {
+            setupKeyPersistJob?.cancel()
+            return
+        }
+        setupKeyPersistJob?.cancel()
+        setupKeyPersistJob = viewModelScope.launch {
+            delay(SETUP_KEY_AUTOSAVE_MS)
+            val current = _state.value.setupKeyDraft
+            if (!DeepSeekApiKeyFormat.isPlausible(current)) return@launch
+            applySetupKey()
+        }
+    }
+
+    fun applySetupKey() {
+        val raw = _state.value.setupKeyDraft.trim()
+        if (!DeepSeekApiKeyFormat.isPlausible(raw)) {
+            _state.value = _state.value.copy(
+                setupKeyFieldHighlight = true,
+                setupKeyFieldError = null,
+            )
+            return
+        }
+        if (_state.value.setupKeySaving) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(
+                setupKeySaving = true,
+                setupKeyFieldError = null,
+            )
+            val result = withContext(Dispatchers.IO) { modelSettings.importDeepSeekApiKey(raw) }
+            val ok = result != DeepSeekKeyImportResult.INVALID
+            refreshConfigSummary()
+            if (ok) {
+                _state.value = _state.value.copy(
+                    setupKeySaving = false,
+                    setupKeyDraft = "",
+                    setupKeyFieldHighlight = false,
+                    setupKeyFieldError = null,
+                    inlineApiSetupVisible = false,
+                )
+                return@launch
+            }
+            _state.value = _state.value.copy(
+                setupKeySaving = false,
+                setupKeyFieldHighlight = true,
+                setupKeyFieldError = AppLocalization.getString(R.string.setup_key_invalid),
+                inlineApiSetupVisible = true,
+            )
+        }
+    }
+
+    private fun needsUserKeySetup(): Boolean {
+        val summary = gateway.configurationSummary()
+        return ApiSetupGate.needsUserKeySetup(
+            savedInApp = modelSettings.readForm().savedInApp,
+            apiKeyConfigured = summary?.isApiKeyConfigured == true,
         )
     }
 
@@ -128,6 +211,15 @@ class ChatViewModel(
     fun sendMessage(text: String): Boolean {
         val trimmed = text.trim()
         if (trimmed.isEmpty() || _state.value.isRunning) return false
+        if (needsUserKeySetup()) {
+            _state.value = _state.value.copy(
+                inlineApiSetupVisible = true,
+                setupKeyFieldHighlight = true,
+                setupKeyFieldError = null,
+                configError = null,
+            )
+            return false
+        }
         val err = gateway.configurationError()
         if (err != null) {
             _state.value = _state.value.copy(configError = UserFacingError.explain(err))
@@ -727,5 +819,6 @@ class ChatViewModel(
 
     companion object {
         private const val STREAM_FLUSH_MS = 80L
+        private const val SETUP_KEY_AUTOSAVE_MS = 350L
     }
 }

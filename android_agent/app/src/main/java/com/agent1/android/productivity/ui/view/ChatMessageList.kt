@@ -44,6 +44,8 @@ internal fun ChatMessageList(
     onOpenSettings: (() -> Unit)? = null,
     /** 列表顶部额外留白，给顶栏渐变让出位置。 */
     topContentPadding: Dp = 8.dp,
+    onSetupKeyDraftChange: (String) -> Unit = {},
+    onSubmitSetupKey: () -> Unit = {},
 ) {
     val visibleLines = state.lines.filterNot { it.hideInChat }
     val lazyRows = remember(visibleLines, state.workspacePath) {
@@ -107,6 +109,7 @@ internal fun ChatMessageList(
         state.streamingText,
         state.streamingReasoning,
         state.isRunning,
+        state.inlineApiSetupVisible,
     ) {
         if (!followTail.value || !didAnchor.value) return@LaunchedEffect
         listState.followBottomByScroll()
@@ -128,7 +131,8 @@ internal fun ChatMessageList(
         state.runTimeline.isEmpty() &&
         state.streamingText.isEmpty() &&
         state.streamingReasoning.isEmpty() &&
-        !state.isRunning
+        !state.isRunning &&
+        !state.inlineApiSetupVisible
     if (showEmptyHint) {
         EmptyChatHint(modifier)
         return
@@ -241,6 +245,19 @@ internal fun ChatMessageList(
                 item(key = "run-token-summary") {
                     RunTokenSummaryRow(summary)
                 }
+            }
+        }
+        if (state.inlineApiSetupVisible) {
+            item(key = "inline-api-setup") {
+                ApiSetupInlineCard(
+                    draft = state.setupKeyDraft,
+                    isSaving = state.setupKeySaving,
+                    fieldHighlight = state.setupKeyFieldHighlight,
+                    fieldErrorText = state.setupKeyFieldError,
+                    onDraftChange = onSetupKeyDraftChange,
+                    onSubmitDraft = onSubmitSetupKey,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
         }
     }

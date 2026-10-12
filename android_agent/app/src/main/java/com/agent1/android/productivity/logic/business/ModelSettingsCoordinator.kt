@@ -1,6 +1,8 @@
 package com.agent1.android.productivity.logic.business
 
 import android.content.Context
+import java.net.HttpURLConnection
+import java.net.URL
 import com.agent1.javaagent.config.AgentRuntimeConfig
 import com.agent1.javaagent.config.AgentRuntimeDefaults
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
@@ -63,6 +65,43 @@ class ModelSettingsCoordinator(context: Context) {
         PROVIDER_ZHIPU_CODING -> catalogService.zhipuCodingFallback()
         PROVIDER_DEEPSEEK -> catalogService.deepseekFallback()
         else -> catalogService.bundledFallback()
+    }
+
+    fun importDeepSeekApiKey(raw: String): DeepSeekKeyImportResult {
+        if (!DeepSeekApiKeyFormat.isPlausible(raw)) {
+            return DeepSeekKeyImportResult.INVALID
+        }
+        val key = DeepSeekApiKeyFormat.normalize(raw)
+        val current = readForm()
+        val form = current.copy(
+            providerId = PROVIDER_DEEPSEEK,
+            baseUrl = DEFAULT_DEEPSEEK_BASE_URL,
+            apiKey = key,
+            modelId = current.modelId.ifBlank { DEFAULT_DEEPSEEK_MODEL },
+            savedInApp = true,
+        )
+        saveAndReload(form)
+        return if (probeDeepSeekKey(key)) {
+            DeepSeekKeyImportResult.SAVED_OK
+        } else {
+            DeepSeekKeyImportResult.SAVED_UNVERIFIED
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun probeDeepSeekKey(apiKey: String): Boolean {
+        val conn = URL("https://api.deepseek.com/models").openConnection() as HttpURLConnection
+        return try {
+            conn.connectTimeout = 8_000
+            conn.readTimeout = 8_000
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Authorization", "Bearer $apiKey")
+            conn.responseCode in 200..299
+        } catch (_: Exception) {
+            false
+        } finally {
+            conn.disconnect()
+        }
     }
 
     fun saveAndReload(form: ModelSettingsForm): String? {

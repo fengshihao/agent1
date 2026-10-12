@@ -1,5 +1,6 @@
 package com.agent1.android
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -41,6 +42,11 @@ class MainActivity : ComponentActivity() {
             )
             CrashGateUi.bind(this, emergency, showContinue = false)
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
     }
 
     private fun openMainCompose() {

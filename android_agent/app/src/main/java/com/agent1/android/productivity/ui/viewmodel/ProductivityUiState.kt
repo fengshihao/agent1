@@ -128,6 +128,15 @@ data class ChatUiState(
     val runActivityLabel: String? = null,
     val isRunning: Boolean = false,
     val configError: String? = null,
+    /** 尚未在 App 内保存 Key；首条消息后在列表里展示引导卡。 */
+    val needsUserKeySetup: Boolean = false,
+    /** 用户已发过消息、但尚未配置 Key 时，在对话列表底部展示引导卡。 */
+    val inlineApiSetupVisible: Boolean = false,
+    val setupKeyDraft: String = "",
+    val setupKeySaving: Boolean = false,
+    /** 未填 Key 就发送时，输入框红色高亮。 */
+    val setupKeyFieldHighlight: Boolean = false,
+    val setupKeyFieldError: String? = null,
     val configSummary: RuntimeConfigSummary? = null,
     val exportInProgress: Boolean = false,
     val exportMessage: String? = null,
