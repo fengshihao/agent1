@@ -58,6 +58,28 @@ class AskUserToolTest {
     }
 
     @Test
+    void workspaceFilesQuestionAccepted() throws Exception {
+        ObjectNode params = MAPPER.createObjectNode();
+        ArrayNode questions = MAPPER.createArrayNode();
+        ObjectNode q1 = MAPPER.createObjectNode();
+        q1.put("id", "files");
+        q1.put("prompt", "请选择要处理的文件");
+        q1.put("type", "workspace_files");
+        q1.put("required", true);
+        ArrayNode options = MAPPER.createArrayNode();
+        options.add("3");
+        q1.set("options", options);
+        questions.add(q1);
+        params.set("questions", questions);
+
+        ToolExecutionResult result = tool.execute("tc1", params, new CancellationToken(), u -> {
+        });
+
+        assertTrue(result.stopRunWaitingUser());
+        assertEquals("workspace_files", result.getDetails().path("questions").get(0).path("type").asText());
+    }
+
+    @Test
     void ratingQuestionNormalizesMinMax() throws Exception {
         ObjectNode params = MAPPER.createObjectNode();
         ArrayNode questions = MAPPER.createArrayNode();

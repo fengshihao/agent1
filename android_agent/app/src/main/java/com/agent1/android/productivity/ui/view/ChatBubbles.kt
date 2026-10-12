@@ -130,20 +130,11 @@ internal fun MessageBubble(
                                     )
                                 }
                                 if (showPickFiles && line.requestUserPickFiles) {
-                                    IconButton(
-                                        onClick = onPickFiles,
+                                    UserFilePickFilesCallToAction(
+                                        hint = line.userPickFilesHint,
                                         enabled = pickFilesEnabled,
-                                        modifier = Modifier
-                                            .padding(top = 4.dp)
-                                            .size(32.dp),
-                                    ) {
-                                        Icon(
-                                            AgentIcons.AttachFile,
-                                            contentDescription = "选择文件",
-                                            modifier = Modifier.size(16.dp),
-                                            tint = MaterialTheme.colorScheme.primary,
-                                        )
-                                    }
+                                        onClick = onPickFiles,
+                                    )
                                 }
                             }
                         }

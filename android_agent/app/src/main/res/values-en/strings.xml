@@ -18,6 +18,14 @@
     <string name="chat_empty_title">Start with a message</string>
     <string name="chat_empty_subtitle">Open past chats from the top-left</string>
     <string name="chat_selected_files">Selected files (this chat)</string>
+    <string name="chat_selected_files_count">Selected · %1$d</string>
+    <string name="chat_remove_file_cd">Remove %1$s</string>
+    <string name="chat_pick_files_hint_default">Pick files from this device for this chat</string>
+    <string name="chat_pick_files_hint_max">Up to %1$d</string>
+    <string name="workspace_picker_selected_title">Selected for this question · %1$d</string>
+    <string name="workspace_picker_empty_hint">Select files from the workspace tree below</string>
+    <string name="workspace_picker_limit">Select up to %1$d files</string>
+    <string name="workspace_picker_unavailable">Workspace not ready — try again shortly</string>
     <string name="chat_drawer_loading">Loading…</string>
     <string name="chat_drawer_empty">No chats yet</string>
     <string name="chat_delete_session_title">Delete chat</string>

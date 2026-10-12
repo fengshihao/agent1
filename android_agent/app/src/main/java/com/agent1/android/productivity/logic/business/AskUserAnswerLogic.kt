@@ -17,12 +17,14 @@ object AskUserAnswerLogic {
         singleChoice: Map<String, String>,
         multiChoice: Map<String, Set<String>>,
         customAnswers: Map<String, String>,
+        workspaceFiles: Map<String, Set<String>> = emptyMap(),
     ): String {
         val custom = customText(question.id, customAnswers)
         if (custom.isNotEmpty()) return custom
         return when (question.type) {
             "single_choice" -> singleChoice[question.id]?.trim().orEmpty()
             "multi_choice" -> multiChoice[question.id]?.joinToString("、")?.trim().orEmpty()
+            "workspace_files" -> workspaceFiles[question.id]?.joinToString(", ")?.trim().orEmpty()
             else -> textAnswers[question.id]?.trim().orEmpty()
         }
     }
@@ -33,7 +35,15 @@ object AskUserAnswerLogic {
         singleChoice: Map<String, String>,
         multiChoice: Map<String, Set<String>>,
         customAnswers: Map<String, String>,
+        workspaceFiles: Map<String, Set<String>> = emptyMap(),
     ): Boolean {
-        return resolveAnswer(question, textAnswers, singleChoice, multiChoice, customAnswers).isNotBlank()
+        return resolveAnswer(
+            question,
+            textAnswers,
+            singleChoice,
+            multiChoice,
+            customAnswers,
+            workspaceFiles,
+        ).isNotBlank()
     }
 }

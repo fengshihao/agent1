@@ -31,7 +31,8 @@ public final class AskUserTool implements AgentTool {
         return """
             Ask the user structured clarifying questions and pause the run until they reply.
             Use when required information is missing (e.g. travel origin, dates, budget).
-            Question types: text, single_choice, multi_choice (options required), rating (min/max integers for scores).
+            Question types: text, single_choice, multi_choice (options required), rating (min/max integers for scores),
+            workspace_files (pick files from session workspace; optional options[0] = max file count).
             Host UI lets the user pick structured options or type a custom answer per question (either/or).
             Do not call other tools in the same turn after ask_user; do not invent answers.
             """.trim();
@@ -65,7 +66,10 @@ public final class AskUserTool implements AgentTool {
             "type",
             MAPPER.createObjectNode()
                 .put("type", "string")
-                .put("description", "text | single_choice | multi_choice | rating (numeric scale)")
+                .put(
+                    "description",
+                    "text | single_choice | multi_choice | rating (numeric scale) | workspace_files"
+                )
         );
         qProps.set("min", MAPPER.createObjectNode().put("type", "integer").put("description", "rating 下限，默认 1"));
         qProps.set("max", MAPPER.createObjectNode().put("type", "integer").put("description", "rating 上限，默认 5"));
@@ -131,7 +135,8 @@ public final class AskUserTool implements AgentTool {
             if (!qType.equals("text")
                 && !qType.equals("single_choice")
                 && !qType.equals("multi_choice")
-                && !qType.equals("rating")) {
+                && !qType.equals("rating")
+                && !qType.equals("workspace_files")) {
                 return ToolExecutionResult.text("错误：question id=" + id + " 的 type 无效: " + qType);
             }
             JsonNode options = q.get("options");

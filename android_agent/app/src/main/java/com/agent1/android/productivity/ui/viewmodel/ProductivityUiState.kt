@@ -3,7 +3,9 @@ package com.agent1.android.productivity.ui.viewmodel
 import com.agent1.android.productivity.logic.business.ArtifactLibraryFilter
 import com.agent1.android.productivity.logic.business.AskUserFormState
 import com.agent1.android.productivity.logic.business.AskUserFormatting
+import com.agent1.android.productivity.logic.business.SessionAccessibleFilesStore
 import com.agent1.android.productivity.logic.business.UsageOverview
+import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
 
@@ -103,6 +105,7 @@ data class ChatLine(
     val workspaceFilePaths: List<String> = emptyList(),
     /** 助手消息含 [需要用户选文件] 等标记时，展示「选择文件」按钮。 */
     val requestUserPickFiles: Boolean = false,
+    val userPickFilesHint: UserFileRequestMarkers.Hint? = null,
     /** 历史消息中的 ask_user 摘要（只读）。 */
     val askUserForm: AskUserFormatting.Request? = null,
     /** 运行时注入的系统提示（如单轮往返上限），渲染为醒目通知卡而非普通用户气泡。 */
@@ -131,6 +134,7 @@ data class ChatUiState(
     val transcriptLoadError: String? = null,
     /** 本会话用户已导入、可供 AI read_file 的路径。 */
     val accessibleFilePaths: List<String> = emptyList(),
+    val accessibleFileEntries: List<SessionAccessibleFilesStore.Entry> = emptyList(),
     val fileImportMessage: String? = null,
     /** 当前待回复的 ask_user 表单（对话列表与输入框之间，限高可滚动）。 */
     val pendingAskUser: AskUserFormState? = null,

@@ -15,4 +15,10 @@ object AskUserQuestionUi {
         if (min >= max) return null
         return RatingScale(min, max)
     }
+
+    /** `workspace_files` 题型：options 首项为最大可选数量（缺省不限）。 */
+    fun workspaceMaxFiles(question: AskUserFormatting.Question): Int? {
+        if (question.type != "workspace_files") return null
+        return question.options.firstOrNull()?.toIntOrNull()?.coerceAtLeast(1)
+    }
 }

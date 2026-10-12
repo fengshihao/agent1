@@ -120,6 +120,22 @@ class ProductivityAgentGateway(
         SessionAccessibleFilesStore.listRelativePaths(appContext, sessionId)
     }
 
+    fun listAccessibleFileEntries(sessionId: String): List<SessionAccessibleFilesStore.Entry> = execute {
+        SessionAccessibleFilesStore.listEntries(appContext, sessionId)
+    }
+
+    fun removeAccessibleFiles(sessionId: String, paths: List<String>): List<String> = execute {
+        if (paths.isEmpty()) return@execute listAccessibleFilePaths(sessionId)
+        val agentHost = ensureHost()
+        prepareSession(sessionId)
+        SessionAccessibleFilesStore.removeEntries(appContext, sessionId, paths)
+        agentHost.setSessionEnvironmentSupplement(
+            SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
+        )
+        agentHost.switchSession(sessionId)
+        SessionAccessibleFilesStore.listRelativePaths(appContext, sessionId)
+    }
+
     /**
      * 用户从系统文件选择器导入到 workspace/imports/，更新可访问列表与 transcript，不触发 LLM。
      */

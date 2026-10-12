@@ -57,12 +57,15 @@ import com.agent1.android.productivity.logic.business.AskUserQuestionUi
 @Composable
 fun AskUserFormPanel(
     form: AskUserFormState,
+    workspaceAbsolutePath: String,
     enabled: Boolean,
     validationError: String?,
     onTextChange: (questionId: String, value: String) -> Unit,
     onSingleSelect: (questionId: String, option: String) -> Unit,
     onMultiToggle: (questionId: String, option: String) -> Unit,
     onCustomAnswerChange: (questionId: String, value: String) -> Unit,
+    onWorkspaceFileToggle: (questionId: String, relativePath: String) -> Unit,
+    onWorkspaceFileRemove: (questionId: String, relativePath: String) -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -143,15 +146,19 @@ fun AskUserFormPanel(
                         ) {
                             AskUserQuestionField(
                                 question = currentQuestion,
+                                workspaceAbsolutePath = workspaceAbsolutePath,
                                 textValue = form.textAnswers[currentQuestion.id].orEmpty(),
                                 singleSelected = form.singleChoice[currentQuestion.id],
                                 multiSelected = form.multiChoice[currentQuestion.id].orEmpty(),
+                                workspaceSelected = form.workspaceFiles[currentQuestion.id].orEmpty(),
                                 customValue = form.customAnswers[currentQuestion.id].orEmpty(),
                                 enabled = enabled,
                                 onTextChange = { onTextChange(currentQuestion.id, it) },
                                 onSingleSelect = { onSingleSelect(currentQuestion.id, it) },
                                 onMultiToggle = { onMultiToggle(currentQuestion.id, it) },
                                 onCustomAnswerChange = { onCustomAnswerChange(currentQuestion.id, it) },
+                                onWorkspaceFileToggle = { onWorkspaceFileToggle(currentQuestion.id, it) },
+                                onWorkspaceFileRemove = { onWorkspaceFileRemove(currentQuestion.id, it) },
                             )
                         }
                         if (onLastQuestion && enabled && missingRequiredIndex != null) {
@@ -325,9 +332,11 @@ private fun QuestionHeader(
 @Composable
 private fun AskUserQuestionField(
     question: AskUserFormatting.Question,
+    workspaceAbsolutePath: String,
     textValue: String,
     singleSelected: String?,
     multiSelected: Set<String>,
+    workspaceSelected: Set<String>,
     customValue: String,
     enabled: Boolean,
     modifier: Modifier = Modifier,
@@ -335,6 +344,8 @@ private fun AskUserQuestionField(
     onSingleSelect: (String) -> Unit,
     onMultiToggle: (String) -> Unit,
     onCustomAnswerChange: (String) -> Unit,
+    onWorkspaceFileToggle: (String) -> Unit,
+    onWorkspaceFileRemove: (String) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
     val ratingScale = AskUserQuestionUi.ratingScale(question)
@@ -349,6 +360,16 @@ private fun AskUserQuestionField(
                 onValue = onTextChange,
             )
         } else if (ratingScale == null) when (question.type) {
+            "workspace_files" -> {
+                WorkspaceFilePickerField(
+                    question = question,
+                    workspaceAbsolutePath = workspaceAbsolutePath,
+                    selectedPaths = workspaceSelected,
+                    enabled = enabled && !hasCustom,
+                    onTogglePath = onWorkspaceFileToggle,
+                    onRemoveSelected = onWorkspaceFileRemove,
+                )
+            }
             "single_choice" -> {
                 question.options.forEach { option ->
                     SingleChoiceRow(
@@ -406,7 +427,7 @@ private fun AskUserQuestionField(
 }
 
 private fun shouldShowCustomAnswerField(question: AskUserFormatting.Question): Boolean {
-    return question.type != "text"
+    return question.type != "text" && question.type != "workspace_files"
 }
 
 @Composable

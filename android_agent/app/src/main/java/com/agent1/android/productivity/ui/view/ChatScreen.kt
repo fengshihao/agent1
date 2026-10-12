@@ -214,11 +214,14 @@ fun ChatScreen(
                     pendingAsk?.let { form ->
                         AskUserFormPanel(
                             form = form,
+                            workspaceAbsolutePath = state.workspacePath,
                             enabled = state.configError == null && !state.isRunning,
                             validationError = form.validationError,
                             onTextChange = viewModel::onAskUserTextChange,
                             onSingleSelect = viewModel::onAskUserSingleSelect,
                             onMultiToggle = viewModel::onAskUserMultiToggle,
+                            onWorkspaceFileToggle = viewModel::onAskUserWorkspaceFileToggle,
+                            onWorkspaceFileRemove = viewModel::onAskUserWorkspaceFileRemove,
                             onSubmit = viewModel::submitAskUserForm,
                             onCustomAnswerChange = viewModel::onAskUserCustomAnswerChange,
                             modifier = Modifier
@@ -250,8 +253,13 @@ fun ChatScreen(
                         if (viewModel.sendMessage(input)) input = ""
                     },
                     onStop = { viewModel.stopRun() },
-                    header = if (state.accessibleFilePaths.isNotEmpty()) {
-                        { AccessibleFilesStrip(paths = state.accessibleFilePaths) }
+                    header = if (state.accessibleFileEntries.isNotEmpty()) {
+                        {
+                            AccessibleFilesPanel(
+                                entries = state.accessibleFileEntries,
+                                onRemove = viewModel::removeAccessibleFile,
+                            )
+                        }
                     } else {
                         null
                     },
@@ -264,28 +272,6 @@ fun ChatScreen(
                 AgentTopFade(Modifier.align(Alignment.TopCenter))
             }
         }
-    }
-}
-
-@Composable
-private fun AccessibleFilesStrip(paths: List<String>) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    ) {
-        Text(
-            stringResource(R.string.chat_selected_files),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            paths.joinToString(" · "),
-            modifier = Modifier.padding(top = 2.dp),
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 
