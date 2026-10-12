@@ -39,9 +39,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.agent1.android.productivity.logic.business.ElementSelectorBuilder
 import com.agent1.android.productivity.logic.business.HtmlInspectParser
@@ -62,6 +65,9 @@ import com.agent1.android.productivity.ui.viewmodel.HtmlPreviewViewModel
  * 面板内直接输入修改意见，「反馈给 AI」**立即发送**（不跳回聊天页）。
  * 发送后留在预览页，AI 修改文件后经 [WorkspaceFileWatcher] 防抖 reload（REQ-123），
  * 形成「预览 → 点选 → 反馈 → AI 修改 → 热更新」闭环。
+ *
+ * 离开前台（返回对话 / 进后台）时经 [HtmlPreviewWebViewLifecycle] 先停 audio/video，
+ * 再 blank 并 destroy，避免 WebView 被 Compose 短暂缓存时音乐继续播。
  */
 @Composable
 fun HtmlPreviewScreen(
@@ -85,9 +91,27 @@ fun HtmlPreviewScreen(
     var selectedElement by remember { mutableStateOf<InspectedElement?>(null) }
     var opinion by remember { mutableStateOf("") }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    var webViewHost by remember { mutableStateOf<HtmlPreviewWebViewHost?>(null) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val scope = rememberCoroutineScope()
     val chatState = chatViewModel?.state?.collectAsState()?.value
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(webViewHost, lifecycleOwner) {
+        val host = webViewHost ?: return@DisposableEffect onDispose { }
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> HtmlPreviewWebViewLifecycle.pause(host)
+                Lifecycle.Event.ON_RESUME -> HtmlPreviewWebViewLifecycle.resume(host)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            HtmlPreviewWebViewLifecycle.pause(host)
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -275,11 +299,14 @@ fun HtmlPreviewScreen(
                             }
                             loadUrl(file.toURI().toString())
                             webView = this
+                            webViewHost = HtmlPreviewWebViewHost(this)
                         }
                     },
-                    onRelease = {
+                    onRelease = { view ->
                         webView = null
-                        it.destroy()
+                        val host = webViewHost ?: HtmlPreviewWebViewHost(view)
+                        webViewHost = null
+                        HtmlPreviewWebViewLifecycle.release(host)
                     },
                 )
                 loadError?.let { message ->

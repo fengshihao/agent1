@@ -120,6 +120,8 @@ assets/logic.business 常量  inspect.js（审查模式注入脚本，非 Androi
 
 **REQ-123**：预览页打开期间文件被重写 → 页面自动刷新为新内容，无需用户手动操作。
 
+**REQ-125**：离开预览前台（返回对话 / Activity `onPause`）时先暂停页面内 `audio`/`video` 并 `WebView.onPause()`，再 `about:blank` + `destroy`。不得只调 `destroy`（Chromium 可能继续播）；不得调 `pauseTimers()`（进程级，会冻住无头 `webview_exec`）。
+
 **REQ-124**（可选增强，本期允许不做）：审查模式多选累计（一次反馈多个元素）与「问题截图随附」。
 
 ---
@@ -138,7 +140,7 @@ assets/logic.business 常量  inspect.js（审查模式注入脚本，非 Androi
 
 | 层级 | 命令 / 类 | 覆盖 |
 |------|-----------|------|
-| Android unit (JVM) | `ChatTranscriptFormattingTest`（+html 用例）、`ElementSelectorBuilderTest`、`InspectFeedbackComposerTest`、`WorkspaceFileWatcherTest` | A/B/C |
+| Android unit (JVM) | `ChatTranscriptFormattingTest`（+html 用例）、`ElementSelectorBuilderTest`、`InspectFeedbackComposerTest`、`WorkspaceFileWatcherTest`、`HtmlPreviewWebViewLifecycleTest` | A/B/C + 离开前台停媒体 |
 | Android instrumented | `HtmlPreviewInstrumentedTest`（加载 + 注入回传 + 自动刷新）、既有 Open/Share 测不回退 | A/B/C |
 | VM 回归 | `:app:testDebugUnitTest` + `ChatRunActivityTest` 新增草稿回填 | B |
 | 仓库脚本 | `./check-android-agent-static.sh`（分层）、`./scripts/ci-local.sh full` | 全部 |
