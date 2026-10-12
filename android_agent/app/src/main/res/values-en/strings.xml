@@ -18,6 +18,14 @@
     <string name="chat_empty_title">Start with a message</string>
     <string name="chat_empty_subtitle">Open past chats from the top-left</string>
     <string name="chat_selected_files">Selected files (this chat)</string>
+    <string name="chat_selected_files_count">Selected · %1$d</string>
+    <string name="chat_remove_file_cd">Remove %1$s</string>
+    <string name="chat_pick_files_hint_default">Pick files from this device for this chat</string>
+    <string name="chat_pick_files_hint_max">Up to %1$d</string>
+    <string name="workspace_picker_selected_title">Selected for this question · %1$d</string>
+    <string name="workspace_picker_empty_hint">Select files from the workspace tree below</string>
+    <string name="workspace_picker_limit">Select up to %1$d files</string>
+    <string name="workspace_picker_unavailable">Workspace not ready — try again shortly</string>
     <string name="chat_drawer_loading">Loading…</string>
     <string name="chat_drawer_empty">No chats yet</string>
     <string name="chat_delete_session_title">Delete chat</string>
@@ -26,6 +34,11 @@
     <string name="chat_already_new_session">This is already a new chat</string>
     <string name="chat_model_cd">Model %1$s — open model settings</string>
     <string name="chat_add_attachment">Add attachment</string>
+    <string name="chat_attachments_cd_count">Attachments, %1$d selected</string>
+    <string name="chat_attachments_sheet_title">Attachments in this chat · %1$d</string>
+    <string name="chat_attachments_assistant_banner">The assistant is waiting for files</string>
+    <string name="chat_attachments_empty">No attachments yet. Pick files from this device for the AI to read in this chat.</string>
+    <string name="chat_attachments_add_from_device">Add from device</string>
     <string name="chat_select_file">Choose file</string>
 
     <string name="cd_session_list">Chat list</string>

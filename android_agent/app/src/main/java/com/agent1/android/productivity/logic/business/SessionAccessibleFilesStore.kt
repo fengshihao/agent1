@@ -67,6 +67,15 @@ object SessionAccessibleFilesStore {
         write(dir, existing.values.toList())
     }
 
+    fun removeEntries(context: Context, sessionId: String, paths: List<String>) {
+        if (paths.isEmpty()) return
+        val dir = sessionDir(context, sessionId) ?: return
+        val drop = paths.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+        if (drop.isEmpty()) return
+        val remaining = listEntries(context, sessionId).filter { it.workspaceRelativePath !in drop }
+        write(dir, remaining)
+    }
+
     fun formatForSystemPrompt(context: Context, sessionId: String): String {
         val entries = listEntries(context, sessionId)
         if (entries.isEmpty()) return ""

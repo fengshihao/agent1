@@ -27,6 +27,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
+import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.RunTokenSummary
@@ -35,8 +36,8 @@ import com.agent1.android.productivity.ui.viewmodel.RunTokenSummary
 @Composable
 internal fun ChatMessageList(
     state: ChatUiState,
-    onPickFiles: () -> Unit,
-    pickFilesEnabled: Boolean,
+    onOpenAttachments: (UserFileRequestMarkers.Hint?) -> Unit,
+    attachmentsActionEnabled: Boolean,
     modifier: Modifier = Modifier,
     onOpenInApp: ((String) -> Unit)? = null,
     /** 系统提示卡（单轮往返上限等）「设置页」链接的跳转。 */
@@ -158,8 +159,8 @@ internal fun ChatMessageList(
                         workspacePath = state.workspacePath,
                         markdown = useMarkdown,
                         reasoningStateKey = line.stableKey.ifBlank { "line-$index" },
-                        onPickFiles = onPickFiles,
-                        pickFilesEnabled = pickFilesEnabled,
+                        onOpenAttachments = onOpenAttachments,
+                        attachmentsActionEnabled = attachmentsActionEnabled,
                         onOpenInApp = onOpenInApp,
                         onOpenSettings = onOpenSettings,
                         skipTrailingImagePreviews = row.skipTrailingImagePreviews,
@@ -203,8 +204,8 @@ internal fun ChatMessageList(
                         workspacePath = state.workspacePath,
                         markdown = ChatTranscriptFormatting.shouldRenderAsMarkdown(item.content),
                         reasoningStateKey = item.id,
-                        onPickFiles = onPickFiles,
-                        pickFilesEnabled = false,
+                        onOpenAttachments = onOpenAttachments,
+                        attachmentsActionEnabled = false,
                         onOpenInApp = onOpenInApp,
                         showReasoning = false,
                     )
@@ -229,8 +230,8 @@ internal fun ChatMessageList(
                     workspacePath = state.workspacePath,
                     markdown = false,
                     reasoningStateKey = "assistant-streaming-${state.sessionId}",
-                    onPickFiles = onPickFiles,
-                    pickFilesEnabled = false,
+                    onOpenAttachments = onOpenAttachments,
+                    attachmentsActionEnabled = false,
                     onOpenInApp = onOpenInApp,
                 )
             }

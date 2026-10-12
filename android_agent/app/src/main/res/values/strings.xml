@@ -20,6 +20,14 @@
     <string name="chat_empty_title">从一条消息开始</string>
     <string name="chat_empty_subtitle">左上角可以打开已有会话</string>
     <string name="chat_selected_files">已选文件（本会话）</string>
+    <string name="chat_selected_files_count">已选文件 · %1$d</string>
+    <string name="chat_remove_file_cd">移除 %1$s</string>
+    <string name="chat_pick_files_hint_default">从本机选择文件并加入本会话</string>
+    <string name="chat_pick_files_hint_max">最多 %1$d 个</string>
+    <string name="workspace_picker_selected_title">本题已选 · %1$d</string>
+    <string name="workspace_picker_empty_hint">在下方工作区目录中勾选文件</string>
+    <string name="workspace_picker_limit">最多选择 %1$d 个文件</string>
+    <string name="workspace_picker_unavailable">工作区尚未就绪，请稍后再试</string>
     <string name="chat_drawer_loading">加载中…</string>
     <string name="chat_drawer_empty">还没有对话</string>
     <string name="chat_delete_session_title">删除对话</string>
@@ -28,6 +36,11 @@
     <string name="chat_already_new_session">当前已经是新会话</string>
     <string name="chat_model_cd">当前模型 %1$s，打开模型设置</string>
     <string name="chat_add_attachment">添加附件</string>
+    <string name="chat_attachments_cd_count">附件，已选 %1$d 个</string>
+    <string name="chat_attachments_sheet_title">本会话附件 · %1$d</string>
+    <string name="chat_attachments_assistant_banner">助手正在等待您添加文件</string>
+    <string name="chat_attachments_empty">还没有附件。可从本机选择文件，供 AI 在本对话中读取。</string>
+    <string name="chat_attachments_add_from_device">从本机添加</string>
     <string name="chat_select_file">选择文件</string>
 
     <string name="cd_session_list">会话列表</string>

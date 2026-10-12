@@ -16,6 +16,7 @@ import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import org.json.JSONObject
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
+import com.agent1.android.productivity.logic.business.SessionAccessibleFilesStore
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.i18n.AppLocalization
@@ -90,7 +91,7 @@ class ChatViewModel(
             val built = withContext(Dispatchers.IO) {
                 val messages = gateway.loadTranscript(sessionId)
                 val ws = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
-                val accessible = gateway.listAccessibleFilePaths(sessionId)
+                val accessibleEntries = gateway.listAccessibleFileEntries(sessionId)
                 val pending = AskUserPendingDetector.detectPendingRequest(messages)
                 val toolCallsById = indexToolCalls(messages)
                 val lines = messages
@@ -99,12 +100,14 @@ class ChatViewModel(
                     .mapIndexed { index, line ->
                     line.copy(stableKey = "transcript-$index-${line.role}")
                 }
-                Triple(lines, accessible, pending)
+                data class Loaded(val lines: List<ChatLine>, val entries: List<SessionAccessibleFilesStore.Entry>, val pending: AskUserFormatting.Request?)
+                Loaded(lines, accessibleEntries, pending)
             }
-            val pendingForm = built.third?.let { initialAskUserForm(it) }
+            val pendingForm = built.pending?.let { initialAskUserForm(it) }
             _state.value = _state.value.copy(
-                lines = built.first,
-                accessibleFilePaths = built.second,
+                lines = built.lines,
+                accessibleFilePaths = built.entries.map { it.workspaceRelativePath },
+                accessibleFileEntries = built.entries,
                 streamingText = "",
                 streamingReasoning = "",
                 runTimeline = emptyList(),
@@ -551,6 +554,7 @@ class ChatViewModel(
         val askRequest = askCall?.let { AskUserFormatting.parseRequestFromToolCall(it) }
         val files = ChatTranscriptFormatting.mergeWorkspaceFilePaths(content, emptyList(), workspaceRoot)
         val pick = role == AgentMessage.ROLE_ASSISTANT && UserFileRequestMarkers.containsRequest(content)
+        val pickHint = if (pick) UserFileRequestMarkers.parseHint(content) else null
         val isSystemNotice = role == AgentMessage.ROLE_USER &&
             content.trim() == com.agent1.javaagent.core.RunOutcome.progressSummaryUserPrompt()
         val baseDisplay = if (pick) {
@@ -583,6 +587,7 @@ class ChatViewModel(
                 isTool = false,
                 workspaceFilePaths = files,
                 requestUserPickFiles = pick,
+                userPickFilesHint = pickHint,
                 askUserForm = askRequest,
                 isSystemNotice = isSystemNotice,
             ),
@@ -607,6 +612,39 @@ class ChatViewModel(
     fun onAskUserCustomAnswerChange(questionId: String, value: String) {
         val form = _state.value.pendingAskUser ?: return
         _state.value = _state.value.copy(pendingAskUser = form.withCustomAnswer(questionId, value))
+    }
+
+    fun onAskUserWorkspaceFileToggle(questionId: String, relativePath: String) {
+        val form = _state.value.pendingAskUser ?: return
+        val question = form.request.questions.firstOrNull { it.id == questionId } ?: return
+        val max = com.agent1.android.productivity.logic.business.AskUserQuestionUi.workspaceMaxFiles(question)
+        _state.value = _state.value.copy(
+            pendingAskUser = form.withWorkspaceFileToggle(questionId, relativePath, max),
+        )
+    }
+
+    fun onAskUserWorkspaceFileRemove(questionId: String, relativePath: String) {
+        val form = _state.value.pendingAskUser ?: return
+        _state.value = _state.value.copy(
+            pendingAskUser = form.withoutWorkspaceFile(questionId, relativePath),
+        )
+    }
+
+    fun removeAccessibleFile(relativePath: String) {
+        if (relativePath.isBlank() || _state.value.isRunning) return
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    gateway.removeAccessibleFiles(sessionId, listOf(relativePath))
+                }
+            }.onSuccess {
+                loadTranscriptIntoState(initialLoad = false)
+            }.onFailure { error ->
+                _state.value = _state.value.copy(
+                    fileImportMessage = UserFacingError.explain(error.message ?: error.javaClass.simpleName),
+                )
+            }
+        }
     }
 
     fun submitAskUserForm() {

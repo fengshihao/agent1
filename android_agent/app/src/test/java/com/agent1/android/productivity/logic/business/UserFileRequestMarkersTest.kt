@@ -1,5 +1,6 @@
 package com.agent1.android.productivity.logic.business
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -21,5 +22,12 @@ class UserFileRequestMarkersTest {
     @Test
     fun noMarker() {
         assertFalse(UserFileRequestMarkers.containsRequest("请把文件放到 imports/"))
+    }
+
+    @Test
+    fun parseHint_readsKindsAndMax() {
+        val hint = UserFileRequestMarkers.parseHint("[需要用户选文件: pdf,最多3个]\n请添加。")
+        assertEquals("pdf", hint?.kinds)
+        assertEquals(3, hint?.maxCount)
     }
 }

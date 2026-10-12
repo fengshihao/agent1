@@ -10,6 +10,7 @@ object AskUserReplyFormatter {
             form.singleChoice,
             form.multiChoice,
             form.customAnswers,
+            form.workspaceFiles,
         )
     }
 
@@ -19,6 +20,7 @@ object AskUserReplyFormatter {
         singleChoice: Map<String, String>,
         multiChoice: Map<String, Set<String>>,
         customAnswers: Map<String, String> = emptyMap(),
+        workspaceFiles: Map<String, Set<String>> = emptyMap(),
     ): String {
         return buildString {
             appendLine("【ask_user 回复】")
@@ -31,6 +33,7 @@ object AskUserReplyFormatter {
                     singleChoice,
                     multiChoice,
                     customAnswers,
+                    workspaceFiles,
                 )
                 appendLine("- [${q.id}] ${q.prompt}")
                 appendLine("  ${answer.ifBlank { "（未填写）" }}")
@@ -45,10 +48,18 @@ object AskUserReplyFormatter {
         singleChoice: Map<String, String>,
         multiChoice: Map<String, Set<String>>,
         customAnswers: Map<String, String> = emptyMap(),
+        workspaceFiles: Map<String, Set<String>> = emptyMap(),
     ): String? {
         for (q in request.questions) {
             if (!q.required) continue
-            val ok = AskUserAnswerLogic.isAnswered(q, textAnswers, singleChoice, multiChoice, customAnswers)
+            val ok = AskUserAnswerLogic.isAnswered(
+                q,
+                textAnswers,
+                singleChoice,
+                multiChoice,
+                customAnswers,
+                workspaceFiles,
+            )
             if (!ok) {
                 return "请完成必答题：${q.prompt}"
             }
@@ -63,10 +74,19 @@ object AskUserReplyFormatter {
         singleChoice: Map<String, String>,
         multiChoice: Map<String, Set<String>>,
         customAnswers: Map<String, String> = emptyMap(),
+        workspaceFiles: Map<String, Set<String>> = emptyMap(),
     ): Int? {
         request.questions.forEachIndexed { index, q ->
             if (!q.required) return@forEachIndexed
-            if (!AskUserAnswerLogic.isAnswered(q, textAnswers, singleChoice, multiChoice, customAnswers)) {
+            if (!AskUserAnswerLogic.isAnswered(
+                    q,
+                    textAnswers,
+                    singleChoice,
+                    multiChoice,
+                    customAnswers,
+                    workspaceFiles,
+                )
+            ) {
                 return index
             }
         }

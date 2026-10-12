@@ -18,6 +18,14 @@
     <string name="chat_empty_title">メッセージから始めましょう</string>
     <string name="chat_empty_subtitle">左上から過去のチャットを開けます</string>
     <string name="chat_selected_files">選択したファイル（このチャット）</string>
+    <string name="chat_selected_files_count">選択 · %1$d</string>
+    <string name="chat_remove_file_cd">%1$s を削除</string>
+    <string name="chat_pick_files_hint_default">端末からファイルを選んでこのチャットに追加</string>
+    <string name="chat_pick_files_hint_max">最大 %1$d 件</string>
+    <string name="workspace_picker_selected_title">この質問の選択 · %1$d</string>
+    <string name="workspace_picker_empty_hint">下のワークスペースからファイルを選択</string>
+    <string name="workspace_picker_limit">最大 %1$d 件まで</string>
+    <string name="workspace_picker_unavailable">ワークスペースの準備ができていません</string>
     <string name="chat_drawer_loading">読み込み中…</string>
     <string name="chat_drawer_empty">チャットはまだありません</string>
     <string name="chat_delete_session_title">チャットを削除</string>
@@ -26,6 +34,11 @@
     <string name="chat_already_new_session">すでに新しいチャットです</string>
     <string name="chat_model_cd">モデル %1$s — 設定を開く</string>
     <string name="chat_add_attachment">添付を追加</string>
+    <string name="chat_attachments_cd_count">添付 · %1$d 件</string>
+    <string name="chat_attachments_sheet_title">このチャットの添付 · %1$d</string>
+    <string name="chat_attachments_assistant_banner">アシスタントがファイルの追加を待っています</string>
+    <string name="chat_attachments_empty">添付はまだありません。端末から選んでこのチャットで AI が読めます。</string>
+    <string name="chat_attachments_add_from_device">端末から追加</string>
     <string name="chat_select_file">ファイルを選択</string>
 
     <string name="cd_session_list">チャット一覧</string>
