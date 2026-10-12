@@ -29,24 +29,25 @@ object WorkspaceBrowser {
         if (!Files.isDirectory(workspaceRoot)) return emptyList()
         val dir = resolveDir(workspaceRoot, relativeDir) ?: return emptyList()
         if (!dir.isDirectory()) return emptyList()
-        return Files.list(dir).use { stream ->
-            stream.map { path ->
+        val entries = mutableListOf<Entry>()
+        Files.list(dir).use { stream ->
+            stream.forEach { path ->
                 val name = path.fileName?.toString().orEmpty()
-                if (name.isEmpty() || name.startsWith(".")) return@map null
+                if (name.isEmpty() || name.startsWith(".")) return@forEach
                 val relative = joinRelative(relativeDir, name)
-                if (isHiddenInTree(relative)) return@map null
-                Entry(
-                    relativePath = relative,
-                    name = name,
-                    isDirectory = path.isDirectory(),
+                if (isHiddenInTree(relative)) return@forEach
+                entries.add(
+                    Entry(
+                        relativePath = relative,
+                        name = name,
+                        isDirectory = path.isDirectory(),
+                    ),
                 )
             }
-                .filterNotNull()
-                .sortedWith(
-                    compareBy<Entry> { !it.isDirectory }.thenBy { it.name.lowercase() },
-                )
-                .toList()
         }
+        return entries.sortedWith(
+            compareBy<Entry> { !it.isDirectory }.thenBy { it.name.lowercase() },
+        )
     }
 
     fun isSelectableFile(workspaceRoot: Path, relativePath: String): Boolean {
