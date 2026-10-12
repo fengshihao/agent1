@@ -27,7 +27,11 @@ if [[ -n "${GITHUB_PATH:-}" ]]; then
   echo "${ANDROID_HOME}/platform-tools" >>"${GITHUB_PATH}"
 fi
 
+# sdkmanager 接受完许可证会关掉 stdin，yes 收到 SIGPIPE（退出码 141）。
+# 关掉 pipefail 后流水线状态跟随后一个命令，与原先 ci.yml 内联步骤一致。
+set +o pipefail
 yes | "${SDKM}" --licenses >/dev/null
+set -o pipefail
 "${SDKM}" "platforms;android-34" "platforms;android-35" "build-tools;34.0.0" "ndk;26.1.10909125"
 
 if [[ -n "${GITHUB_ENV:-}" ]]; then

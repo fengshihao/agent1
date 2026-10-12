@@ -20,7 +20,7 @@ Android Debug APK、NDK 与完整 CI 仍以 **GitHub Actions** 为准：[`.githu
 | `android-assemble-debug` | `publishCoreToLocalRepo` + `assembleDebug`（可选 Weizhi native） |
 | `Release`（`release.yml`） | 手动 / 每周 / 每 N commit 打 GitHub Release + Release APK |
 
-推送或更新 PR 后，**务必确认上述 job 全部通过**（Cloud Agent 可用 PR 的 CI 状态工具，或 GitHub Checks 页）。发版说明见 [`doc/发布/GITHUB_RELEASE.md`](发布/GITHUB_RELEASE.md)。
+推送或更新 PR 后，**务必确认 CI 的三个 job 全部通过**（`java-test`、`quality-static`、`android-assemble-debug`）。`Release` 不在 PR 上跑，只在推到 `master`、每周定时或手动触发时发版。发版说明见 [`doc/发布/GITHUB_RELEASE.md`](发布/GITHUB_RELEASE.md)。
 
 ## Cloud Agent 内可跑的校验（无 Gradle）
 
