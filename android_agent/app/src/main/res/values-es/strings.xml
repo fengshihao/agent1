@@ -34,6 +34,11 @@
     <string name="chat_already_new_session">Ya es un chat nuevo</string>
     <string name="chat_model_cd">Modelo %1$s — abrir ajustes</string>
     <string name="chat_add_attachment">Añadir adjunto</string>
+    <string name="chat_attachments_cd_count">Adjuntos, %1$d seleccionados</string>
+    <string name="chat_attachments_sheet_title">Adjuntos en este chat · %1$d</string>
+    <string name="chat_attachments_assistant_banner">El asistente espera que añadas archivos</string>
+    <string name="chat_attachments_empty">Aún no hay adjuntos. Elige archivos del dispositivo para que la IA los lea en este chat.</string>
+    <string name="chat_attachments_add_from_device">Añadir del dispositivo</string>
     <string name="chat_select_file">Elegir archivo</string>
 
     <string name="cd_session_list">Lista de chats</string>

@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
 
 /** 聊天气泡族：消息气泡、工具/思考折叠块与气泡外壳。 */
@@ -47,8 +48,8 @@ internal fun MessageBubble(
     workspacePath: String,
     markdown: Boolean,
     reasoningStateKey: String,
-    onPickFiles: () -> Unit,
-    pickFilesEnabled: Boolean,
+    onOpenAttachments: (UserFileRequestMarkers.Hint?) -> Unit,
+    attachmentsActionEnabled: Boolean,
     onOpenInApp: ((String) -> Unit)? = null,
     /** 系统提示卡上「设置页」链接的跳转；null 时不展示链接。 */
     onOpenSettings: (() -> Unit)? = null,
@@ -132,8 +133,8 @@ internal fun MessageBubble(
                                 if (showPickFiles && line.requestUserPickFiles) {
                                     UserFilePickFilesCallToAction(
                                         hint = line.userPickFilesHint,
-                                        enabled = pickFilesEnabled,
-                                        onClick = onPickFiles,
+                                        enabled = attachmentsActionEnabled,
+                                        onClick = { onOpenAttachments(line.userPickFilesHint) },
                                     )
                                 }
                             }

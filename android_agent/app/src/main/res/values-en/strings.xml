@@ -34,6 +34,11 @@
     <string name="chat_already_new_session">This is already a new chat</string>
     <string name="chat_model_cd">Model %1$s — open model settings</string>
     <string name="chat_add_attachment">Add attachment</string>
+    <string name="chat_attachments_cd_count">Attachments, %1$d selected</string>
+    <string name="chat_attachments_sheet_title">Attachments in this chat · %1$d</string>
+    <string name="chat_attachments_assistant_banner">The assistant is waiting for files</string>
+    <string name="chat_attachments_empty">No attachments yet. Pick files from this device for the AI to read in this chat.</string>
+    <string name="chat_attachments_add_from_device">Add from device</string>
     <string name="chat_select_file">Choose file</string>
 
     <string name="cd_session_list">Chat list</string>

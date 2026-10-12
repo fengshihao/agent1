@@ -36,6 +36,11 @@
     <string name="chat_already_new_session">当前已经是新会话</string>
     <string name="chat_model_cd">当前模型 %1$s，打开模型设置</string>
     <string name="chat_add_attachment">添加附件</string>
+    <string name="chat_attachments_cd_count">附件，已选 %1$d 个</string>
+    <string name="chat_attachments_sheet_title">本会话附件 · %1$d</string>
+    <string name="chat_attachments_assistant_banner">助手正在等待您添加文件</string>
+    <string name="chat_attachments_empty">还没有附件。可从本机选择文件，供 AI 在本对话中读取。</string>
+    <string name="chat_attachments_add_from_device">从本机添加</string>
     <string name="chat_select_file">选择文件</string>
 
     <string name="cd_session_list">会话列表</string>

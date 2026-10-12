@@ -66,6 +66,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.isFreshSession
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
@@ -99,12 +100,19 @@ fun ChatScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var input by rememberSaveable { mutableStateOf("") }
     var moreMenu by rememberSaveable { mutableStateOf(false) }
+    var attachmentSheetVisible by rememberSaveable { mutableStateOf(false) }
+    var attachmentAssistantHint by remember { mutableStateOf<UserFileRequestMarkers.Hint?>(null) }
     val pickFilesLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris ->
         viewModel.onUserPickedFiles(uris)
     }
-    val launchPickFiles = {
+    val attachmentsEnabled = state.configError == null && !state.isRunning && state.pendingAskUser == null
+    val openAttachments: (UserFileRequestMarkers.Hint?) -> Unit = { hint ->
+        attachmentAssistantHint = hint
+        attachmentSheetVisible = true
+    }
+    val launchPickFromDevice = {
         pickFilesLauncher.launch(arrayOf("*/*"))
     }
 
@@ -202,8 +210,8 @@ fun ChatScreen(
                 ) {
                     ChatMessageList(
                         state = state,
-                        onPickFiles = launchPickFiles,
-                        pickFilesEnabled = state.configError == null && !state.isRunning,
+                        onOpenAttachments = openAttachments,
+                        attachmentsActionEnabled = state.configError == null && !state.isRunning,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth(),
@@ -244,8 +252,9 @@ fun ChatScreen(
                     } else {
                         stringResource(R.string.chat_input_answer_card)
                     },
-                    onPickFiles = launchPickFiles,
-                    pickFilesEnabled = state.configError == null && !state.isRunning && pendingAsk == null,
+                    attachmentCount = state.accessibleFileEntries.size,
+                    onOpenAttachments = { openAttachments(null) },
+                    attachmentsEnabled = attachmentsEnabled,
                     onNewChat = onNewChat,
                     modelLabel = composerModelLabel(state.configSummary),
                     onOpenModel = onOpenSettings,
@@ -253,16 +262,6 @@ fun ChatScreen(
                         if (viewModel.sendMessage(input)) input = ""
                     },
                     onStop = { viewModel.stopRun() },
-                    header = if (state.accessibleFileEntries.isNotEmpty()) {
-                        {
-                            AccessibleFilesPanel(
-                                entries = state.accessibleFileEntries,
-                                onRemove = viewModel::removeAccessibleFile,
-                            )
-                        }
-                    } else {
-                        null
-                    },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .onSizeChanged { size ->
@@ -272,13 +271,25 @@ fun ChatScreen(
                 AgentTopFade(Modifier.align(Alignment.TopCenter))
             }
         }
+        SessionAttachmentsSheet(
+            visible = attachmentSheetVisible,
+            entries = state.accessibleFileEntries,
+            assistantHint = attachmentAssistantHint,
+            addEnabled = attachmentsEnabled,
+            onDismiss = {
+                attachmentSheetVisible = false
+                attachmentAssistantHint = null
+            },
+            onRemove = viewModel::removeAccessibleFile,
+            onAddFromDevice = launchPickFromDevice,
+        )
     }
 }
 
 /**
  * 底部输入条。
  *
- * 上方是一条胶囊输入框，发送钮在框内垂直居中。下方同一行放新对话、附件图标和当前模型。
+ * 上方是一条胶囊输入框，发送钮在框内垂直居中。下方同一行放新对话、附件（角标 + 底部托盘）和当前模型。
  * 上沿用渐变盖住对话列表，避免一条硬边。
  * [onNewChat] 为空时不显示新对话（落位页没有活动会话）。
  */
@@ -290,14 +301,14 @@ internal fun ChatComposer(
     canSend: Boolean,
     enabled: Boolean,
     inputPlaceholder: String,
-    onPickFiles: () -> Unit,
-    pickFilesEnabled: Boolean,
+    attachmentCount: Int = 0,
+    onOpenAttachments: () -> Unit,
+    attachmentsEnabled: Boolean,
     onNewChat: (() -> Unit)? = null,
     modelLabel: String = "",
     onOpenModel: (() -> Unit)? = null,
     onSend: () -> Unit,
     onStop: () -> Unit,
-    header: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val bar = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f)
@@ -320,7 +331,6 @@ internal fun ChatComposer(
                 .background(bar)
                 .padding(bottom = 8.dp),
         ) {
-            header?.invoke()
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     ComposerField(
@@ -346,11 +356,10 @@ internal fun ChatComposer(
                                 onClick = onNewChat,
                             )
                         }
-                        ComposerIconButton(
-                            icon = AgentIcons.AttachFile,
-                            contentDescription = stringResource(R.string.chat_add_attachment),
-                            enabled = pickFilesEnabled,
-                            onClick = onPickFiles,
+                        ComposerAttachmentButton(
+                            attachmentCount = attachmentCount,
+                            enabled = attachmentsEnabled,
+                            onClick = onOpenAttachments,
                         )
                         Spacer(modifier = Modifier.weight(1f))
                         if (modelLabel.isNotBlank()) {
