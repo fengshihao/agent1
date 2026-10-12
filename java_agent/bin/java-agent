@@ -5,24 +5,64 @@ set -euo pipefail
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 PROJECT_DIR="$(cd "${BIN_DIR}/.." && pwd -P)"
 JAR_PATH="${PROJECT_DIR}/cli/build/libs/cli-0.1.0-SNAPSHOT-all.jar"
-JAVA17_BIN="/Users/fengshihao/.jdks/jdk-17.jdk/Contents/Home/bin/java"
 
+# ---- 统一提示：缺依赖时给出「缺什么 / 为什么 / 怎么办」，便于用户与 AI 快速定位 ----
+fail_hint() {
+  echo "==============================================" >&2
+  echo "[java-agent] 错误：$1" >&2
+  shift
+  if [[ "$#" -gt 0 ]]; then
+    echo "  解决办法（任选其一）：" >&2
+    for line in "$@"; do
+      echo "  - ${line}" >&2
+    done
+  fi
+  echo "==============================================" >&2
+  exit 1
+}
+
+warn_hint() {
+  echo "----------------------------------------------" >&2
+  echo "[java-agent] 提示：$1" >&2
+  shift
+  for line in "$@"; do
+    echo "  - ${line}" >&2
+  done
+  echo "----------------------------------------------" >&2
+}
+
+# ---- fat jar 构建（增量） ----
 if [[ "${JAVA_AGENT_SKIP_BUILD:-0}" != "1" ]]; then
   echo "[java-agent] 检查并构建 fat jar（Gradle 增量）..." >&2
-  (cd "${PROJECT_DIR}" && ./gradlew --no-daemon ":cli:fatJar") >/dev/null
+  if ! (cd "${PROJECT_DIR}" && ./gradlew --no-daemon ":cli:fatJar") >/dev/null; then
+    fail_hint "fat jar 构建失败（Gradle 退出码非 0），上方为 Gradle 原始报错" \
+      "最常见原因：JDK 版本不是 17、网络拉取依赖失败" \
+      "手动复现看完整输出：cd ${PROJECT_DIR} && ./gradlew --no-daemon :cli:fatJar" \
+      "若 jar 已构建好，可用 JAVA_AGENT_SKIP_BUILD=1 跳过构建"
+  fi
 elif [[ ! -f "${JAR_PATH}" ]]; then
-  echo "错误: 未找到 fat jar，且已设置 JAVA_AGENT_SKIP_BUILD=1" >&2
-  exit 1
+  fail_hint "设置了 JAVA_AGENT_SKIP_BUILD=1，但未找到 fat jar：${JAR_PATH}" \
+    "去掉 JAVA_AGENT_SKIP_BUILD=1 让脚本自动增量构建" \
+    "或先手动构建：cd ${PROJECT_DIR} && ./gradlew :cli:fatJar"
 fi
 
+# ---- Weizhi native 库定位（平台感知库名：macOS 是 .dylib，Linux 是 .so） ----
+# WeizhiEngine 静态块会 System.loadLibrary("weizhijni")，按 java.library.path 查找，
+# 因此这里必须找到库并把其目录传给 -Djava.library.path，否则脚本环会被静默降级。
 WEIZHI_NATIVE=""
+case "$(uname -s)" in
+  Darwin*) WEIZHI_LIB_NAMES="libweizhijni.dylib libweizhijni.jnilib" ;;
+  *)       WEIZHI_LIB_NAMES="libweizhijni.so libweizhijni.dylib" ;;
+esac
 for candidate in \
-  "${PROJECT_DIR}/../weizhi/build" \
-  "${PROJECT_DIR}/../../weizhi/build"; do
-  if [[ -f "${candidate}/libweizhijni.so" ]]; then
-    WEIZHI_NATIVE="${candidate}"
-    break
-  fi
+    "${PROJECT_DIR}/../weizhi/build" \
+    "${PROJECT_DIR}/../../weizhi/build"; do
+  for lib_name in ${WEIZHI_LIB_NAMES}; do
+    if [[ -f "${candidate}/${lib_name}" ]]; then
+      WEIZHI_NATIVE="${candidate}"
+      break 2
+    fi
+  done
 done
 
 JAVA_ARGS=()
@@ -30,8 +70,47 @@ if [[ -n "${WEIZHI_NATIVE}" ]]; then
   JAVA_ARGS+=("-Djava.library.path=${WEIZHI_NATIVE}")
 fi
 
-if [[ -x "${JAVA17_BIN}" ]]; then
-  exec "${JAVA17_BIN}" "${JAVA_ARGS[@]}" -jar "${JAR_PATH}" "$@"
+# ---- JDK 17 定位：JAVA17_BIN 显式指定 > JAVA_HOME > PATH ----
+if [[ -x "${JAVA17_BIN:-}" ]]; then
+  JAVA_BIN="${JAVA17_BIN}"
+elif [[ -n "${JAVA_HOME:-}" && -x "${JAVA_HOME}/bin/java" ]]; then
+  JAVA_BIN="${JAVA_HOME}/bin/java"
+else
+  JAVA_BIN="$(command -v java || true)"
 fi
 
-exec java "${JAVA_ARGS[@]}" -jar "${JAR_PATH}" "$@"
+if [[ -z "${JAVA_BIN}" ]]; then
+  fail_hint "未找到 Java 运行环境（JAVA17_BIN / JAVA_HOME / PATH 均不可用）" \
+    "macOS: brew install --cask temurin@17（或到 https://adoptium.net 下载）" \
+    "Ubuntu: sudo apt-get install -y openjdk-17-jdk" \
+    "或设置 JAVA_HOME 指向已有 JDK 17（脚本优先使用 \$JAVA_HOME/bin/java）" \
+    "或直接指定：export JAVA17_BIN=/path/to/jdk17/bin/java"
+fi
+
+# ---- 版本校验：运行 fat jar 需要 Java 17+ ----
+JAVA_VER_OUT="$("${JAVA_BIN}" -version 2>&1 | head -1)"
+JAVA_MAJOR="$(printf '%s\n' "${JAVA_VER_OUT}" | sed -E 's/^.*version "([^"]+)".*$/\1/' | cut -d. -f1)"
+if [[ "${JAVA_MAJOR}" == "1" ]]; then
+  # 旧式 "1.8.0_x" 版本号，真实主版本在第二段
+  JAVA_MAJOR="$(printf '%s\n' "${JAVA_VER_OUT}" | sed -E 's/^.*version "([^"]+)".*$/\1/' | cut -d. -f2)"
+fi
+case "${JAVA_MAJOR}" in
+  ''|*[!0-9]*) JAVA_MAJOR="0" ;;
+esac
+if [[ "${JAVA_MAJOR}" -lt 17 ]]; then
+  fail_hint "当前 Java 主版本为 ${JAVA_MAJOR}（${JAVA_VER_OUT}），本项目需要 JDK 17+" \
+    "将 JAVA_HOME 指向 JDK 17 后重试" \
+    "或临时指定：export JAVA17_BIN=/path/to/jdk17/bin/java"
+fi
+
+# ---- API Key 提前检测：缺失时给出警告（不阻断，models/tools/logs 等本地子命令仍可用） ----
+if [[ -z "${QWEN_API_KEY:-}" && -z "${DASHSCOPE_API_KEY:-}" \
+      && -z "${OPENAI_API_KEY:-}" && -z "${ALIBABA_API_KEY:-}" ]]; then
+  warn_hint "未检测到模型 API Key（QWEN_API_KEY / DASHSCOPE_API_KEY / OPENAI_API_KEY / ALIBABA_API_KEY 均未设置）" \
+    "对话 / 单次提问将无法调用模型；models / tools / logs 等本地子命令不受影响" \
+    "设置方法：export DASHSCOPE_API_KEY=\"your-key\"（四选一），然后重新运行"
+fi
+
+# bash 3.2（macOS 自带）在 set -u 下展开空数组会报 unbound variable，
+# 用 ${ARR[@]+...} 写法兼容空数组。
+exec "${JAVA_BIN}" ${JAVA_ARGS[@]+"${JAVA_ARGS[@]}"} -jar "${JAR_PATH}" "$@"

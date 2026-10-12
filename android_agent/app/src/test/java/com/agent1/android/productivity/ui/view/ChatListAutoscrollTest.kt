@@ -1,5 +1,6 @@
 package com.agent1.android.productivity.ui.view
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -53,6 +54,91 @@ class ChatListAutoscrollTest {
                 lastVisibleIndex = 3,
                 lastVisibleOffset = 100,
                 lastVisibleSize = 200,
+                viewportEndOffset = 800,
+            ),
+        )
+    }
+
+    @Test
+    fun shouldReleaseStickToBottom_whenDraggingTowardOlderMessages() {
+        assertTrue(ChatListAutoscroll.shouldReleaseStickToBottom(availableY = 8f))
+        assertFalse(ChatListAutoscroll.shouldReleaseStickToBottom(availableY = 0f))
+        assertFalse(ChatListAutoscroll.shouldReleaseStickToBottom(availableY = -12f))
+    }
+
+    @Test
+    fun shouldRestickToBottom_onlyWhenScrollingTowardNewerAndAlreadyAtEnd() {
+        assertTrue(
+            ChatListAutoscroll.shouldRestickToBottom(
+                consumedY = -20f,
+                canScrollForward = false,
+                atBottom = true,
+            ),
+        )
+        // 上滑停在超高最后一条内部：canScrollForward 仍 false，但底边未贴进视口，不能回贴。
+        assertFalse(
+            ChatListAutoscroll.shouldRestickToBottom(
+                consumedY = -20f,
+                canScrollForward = false,
+                atBottom = false,
+            ),
+        )
+        assertFalse(
+            ChatListAutoscroll.shouldRestickToBottom(
+                consumedY = 20f,
+                canScrollForward = false,
+                atBottom = true,
+            ),
+        )
+        assertFalse(
+            ChatListAutoscroll.shouldRestickToBottom(
+                consumedY = -20f,
+                canScrollForward = true,
+                atBottom = true,
+            ),
+        )
+        assertFalse(
+            ChatListAutoscroll.shouldRestickToBottom(
+                consumedY = 0f,
+                canScrollForward = false,
+                atBottom = true,
+            ),
+        )
+    }
+
+    @Test
+    fun followScrollByPx_catchesUpALittleWhenTailIsNotVisible() {
+        assertEquals(
+            96,
+            ChatListAutoscroll.followScrollByPx(
+                totalItems = 4,
+                lastVisibleIndex = 2,
+                lastVisibleOffset = 100,
+                lastVisibleSize = 40,
+                viewportEndOffset = 800,
+            ),
+        )
+    }
+
+    @Test
+    fun followScrollByPx_scrollsOnlyTheOverflowOfTheLastItem() {
+        assertEquals(
+            120,
+            ChatListAutoscroll.followScrollByPx(
+                totalItems = 3,
+                lastVisibleIndex = 2,
+                lastVisibleOffset = 400,
+                lastVisibleSize = 520,
+                viewportEndOffset = 800,
+            ),
+        )
+        assertEquals(
+            0,
+            ChatListAutoscroll.followScrollByPx(
+                totalItems = 3,
+                lastVisibleIndex = 2,
+                lastVisibleOffset = 200,
+                lastVisibleSize = 400,
                 viewportEndOffset = 800,
             ),
         )

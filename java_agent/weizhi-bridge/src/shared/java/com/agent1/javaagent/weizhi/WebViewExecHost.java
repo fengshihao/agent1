@@ -255,9 +255,13 @@ public final class WebViewExecHost {
     }
 
     private static String extractEnvelope(WorkspaceSandbox sandbox, JsonNode receipt) {
-        String preview = receipt.path("resultPreview").asText("");
-        if (preview.contains(ENVELOPE_KEY)) {
-            return preview;
+        JsonNode preview = receipt.get("resultPreview");
+        if (preview != null && preview.isObject() && preview.has(ENVELOPE_KEY)) {
+            return preview.toString();
+        }
+        String previewText = preview == null || preview.isNull() ? "" : preview.asText("");
+        if (previewText.contains(ENVELOPE_KEY)) {
+            return previewText;
         }
         String outputPath = receipt.path("outputPath").asText("").trim();
         if (outputPath.isEmpty()) {

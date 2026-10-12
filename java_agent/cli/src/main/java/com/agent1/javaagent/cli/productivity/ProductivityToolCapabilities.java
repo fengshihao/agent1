@@ -37,7 +37,8 @@ public final class ProductivityToolCapabilities {
 
     public static List<String> detailBullets(boolean weizhiScriptEnabled) {
         List<String> lines = new ArrayList<>();
-        lines.add("read_file · write_file · edit_file · list_dir · chat_history · read_url · web_search · todo_write");
+        lines.add("read_file · write_file · edit_file · list_dir · chat_history · read_url · web_search · todo_write · media_resize · media_probe · media_extract_frame");
+        lines.add("media_resize / media_probe / media_extract_frame：桌面尚未实现（Android 上缩放图片、探测音视频、从视频抽帧）");
         lines.add("todo_write：会话短清单，跨轮记住计划；空数组清空");
         lines.add("web_search：Tavily（环境变量 TAVILY_API_KEY，或 App 模型配置里的 Web Search Key）");
         if (!weizhiToolsOnClasspath()) {

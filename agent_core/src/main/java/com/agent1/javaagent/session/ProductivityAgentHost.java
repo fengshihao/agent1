@@ -48,6 +48,13 @@ import com.agent1.javaagent.capability.CapabilitySearchView;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.agent1.javaagent.tool.agent.PromoteRequestTool;
 import com.agent1.javaagent.tool.web.WebSearchTool;
+import com.agent1.javaagent.tool.anno.AnnotatedTools;
+import com.agent1.javaagent.tool.media.ImageResizer;
+import com.agent1.javaagent.tool.media.MediaInspector;
+import com.agent1.javaagent.tool.media.MediaResizeTool;
+import com.agent1.javaagent.tool.media.MediaTools;
+import com.agent1.javaagent.tool.media.UnavailableImageResizer;
+import com.agent1.javaagent.tool.media.UnavailableMediaInspector;
 import com.agent1.javaagent.tool.workspace.WriteFileTool;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import java.io.Closeable;
@@ -84,6 +91,8 @@ public final class ProductivityAgentHost implements Closeable {
     /** find_caps 检索时按 Host 平台过滤（android / desktop），不由模型传参。 */
     private final String capabilitySearchPlatform;
     private final AgentRuntimeConfig runtimeConfig;
+    private volatile ImageResizer imageResizer = UnavailableImageResizer.INSTANCE;
+    private volatile MediaInspector mediaInspector = UnavailableMediaInspector.INSTANCE;
     private volatile String sessionEnvironmentSupplement = "";
     private volatile HostEnvironmentProvider environmentProvider = DesktopEnvironmentProvider.INSTANCE;
     private ProductivityCoach productivityCoach;
@@ -243,6 +252,16 @@ public final class ProductivityAgentHost implements Closeable {
         );
     }
 
+    /** Android 传入 {@code Bitmap} 实现。未设置时 {@code media_resize} 返回未实现。 */
+    public void setImageResizer(ImageResizer imageResizer) {
+        this.imageResizer = imageResizer == null ? UnavailableImageResizer.INSTANCE : imageResizer;
+    }
+
+    /** Android 传入系统媒体实现。未设置时探测和抽帧返回未实现。 */
+    public void setMediaInspector(MediaInspector mediaInspector) {
+        this.mediaInspector = mediaInspector == null ? UnavailableMediaInspector.INSTANCE : mediaInspector;
+    }
+
     public Path agentRoot() {
         return agentRoot;
     }
@@ -367,6 +386,7 @@ public final class ProductivityAgentHost implements Closeable {
         }
         String sessionId = requireActiveSession();
         applySystemPrompt(sessionId);
+        recoverInterruptedRuns(sessionId);
         assertNoRunningMainRun(sessionId);
         if (productivityCoach != null) {
             productivityCoach.resetRun();
@@ -489,6 +509,38 @@ public final class ProductivityAgentHost implements Closeable {
         }
     }
 
+    /**
+     * 进程被系统杀掉时，进行中的 Run 会永远停在 {@code running}，下一条消息会被拒绝。
+     * 当前进程并没有在跑这条 Run 时，把它收成失败，让用户可以继续发消息。
+     */
+    private void recoverInterruptedRuns(String sessionId) {
+        if (runtime.isRunning()) {
+            return;
+        }
+        Path runsDir = sessionStore.sessionDir(sessionId).resolve("runs");
+        if (!java.nio.file.Files.isDirectory(runsDir)) {
+            return;
+        }
+        String now = Instant.now().toString();
+        try (var stream = java.nio.file.Files.list(runsDir)) {
+            for (Path file : stream.filter(p -> p.getFileName().toString().endsWith(".json")).toList()) {
+                String name = file.getFileName().toString();
+                String runId = name.substring(0, name.length() - ".json".length());
+                runStore.readOptional(sessionId, runId).ifPresent(record -> {
+                    if (record.getState() == RunState.RUNNING) {
+                        runStore.write(record.withTerminal(
+                            RunState.FAILED,
+                            now,
+                            "上次运行因进程中断未结束"
+                        ));
+                    }
+                });
+            }
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("scan runs failed: " + runsDir, e);
+        }
+    }
+
     private void assertNoRunningMainRun(String sessionId) {
         Path runsDir = sessionStore.sessionDir(sessionId).resolve("runs");
         if (!java.nio.file.Files.isDirectory(runsDir)) {
@@ -540,6 +592,8 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new ReadFileTool(sandbox));
         tools.add(new ReadUrlTool());
         tools.add(new WriteFileTool(sandbox));
+        tools.addAll(AnnotatedTools.from(new MediaResizeTool(sandbox, imageResizer)));
+        tools.addAll(AnnotatedTools.from(new MediaTools(sandbox, mediaInspector)));
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));
         tools.add(new CatalogSyncStatusTool(agentRoot));

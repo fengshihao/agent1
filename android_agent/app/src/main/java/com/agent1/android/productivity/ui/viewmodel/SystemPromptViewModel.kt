@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
+import com.agent1.android.productivity.logic.business.UserFacingError
 import java.util.concurrent.ExecutionException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -102,7 +103,7 @@ class SystemPromptViewModel(
                     _state.update {
                         it.copy(
                             busy = false,
-                            errorMessage = error.message ?: "读取系统提示词失败",
+                            errorMessage = UserFacingError.explain(error.message ?: "读取系统提示词失败"),
                         )
                     }
                 },

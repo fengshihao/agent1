@@ -1,30 +1,42 @@
 package com.agent1.android.productivity.ui.view
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -33,12 +45,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.ui.graphics.Color
+import com.agent1.android.productivity.logic.business.AskUserFormState
 import com.agent1.android.productivity.logic.business.AskUserFormatting
-import com.agent1.android.productivity.ui.viewmodel.AskUserFormState
+import com.agent1.android.productivity.logic.business.AskUserQuestionUi
 
 @Composable
 fun AskUserFormPanel(
@@ -48,6 +62,7 @@ fun AskUserFormPanel(
     onTextChange: (questionId: String, value: String) -> Unit,
     onSingleSelect: (questionId: String, option: String) -> Unit,
     onMultiToggle: (questionId: String, option: String) -> Unit,
+    onCustomAnswerChange: (questionId: String, value: String) -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -56,8 +71,14 @@ fun AskUserFormPanel(
     val tabKey = questions.joinToString("|") { it.id }
     var selected by rememberSaveable(tabKey) { mutableIntStateOf(0) }
     val selectedIndex = selected.coerceIn(0, (questions.size - 1).coerceAtLeast(0))
-    val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.42f).dp
+    val cs = MaterialTheme.colorScheme
+    val cardShape = RoundedCornerShape(14.dp)
+    val cardColor = if (isSystemInDarkTheme()) Color(0xFF3A342C) else Color(0xFFFFFCF8)
     val optionScroll = rememberScrollState()
+
+    LaunchedEffect(selectedIndex) {
+        optionScroll.scrollTo(0)
+    }
 
     LaunchedEffect(validationError, tabKey) {
         if (validationError.isNullOrBlank()) return@LaunchedEffect
@@ -65,216 +86,286 @@ fun AskUserFormPanel(
         if (missing >= 0) selected = missing
     }
 
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(max = maxHeight),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp,
-        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+    val onLastQuestion = questions.isNotEmpty() && selectedIndex == questions.lastIndex
+    val currentQuestion = questions.getOrNull(selectedIndex)
+    val currentReady = currentQuestion?.let { form.canAdvance(it) } ?: false
+    val missingRequiredIndex = form.firstMissingRequiredIndex()
+    val primaryEnabled = when {
+        !enabled -> false
+        onLastQuestion -> missingRequiredIndex == null
+        else -> currentReady
+    }
+
+    Column(
+        modifier = modifier.padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(1.dp, cs.primary.copy(alpha = 0.45f), cardShape),
+            shape = cardShape,
+            color = cardColor,
+            shadowElevation = 6.dp,
         ) {
-            Text(
-                text = request.title?.ifBlank { null } ?: "需要确认",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (questions.size > 1) {
-                QuestionTabs(
-                    questions = questions,
-                    form = form,
-                    selectedIndex = selectedIndex,
-                    onSelect = { selected = it },
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-            if (questions.isNotEmpty()) {
-                val question = questions[selectedIndex]
-                Column(
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .verticalScroll(optionScroll)
-                        .padding(top = 8.dp, bottom = 4.dp),
-                ) {
-                    AskUserQuestionField(
-                        index = selectedIndex + 1,
-                        total = questions.size,
-                        showIndex = questions.size == 1,
-                        question = question,
-                        textValue = form.textAnswers[question.id].orEmpty(),
-                        singleSelected = form.singleChoice[question.id],
-                        multiSelected = form.multiChoice[question.id].orEmpty(),
-                        enabled = enabled,
-                        onTextChange = { onTextChange(question.id, it) },
-                        onSingleSelect = { option ->
-                            onSingleSelect(question.id, option)
-                            if (selectedIndex < questions.lastIndex) {
-                                selected = selectedIndex + 1
-                            }
-                        },
-                        onMultiToggle = { onMultiToggle(question.id, it) },
-                    )
-                }
-            }
-            validationError?.let { err ->
-                Text(
-                    text = err,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Box(
+            Column(
                 modifier = Modifier
-                    .padding(top = 4.dp)
-                    .size(32.dp)
-                    .align(Alignment.End)
-                    .clip(CircleShape)
-                    .background(
-                        if (enabled) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                        },
-                    )
-                    .clickable(enabled = enabled, onClick = onSubmit),
-                contentAlignment = Alignment.Center,
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
             ) {
-                Icon(
-                    Icons.Filled.Check,
-                    contentDescription = "提交回答",
-                    modifier = Modifier.size(16.dp),
-                    tint = if (enabled) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    },
-                )
+                if (questions.isNotEmpty() && currentQuestion != null) {
+                    if (questions.size > 1) {
+                        QuestionStepSelector(
+                            questions = questions,
+                            selectedIndex = selectedIndex,
+                            form = form,
+                            onSelect = { selected = it },
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = cs.outlineVariant.copy(alpha = 0.6f),
+                        )
+                    }
+                    QuestionHeader(
+                        prompt = currentQuestion.prompt,
+                        required = currentQuestion.required,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(optionScroll)
+                                .padding(bottom = 8.dp),
+                        ) {
+                            AskUserQuestionField(
+                                question = currentQuestion,
+                                textValue = form.textAnswers[currentQuestion.id].orEmpty(),
+                                singleSelected = form.singleChoice[currentQuestion.id],
+                                multiSelected = form.multiChoice[currentQuestion.id].orEmpty(),
+                                customValue = form.customAnswers[currentQuestion.id].orEmpty(),
+                                enabled = enabled,
+                                onTextChange = { onTextChange(currentQuestion.id, it) },
+                                onSingleSelect = { onSingleSelect(currentQuestion.id, it) },
+                                onMultiToggle = { onMultiToggle(currentQuestion.id, it) },
+                                onCustomAnswerChange = { onCustomAnswerChange(currentQuestion.id, it) },
+                            )
+                        }
+                        if (onLastQuestion && enabled && missingRequiredIndex != null) {
+                            val missingIndex = missingRequiredIndex
+                            Text(
+                                text = "还有必填未完成 · 第 ${missingIndex + 1} 题",
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(end = 96.dp, bottom = 8.dp)
+                                    .clickable { selected = missingIndex },
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = cs.error,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        } else {
+                            validationError?.let { err ->
+                                Text(
+                                    text = err,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(end = 96.dp, bottom = 8.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = cs.error,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                        Button(
+                            onClick = {
+                                if (onLastQuestion) {
+                                    onSubmit()
+                                } else {
+                                    selected = (selectedIndex + 1).coerceAtMost(questions.lastIndex)
+                                }
+                            },
+                            enabled = primaryEnabled,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .height(36.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 2.dp,
+                                pressedElevation = 4.dp,
+                                disabledElevation = 0.dp,
+                            ),
+                            colors = ButtonDefaults.buttonColors(
+                                disabledContainerColor = cs.surfaceContainerHigh,
+                                disabledContentColor = cs.onSurface.copy(alpha = 0.38f),
+                            ),
+                        ) {
+                            Text(
+                                text = if (onLastQuestion) "提交回答" else "下一题",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun QuestionTabs(
+private fun QuestionStepSelector(
     questions: List<AskUserFormatting.Question>,
-    form: AskUserFormState,
     selectedIndex: Int,
+    form: AskUserFormState,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        Text(
+            text = "题目",
+            style = MaterialTheme.typography.labelMedium,
+            color = cs.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
         questions.forEachIndexed { index, question ->
             val selected = index == selectedIndex
             val answered = form.isAnswered(question)
-            val shape = RoundedCornerShape(999.dp)
+            val missingRequired = question.required && !answered
             val background = when {
-                selected -> MaterialTheme.colorScheme.primary
-                answered -> MaterialTheme.colorScheme.primaryContainer
-                else -> MaterialTheme.colorScheme.surface
+                selected -> cs.primary
+                answered -> cs.primaryContainer
+                else -> cs.surfaceContainerLow
             }
-            val content = when {
-                selected -> MaterialTheme.colorScheme.onPrimary
-                else -> MaterialTheme.colorScheme.onSurface
+            val borderColor = when {
+                selected -> cs.primary
+                missingRequired -> cs.error
+                answered -> cs.primary.copy(alpha = 0.55f)
+                else -> cs.outlineVariant
             }
-            val border = if (selected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.outlineVariant
-            }
-            Row(
+            val borderWidth = if (selected || missingRequired) 2.dp else 1.dp
+            Box(
                 modifier = Modifier
-                    .widthIn(max = 148.dp)
-                    .clip(shape)
+                    .size(28.dp)
+                    .clip(CircleShape)
                     .background(background)
-                    .border(1.dp, border, shape)
-                    .clickable { onSelect(index) }
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .border(borderWidth, borderColor, CircleShape)
+                    .clickable { onSelect(index) },
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "${index + 1} ${question.prompt}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = content,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    text = if (answered && !selected) "✓" else "${index + 1}",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    color = when {
+                        selected -> cs.onPrimary
+                        answered -> cs.onPrimaryContainer
+                        missingRequired -> cs.error
+                        else -> cs.onSurfaceVariant
+                    },
                 )
             }
+        }
         }
     }
 }
 
-private fun AskUserFormState.isAnswered(question: AskUserFormatting.Question): Boolean {
-    return when (question.type) {
-        "single_choice" -> !singleChoice[question.id].isNullOrBlank()
-        "multi_choice" -> !multiChoice[question.id].isNullOrEmpty()
-        else -> !textAnswers[question.id].isNullOrBlank()
+@Composable
+private fun QuestionHeader(
+    prompt: String,
+    required: Boolean,
+) {
+    val cs = MaterialTheme.colorScheme
+    val badgeShape = RoundedCornerShape(6.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = prompt,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = cs.onSurface,
+            lineHeight = MaterialTheme.typography.titleSmall.lineHeight,
+        )
+        if (required) {
+            Text(
+                text = "必填",
+                modifier = Modifier
+                    .clip(badgeShape)
+                    .background(cs.errorContainer.copy(alpha = 0.55f))
+                    .padding(horizontal = 5.dp, vertical = 2.dp),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = cs.error,
+            )
+        }
     }
 }
 
 @Composable
 private fun AskUserQuestionField(
-    index: Int,
-    total: Int,
-    showIndex: Boolean,
     question: AskUserFormatting.Question,
     textValue: String,
     singleSelected: String?,
     multiSelected: Set<String>,
+    customValue: String,
     enabled: Boolean,
+    modifier: Modifier = Modifier,
     onTextChange: (String) -> Unit,
     onSingleSelect: (String) -> Unit,
     onMultiToggle: (String) -> Unit,
+    onCustomAnswerChange: (String) -> Unit,
 ) {
-    val kind = when (question.type) {
-        "single_choice" -> "单选"
-        "multi_choice" -> "多选"
-        else -> "填写"
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = buildString {
-                if (showIndex) append("$index/$total · ")
-                append(kind)
-                if (question.required) append(" · 必填")
-            },
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = question.prompt,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        when (question.type) {
+    val cs = MaterialTheme.colorScheme
+    val ratingScale = AskUserQuestionUi.ratingScale(question)
+    val hasCustom = customValue.isNotBlank()
+    val structuredEnabled = enabled && !hasCustom
+    Column(modifier = modifier) {
+        if (ratingScale != null && !hasCustom) {
+            RatingSliderField(
+                scale = ratingScale,
+                value = textValue,
+                enabled = structuredEnabled,
+                onValue = onTextChange,
+            )
+        } else if (ratingScale == null) when (question.type) {
             "single_choice" -> {
                 question.options.forEach { option ->
-                    OptionRow(
+                    SingleChoiceRow(
                         label = option,
                         selected = singleSelected == option,
-                        enabled = enabled,
-                        onClick = { onSingleSelect(option) },
+                        enabled = structuredEnabled,
+                        onSelect = { onSingleSelect(option) },
                     )
                 }
             }
             "multi_choice" -> {
                 question.options.forEach { option ->
-                    OptionRow(
+                    MultiChoiceRow(
                         label = option,
-                        selected = option in multiSelected,
-                        enabled = enabled,
-                        onClick = { onMultiToggle(option) },
+                        checked = option in multiSelected,
+                        enabled = structuredEnabled,
+                        onToggle = { onMultiToggle(option) },
                     )
                 }
             }
@@ -284,48 +375,174 @@ private fun AskUserQuestionField(
                     onValueChange = onTextChange,
                     enabled = enabled,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("输入回答…") },
+                    placeholder = { Text("输入你的回答") },
+                    textStyle = MaterialTheme.typography.bodyMedium,
                     shape = RoundedCornerShape(10.dp),
                     singleLine = false,
                     maxLines = 3,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = cs.surface,
+                        unfocusedContainerColor = cs.surface,
+                    ),
                 )
             }
+        }
+        if (shouldShowCustomAnswerField(question)) {
+            Text(
+                text = "或",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 2.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = cs.onSurfaceVariant,
+            )
+            AskUserCustomAnswerField(
+                value = customValue,
+                enabled = enabled,
+                onValueChange = onCustomAnswerChange,
+            )
+        }
+    }
+}
+
+private fun shouldShowCustomAnswerField(question: AskUserFormatting.Question): Boolean {
+    return question.type != "text"
+}
+
+@Composable
+private fun AskUserCustomAnswerField(
+    value: String,
+    enabled: Boolean,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val cs = MaterialTheme.colorScheme
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        enabled = enabled,
+        modifier = modifier.fillMaxWidth(),
+        label = { Text("自行填写") },
+        placeholder = { Text("不选上面选项时，在此输入") },
+        textStyle = MaterialTheme.typography.bodyMedium,
+        shape = RoundedCornerShape(8.dp),
+        singleLine = false,
+        maxLines = 3,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = cs.surface,
+            unfocusedContainerColor = cs.surface,
+        ),
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SingleChoiceRow(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onSelect: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 36.dp)
+                .clickable(enabled = enabled, onClick = onSelect),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onSelect,
+                enabled = enabled,
+                modifier = Modifier.size(20.dp),
+                colors = RadioButtonDefaults.colors(selectedColor = cs.primary),
+            )
+            Text(
+                text = label,
+                modifier = Modifier.padding(start = 2.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onSurface,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MultiChoiceRow(
+    label: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onToggle: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 36.dp)
+                .clickable(enabled = enabled, onClick = onToggle),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(
+                checked = checked,
+                onCheckedChange = { onToggle() },
+                enabled = enabled,
+                modifier = Modifier.size(20.dp),
+                colors = CheckboxDefaults.colors(checkedColor = cs.primary),
+            )
+            Text(
+                text = label,
+                modifier = Modifier.padding(start = 2.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onSurface,
+            )
         }
     }
 }
 
 @Composable
-private fun OptionRow(
-    label: String,
-    selected: Boolean,
+private fun RatingSliderField(
+    scale: AskUserQuestionUi.RatingScale,
+    value: String,
     enabled: Boolean,
-    onClick: () -> Unit,
+    onValue: (String) -> Unit,
 ) {
-    val shape = RoundedCornerShape(8.dp)
-    val background = if (selected) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.surface
-    }
-    val border = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.outlineVariant
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(background)
-            .border(1.dp, border, shape)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val cs = MaterialTheme.colorScheme
+    val min = scale.min
+    val max = scale.max
+    val selected = value.toIntOrNull()?.takeIf { it in min..max }
+    val span = max - min
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = label,
+            text = if (selected != null) "当前 $selected 分" else "拖动选择分值",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = cs.onSurfaceVariant,
         )
+        Slider(
+            value = (selected ?: min).toFloat(),
+            onValueChange = { raw ->
+                val snapped = raw.toInt().coerceIn(min, max)
+                onValue(snapped.toString())
+            },
+            enabled = enabled,
+            valueRange = min.toFloat()..max.toFloat(),
+            steps = (span - 1).coerceAtLeast(0),
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = if (selected != null) cs.primary else Color.Transparent,
+                activeTrackColor = if (selected != null) cs.primary else cs.surfaceVariant,
+                inactiveTrackColor = cs.outlineVariant,
+            ),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(min.toString(), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
+            Text(max.toString(), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
+        }
     }
 }

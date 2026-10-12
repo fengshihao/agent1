@@ -17,6 +17,7 @@ public final class ProductivityCoach {
     private static final Pattern BASH_WHICH_COMMAND =
         Pattern.compile("(^|\\s)which(\\s|$)", Pattern.CASE_INSENSITIVE);
     private static final int BASH_HOST_TOOL_PROBE_COACH_LIMIT = 2;
+    private static final int LIB_HUNT_COACH_LIMIT = 2;
     private static final int WEBVIEW_TINY_IMAGE_BYTES = 256;
 
     private final int largeWriteBytes;
@@ -64,9 +65,12 @@ public final class ProductivityCoach {
             hookId = "path.outside_attempt";
             advice =
                 "仅当前会话 workspace 可写。改 shared 用 promote_request / catalog_install，勿 write_file 越界。";
-        } else if ("bash".equals(toolName) && parameters != null) {
-            String command = parameters.path("command").asText("");
-            if (looksLikeHostToolWhich(command)
+        } else if (("bash".equals(toolName) || "glob".equals(toolName)) && parameters != null) {
+            String command = "bash".equals(toolName)
+                ? parameters.path("command").asText("")
+                : parameters.path("pattern").asText("");
+            if ("bash".equals(toolName)
+                && looksLikeHostToolWhich(command)
                 && !runState.capabilitySearchUsed()
                 && runState.recordBashHostToolProbeCoach() <= BASH_HOST_TOOL_PROBE_COACH_LIMIT) {
                 hookId = "bash.host_tool_probe";
@@ -75,6 +79,15 @@ public final class ProductivityCoach {
                         + "文档类任务先 find_caps（如 docx、pptx、markdown word、幻灯片），"
                         + "再用 run_js 按结果里的 catalog 示例调用（如 docx.js 的 markdownToDocx、pptx.js 的 renderPptx）。"
                         + "不要猜 Node 的 require/fs。";
+            } else if (looksLikeScriptLibHunt(command)
+                && looksLikeNoMatchResult(text)
+                && runState.recordLibHuntCoach() <= LIB_HUNT_COACH_LIMIT) {
+                // 真机案例：find_caps 已加载 pptx skill 后，模型仍 find/glob 找 pptx.js 文件浪费多轮。
+                hookId = "lib.hunt_missing";
+                advice =
+                    "pptx.js、docx.js、svg-raster.js 等是 run_js 的内置模块，直接 import 调用，例如："
+                        + "import { renderPptx } from \"pptx.js\"。"
+                        + "需要确认可用能力时用 find_caps。";
             }
         } else if ("find_caps".equals(toolName) && text != null) {
             boolean empty = text.startsWith("未找到匹配");
@@ -112,33 +125,22 @@ public final class ProductivityCoach {
                     "staging 已有内容；确认 SKILL.md 或脚本就绪后调用 promote_request 沉淀到 shared/local。";
             }
         } else if ("webview_exec".equals(toolName) && text != null) {
-            if (looksLikeNonWebApiInWebView(text, parameters)) {
-                hookId = "webview.not_web_api";
-                advice =
-                    "webview_exec 是标准 WebView 控件，只支持 Web API（document、fetch、DOM 等），没有 Node 的 fs/require。"
-                        + "读工作区文件用 input_path（全局 input 是 Uint8Array）；写回用 writeFile。";
-            } else if (text.contains("没有可落盘的返回值")) {
-                hookId = "webview.null_return";
-                advice =
-                    "脚本被包进函数执行，只有顶层 return 的值会落盘；运行时会等待这个 return 出来的 Promise。"
-                        + "请写成 return (async () => { ...; return 结果; })()。"
-                        + "或者不 return，在这个 Promise 里 writeFile('out.png', data)，宿主会把 Base64 图片解码写入工作区。"
-                        + "不要只写 (async () => {})()，也不要把 return 放在 img.onload 里。";
-            } else if (text.contains("await is only valid in async")) {
-                hookId = "webview.async_syntax";
-                advice =
-                    "webview_exec 的 code 需顶层 return 表达式；异步用 return (async () => { ... })()。"
-                        + "读工作区文件用 input_path，不要用 fetch('相对路径')，也没有 Node 的 fs。";
-            } else if (looksLikeTinyWebViewImage(text)) {
-                hookId = "webview.tiny_output";
-                advice =
-                    "输出文件过小，图片可能无效。这是标准 WebView，只支持 Web API。"
-                        + "同类转换可先 find_caps 看有没有现成脚本；读工作区文件用 input_path，不要用 Node 的 fs。";
+            WebViewHook hook = webViewHook(text, parameters, true);
+            if (hook != null) {
+                hookId = hook.id;
+                advice = hook.advice;
             }
         } else if ("run_js".equals(toolName) && parameters != null) {
+            if (text != null && looksLikeWebViewReceipt(text)) {
+                WebViewHook hook = webViewHook(text, parameters, false);
+                if (hook != null) {
+                    hookId = hook.id;
+                    advice = hook.advice;
+                }
+            }
             String file = parameters.path("file").asText("").trim();
             String code = parameters.path("code").asText("");
-            if (ScriptFailureFormatter.looksLikeFailureJson(text) || isScriptFailureLegacy(text)) {
+            if (hookId == null && (ScriptFailureFormatter.looksLikeFailureJson(text) || isScriptFailureLegacy(text))) {
                 if (!file.isEmpty() && looksLikeNonScriptDataFile(file) && text != null
                     && text.contains("unexpected token")) {
                     hookId = "script.wrong_file_type";
@@ -173,7 +175,7 @@ public final class ProductivityCoach {
                                 + "调用方式用 find_caps 返回的示例。";
                     }
                 }
-            } else if (file.isEmpty() && !code.isBlank()
+            } else if (hookId == null && file.isEmpty() && !code.isBlank()
                 && (text == null || !text.contains(InlineScriptSpill.MARKER))) {
                 int lines = countLines(code);
                 int bytes = code.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
@@ -235,6 +237,50 @@ public final class ProductivityCoach {
         }
         return lines;
     }
+
+    private record WebViewHook(String id, String advice) {
+    }
+
+    /** run_js 回执里出现 webview_exec 的字段时，套用同一套 WebView 提示。不扫描外层脚本源码。 */
+    private static boolean looksLikeWebViewReceipt(String text) {
+        return text.contains("没有可落盘的返回值")
+            || text.contains("resultPreview")
+            || text.contains("tmp/webview_exec/");
+    }
+
+    private static WebViewHook webViewHook(String text, JsonNode parameters, boolean scanSource) {
+        if (scanSource && looksLikeNonWebApiInWebView(text, parameters)) {
+            return new WebViewHook("webview.not_web_api", ADVICE_NOT_WEB_API);
+        }
+        if (!scanSource && looksLikeNodeModuleError(text)) {
+            return new WebViewHook("webview.not_web_api", ADVICE_NOT_WEB_API);
+        }
+        if (text.contains("没有可落盘的返回值")) {
+            return new WebViewHook("webview.null_return", ADVICE_NULL_RETURN);
+        }
+        if (text.contains("await is only valid in async")) {
+            return new WebViewHook("webview.async_syntax", ADVICE_ASYNC_SYNTAX);
+        }
+        if (looksLikeTinyWebViewImage(text)) {
+            return new WebViewHook("webview.tiny_output", ADVICE_TINY_OUTPUT);
+        }
+        return null;
+    }
+
+    private static final String ADVICE_NOT_WEB_API =
+        "webview_exec 是标准 WebView 控件，只支持 Web API（document、fetch、DOM 等），没有 Node 的 fs/require。"
+            + "读工作区文件用 input_path（全局 input 是 Uint8Array）；写回用 writeFile。";
+    private static final String ADVICE_NULL_RETURN =
+        "脚本被包进函数执行，只有顶层 return 的值会落盘；运行时会等待这个 return 出来的 Promise。"
+            + "请写成 return (async () => { ...; return 结果; })()。"
+            + "或者不 return，在这个 Promise 里 writeFile('out.png', data)，宿主会把 Base64 图片解码写入工作区。"
+            + "不要只写 (async () => {})()，也不要把 return 放在 img.onload 里。";
+    private static final String ADVICE_ASYNC_SYNTAX =
+        "webview_exec 的 code 需顶层 return 表达式；异步用 return (async () => { ... })()。"
+            + "读工作区文件用 input_path，不要用 fetch('相对路径')，也没有 Node 的 fs。";
+    private static final String ADVICE_TINY_OUTPUT =
+        "输出文件过小，图片可能无效。这是标准 WebView，只支持 Web API。"
+            + "同类转换可先 find_caps 看有没有现成脚本；读工作区文件用 input_path，不要用 Node 的 fs。";
 
     private static boolean looksLikeTinyWebViewImage(String text) {
         String lower = text.toLowerCase();
@@ -305,6 +351,40 @@ public final class ProductivityCoach {
             return false;
         }
         return BASH_WHICH_COMMAND.matcher(command.trim()).find();
+    }
+
+    /** 在 bash/glob 里寻找脚本库文件（pptx.js、find -name xxx.js、通配 .js 等）。 */
+    private static final java.util.regex.Pattern GLOB_JS =
+        java.util.regex.Pattern.compile("\\*[^\\s]*\\.js");
+
+    private static boolean looksLikeScriptLibHunt(String query) {
+        if (query == null || query.isBlank()) {
+            return false;
+        }
+        String lower = query.toLowerCase();
+        if (!lower.contains(".js")) {
+            return false;
+        }
+        return lower.contains("find")
+            || lower.contains("-name")
+            || lower.contains("ls")
+            || GLOB_JS.matcher(query).find();
+    }
+
+    /** bash/glob 结果为「没找到」（空、No matches、No such file、Error 开头）。 */
+    private static boolean looksLikeNoMatchResult(String text) {
+        if (text == null) {
+            return false;
+        }
+        String trimmed = text.trim();
+        if (trimmed.isEmpty()) {
+            return true;
+        }
+        String lower = trimmed.toLowerCase();
+        return lower.contains("no matches")
+            || lower.contains("no such file")
+            || lower.contains("not found")
+            || lower.startsWith("error");
     }
 
     private static boolean looksLikeNonScriptDataFile(String file) {

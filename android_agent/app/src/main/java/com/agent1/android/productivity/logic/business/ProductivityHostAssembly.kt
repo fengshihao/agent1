@@ -14,18 +14,22 @@ object ProductivityHostAssembly {
         agentRoot: Path,
         config: AgentRuntimeConfig,
     ): ProductivityAgentHost {
-        if (!BuildConfig.WEIZHI_INTEGRATED) {
-            return ProductivityAgentHost(agentRoot, config)
+        val host = if (!BuildConfig.WEIZHI_INTEGRATED) {
+            ProductivityAgentHost(agentRoot, config)
+        } else {
+            @Suppress("UNCHECKED_CAST")
+            Class.forName(WEIZHI_LOADER)
+                .getDeclaredMethod(
+                    "create",
+                    Context::class.java,
+                    Path::class.java,
+                    AgentRuntimeConfig::class.java,
+                )
+                .invoke(null, context.applicationContext, agentRoot, config) as ProductivityAgentHost
         }
-        @Suppress("UNCHECKED_CAST")
-        return Class.forName(WEIZHI_LOADER)
-            .getDeclaredMethod(
-                "create",
-                Context::class.java,
-                Path::class.java,
-                AgentRuntimeConfig::class.java,
-            )
-            .invoke(null, context.applicationContext, agentRoot, config) as ProductivityAgentHost
+        host.setImageResizer(BitmapImageResizer())
+        host.setMediaInspector(AndroidMediaInspector())
+        return host
     }
 
     private const val WEIZHI_LOADER =

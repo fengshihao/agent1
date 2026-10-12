@@ -65,7 +65,7 @@ detekt {
 
 android {
     namespace = "com.agent1.android"
-    // Compose BOM 2025.04+（Foundation 1.8）要求 compileSdk ≥ 35
+    // Compose BOM 2025.08+（Foundation 1.9）要求 compileSdk ≥ 35
     compileSdk = 35
 
     defaultConfig {
@@ -179,8 +179,8 @@ android {
 }
 
 dependencies {
-    // markdown-renderer 0.35 调用含 TextAutoSize 的 BasicText（Compose Foundation 1.8+）；2025.02 BOM 仍为 1.7.8 会 NoSuchMethodError
-    val composeBom = platform("androidx.compose:compose-bom:2025.04.01")
+    // markdown-renderer 0.35 需要 Foundation 1.8+ 的 BasicText；1.9 起 LazyColumn 才能用 LazyLayoutCacheWindow 预组合视口外条目。
+    val composeBom = platform("androidx.compose:compose-bom:2025.08.01")
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")

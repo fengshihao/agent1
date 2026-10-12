@@ -130,6 +130,8 @@ CI 默认执行 **`sync-weizhi.sh`** 再 `assembleDebug`，APK 应含完整 Weiz
 
 App 内 **模型配置** 与聊天页 **模型详情** 会显示当前包装配的「Agent 工具」摘要。
 
+网络中断、密钥无效、额度不足这类失败，界面上只显示一句白话（例如「网络中断了，这次回复没有传完。请再发一次。」）。`events.jsonl` 和诊断包里仍保留原来的技术信息，方便排查。
+
 **WebView 绘图（canvas，非大模型生图）**
 
 - 自动化（adb 真机/模拟器，不调 LLM）：`./run-webview-draw-test.sh`

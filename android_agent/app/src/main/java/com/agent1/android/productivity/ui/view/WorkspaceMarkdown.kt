@@ -2,6 +2,7 @@ package com.agent1.android.productivity.ui.view
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -10,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
@@ -27,6 +30,8 @@ fun WorkspaceMarkdown(
     content: String,
     workspaceAbsolutePath: String,
     modifier: Modifier = Modifier,
+    /** 传入且文件可内置预览（html）时，点击链接走 app 内预览路由。 */
+    onOpenInApp: ((String) -> Unit)? = null,
 ) {
     val root = workspaceAbsolutePath
     val context = LocalContext.current
@@ -41,12 +46,16 @@ fun WorkspaceMarkdown(
                 if (root.isBlank()) return null
                 val file = SessionWorkspacePaths.resolveFile(Paths.get(root), link) ?: return null
                 val painter = rememberAsyncImagePainter(model = file, imageLoader = imageLoader)
-                return ImageData(painter = painter)
+                return ImageData(
+                    painter = painter,
+                    modifier = Modifier.workspaceImageFileLayout(root, link),
+                    contentScale = ContentScale.Fit,
+                )
             }
         }
     }
     val defaultUriHandler = LocalUriHandler.current
-    val uriHandler = remember(defaultUriHandler, workspaceRoot, context) {
+    val uriHandler = remember(defaultUriHandler, workspaceRoot, context, onOpenInApp) {
         object : UriHandler {
             override fun openUri(uri: String) {
                 val trimmed = uri.trim()
@@ -58,7 +67,11 @@ fun WorkspaceMarkdown(
                 ) {
                     val normalized = SessionWorkspacePaths.normalizeWorkspaceRelativePath(href)
                     if (SessionWorkspacePaths.resolveFile(workspaceRoot, normalized) != null) {
-                        WorkspaceFileActions.openWorkspaceFile(context, workspaceRoot, normalized)
+                        if (onOpenInApp != null && WorkspaceFileActions.isPreviewableInApp(normalized)) {
+                            onOpenInApp.invoke(normalized)
+                        } else {
+                            WorkspaceFileActions.openWorkspaceFile(context, workspaceRoot, normalized)
+                        }
                         return
                     }
                     if (hadWorkspacePrefix) {

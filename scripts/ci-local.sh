@@ -88,6 +88,7 @@ run_android_assemble() {
   ./java_agent/gradlew --no-daemon -p java_agent publishCoreToLocalRepo
   (
     cd "${REPO_ROOT}/android_agent"
+    DASHSCOPE_API_KEY="" ./gradlew --no-daemon :app:testDebugUnitTest
     DASHSCOPE_API_KEY="" ./gradlew --no-daemon :app:assembleDebug
   )
   echo "APK: android_agent/app/build/outputs/apk/debug/agent1-android-debug.apk"

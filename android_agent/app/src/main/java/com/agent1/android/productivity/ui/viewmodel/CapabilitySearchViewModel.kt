@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
+import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.javaagent.capability.CapabilitySearchView
 import java.util.concurrent.ExecutionException
 import kotlinx.coroutines.Dispatchers
@@ -117,7 +118,7 @@ class CapabilitySearchViewModel(
                         it.copy(
                             busy = false,
                             searched = true,
-                            errorMessage = error.message ?: "检索失败",
+                            errorMessage = UserFacingError.explain(error.message ?: "检索失败"),
                         )
                     }
                 },

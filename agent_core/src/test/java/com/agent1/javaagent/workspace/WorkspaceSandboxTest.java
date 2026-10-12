@@ -77,6 +77,37 @@ class WorkspaceSandboxTest {
     }
 
     @Test
+    void stripsEchoedSessionsWorkspacePrefix() throws Exception {
+        // 工具回显 agentRoot 相对路径（sessions/<id>/workspace/...），模型原样回传时也应解析成功
+        Path file = sandbox.getRoot().resolve("out/deck.pptx");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "pptx");
+        assertEquals(
+            file.toAbsolutePath().normalize(),
+            sandbox.resolveRead("sessions/some-session/workspace/out/deck.pptx")
+        );
+        assertEquals(
+            file.toAbsolutePath().normalize(),
+            sandbox.resolveWrite("sessions/some-session/workspace/out/deck.pptx")
+        );
+    }
+
+    @Test
+    void displayPathPrefersWorkspaceRelativeUnderAgentRoot() throws Exception {
+        // 手机真机回归：workspace 物理在 agentRoot/sessions/<id>/workspace 下时，
+        // 回显必须是 workspace 相对路径（与模型输入一致），不再带 sessions/<id>/workspace/ 前缀
+        Path agentRoot = temp.resolve("agentRoot5");
+        Files.createDirectories(agentRoot);
+        Path workspace = agentRoot.resolve("sessions/session-9/workspace");
+        WorkspaceSandbox withAgent = new WorkspaceSandbox(workspace, agentRoot);
+        Path file = workspace.resolve("out/deck.pptx");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "pptx");
+        assertEquals("out/deck.pptx", withAgent.displayPath(file));
+        assertEquals("out/deck.pptx", withAgent.relativize(file));
+    }
+
+    @Test
     void toWeizhiReadPathMapsAgentRootAbsoluteToDocsSystem() {
         Path agentRoot = temp.resolve("agentRoot3");
         AgentHomeBootstrap.ensure(agentRoot);

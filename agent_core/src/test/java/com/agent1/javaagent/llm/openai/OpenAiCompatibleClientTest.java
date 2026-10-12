@@ -450,6 +450,71 @@ class OpenAiCompatibleClientTest {
     }
 
     @Test
+    void suppressTerminalFailure_ignoresCancelAfterDone() {
+        assertTrue(
+            OpenAiCompatibleClient.suppressTerminalFailure(
+                true,
+                null,
+                "SSE failed: stream was reset: CANCEL "
+            )
+        );
+        assertTrue(
+            OpenAiCompatibleClient.suppressTerminalFailure(
+                false,
+                "stop",
+                "SSE failed: Software caused connection abort "
+            )
+        );
+        assertFalse(
+            OpenAiCompatibleClient.suppressTerminalFailure(
+                false,
+                null,
+                "SSE failed: Software caused connection abort "
+            )
+        );
+        assertFalse(
+            OpenAiCompatibleClient.suppressTerminalFailure(false, "stop", "SSE failed: HTTP 400")
+        );
+    }
+
+    @Test
+    void streamChat_keepsTextWhenSocketClosesAfterFinish() throws Exception {
+        try (MockWebServer server = new MockWebServer()) {
+            String sseBody = ""
+                + "data: {\"choices\":[{\"delta\":{\"content\":\"完成了\"},\"finish_reason\":null}]}\n\n"
+                + "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":2,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\n";
+            server.enqueue(
+                new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody(sseBody)
+                    .setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.DISCONNECT_AT_END)
+            );
+            server.start();
+
+            OpenAiCompatibleClient client = new OpenAiCompatibleClient(
+                new OpenAiCompatibleConfig(
+                    "test-key",
+                    server.url("/v1").toString(),
+                    Duration.ofSeconds(5),
+                    0.2
+                ),
+                MAPPER,
+                0,
+                0L
+            );
+            AssistantResponse response = client.streamChat(
+                new ChatRequest("gpt-4o-mini", List.of(AgentMessage.user("hello"))),
+                List.of(),
+                delta -> {},
+                new CancellationToken()
+            );
+            assertEquals("完成了", response.getContent());
+            assertEquals("stop", response.getFinishReason());
+        }
+    }
+
+    @Test
     void safeThrowableSummary_nullThrowable_returnsNull() throws Exception {
         Method m = OpenAiCompatibleClient.class.getDeclaredMethod("safeThrowableSummary", Throwable.class);
         m.setAccessible(true);

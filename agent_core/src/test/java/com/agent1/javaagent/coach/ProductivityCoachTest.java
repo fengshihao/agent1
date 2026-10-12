@@ -133,6 +133,32 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void runJsWebviewReceiptStillCoaches() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "const fs = require('fs'); const r = await $tools.webview_exec({code:'return null'}); r");
+        ToolExecutionResult in = ToolExecutionResult.text(
+            "{\"ok\":false,\"error\":\"没有可落盘的返回值:脚本返回了 null 或 undefined。不会写入文件。\"}"
+        );
+        ToolExecutionResult out = coach.maybeAugment("run_js", params, in, true);
+        assertTrue(out.getText().contains("[coach] webview.null_return"));
+        assertFalse(out.getText().contains("[coach] webview.not_web_api"));
+        assertFalse(out.getText().contains("[coach] script.not_node"));
+    }
+
+    @Test
+    void runJsPlainReceiptDoesNotScanOuterFs() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "import fs from 'fs'; fs.readFileSync('a.txt')");
+        ToolExecutionResult in = ToolExecutionResult.text(
+            "{\"ok\":true,\"resultPreview\":{\"svg\":1,\"textLen\":20}}"
+        );
+        ToolExecutionResult out = coach.maybeAugment("run_js", params, in, false);
+        assertFalse(out.getText().contains("[coach]"));
+    }
+
+    @Test
     void webviewNullReturnCoach() {
         ProductivityCoach coach = new ProductivityCoach();
         ToolExecutionResult in = ToolExecutionResult.text(
@@ -291,5 +317,61 @@ class ProductivityCoachTest {
         ToolExecutionResult in = ToolExecutionResult.text("ok");
         ToolExecutionResult out = coach.maybeAugment("run_js", params, in, false);
         assertFalse(out.getText().contains("[coach] script.inline_long"));
+    }
+
+    @Test
+    void bashFindJsNoMatchCoachesBuiltInModule() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("command", "find / -name \"pptx.js\" 2>/dev/null");
+        ToolExecutionResult in = ToolExecutionResult.text("Error: absolute path not allowed: /");
+        ToolExecutionResult out = coach.maybeAugment("bash", params, in, false);
+        assertTrue(out.getText().contains("[coach] lib.hunt_missing"));
+        assertTrue(out.getText().contains("内置模块"));
+    }
+
+    @Test
+    void globJsNoMatchCoachesBuiltInModule() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("pattern", "**/pptx*.js");
+        ToolExecutionResult out = coach.maybeAugment(
+            "glob",
+            params,
+            ToolExecutionResult.text("No matches."),
+            false
+        );
+        assertTrue(out.getText().contains("[coach] lib.hunt_missing"));
+    }
+
+    @Test
+    void libHuntCoachLimitedPerRun() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("command", "find shared -name \"pptx*.js\"");
+        ToolExecutionResult miss = ToolExecutionResult.text("find: 'shared': No such file or directory");
+        assertTrue(coach.maybeAugment("bash", params, miss, false).getText().contains("[coach] lib.hunt_missing"));
+        assertTrue(coach.maybeAugment("bash", params, miss, false).getText().contains("[coach] lib.hunt_missing"));
+        assertFalse(coach.maybeAugment("bash", params, miss, false).getText().contains("[coach] lib.hunt_missing"));
+    }
+
+    @Test
+    void jsHuntWithMatchDoesNotCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("command", "ls jobs/*.js");
+        ToolExecutionResult in = ToolExecutionResult.text("fetch-images.js prep-images.js");
+        ToolExecutionResult out = coach.maybeAugment("bash", params, in, false);
+        assertFalse(out.getText().contains("[coach] lib.hunt_missing"));
+    }
+
+    @Test
+    void nonJsCommandNoMatchDoesNotCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("command", "ls shared");
+        ToolExecutionResult in = ToolExecutionResult.text("ls: shared: No such file or directory");
+        ToolExecutionResult out = coach.maybeAugment("bash", params, in, false);
+        assertFalse(out.getText().contains("[coach] lib.hunt_missing"));
     }
 }

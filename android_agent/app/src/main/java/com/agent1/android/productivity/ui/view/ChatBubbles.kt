@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,12 +34,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
 
-/** 聊天气泡族：消息气泡、工具/思考折叠块、气泡外壳与待处理气泡。 */
+/** 聊天气泡族：消息气泡、工具/思考折叠块与气泡外壳。 */
 @Composable
 internal fun MessageBubble(
     line: ChatLine,
@@ -46,11 +49,27 @@ internal fun MessageBubble(
     reasoningStateKey: String,
     onPickFiles: () -> Unit,
     pickFilesEnabled: Boolean,
+    onOpenInApp: ((String) -> Unit)? = null,
+    /** 系统提示卡上「设置页」链接的跳转；null 时不展示链接。 */
+    onOpenSettings: (() -> Unit)? = null,
+    skipTrailingImagePreviews: Boolean = false,
+    /** 长消息拆段时只渲染该片段；null 表示整段 [line.content]。 */
+    contentSlice: String? = null,
+    showReasoning: Boolean = true,
+    showPickFiles: Boolean = true,
+    modifier: Modifier = Modifier,
 ) {
+    val bodyText = contentSlice ?: line.content
     val bubbles = chatBubbleColors()
-    val isUser = line.role == "user" && !line.isTool
+    val isUser = line.role == "user" && !line.isTool && !line.isSystemNotice
     val isTool = line.isTool
     when {
+        line.isSystemNotice -> {
+            SystemNoticeBubble(
+                content = line.content,
+                onOpenSettings = onOpenSettings,
+            )
+        }
         isUser -> {
             BubbleShell(
                 alignEnd = true,
@@ -79,8 +98,11 @@ internal fun MessageBubble(
             )
         }
         else -> {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (line.reasoning.isNotBlank()) {
+            Column(
+                modifier = modifier,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (showReasoning && line.reasoning.isNotBlank()) {
                     CollapsibleReasoningBlock(
                         reasoning = line.reasoning,
                         stateKey = reasoningStateKey,
@@ -88,7 +110,7 @@ internal fun MessageBubble(
                             line.content.isBlank(),
                     )
                 }
-                if (line.content.isNotBlank() || line.requestUserPickFiles) {
+                if (bodyText.isNotBlank() || (showPickFiles && line.requestUserPickFiles)) {
                     BubbleShell(
                         alignEnd = false,
                         wide = true,
@@ -97,15 +119,17 @@ internal fun MessageBubble(
                     ) {
                         SelectionContainer {
                             Column {
-                                if (line.content.isNotBlank()) {
+                                if (bodyText.isNotBlank()) {
                                     WorkspaceChatBody(
-                                        content = line.content,
+                                        content = bodyText,
                                         workspaceAbsolutePath = workspacePath,
                                         markdown = markdown,
                                         workspaceFilePaths = line.workspaceFilePaths,
+                                        onOpenInApp = onOpenInApp,
+                                        skipTrailingImagePreviews = skipTrailingImagePreviews,
                                     )
                                 }
-                                if (line.requestUserPickFiles) {
+                                if (showPickFiles && line.requestUserPickFiles) {
                                     IconButton(
                                         onClick = onPickFiles,
                                         enabled = pickFilesEnabled,
@@ -130,8 +154,12 @@ internal fun MessageBubble(
     }
 }
 
+/** 多图消息拆出的单张预览，仍用助手气泡样式，但单独占一条 Lazy item。 */
 @Composable
-internal fun AssistantPendingBubble(label: String) {
+internal fun DetachedWorkspaceImageBubble(
+    workspacePath: String,
+    relativePath: String,
+) {
     val bubbles = chatBubbleColors()
     BubbleShell(
         alignEnd = false,
@@ -139,19 +167,52 @@ internal fun AssistantPendingBubble(label: String) {
         background = bubbles.assistantBackground,
         borderColor = bubbles.assistantBorder,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        WorkspaceImagePreview(
+            workspaceAbsolutePath = workspacePath,
+            workspaceRelativePath = relativePath,
+        )
+    }
+}
+
+/** 运行时注入的系统提示（如单轮往返上限）：整宽醒目卡片，「设置页」可点跳转。 */
+@Composable
+private fun SystemNoticeBubble(
+    content: String,
+    onOpenSettings: (() -> Unit)?,
+) {
+    val cs = MaterialTheme.colorScheme
+    val body = content.trim().removePrefix("【系统】").trim()
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = cs.primaryContainer,
+        border = BorderStroke(1.dp, cs.primary),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                strokeWidth = 2.dp,
+            Text(
+                "运行提示",
+                style = MaterialTheme.typography.titleSmall,
+                color = cs.primary,
             )
             Text(
-                label,
+                body,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = cs.onPrimaryContainer,
             )
+            if (onOpenSettings != null) {
+                Text(
+                    "前往设置页调整单轮往返上限 →",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenSettings),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = cs.primary,
+                    textDecoration = TextDecoration.Underline,
+                )
+            }
         }
     }
 }
@@ -165,6 +226,7 @@ internal fun CollapsibleToolCallBubble(
     isError: Boolean,
     resultSummary: String,
     progressLines: List<String>,
+    title: String = toolName,
 ) {
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val bubbles = chatBubbleColors()
@@ -172,7 +234,8 @@ internal fun CollapsibleToolCallBubble(
     CollapsibleMetaBubble(
         expanded = expanded,
         onToggle = { expanded = !expanded },
-        title = toolName,
+        title = title,
+        titleColor = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
         borderColor = if (failed) MaterialTheme.colorScheme.error else bubbles.systemBorder,
         showSpinner = !finished,
         expandContentDescription = "展开工具结果",
@@ -210,11 +273,107 @@ internal fun CollapsibleToolCallBubble(
     }
 }
 
+/** 一轮一张卡。展开后每一段思考、每一次工具调用仍是各自的折叠项。 */
+@Composable
+internal fun TurnActivityBubble(
+    stateKey: String,
+    pieces: List<TurnPiece>,
+    runInProgress: Boolean = false,
+) {
+    if (pieces.isEmpty() && !runInProgress) return
+    var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
+    val bubbles = chatBubbleColors()
+    val failed = pieces.any { it is TurnPiece.Tool && ChatToolBatch.showsFailure(it.entry) }
+    val running = runInProgress || ChatToolBatch.isRunning(pieces)
+    BubbleShell(
+        alignEnd = false,
+        wide = true,
+        background = bubbles.systemBackground,
+        borderColor = if (failed) MaterialTheme.colorScheme.error else bubbles.systemBorder,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowRight,
+                    contentDescription = if (expanded) "收起思考和执行" else "展开思考和执行",
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    ChatToolBatch.title(pieces),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (failed) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (running) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            val detail = ChatToolBatch.detail(pieces)
+            if (detail.isNotBlank()) {
+                Text(
+                    detail,
+                    modifier = Modifier.padding(start = 26.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            AnimatedVisibility(visible = expanded) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    pieces.forEach { piece ->
+                        when (piece) {
+                            is TurnPiece.Reasoning -> {
+                                CollapsibleReasoningBlock(
+                                    reasoning = piece.text,
+                                    stateKey = "$stateKey::${piece.key}",
+                                    inProgress = piece.inProgress,
+                                    title = ChatToolBatch.pieceLabel(piece),
+                                )
+                            }
+                            is TurnPiece.Tool -> {
+                                CollapsibleToolCallBubble(
+                                    stateKey = "$stateKey::${piece.entry.key}",
+                                    toolName = piece.entry.toolName,
+                                    argsPreview = piece.entry.argsPreview,
+                                    finished = piece.entry.finished,
+                                    isError = piece.entry.isError,
+                                    resultSummary = piece.entry.resultSummary,
+                                    progressLines = piece.entry.progressLines,
+                                    title = ChatToolBatch.pieceLabel(piece),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun CollapsibleReasoningBlock(
     reasoning: String,
     stateKey: String,
     inProgress: Boolean = false,
+    title: String = "思考过程",
 ) {
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val trimmed = reasoning.trim().trimEnd('▌', ' ').trim()
@@ -223,7 +382,7 @@ private fun CollapsibleReasoningBlock(
     CollapsibleMetaBubble(
         expanded = expanded,
         onToggle = { expanded = !expanded },
-        title = "思考过程",
+        title = title,
         borderColor = bubbles.systemBorder,
         showSpinner = inProgress,
         expandContentDescription = "展开思考过程",
@@ -242,6 +401,7 @@ private fun CollapsibleMetaBubble(
     expanded: Boolean,
     onToggle: () -> Unit,
     title: String,
+    titleColor: Color = MaterialTheme.colorScheme.onSurface,
     borderColor: Color,
     showSpinner: Boolean,
     expandContentDescription: String,
@@ -273,7 +433,7 @@ private fun CollapsibleMetaBubble(
                 Text(
                     title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = titleColor,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

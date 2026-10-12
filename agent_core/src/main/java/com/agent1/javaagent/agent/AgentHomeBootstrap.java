@@ -4,6 +4,7 @@ import com.agent1.javaagent.capability.CapabilityIndexStore;
 import com.agent1.javaagent.util.PathIo;
 import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import com.agent1.javaagent.catalog.SvgRasterCatalogScripts;
+import com.agent1.javaagent.catalog.WebLibCatalogTemplates;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
@@ -28,6 +29,7 @@ public final class AgentHomeBootstrap {
         "docs/capabilities",
         "shared/catalog/skills",
         "shared/catalog/scripts",
+        "shared/catalog/templates",
         "shared/catalog/libs/js",
         "shared/catalog/libs/qjs",
         "shared/catalog/assets/images",
@@ -54,6 +56,7 @@ public final class AgentHomeBootstrap {
         removeBundledSystemDocs(root);
         OfficeCatalogScripts.ensure(root);
         SvgRasterCatalogScripts.ensure(root);
+        WebLibCatalogTemplates.ensure(root);
         CapabilityIndexStore.ensure(root);
     }
 

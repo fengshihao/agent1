@@ -10,7 +10,8 @@ object AndroidAgentRuntimeConfig {
 
     fun load(context: Context): AgentRuntimeConfig {
         val prefs = AgentRuntimePreferencesStore(context.applicationContext).read()
-        val props = AgentRuntimePreferencesMerge.toProperties(prefs)
+        val ctx = context.applicationContext
+        val props = AgentRuntimePreferencesMerge.toProperties(prefs, ctx)
         return AgentRuntimeConfig.fromProperties(props)
     }
 }

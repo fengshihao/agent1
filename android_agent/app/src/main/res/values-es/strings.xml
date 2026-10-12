@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="action_back">Atrás</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_delete">Eliminar</string>
+    <string name="action_close">Cerrar</string>
+    <string name="action_send">Enviar</string>
+    <string name="action_stop">Detener</string>
+    <string name="action_more">Más</string>
+
+    <string name="chat_new_session">Nuevo chat</string>
+    <string name="chat_input_hint">Escribe un mensaje…</string>
+    <string name="chat_input_answer_card">Responde en la tarjeta de arriba y envía</string>
+    <string name="chat_opening">Abriendo chat…</string>
+    <string name="chat_startup_error">No se puede iniciar el chat: %1$s</string>
+    <string name="chat_load_failed">Error al cargar el chat: %1$s</string>
+    <string name="chat_loading_transcript">Cargando chat…</string>
+    <string name="chat_empty_title">Empieza con un mensaje</string>
+    <string name="chat_empty_subtitle">Abre chats anteriores desde arriba a la izquierda</string>
+    <string name="chat_selected_files">Archivos seleccionados (este chat)</string>
+    <string name="chat_drawer_loading">Cargando…</string>
+    <string name="chat_drawer_empty">Aún no hay chats</string>
+    <string name="chat_delete_session_title">Eliminar chat</string>
+    <string name="chat_delete_session_message">«%1$s» se eliminará de forma permanente.</string>
+    <string name="chat_new_session_drawer">Nuevo chat</string>
+    <string name="chat_already_new_session">Ya es un chat nuevo</string>
+    <string name="chat_model_cd">Modelo %1$s — abrir ajustes</string>
+    <string name="chat_add_attachment">Añadir adjunto</string>
+    <string name="chat_select_file">Elegir archivo</string>
+
+    <string name="cd_session_list">Lista de chats</string>
+    <string name="cd_artifact_library">Artefactos</string>
+    <string name="cd_new_chat">Nuevo chat</string>
+    <string name="cd_usage">Uso</string>
+
+    <string name="menu_model_settings">Ajustes del modelo</string>
+    <string name="menu_capability_search">Buscar capacidades</string>
+    <string name="menu_system_prompt">Prompt del sistema</string>
+    <string name="menu_session_brief">Resumen del chat</string>
+    <string name="menu_diagnostic_pack">Paquete de diagnóstico</string>
+    <string name="menu_diagnostic_packing">Empaquetando…</string>
+    <string name="menu_about">Acerca de</string>
+
+    <string name="usage_sheet_title">Uso</string>
+    <string name="usage_estimated_by_model">Estimado para el modelo actual</string>
+    <string name="usage_cache_hit">Acierto en caché %1$d%%</string>
+
+    <string name="run_connecting">Conectando al modelo…</string>
+    <string name="run_preparing">Preparando siguiente paso…</string>
+    <string name="run_assistant">Asistente en ejecución…</string>
+    <string name="run_thinking">Pensando…</string>
+    <string name="run_generating">Generando respuesta…</string>
+    <string name="run_tool_call">Herramienta · %1$s</string>
+    <string name="run_tool_running">Ejecutando herramienta · %1$s</string>
+    <string name="run_tool_failed">La herramienta falló</string>
+    <string name="run_waiting_user">Esperando tu respuesta…</string>
+    <string name="run_tool_failed_short">Error de herramienta</string>
+    <string name="run_tool_done">Herramienta terminada</string>
+    <string name="run_tool_default_name">Herramienta</string>
+    <string name="file_import_failed">No se pudieron importar los archivos</string>
+    <string name="file_import_ok">Se añadieron %1$d archivo(s)</string>
+
+    <string name="model_settings_title">Ajustes del modelo</string>
+    <string name="model_settings_saving">Guardando…</string>
+    <string name="model_settings_provider">Proveedor</string>
+    <string name="model_settings_model">Modelo</string>
+    <string name="model_settings_reset">Restablecer</string>
+
+    <string name="provider_dashscope">Alibaba DashScope</string>
+    <string name="provider_deepseek">DeepSeek</string>
+    <string name="provider_zhipu_coding">Zhipu Coding</string>
+
+    <string name="about_title">Acerca de</string>
+    <string name="about_version">Versión %1$s (%2$d)</string>
+    <string name="about_author_label">Autor</string>
+    <string name="about_author_value">Feng Shihao</string>
+    <string name="about_website">Sitio web</string>
+    <string name="about_source">Código fuente</string>
+    <string name="about_license_app">Esta app</string>
+    <string name="about_license_mit">MIT</string>
+    <string name="about_open_source_deps">Dependencias de código abierto</string>
+    <string name="about_open_source_notice">Estas bibliotecas se incluyen en la app. Apache-2.0 y MIT exigen conservar avisos de copyright y el nombre de la licencia.</string>
+
+    <string name="error_generic">Algo salió mal. Inténtalo de nuevo.</string>
+    <string name="error_network">Se perdió la conexión antes de terminar la respuesta. Vuelve a enviar.</string>
+    <string name="error_timeout">Tiempo de espera agotado. Inténtalo de nuevo.</string>
+    <string name="error_offline">Sin red. Comprueba la conexión e inténtalo de nuevo.</string>
+    <string name="error_ssl">Falló la conexión segura. Comprueba la red y la hora del dispositivo.</string>
+    <string name="error_auth">Clave API inválida o caducada. Actualízala en Ajustes del modelo.</string>
+    <string name="error_search_auth">Clave de búsqueda web inválida. Revísala en Ajustes del modelo.</string>
+    <string name="error_no_key">Falta la clave API. Añádela en Ajustes del modelo.</string>
+    <string name="error_forbidden">Sin permiso para usar este modelo. Revisa clave y cuenta.</string>
+    <string name="error_rate">Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.</string>
+    <string name="error_quota">Cuota agotada o cuenta pendiente. Revisa el saldo con tu proveedor.</string>
+    <string name="error_model">Modelo no encontrado. Elige otro en ajustes.</string>
+    <string name="error_server">El servicio del modelo no está disponible temporalmente. Inténtalo más tarde.</string>
+    <string name="error_bad_request">Solicitud rechazada. Revisa el nombre del modelo o reformula.</string>
+    <string name="error_filter">El contenido no pasó la revisión de seguridad. Reformula.</string>
+    <string name="error_page">No se abrió la página. Inténtalo de nuevo.</string>
+</resources>

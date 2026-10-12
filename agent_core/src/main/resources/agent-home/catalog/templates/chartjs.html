@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/water.css@2.1.1/out/water.css'>
+</head>
+<body>
+<canvas id='c'></canvas>
+<script src='https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js'></script>
+<script>
+const data = {labels:['A'], datasets:[{label:'n', data:[1]}]};
+new Chart(document.getElementById('c'), {type:'bar', data});
+</script>
+</body>
+</html>

@@ -1,6 +1,9 @@
 package com.agent1.android.productivity.ui.viewmodel
 
+import com.agent1.android.productivity.logic.business.ArtifactLibraryFilter
+import com.agent1.android.productivity.logic.business.AskUserFormState
 import com.agent1.android.productivity.logic.business.AskUserFormatting
+import com.agent1.android.productivity.logic.business.UsageOverview
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
 
@@ -24,6 +27,7 @@ data class RunTokenSummary(
             "输出 ${formatCompactTokenCount(outputTokens)}",
         )
         cacheHitPercent?.let { parts.add("缓存命中 ${it}%") }
+        if (failed) parts.add("未完成")
         return parts.joinToString(" · ")
     }
 
@@ -43,14 +47,6 @@ data class RunTokenSummary(
     }
 }
 
-data class AskUserFormState(
-    val request: AskUserFormatting.Request,
-    val textAnswers: Map<String, String> = emptyMap(),
-    val singleChoice: Map<String, String> = emptyMap(),
-    val multiChoice: Map<String, Set<String>> = emptyMap(),
-    val validationError: String? = null,
-)
-
 data class SessionListUiState(
     val sessions: List<SessionMeta> = emptyList(),
     val configSummary: RuntimeConfigSummary? = null,
@@ -60,6 +56,8 @@ data class SessionListUiState(
     val exportMessage: String? = null,
     /** Agent 宿主初始化失败（Weizhi/SQLite 等）；详情见 last_crash_report.txt */
     val startupError: String? = null,
+    /** 全部会话累计用量；抽屉底部摘要，点开看分项。 */
+    val usage: UsageOverview = UsageOverview(),
 )
 
 /** 单次 Run 内按时间顺序展示的片段（助手正文 / 工具调用）。 */
@@ -107,6 +105,8 @@ data class ChatLine(
     val requestUserPickFiles: Boolean = false,
     /** 历史消息中的 ask_user 摘要（只读）。 */
     val askUserForm: AskUserFormatting.Request? = null,
+    /** 运行时注入的系统提示（如单轮往返上限），渲染为醒目通知卡而非普通用户气泡。 */
+    val isSystemNotice: Boolean = false,
     /** 不在聊天气泡列表中展示（已由助手气泡承载）。 */
     val hideInChat: Boolean = false,
 )
@@ -121,7 +121,7 @@ data class ChatUiState(
     val streamingText: String = "",
     val streamingReasoning: String = "",
     val runTimeline: List<ChatRunTimelineItem> = emptyList(),
-    /** 运行中的状态文案。正文已经展开时仍保留，用来驱动列表底部的进行中提示。 */
+    /** 运行中的状态文案。预览页状态条使用；对话列表由「思考与执行」卡片自己表示进行中。 */
     val runActivityLabel: String? = null,
     val isRunning: Boolean = false,
     val configError: String? = null,
@@ -136,4 +136,47 @@ data class ChatUiState(
     val pendingAskUser: AskUserFormState? = null,
     /** 上一轮 Run 结束后的 token / 缓存统计；运行中不展示。 */
     val lastRunTokenSummary: RunTokenSummary? = null,
+)
+
+/** 当前会话还没有可展示的对话内容。加载中或正在跑都不算。 */
+internal fun ChatUiState.isFreshSession(): Boolean {
+    if (isLoadingTranscript || isRunning) return false
+    if (streamingText.isNotBlank() || streamingReasoning.isNotBlank()) return false
+    if (runTimeline.isNotEmpty() || pendingAskUser != null) return false
+    return lines.none { !it.hideInChat }
+}
+
+/** 产物库列表项：会话 workspace 内 AI 生成的文件 + 所属会话标题。 */
+data class ArtifactUiItem(
+    val sessionId: String,
+    val sessionTitle: String,
+    val workspaceRelativePath: String,
+    val fileName: String,
+    val sizeBytes: Long,
+    val lastModifiedMillis: Long,
+) {
+    /** LazyColumn 稳定 key 与多选标识（sessionId + workspace 相对路径）。 */
+    val stableKey: String
+        get() = "$sessionId/$workspaceRelativePath"
+}
+
+data class ArtifactLibraryUiState(
+    /** 打开产物库时的活动会话；为空（落位页）时禁用「插入会话」。 */
+    val currentSessionId: String = "",
+    val isLoading: Boolean = true,
+    /** 全量产物（按修改时间倒序）。 */
+    val items: List<ArtifactUiItem> = emptyList(),
+    /** 按分层 / 类型 / 搜索词过滤后的展示列表。 */
+    val filteredItems: List<ArtifactUiItem> = emptyList(),
+    /** 主要交付物 vs 脚本/配置等细碎文件。 */
+    val shelf: ArtifactLibraryFilter.Shelf = ArtifactLibraryFilter.Shelf.PRIMARY,
+    val typeFilter: ArtifactLibraryFilter.TypeFilter = ArtifactLibraryFilter.TypeFilter.ALL,
+    val query: String = "",
+    /** 多选模式：任一长按进入，清空选择后退出。 */
+    val selectionMode: Boolean = false,
+    val selectedKeys: Set<String> = emptySet(),
+    /** 删除 / 插入进行中，按钮防重入。 */
+    val busy: Boolean = false,
+    val message: String? = null,
+    val error: String? = null,
 )

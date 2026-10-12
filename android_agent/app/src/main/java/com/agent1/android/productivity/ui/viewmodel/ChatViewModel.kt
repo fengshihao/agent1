@@ -8,6 +8,7 @@ import com.agent1.javaagent.event.AgentEventType
 import com.agent1.javaagent.event.EventPayloads
 import com.agent1.javaagent.model.AgentMessage
 import com.agent1.javaagent.model.ToolCall
+import com.agent1.android.productivity.logic.business.AskUserFormState
 import com.agent1.android.productivity.logic.business.AskUserFormatting
 import com.agent1.android.productivity.logic.business.AskUserPendingDetector
 import com.agent1.android.productivity.logic.business.AskUserReplyFormatter
@@ -16,6 +17,9 @@ import org.json.JSONObject
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
+import com.agent1.android.productivity.logic.business.UserFacingError
+import com.agent1.android.productivity.logic.business.i18n.AppLocalization
+import com.agent1.android.R
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
@@ -66,7 +70,7 @@ class ChatViewModel(
     fun refreshConfigSummary() {
         _state.value = _state.value.copy(
             configSummary = gateway.configurationSummary(),
-            configError = gateway.configurationError(),
+            configError = gateway.configurationError()?.let { UserFacingError.explain(it) },
         )
     }
 
@@ -112,19 +116,19 @@ class ChatViewModel(
         } catch (e: Exception) {
             _state.value = _state.value.copy(
                 isLoadingTranscript = false,
-                transcriptLoadError = e.message ?: e.javaClass.simpleName,
+                transcriptLoadError = UserFacingError.explain(e.message ?: e.javaClass.simpleName),
             )
         }
     }
 
     @Suppress("TooGenericExceptionCaught")
-    fun sendMessage(text: String) {
+    fun sendMessage(text: String): Boolean {
         val trimmed = text.trim()
-        if (trimmed.isEmpty() || _state.value.isRunning) return
+        if (trimmed.isEmpty() || _state.value.isRunning) return false
         val err = gateway.configurationError()
         if (err != null) {
-            _state.value = _state.value.copy(configError = err)
-            return
+            _state.value = _state.value.copy(configError = UserFacingError.explain(err))
+            return false
         }
         resetStreamBuffers()
         resetRunUsageAccumulators()
@@ -133,7 +137,7 @@ class ChatViewModel(
             streamingText = "",
             streamingReasoning = "",
             runTimeline = emptyList(),
-            runActivityLabel = "正在连接模型…",
+            runActivityLabel = AppLocalization.getString(R.string.run_connecting),
             lastRunTokenSummary = null,
             pendingAskUser = null,
             lines = _state.value.lines + ChatLine(
@@ -143,6 +147,7 @@ class ChatViewModel(
             ),
         )
         viewModelScope.launch {
+            var sendFailure: String? = null
             try {
                 withContext(Dispatchers.IO) {
                     gateway.runUserMessage(sessionId, trimmed) { event ->
@@ -174,9 +179,7 @@ class ChatViewModel(
                 }
             } catch (e: Exception) {
                 runEndedWithFailure = true
-                _state.value = _state.value.copy(
-                    lines = _state.value.lines + ChatLine("assistant", "错误: ${e.message}"),
-                )
+                sendFailure = UserFacingError.explain(e.message ?: e.javaClass.simpleName)
             } finally {
                 resetStreamBuffers()
                 _state.value = _state.value.copy(
@@ -187,8 +190,30 @@ class ChatViewModel(
                     lastRunTokenSummary = buildRunTokenSummaryIfNeeded(),
                 )
                 loadTranscriptIntoState(initialLoad = false)
+                // 失败发生在落盘之前时，刷新记录会把刚发出的消息和错误一起清掉。
+                if (sendFailure != null) {
+                    appendUnpersistedSendResult(trimmed, sendFailure)
+                }
             }
         }
+        return true
+    }
+
+    private fun appendUnpersistedSendResult(text: String, failure: String) {
+        val lines = _state.value.lines.toMutableList()
+        if (lines.none { it.role == "user" && it.content.trim() == text }) {
+            lines += ChatLine(
+                role = "user",
+                content = text,
+                stableKey = "unpersisted-user",
+            )
+        }
+        lines += ChatLine(
+            role = "assistant",
+            content = failure,
+            stableKey = "unpersisted-error",
+        )
+        _state.value = _state.value.copy(lines = lines)
     }
 
     fun stopRun() {
@@ -314,7 +339,7 @@ class ChatViewModel(
             runTimeline = _state.value.runTimeline + segment,
             streamingText = "",
             streamingReasoning = "",
-            runActivityLabel = "准备下一步…",
+            runActivityLabel = AppLocalization.getString(R.string.run_preparing),
         )
     }
 
@@ -371,14 +396,20 @@ class ChatViewModel(
         when (event.type) {
             AgentEventType.MESSAGE_UPDATE, AgentEventType.REASONING_UPDATE -> Unit
             AgentEventType.AGENT_START -> {
-                _state.value = _state.value.copy(runActivityLabel = "助手运行中…")
+                _state.value = _state.value.copy(
+                    runActivityLabel = AppLocalization.getString(R.string.run_assistant),
+                )
             }
             AgentEventType.TURN_START -> {
-                _state.value = _state.value.copy(runActivityLabel = "思考中…")
+                _state.value = _state.value.copy(
+                    runActivityLabel = AppLocalization.getString(R.string.run_thinking),
+                )
             }
             AgentEventType.MESSAGE_START -> {
                 if (_state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()) {
-                    _state.value = _state.value.copy(runActivityLabel = "正在生成回复…")
+                    _state.value = _state.value.copy(
+                        runActivityLabel = AppLocalization.getString(R.string.run_generating),
+                    )
                 }
             }
             AgentEventType.TOOL_EXECUTION_START -> {
@@ -393,7 +424,7 @@ class ChatViewModel(
                     argsPreview = call.argumentsJson.trim().take(220),
                 )
                 _state.value = _state.value.copy(
-                    runActivityLabel = "调用工具 · $name",
+                    runActivityLabel = AppLocalization.getString(R.string.run_tool_call, name),
                     runTimeline = _state.value.runTimeline + segment,
                 )
             }
@@ -403,7 +434,7 @@ class ChatViewModel(
                 if (snippet.isNotEmpty()) {
                     val line = snippet.replace('\n', ' ')
                     _state.value = _state.value.copy(
-                        runActivityLabel = "工具执行中 · $line",
+                        runActivityLabel = AppLocalization.getString(R.string.run_tool_running, line),
                         runTimeline = updateToolTimeline(
                             toolCallId = payload.toolCallId,
                             appendProgress = line,
@@ -419,7 +450,7 @@ class ChatViewModel(
                 val rawResult = if (payload.isError) {
                     payload.errorMessage?.trim()
                         ?: payload.result?.text?.trim()
-                        ?: "工具执行失败"
+                        ?: AppLocalization.getString(R.string.run_tool_failed)
                 } else {
                     payload.result?.text?.trim().orEmpty()
                 }
@@ -435,9 +466,9 @@ class ChatViewModel(
                         _state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()
                     ) {
                         when {
-                            pending != null -> "等待您回答…"
-                            payload.isError -> "工具失败"
-                            else -> "工具已完成"
+                            pending != null -> AppLocalization.getString(R.string.run_waiting_user)
+                            payload.isError -> AppLocalization.getString(R.string.run_tool_failed_short)
+                            else -> AppLocalization.getString(R.string.run_tool_done)
                         }
                     } else {
                         null
@@ -464,8 +495,10 @@ class ChatViewModel(
             }
             AgentEventType.AGENT_ERROR -> {
                 runEndedWithFailure = true
-                val message = (event.payload as? EventPayloads.AgentError)?.message ?: "运行出错"
-                _state.value = _state.value.copy(runActivityLabel = message)
+                val message = (event.payload as? EventPayloads.AgentError)?.message
+                _state.value = _state.value.copy(
+                    runActivityLabel = UserFacingError.explain(message),
+                )
             }
             AgentEventType.USAGE -> {
                 val payload = event.payload as EventPayloads.Usage
@@ -504,7 +537,7 @@ class ChatViewModel(
                     content = display.summary,
                     reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
                     isTool = true,
-                    toolName = call?.name ?: "工具",
+                    toolName = call?.name ?: AppLocalization.getString(R.string.run_tool_default_name),
                     toolArgsPreview = call?.argumentsJson?.trim()?.take(220),
                     toolFinished = true,
                     toolIsError = isError,
@@ -518,6 +551,8 @@ class ChatViewModel(
         val askRequest = askCall?.let { AskUserFormatting.parseRequestFromToolCall(it) }
         val files = ChatTranscriptFormatting.mergeWorkspaceFilePaths(content, emptyList(), workspaceRoot)
         val pick = role == AgentMessage.ROLE_ASSISTANT && UserFileRequestMarkers.containsRequest(content)
+        val isSystemNotice = role == AgentMessage.ROLE_USER &&
+            content.trim() == com.agent1.javaagent.core.RunOutcome.progressSummaryUserPrompt()
         val baseDisplay = if (pick) {
             UserFileRequestMarkers.stripForDisplay(content)
         } else {
@@ -537,69 +572,54 @@ class ChatViewModel(
         return listOf(
             ChatLine(
                 role = role,
-                content = ChatTranscriptFormatting.truncateForUiDisplay(merged),
+                content = ChatTranscriptFormatting.truncateForUiDisplay(
+                    if (role == AgentMessage.ROLE_ASSISTANT) {
+                        UserFacingError.explainAssistantFailure(merged)
+                    } else {
+                        merged
+                    },
+                ),
                 reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
                 isTool = false,
                 workspaceFilePaths = files,
                 requestUserPickFiles = pick,
                 askUserForm = askRequest,
+                isSystemNotice = isSystemNotice,
             ),
         )
     }
 
     fun onAskUserTextChange(questionId: String, value: String) {
         val form = _state.value.pendingAskUser ?: return
-        _state.value = _state.value.copy(
-            pendingAskUser = form.copy(
-                textAnswers = form.textAnswers + (questionId to value),
-                validationError = null,
-            ),
-        )
+        _state.value = _state.value.copy(pendingAskUser = form.withText(questionId, value))
     }
 
     fun onAskUserSingleSelect(questionId: String, option: String) {
         val form = _state.value.pendingAskUser ?: return
-        _state.value = _state.value.copy(
-            pendingAskUser = form.copy(
-                singleChoice = form.singleChoice + (questionId to option),
-                validationError = null,
-            ),
-        )
+        _state.value = _state.value.copy(pendingAskUser = form.withSingleChoice(questionId, option))
     }
 
     fun onAskUserMultiToggle(questionId: String, option: String) {
         val form = _state.value.pendingAskUser ?: return
-        val current = form.multiChoice[questionId].orEmpty()
-        val next = if (option in current) current - option else current + option
-        _state.value = _state.value.copy(
-            pendingAskUser = form.copy(
-                multiChoice = form.multiChoice + (questionId to next),
-                validationError = null,
-            ),
-        )
+        _state.value = _state.value.copy(pendingAskUser = form.withMultiToggle(questionId, option))
+    }
+
+    fun onAskUserCustomAnswerChange(questionId: String, value: String) {
+        val form = _state.value.pendingAskUser ?: return
+        _state.value = _state.value.copy(pendingAskUser = form.withCustomAnswer(questionId, value))
     }
 
     fun submitAskUserForm() {
         val form = _state.value.pendingAskUser ?: return
         if (_state.value.isRunning) return
-        val error = AskUserReplyFormatter.validateRequired(
-            form.request,
-            form.textAnswers,
-            form.singleChoice,
-            form.multiChoice,
-        )
+        val error = form.requiredError()
         if (error != null) {
             _state.value = _state.value.copy(
                 pendingAskUser = form.copy(validationError = error),
             )
             return
         }
-        val body = AskUserReplyFormatter.format(
-            form.request,
-            form.textAnswers,
-            form.singleChoice,
-            form.multiChoice,
-        )
+        val body = AskUserReplyFormatter.format(form)
         sendMessage(body)
     }
 
@@ -608,7 +628,7 @@ class ChatViewModel(
         val single = linkedMapOf<String, String>()
         for (q in request.questions) {
             when (q.type) {
-                "text" -> if (q.defaultValue.isNotEmpty()) text[q.id] = q.defaultValue
+                "text", "rating" -> if (q.defaultValue.isNotEmpty()) text[q.id] = q.defaultValue
                 "single_choice" -> if (q.defaultValue.isNotEmpty()) single[q.id] = q.defaultValue
             }
         }
@@ -626,16 +646,18 @@ class ChatViewModel(
             }
             result.onSuccess { paths ->
                 if (paths.isEmpty()) {
-                    _state.value = _state.value.copy(fileImportMessage = "未能导入所选文件")
+                    _state.value = _state.value.copy(
+                        fileImportMessage = AppLocalization.getString(R.string.file_import_failed),
+                    )
                 } else {
                     _state.value = _state.value.copy(
-                        fileImportMessage = "已添加 ${paths.size} 个文件",
+                        fileImportMessage = AppLocalization.getString(R.string.file_import_ok, paths.size),
                     )
                 }
                 loadTranscriptIntoState(initialLoad = false)
             }.onFailure { error ->
                 _state.value = _state.value.copy(
-                    fileImportMessage = "导入失败：${error.message ?: error.javaClass.simpleName}",
+                    fileImportMessage = UserFacingError.explain(error.message ?: error.javaClass.simpleName),
                 )
             }
         }

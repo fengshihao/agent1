@@ -1,10 +1,12 @@
 package com.agent1.android.productivity.logic.business
 
+import androidx.annotation.StringRes
+import com.agent1.android.R
 import com.agent1.javaagent.config.AgentRuntimeDefaults
 
 data class ProviderOption(
     val id: String,
-    val displayName: String,
+    @StringRes val displayNameRes: Int,
     val defaultBaseUrl: String,
     /** 选择该服务商时填入的默认模型 id（空表示不改动当前模型）。 */
     val defaultModelId: String = "",
@@ -42,16 +44,16 @@ fun modelsDevProviderKeys(providerId: String): List<String> = when (providerId) 
 }
 
 fun providerOptions(): List<ProviderOption> = listOf(
-    ProviderOption(PROVIDER_DASHSCOPE, "阿里云", DEFAULT_DASHSCOPE_BASE_URL),
+    ProviderOption(PROVIDER_DASHSCOPE, R.string.provider_dashscope, DEFAULT_DASHSCOPE_BASE_URL),
     ProviderOption(
         PROVIDER_DEEPSEEK,
-        "DeepSeek",
+        R.string.provider_deepseek,
         DEFAULT_DEEPSEEK_BASE_URL,
         DEFAULT_DEEPSEEK_MODEL,
     ),
     ProviderOption(
         PROVIDER_ZHIPU_CODING,
-        "智谱 Coding",
+        R.string.provider_zhipu_coding,
         DEFAULT_ZHIPU_CODING_BASE_URL,
         DEFAULT_ZHIPU_CODING_MODEL,
     ),

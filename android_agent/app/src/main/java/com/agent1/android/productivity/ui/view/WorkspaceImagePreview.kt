@@ -1,5 +1,6 @@
 package com.agent1.android.productivity.ui.view
 
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
@@ -12,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
+import com.agent1.android.productivity.logic.business.WorkspaceImageLayout
 import java.nio.file.Paths
 
 @Composable
@@ -54,9 +56,20 @@ fun WorkspaceImagePreview(
         model = file,
         imageLoader = imageLoader,
         contentDescription = workspaceRelativePath,
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(max = 360.dp),
+        modifier = modifier.workspaceImageFileLayout(workspaceAbsolutePath, workspaceRelativePath),
         contentScale = ContentScale.Fit,
     )
+}
+
+@Composable
+internal fun Modifier.workspaceImageFileLayout(
+    workspaceAbsolutePath: String,
+    workspaceRelativePath: String,
+): Modifier {
+    val ratio = remember(workspaceAbsolutePath, workspaceRelativePath) {
+        WorkspaceImageLayout.aspectRatio(workspaceAbsolutePath, workspaceRelativePath)
+    }
+    return fillMaxWidth()
+        .aspectRatio(ratio)
+        .heightIn(max = 360.dp)
 }

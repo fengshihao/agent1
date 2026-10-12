@@ -40,7 +40,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.agent1.android.R
 import com.agent1.android.productivity.logic.business.ProviderOption
 import com.agent1.android.productivity.logic.business.RemoteModelOption
 import com.agent1.android.productivity.ui.viewmodel.ModelSettingsViewModel
@@ -55,18 +57,18 @@ fun ModelSettingsScreen(
     var revealKey by remember { mutableStateOf(false) }
     val statusLine = when {
         !state.configError.isNullOrBlank() -> state.configError
-        state.isSaving -> "正在保存…"
+        state.isSaving -> stringResource(R.string.model_settings_saving)
         else -> null
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
         AgentTopBar(
-            title = "模型配置",
+            title = stringResource(R.string.model_settings_title),
             subtitle = statusLine,
             leading = {
                 TopBarIconButton(
                     icon = Icons.Filled.ArrowBack,
-                    contentDescription = "返回",
+                    contentDescription = stringResource(R.string.action_back),
                     onClick = onBack,
                 )
             },
@@ -158,7 +160,7 @@ fun ModelSettingsScreen(
                 horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(onClick = viewModel::resetToBuildDefaults) {
-                    Text("恢复默认")
+                    Text(stringResource(R.string.model_settings_reset))
                 }
             }
         }
@@ -179,11 +181,11 @@ private fun ProviderDropdown(
         onExpandedChange = { expanded = it },
     ) {
         OutlinedTextField(
-            value = selected?.displayName.orEmpty(),
+            value = selected?.let { stringResource(it.displayNameRes) }.orEmpty(),
             onValueChange = {},
             readOnly = true,
             singleLine = true,
-            placeholder = { Text("服务商") },
+            placeholder = { Text(stringResource(R.string.model_settings_provider)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable)
@@ -195,7 +197,7 @@ private fun ProviderDropdown(
         ) {
             options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option.displayName) },
+                    text = { Text(stringResource(option.displayNameRes)) },
                     onClick = {
                         expanded = false
                         onSelect(option.id)
@@ -228,7 +230,7 @@ private fun ModelDropdown(
                 expanded = true
             },
             singleLine = true,
-            placeholder = { Text("模型") },
+            placeholder = { Text(stringResource(R.string.model_settings_model)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor(MenuAnchorType.PrimaryEditable)

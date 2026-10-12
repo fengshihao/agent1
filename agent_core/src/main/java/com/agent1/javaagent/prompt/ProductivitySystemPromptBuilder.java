@@ -38,6 +38,7 @@ public final class ProductivitySystemPromptBuilder {
         # 任务和工作流程
         1. 简单任务（闲聊、解释、只要建议）：直接回答。
         2. 目标不清晰、缺了会做错的关键信息：用 ask_user 工具与用户对齐，然后结束本轮。
+           打分/满意度/NPS 等数值题用 type=rating 并设 min/max（如 0–10），勿让用户自由填文字。
         3. 其余：find_caps 一次，query 写全本任务要用的能力，按结果里的调用示例做，不要猜；然后用尽量少的步骤一次做完，不要把一件事拆成许多轮试探。
         4. 完成后输出 markdown 总结，描述产出物路径；再给出下一步建议。
         """.trim();
@@ -46,14 +47,22 @@ public final class ProductivitySystemPromptBuilder {
         # 任务和工作流程
         1. 简单任务（闲聊、解释、只要建议）：直接回答。
         2. 目标不清晰、缺了会做错的关键信息：用 ask_user 工具与用户对齐，然后结束本轮。
+           打分/满意度/NPS 等数值题用 type=rating 并设 min/max（如 0–10），勿让用户自由填文字。
         3. 其余（目标清晰的复杂任务）：先用 find_caps 查所需 JS API 和工具，再一次性写代码到文件，用一段 run_js 串行完成整件事，不逐步执行，提高效率。失败就改这一段再跑，不要改成外层逐个工具补步骤。
         4. 只有纯文本、且只动一个已知文件时，才用一次 read_file、write_file 或 edit_file，不必写程序。
         5. 完成后输出 markdown 总结，描述产出物路径；再给出下一步建议。
         """.trim();
 
+    /**
+     * 文档与可视化的路由。库 URL 和薄壳示例留在 find_caps（web_lib / docx / pptx），不写进提示词。
+     */
+    static final String RENDER_PIPELINE = """
+        文档和可视化先写结构化源（Markdown、Mermaid 或 JSON），再 find_caps 查 web_lib、docx、pptx。script 和 link 只用结果里的稳定 URL，不要自造 CDN，不要手写大段 HTML 或 CSS。写入 .html 后宿主会自动检查页面，失败按回执改。
+        """.trim();
+
     /** 仅 scriptHostTools（Weizhi $tools 桥）时追加到工作流程段。 */
     static final String WEBVIEW_FROM_SCRIPT = """
-        浏览器放进同一段脚本：await $tools.webview_exec({...})。不要在外层单独调 webview_exec。
+        浏览器放进同一段脚本：await $tools.webview_exec({...})，返回值已是回执对象。不要 JSON.parse，也不要再 JSON.stringify。不要在外层单独调 webview_exec。
         """.trim();
 
     static final String TOOLS_DIRECT = """
@@ -158,7 +167,7 @@ public final class ProductivitySystemPromptBuilder {
         if (scriptToolRegistered && scriptHostTools) {
             workflow = workflow + "\n" + WEBVIEW_FROM_SCRIPT;
         }
-        sb.append(workflow).append("\n\n");
+        sb.append(workflow).append("\n").append(RENDER_PIPELINE).append("\n\n");
         sb.append(buildEnvironmentSection(
             workspaceRoot,
             agentRoot,

@@ -190,7 +190,10 @@ public class WebViewExecTool {
             }
         }
         m.put("resultType", parsed.resultType);
-        m.put("resultPreview", spill ? SPILL_PREVIEW : parsed.text);
+        m.put(
+            "resultPreview",
+            spill ? SPILL_PREVIEW : BridgeCodec.embedPreview(parsed.resultType, parsed.text)
+        );
         if (!o.console.isEmpty()) {
             m.put("console", o.console);
         }

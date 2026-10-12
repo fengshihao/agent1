@@ -105,6 +105,39 @@ class CapabilityIndexStoreTest {
     }
 
     @Test
+    void flowchartQueryHitsMermaidLibraryNotABusinessCase() {
+        Path agentRoot = temp.resolve("agentRoot");
+        CapabilityIndexStore.ensure(agentRoot);
+
+        var hits = CapabilityIndexStore.search(agentRoot, "流程图", List.of(), "any", 5);
+        assertFalse(hits.isEmpty());
+        assertEquals("web_lib.mermaid", hits.get(0).id());
+        assertTrue(hits.get(0).entry().contains("cdn.jsdelivr.net/npm/mermaid@"));
+    }
+
+    @Test
+    void threeQueryHitsThreeLibrary() {
+        Path agentRoot = temp.resolve("agentRoot");
+        CapabilityIndexStore.ensure(agentRoot);
+
+        var hits = CapabilityIndexStore.search(agentRoot, "three.js 三维", List.of(), "any", 5);
+        assertTrue(hits.stream().anyMatch(h -> "web_lib.three".equals(h.id())));
+        assertTrue(hits.stream().filter(h -> "web_lib.three".equals(h.id()))
+            .anyMatch(h -> h.entry().contains("three@0.170.0")));
+    }
+
+    @Test
+    void mindMapQueryHitsMarkmapLibrary() {
+        Path agentRoot = temp.resolve("agentRoot");
+        CapabilityIndexStore.ensure(agentRoot);
+
+        var hits = CapabilityIndexStore.search(agentRoot, "思维导图 markmap", List.of(), "any", 5);
+        assertTrue(hits.stream().anyMatch(h -> "web_lib.markmap".equals(h.id())));
+        assertTrue(hits.stream().filter(h -> "web_lib.markmap".equals(h.id()))
+            .anyMatch(h -> h.entry().contains("markmap-autoloader@")));
+    }
+
+    @Test
     void svgQueryHitsRasterScript() {
         Path agentRoot = temp.resolve("agentRoot");
         CapabilityIndexStore.ensure(agentRoot);

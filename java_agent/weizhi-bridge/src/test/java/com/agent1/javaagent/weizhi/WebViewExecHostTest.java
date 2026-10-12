@@ -127,6 +127,18 @@ class WebViewExecHostTest {
     }
 
     @Test
+    void embeddedEnvelopeObjectStillMaterializes(@TempDir Path dir) throws Exception {
+        WorkspaceSandbox sandbox = new WorkspaceSandbox(dir);
+        ObjectNode receipt = MAPPER.createObjectNode();
+        receipt.put("ok", true);
+        receipt.put("resultType", "string");
+        receipt.set("resultPreview", MAPPER.readTree(envelope("map.svg", "<svg></svg>")));
+        String out = WebViewExecHost.materialize(sandbox, MAPPER.writeValueAsString(receipt));
+        assertTrue(MAPPER.readTree(out).path("ok").asBoolean());
+        assertTrue(Files.readString(dir.resolve("map.svg")).startsWith("<svg"));
+    }
+
+    @Test
     void receiptWithoutEnvelopeStaysUntouched() {
         String raw = "{\"ok\":true,\"resultPreview\":\"hello\",\"resultType\":\"string\"}";
         assertEquals(raw, WebViewExecHost.materialize(new WorkspaceSandbox(workspace), raw));

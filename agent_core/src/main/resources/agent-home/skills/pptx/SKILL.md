@@ -5,7 +5,7 @@ description: 用户要做演示文稿、幻灯片、PPT 或 pptx 时使用。用
 
 # 生成 PPT
 
-用 `run_js` 调用脚本库，不要自己拼 `slide.xml`，不要改 EMU 坐标。
+## 用法
 
 ```javascript
 import { renderPptx } from "pptx.js";
@@ -22,7 +22,7 @@ export default renderPptx({
 }, "out/q3.pptx");
 ```
 
-链式写法用 `pptx-build.js` 的 `buildPptx`。
+`pptx.js` / `pptx-build.js` / `svg-raster.js` 都是 `run_js` 内置模块，像上面这样直接 `import`；链式写法用 `pptx-build.js` 的 `buildPptx`。
 
 ## 主题
 

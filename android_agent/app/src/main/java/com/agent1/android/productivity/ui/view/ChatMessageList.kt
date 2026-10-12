@@ -10,18 +10,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,79 +24,91 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
-import com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem
 import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.RunTokenSummary
-import com.agent1.android.productivity.ui.viewmodel.shouldShowAssistantPending
-import kotlinx.coroutines.flow.distinctUntilChanged
 
-/** 会话消息区：历史行 + run 时间线 + 流式气泡 + 待处理/汇总行，粘底自动滚动。 */
+/** 会话消息区。跟随输出时只 scrollBy 补底边，用户上滑看历史会立刻松开。 */
 @Composable
 internal fun ChatMessageList(
     state: ChatUiState,
     onPickFiles: () -> Unit,
     pickFilesEnabled: Boolean,
     modifier: Modifier = Modifier,
+    onOpenInApp: ((String) -> Unit)? = null,
+    /** 系统提示卡（单轮往返上限等）「设置页」链接的跳转。 */
+    onOpenSettings: (() -> Unit)? = null,
+    /** 列表顶部额外留白，给顶栏渐变让出位置。 */
+    topContentPadding: Dp = 8.dp,
 ) {
     val visibleLines = state.lines.filterNot { it.hideInChat }
+    val lazyRows = remember(visibleLines, state.workspacePath) {
+        ChatLazyRowExpansion.expandTranscriptLines(visibleLines, state.workspacePath)
+    }
+    val timelineRows = remember(state.runTimeline, state.streamingReasoning, state.isRunning) {
+        ChatToolBatch.groupTimeline(
+            items = state.runTimeline,
+            streamingReasoning = state.streamingReasoning,
+            isRunning = state.isRunning,
+        )
+    }
     val listState = rememberLazyListState()
-    val stickToBottomState = rememberSaveable(state.sessionId) { mutableStateOf(true) }
-    val stickToBottom = stickToBottomState.value
-
-    val userScrollConnection = remember(listState, stickToBottomState) {
+    val followTail = remember(state.sessionId) { mutableStateOf(true) }
+    val didAnchor = remember(state.sessionId) { mutableStateOf(false) }
+    val followConnection = remember(listState, followTail) {
         object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput && available.y > 1f) {
-                    stickToBottomState.value = false
-                }
-                return Offset.Zero
-            }
-
             override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
                 source: NestedScrollSource,
             ): Offset {
-                if (source == NestedScrollSource.UserInput && !listState.canScrollForward) {
-                    stickToBottomState.value = true
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
+                if (ChatListAutoscroll.shouldReleaseStickToBottom(available.y)) {
+                    followTail.value = false
+                } else if (
+                    ChatListAutoscroll.shouldRestickToBottom(
+                        consumedY = consumed.y,
+                        canScrollForward = listState.canScrollForward,
+                        atBottom = ChatListAutoscroll.layoutIsAtBottom(listState.layoutInfo),
+                    )
+                ) {
+                    followTail.value = true
                 }
                 return Offset.Zero
             }
         }
     }
-
-    LaunchedEffect(listState, stickToBottomState) {
-        snapshotFlow {
-            val layout = listState.layoutInfo
-            val last = layout.visibleItemsInfo.lastOrNull()
-            ChatListAutoscroll.isAtBottom(
-                totalItems = layout.totalItemsCount,
-                lastVisibleIndex = last?.index ?: -1,
-                lastVisibleOffset = last?.offset ?: 0,
-                lastVisibleSize = last?.size ?: 0,
-                viewportEndOffset = layout.viewportEndOffset,
-            )
-        }.distinctUntilChanged().collect { atBottom ->
-            if (atBottom) {
-                stickToBottomState.value = true
+    LaunchedEffect(state.isRunning) {
+        if (state.isRunning) followTail.value = true
+    }
+    LaunchedEffect(state.sessionId, state.isLoadingTranscript, lazyRows.size) {
+        if (state.isLoadingTranscript || didAnchor.value || lazyRows.isEmpty()) return@LaunchedEffect
+        repeat(8) {
+            val count = listState.layoutInfo.totalItemsCount
+            if (count > 0) {
+                didAnchor.value = true
+                listState.scrollToItem(count - 1)
+                withFrameNanos { }
+                listState.followBottomByScroll()
+                return@LaunchedEffect
             }
+            withFrameNanos { }
         }
     }
-
     LaunchedEffect(
-        visibleLines.size,
+        followTail.value,
+        didAnchor.value,
+        lazyRows.size,
         state.runTimeline.size,
-        state.streamingText.length,
-        state.streamingReasoning.length,
+        state.streamingText,
+        state.streamingReasoning,
         state.isRunning,
-        state.lastRunTokenSummary,
-        stickToBottom,
     ) {
-        if (!stickToBottom) return@LaunchedEffect
-        listState.scrollToActualBottom()
+        if (!followTail.value || !didAnchor.value) return@LaunchedEffect
+        listState.followBottomByScroll()
     }
     if (state.isLoadingTranscript && state.lines.isEmpty()) {
         Box(
@@ -129,40 +136,68 @@ internal fun ChatMessageList(
         state = listState,
         modifier = modifier
             .padding(horizontal = 4.dp)
-            .nestedScroll(userScrollConnection),
+            .nestedScroll(followConnection),
         verticalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
+        contentPadding = PaddingValues(top = topContentPadding, bottom = 8.dp, start = 8.dp, end = 8.dp),
     ) {
         items(
-            count = visibleLines.size,
-            key = { index ->
-                visibleLines[index].stableKey.ifBlank { "line-$index" }
-            },
+            count = lazyRows.size,
+            key = { index -> lazyRows[index].key },
         ) { index ->
-            val line = visibleLines[index]
-            val useMarkdown = !line.isTool &&
-                line.role != "user" &&
-                ChatTranscriptFormatting.shouldRenderAsMarkdown(line.content)
-            MessageBubble(
-                line = line,
-                workspacePath = state.workspacePath,
-                markdown = useMarkdown,
-                reasoningStateKey = line.stableKey.ifBlank { "line-$index" },
-                onPickFiles = onPickFiles,
-                pickFilesEnabled = pickFilesEnabled,
-            )
+            when (val row = lazyRows[index]) {
+                is ChatLazyRow.Message -> {
+                    val line = row.line
+                    val slice = row.contentSlice
+                    val bodyForMarkdown = slice ?: line.content
+                    val useMarkdown = !line.isTool &&
+                        !line.isSystemNotice &&
+                        line.role != "user" &&
+                        ChatTranscriptFormatting.shouldRenderAsMarkdown(bodyForMarkdown)
+                    MessageBubble(
+                        line = line,
+                        workspacePath = state.workspacePath,
+                        markdown = useMarkdown,
+                        reasoningStateKey = line.stableKey.ifBlank { "line-$index" },
+                        onPickFiles = onPickFiles,
+                        pickFilesEnabled = pickFilesEnabled,
+                        onOpenInApp = onOpenInApp,
+                        onOpenSettings = onOpenSettings,
+                        skipTrailingImagePreviews = row.skipTrailingImagePreviews,
+                        contentSlice = slice,
+                        showReasoning = row.showReasoning,
+                        showPickFiles = row.showPickFiles,
+                        modifier = if (row.tightTop) {
+                            Modifier.padding(top = (-6).dp)
+                        } else {
+                            Modifier
+                        },
+                    )
+                }
+                is ChatLazyRow.DetachedImage -> {
+                    DetachedWorkspaceImageBubble(
+                        workspacePath = state.workspacePath,
+                        relativePath = row.relativePath,
+                    )
+                }
+                is ChatLazyRow.TurnActivity -> {
+                    TurnActivityBubble(
+                        stateKey = row.key,
+                        pieces = row.pieces,
+                    )
+                }
+            }
         }
-        itemsIndexed(
-            items = state.runTimeline,
-            key = { index, item -> "$index:${item.id}" },
-        ) { _, item ->
-            when (item) {
-                is ChatRunTimelineItem.AssistantPart -> {
+        items(
+            items = timelineRows,
+            key = { row -> row.key },
+        ) { row ->
+            when (row) {
+                is RunTimelineRow.Assistant -> {
+                    val item = row.part
                     MessageBubble(
                         line = ChatLine(
                             role = "assistant",
                             content = item.content,
-                            reasoning = item.reasoning,
                             stableKey = item.id,
                         ),
                         workspacePath = state.workspacePath,
@@ -170,36 +205,25 @@ internal fun ChatMessageList(
                         reasoningStateKey = item.id,
                         onPickFiles = onPickFiles,
                         pickFilesEnabled = false,
+                        onOpenInApp = onOpenInApp,
+                        showReasoning = false,
                     )
                 }
-                is ChatRunTimelineItem.ToolPart -> {
-                    CollapsibleToolCallBubble(
-                        stateKey = item.id,
-                        toolName = item.toolName,
-                        argsPreview = item.argsPreview,
-                        finished = item.finished,
-                        isError = item.isError,
-                        resultSummary = item.resultSummary,
-                        progressLines = item.progressLines,
+                is RunTimelineRow.Activity -> {
+                    TurnActivityBubble(
+                        stateKey = row.key,
+                        pieces = row.pieces,
+                        runInProgress = state.isRunning,
                     )
                 }
             }
         }
-        if (shouldShowAssistantPending(state)) {
-            item(key = "assistant-pending") {
-                AssistantPendingBubble(
-                    label = state.runActivityLabel ?: "等待助手…",
-                )
-            }
-        }
-        if (state.streamingText.isNotEmpty() || state.streamingReasoning.isNotEmpty()) {
+        if (state.streamingText.isNotEmpty()) {
             item(key = "assistant-streaming") {
                 MessageBubble(
                     line = ChatLine(
                         role = "assistant",
                         content = state.streamingText + if (state.streamingText.isNotEmpty()) "▌" else "",
-                        reasoning = state.streamingReasoning +
-                            if (state.streamingReasoning.isNotEmpty() && state.streamingText.isEmpty()) "▌" else "",
                         stableKey = "assistant-streaming",
                     ),
                     workspacePath = state.workspacePath,
@@ -207,6 +231,7 @@ internal fun ChatMessageList(
                     reasoningStateKey = "assistant-streaming-${state.sessionId}",
                     onPickFiles = onPickFiles,
                     pickFilesEnabled = false,
+                    onOpenInApp = onOpenInApp,
                 )
             }
         }
@@ -220,21 +245,20 @@ internal fun ChatMessageList(
     }
 }
 
-private suspend fun LazyListState.scrollToActualBottom() {
-    val lastIndex = layoutInfo.totalItemsCount - 1
-    if (lastIndex < 0) return
-    // 最后一条已（至少部分）可见时只补滚溢出量；避免流式增量触发的
-    // scrollToItem 先把条目顶部对齐视口再翻回底部，造成“跳到开头又跳到末尾”的闪烁。
-    val visibleLast = layoutInfo.visibleItemsInfo.lastOrNull()
-    if (visibleLast == null || visibleLast.index != lastIndex) {
-        scrollToItem(lastIndex)
+private suspend fun LazyListState.followBottomByScroll() {
+    repeat(6) {
+        val info = layoutInfo
+        val last = info.visibleItemsInfo.lastOrNull() ?: return
+        val px = ChatListAutoscroll.followScrollByPx(
+            totalItems = info.totalItemsCount,
+            lastVisibleIndex = last.index,
+            lastVisibleOffset = last.offset,
+            lastVisibleSize = last.size,
+            viewportEndOffset = info.viewportEndOffset,
+        )
+        if (px <= 0) return
+        scrollBy(px.toFloat())
         withFrameNanos { }
-    }
-    val last = layoutInfo.visibleItemsInfo.lastOrNull() ?: return
-    if (last.index != lastIndex) return
-    val overflow = (last.offset + last.size) - layoutInfo.viewportEndOffset
-    if (overflow > 0) {
-        scrollBy(overflow.toFloat())
     }
 }
 

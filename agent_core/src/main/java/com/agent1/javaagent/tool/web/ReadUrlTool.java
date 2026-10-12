@@ -111,7 +111,7 @@ public final class ReadUrlTool implements AgentTool {
         ToolUpdateListener onUpdate
     ) {
         if (parameters == null || !parameters.has("url")) {
-            return ToolExecutionResult.text("错误：url 不能为空");
+            return ToolExecutionResult.error("错误：url 不能为空");
         }
         String rawUrl = parameters.path("url").asText("").trim();
         int maxChars = parameters.path("max_chars").asInt(DEFAULT_MAX_CHARS);
@@ -120,7 +120,7 @@ public final class ReadUrlTool implements AgentTool {
         }
         maxChars = Math.min(maxChars, HARD_MAX_CHARS);
         if (cancellationToken != null && cancellationToken.isCancelled()) {
-            return ToolExecutionResult.text("错误：执行已取消");
+            return ToolExecutionResult.error("错误：执行已取消");
         }
         boolean tavilyFailed = false;
         try {
@@ -146,15 +146,15 @@ public final class ReadUrlTool implements AgentTool {
         } catch (IllegalArgumentException e) {
             String message = e.getMessage() == null ? "读取失败" : e.getMessage();
             if (tavilyFailed) {
-                return ToolExecutionResult.text("错误：Tavily 抽取失败，本地读取也失败：" + message);
+                return ToolExecutionResult.error("错误：Tavily 抽取失败，本地读取也失败：" + message);
             }
-            return ToolExecutionResult.text("错误：" + message);
+            return ToolExecutionResult.error("错误：" + message);
         } catch (IOException e) {
             String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
             if (tavilyFailed) {
-                return ToolExecutionResult.text("错误：Tavily 抽取失败，本地读取也失败：" + message);
+                return ToolExecutionResult.error("错误：Tavily 抽取失败，本地读取也失败：" + message);
             }
-            return ToolExecutionResult.text("错误：请求失败：" + message);
+            return ToolExecutionResult.error("错误：请求失败：" + message);
         }
     }
 

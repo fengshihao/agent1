@@ -36,6 +36,9 @@ class AgentHomeBootstrapTest {
         assertFalse(Files.isRegularFile(root.resolve("docs/system/svg-raster.md")));
         assertTrue(Files.isRegularFile(root.resolve("shared/catalog/scripts/svg-raster.js")));
         assertTrue(Files.readString(root.resolve("shared/catalog/scripts/svg-raster.js")).contains("svgToImage"));
+        assertTrue(Files.isRegularFile(root.resolve("shared/catalog/templates/three.html")));
+        assertTrue(Files.readString(root.resolve("shared/catalog/templates/three.html")).contains("three.module.js"));
+        assertTrue(Files.isRegularFile(root.resolve("shared/catalog/templates/markmap.html")));
     }
 
     @Test

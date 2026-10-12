@@ -28,7 +28,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.agent1.android.R
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,6 +81,24 @@ internal fun AgentTopBar(
             }
         }
     }
+}
+
+/** 顶栏下沿的渐变，让对话从栏底透出来，而不是被一条实边裁掉。 */
+@Composable
+internal fun AgentTopFade(modifier: Modifier = Modifier) {
+    val color = MaterialTheme.colorScheme.surface
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(32.dp)
+            .background(
+                Brush.verticalGradient(
+                    0f to color,
+                    0.4f to color.copy(alpha = 0.72f),
+                    1f to Color.Transparent,
+                ),
+            ),
+    )
 }
 
 @Composable
@@ -132,46 +154,55 @@ internal fun ChatMoreMenu(
     onExportDiagnostics: () -> Unit,
     onOpenSystemPrompt: (() -> Unit)? = null,
     onBrief: (() -> Unit)? = null,
+    onOpenAbout: () -> Unit = {},
 ) {
     Box {
         TopBarIconButton(
             icon = Icons.Filled.MoreVert,
-            contentDescription = "更多",
+            contentDescription = stringResource(R.string.action_more),
             onClick = onOpen,
             busy = exportInProgress,
         )
         DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-            MoreMenuRow("模型设置", Icons.Filled.Settings) {
+            MoreMenuRow(stringResource(R.string.menu_model_settings), Icons.Filled.Settings) {
                 onDismiss()
                 onOpenSettings()
             }
-            MoreMenuRow("MCP & web搜索", AgentIcons.Hub) {
+            MoreMenuRow(stringResource(R.string.menu_mcp_web_search), AgentIcons.Hub) {
                 onDismiss()
                 onOpenMcp()
             }
-            MoreMenuRow("能力检索", Icons.Filled.Search) {
+            MoreMenuRow(stringResource(R.string.menu_capability_search), Icons.Filled.Search) {
                 onDismiss()
                 onOpenCapabilities()
             }
             if (onOpenSystemPrompt != null) {
-                MoreMenuRow("系统提示词", Icons.Filled.Info) {
+                MoreMenuRow(stringResource(R.string.menu_system_prompt), Icons.Filled.Info) {
                     onDismiss()
                     onOpenSystemPrompt()
                 }
             }
             if (onBrief != null) {
-                MoreMenuRow("会话简报", AgentIcons.Description, enabled = !exportInProgress) {
+                MoreMenuRow(stringResource(R.string.menu_session_brief), AgentIcons.Description, enabled = !exportInProgress) {
                     onDismiss()
                     onBrief()
                 }
             }
             MoreMenuRow(
-                label = if (exportInProgress) "正在打包…" else "诊断包",
+                label = if (exportInProgress) {
+                    stringResource(R.string.menu_diagnostic_packing)
+                } else {
+                    stringResource(R.string.menu_diagnostic_pack)
+                },
                 icon = Icons.Filled.Share,
                 enabled = !exportInProgress,
             ) {
                 onDismiss()
                 onExportDiagnostics()
+            }
+            MoreMenuRow(stringResource(R.string.menu_about), Icons.Filled.Info) {
+                onDismiss()
+                onOpenAbout()
             }
         }
     }

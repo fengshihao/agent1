@@ -6,6 +6,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.agent1.android.R
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,10 +23,11 @@ class MainActivitySmokeTest {
 
     @Test
     fun chatVisibleAndSessionDrawerOpens() {
-        composeRule.onNodeWithText("输入消息…").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("会话列表").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("会话列表").performClick()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        composeRule.onNodeWithText(context.getString(R.string.chat_input_hint)).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription(context.getString(R.string.cd_session_list)).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription(context.getString(R.string.cd_session_list)).performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("新建对话").assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.chat_new_session_drawer)).assertIsDisplayed()
     }
 }

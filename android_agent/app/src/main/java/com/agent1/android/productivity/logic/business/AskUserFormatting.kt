@@ -16,6 +16,10 @@ object AskUserFormatting {
         val options: List<String>,
         val required: Boolean = false,
         val defaultValue: String = "",
+        /** {@code type == rating}，或 {@code text} 且 JSON 显式带 min/max 时的下限。 */
+        val ratingMin: Int? = null,
+        /** {@code type == rating}，或 {@code text} 且 JSON 显式带 min/max 时的上限。 */
+        val ratingMax: Int? = null,
     )
 
     data class Request(
@@ -55,7 +59,28 @@ object AskUserFormatting {
                 val options = q.optJSONArray("options").toStringList()
                 val required = q.optBoolean("required", false)
                 val defaultValue = q.optString("default", "").trim()
-                add(Question(id, prompt, type, options, required, defaultValue))
+                val ratingMin = when {
+                    q.has("min") -> q.optInt("min")
+                    type == "rating" -> q.optInt("min", 1)
+                    else -> null
+                }
+                val ratingMax = when {
+                    q.has("max") -> q.optInt("max")
+                    type == "rating" -> q.optInt("max", 5)
+                    else -> null
+                }
+                add(
+                    Question(
+                        id,
+                        prompt,
+                        type,
+                        options,
+                        required,
+                        defaultValue,
+                        ratingMin,
+                        ratingMax,
+                    ),
+                )
             }
         }
         if (questions.isEmpty()) return null
@@ -66,13 +91,17 @@ object AskUserFormatting {
 
     fun summaryForBubble(request: Request): String {
         return buildString {
-            val heading = request.title?.ifBlank { null } ?: "需要您补充以下信息"
-            appendLine(heading)
-            request.questions.forEachIndexed { index, q ->
-                appendLine("${index + 1}. ${q.prompt}")
+            append("需要你确认")
+            if (request.questions.size > 1) {
+                append("（共 ${request.questions.size} 题）")
             }
-            appendLine()
-            append("请在对话下方的表单中回答；多道题用顶部标签切换。")
+            request.questions.firstOrNull()?.prompt?.let { prompt ->
+                appendLine("：$prompt")
+                if (request.questions.size > 1) {
+                    appendLine("（其余题目在下方卡片中切换）")
+                }
+            } ?: appendLine()
+            append("请在下方卡片中回答。")
         }.trim()
     }
 
@@ -85,7 +114,9 @@ object AskUserFormatting {
                 append("  ${index + 1}. [${q.id}] ${q.prompt}")
                 if (q.type != "text") append(" (${q.type})")
                 appendLine()
-                if (q.options.isNotEmpty()) {
+                if (q.type == "rating" && q.ratingMin != null && q.ratingMax != null) {
+                    appendLine("     分值：${q.ratingMin}–${q.ratingMax}")
+                } else if (q.options.isNotEmpty()) {
                     appendLine("     选项：${q.options.joinToString(", ")}")
                 }
             }
