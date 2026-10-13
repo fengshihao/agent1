@@ -4,6 +4,7 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -37,6 +38,7 @@ import com.agent1.android.productivity.ui.viewmodel.RunTokenSummary
 internal fun ChatMessageList(
     state: ChatUiState,
     onOpenAttachments: (UserFileRequestMarkers.Hint?) -> Unit,
+    onNewChat: (() -> Unit)? = null,
     attachmentsActionEnabled: Boolean,
     modifier: Modifier = Modifier,
     onOpenInApp: ((String) -> Unit)? = null,
@@ -158,25 +160,34 @@ internal fun ChatMessageList(
                         !line.isSystemNotice &&
                         line.role != "user" &&
                         ChatTranscriptFormatting.shouldRenderAsMarkdown(bodyForMarkdown)
-                    MessageBubble(
-                        line = line,
-                        workspacePath = state.workspacePath,
-                        markdown = useMarkdown,
-                        reasoningStateKey = line.stableKey.ifBlank { "line-$index" },
-                        onOpenAttachments = onOpenAttachments,
-                        attachmentsActionEnabled = attachmentsActionEnabled,
-                        onOpenInApp = onOpenInApp,
-                        onOpenSettings = onOpenSettings,
-                        skipTrailingImagePreviews = row.skipTrailingImagePreviews,
-                        contentSlice = slice,
-                        showReasoning = row.showReasoning,
-                        showPickFiles = row.showPickFiles,
-                        modifier = if (row.tightTop) {
-                            Modifier.padding(top = (-6).dp)
-                        } else {
-                            Modifier
-                        },
-                    )
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        MessageBubble(
+                            line = line,
+                            workspacePath = state.workspacePath,
+                            markdown = useMarkdown,
+                            reasoningStateKey = line.stableKey.ifBlank { "line-$index" },
+                            onOpenAttachments = onOpenAttachments,
+                            attachmentsActionEnabled = attachmentsActionEnabled,
+                            onOpenInApp = onOpenInApp,
+                            onOpenSettings = onOpenSettings,
+                            skipTrailingImagePreviews = row.skipTrailingImagePreviews,
+                            contentSlice = slice,
+                            showReasoning = row.showReasoning,
+                            showPickFiles = row.showPickFiles,
+                            modifier = if (row.tightTop) {
+                                Modifier.padding(top = (-6).dp)
+                            } else {
+                                Modifier
+                            },
+                        )
+                        if (
+                            line.role == "assistant" &&
+                            onNewChat != null &&
+                            !state.isRunning
+                        ) {
+                            NewTopicAfterReplyButton(onClick = onNewChat)
+                        }
+                    }
                 }
                 is ChatLazyRow.DetachedImage -> {
                     DetachedWorkspaceImageBubble(
@@ -199,20 +210,25 @@ internal fun ChatMessageList(
             when (row) {
                 is RunTimelineRow.Assistant -> {
                     val item = row.part
-                    MessageBubble(
-                        line = ChatLine(
-                            role = "assistant",
-                            content = item.content,
-                            stableKey = item.id,
-                        ),
-                        workspacePath = state.workspacePath,
-                        markdown = ChatTranscriptFormatting.shouldRenderAsMarkdown(item.content),
-                        reasoningStateKey = item.id,
-                        onOpenAttachments = onOpenAttachments,
-                        attachmentsActionEnabled = false,
-                        onOpenInApp = onOpenInApp,
-                        showReasoning = false,
-                    )
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        MessageBubble(
+                            line = ChatLine(
+                                role = "assistant",
+                                content = item.content,
+                                stableKey = item.id,
+                            ),
+                            workspacePath = state.workspacePath,
+                            markdown = ChatTranscriptFormatting.shouldRenderAsMarkdown(item.content),
+                            reasoningStateKey = item.id,
+                            onOpenAttachments = onOpenAttachments,
+                            attachmentsActionEnabled = false,
+                            onOpenInApp = onOpenInApp,
+                            showReasoning = false,
+                        )
+                        if (onNewChat != null && !state.isRunning) {
+                            NewTopicAfterReplyButton(onClick = onNewChat)
+                        }
+                    }
                 }
                 is RunTimelineRow.Activity -> {
                     TurnActivityBubble(

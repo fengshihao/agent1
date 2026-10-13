@@ -69,7 +69,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import com.agent1.android.productivity.logic.business.AttachmentComposerLabel
 import com.agent1.android.productivity.logic.business.AttachmentSheetDraft
-import com.agent1.android.productivity.logic.business.AttachmentSheetStaging
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.isFreshSession
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
@@ -213,6 +212,10 @@ fun ChatScreen(
                     .padding(innerPadding),
             ) {
                 val askCardHeight = minOf(312.dp, maxHeight)
+                val attachmentUnsavedDraft = AttachmentComposerLabel.hasUnsavedDraft(
+                    state.pendingAttachmentImports,
+                    state.pendingAttachmentRemovals,
+                )
                 val contentBottom = (composerHeight - overlap).coerceAtLeast(0.dp)
                 Column(
                     modifier = Modifier
@@ -222,6 +225,7 @@ fun ChatScreen(
                     ChatMessageList(
                         state = state,
                         onOpenAttachments = openFileList,
+                        onNewChat = onNewChat,
                         attachmentsActionEnabled = !composerBlocked && !state.isRunning,
                         modifier = Modifier
                             .weight(1f)
@@ -270,11 +274,11 @@ fun ChatScreen(
                         state.accessibleFileEntries,
                         state.pendingAttachmentRemovals,
                     ),
-                    showFileList = showComposerFileList,
+                    showSelectedFilesBar = showComposerFileList,
+                    hasAttachmentDraft = attachmentUnsavedDraft,
                     onPickAttachment = launchPickFromDevice,
                     onOpenFileList = { openFileList(null) },
                     attachmentsEnabled = attachmentsEnabled,
-                    onNewChat = onNewChat,
                     modelLabel = composerModelLabel(state.configSummary),
                     onOpenModel = onOpenSettings,
                     onSend = {
@@ -295,14 +299,14 @@ fun ChatScreen(
             state.pendingAttachmentImports,
             state.pendingAttachmentRemovals,
         )
-        val attachmentUnsavedDraft = AttachmentComposerLabel.hasUnsavedDraft(
+        val sheetUnsavedDraft = AttachmentComposerLabel.hasUnsavedDraft(
             state.pendingAttachmentImports,
             state.pendingAttachmentRemovals,
         )
         SessionAttachmentsSheet(
             visible = attachmentSheetVisible,
             draftRows = attachmentDraftRows,
-            hasUnsavedDraft = attachmentUnsavedDraft,
+            hasUnsavedDraft = sheetUnsavedDraft,
             importInProgress = state.attachmentImportInProgress,
             assistantHint = attachmentAssistantHint,
             addEnabled = attachmentsEnabled,
@@ -325,8 +329,7 @@ fun ChatScreen(
 /**
  * 底部输入条。
  *
- * 下方同一行：新对话、附件（仅打开选择器）、文件列表（有文件时出现）、当前模型。
- * [onNewChat] 为空时不显示新对话（落位页没有活动会话）。
+ * 加号打开选择器；输入框上方条进入附件列表；底栏右侧为当前模型。
  */
 @Composable
 internal fun ChatComposer(
@@ -340,11 +343,11 @@ internal fun ChatComposer(
         singleFileName = null,
         selectedCount = 0,
     ),
-    showFileList: Boolean = false,
+    showSelectedFilesBar: Boolean = false,
+    hasAttachmentDraft: Boolean = false,
     onPickAttachment: () -> Unit,
     onOpenFileList: () -> Unit,
     attachmentsEnabled: Boolean,
-    onNewChat: (() -> Unit)? = null,
     modelLabel: String = "",
     onOpenModel: (() -> Unit)? = null,
     onSend: () -> Unit,
@@ -373,6 +376,14 @@ internal fun ChatComposer(
         ) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    if (showSelectedFilesBar) {
+                        ComposerSelectedFilesBar(
+                            label = fileListLabel,
+                            hasUnsavedDraft = hasAttachmentDraft,
+                            enabled = attachmentsEnabled,
+                            onClick = onOpenFileList,
+                        )
+                    }
                     ComposerField(
                         value = value,
                         onValueChange = onValueChange,
@@ -389,24 +400,10 @@ internal fun ChatComposer(
                             .padding(top = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (onNewChat != null) {
-                            ComposerIconButton(
-                                icon = AgentIcons.NewChat,
-                                contentDescription = stringResource(R.string.cd_new_chat),
-                                onClick = onNewChat,
-                            )
-                        }
                         ComposerPickAttachmentButton(
                             enabled = attachmentsEnabled,
                             onClick = onPickAttachment,
                         )
-                        if (showFileList) {
-                            ComposerFileListButton(
-                                label = fileListLabel,
-                                enabled = attachmentsEnabled,
-                                onClick = onOpenFileList,
-                            )
-                        }
                         Spacer(modifier = Modifier.weight(1f))
                         if (modelLabel.isNotBlank()) {
                             ComposerModelChip(label = modelLabel, onClick = onOpenModel)
@@ -423,32 +420,6 @@ internal fun composerModelLabel(summary: RuntimeConfigSummary?): String {
     if (summary == null) return ""
     val named = summary.catalogMatch.orElse(null)?.displayName.orEmpty().trim()
     return named.ifBlank { summary.modelId.trim() }
-}
-
-@Composable
-private fun ComposerIconButton(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    enabled: Boolean = true,
-) {
-    val tint = if (enabled) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-    }
-    IconButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.size(36.dp),
-    ) {
-        Icon(
-            icon,
-            contentDescription = contentDescription,
-            modifier = Modifier.size(18.dp),
-            tint = tint,
-        )
-    }
 }
 
 @Composable

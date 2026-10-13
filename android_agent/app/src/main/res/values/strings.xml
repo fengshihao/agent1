@@ -11,6 +11,8 @@
     <string name="action_more">更多</string>
 
     <string name="chat_new_session">新对话</string>
+    <string name="chat_new_topic_after_reply">开始新话题</string>
+    <string name="chat_new_topic_after_reply_cd">基于当前会话另开一场新对话</string>
     <string name="chat_input_hint">输入消息…</string>
     <string name="chat_send_attachment_changes_only">（已更新附件）</string>
     <string name="chat_input_answer_card">请在上方卡片中回答并提交</string>

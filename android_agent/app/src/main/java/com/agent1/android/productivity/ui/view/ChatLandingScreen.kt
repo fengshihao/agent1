@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.agent1.android.R
+import com.agent1.android.productivity.logic.business.AttachmentComposerLabel
 import androidx.compose.ui.unit.dp
 
 /** 无活动会话时的落位页：顶栏 + 禁用态输入条 + 启动错误提示。 */
@@ -81,8 +82,11 @@ internal fun ChatLanding(
                 canSend = false,
                 enabled = false,
                 inputPlaceholder = stringResource(R.string.chat_input_hint),
-                attachmentCount = 0,
-                onOpenAttachments = {},
+                fileListLabel = AttachmentComposerLabel.Resolved(null, 0),
+                showSelectedFilesBar = false,
+                hasAttachmentDraft = false,
+                onPickAttachment = {},
+                onOpenFileList = {},
                 attachmentsEnabled = false,
                 modelLabel = modelLabel,
                 onOpenModel = onOpenSettings,
