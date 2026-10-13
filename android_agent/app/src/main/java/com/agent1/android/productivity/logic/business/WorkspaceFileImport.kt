@@ -24,18 +24,33 @@ object WorkspaceFileImport {
             ?: uri.lastPathSegment?.substringAfterLast('/').orEmpty().ifBlank { "file" }
     }
 
+    data class BatchResult(
+        val imported: List<Result>,
+        val rejectedOversized: Int,
+    )
+
     fun copyContentUrisToWorkspace(
         context: Context,
         workspaceRoot: Path,
         uris: List<Uri>,
-    ): List<Result> {
-        if (uris.isEmpty()) return emptyList()
+        maxBytes: Long = SessionAttachmentLimits.MAX_FILE_BYTES,
+    ): BatchResult {
+        if (uris.isEmpty()) return BatchResult(emptyList(), 0)
         val importsDir = workspaceRoot.resolve(IMPORT_DIR)
         Files.createDirectories(importsDir)
         val root = workspaceRoot.toAbsolutePath().normalize()
-        return uris.mapNotNull { uri ->
-            copyOne(context, importsDir, root, uri)
+        var rejectedOversized = 0
+        val imported = uris.mapNotNull { uri ->
+            when (val outcome = copyOne(context, importsDir, root, uri, maxBytes)) {
+                is CopyOutcome.Imported -> outcome.result
+                CopyOutcome.Oversized -> {
+                    rejectedOversized++
+                    null
+                }
+                CopyOutcome.Failed -> null
+            }
         }
+        return BatchResult(imported, rejectedOversized)
     }
 
     /**
@@ -46,8 +61,11 @@ object WorkspaceFileImport {
         workspaceRoot: Path,
         source: Path,
         displayName: String,
+        maxBytes: Long = SessionAttachmentLimits.MAX_FILE_BYTES,
     ): Result? {
         if (!Files.isRegularFile(source)) return null
+        val sourceSize = Files.size(source)
+        if (sourceSize <= 0L || sourceSize > maxBytes) return null
         val importsDir = workspaceRoot.resolve(IMPORT_DIR)
         Files.createDirectories(importsDir)
         val root = workspaceRoot.toAbsolutePath().normalize()
@@ -66,28 +84,85 @@ object WorkspaceFileImport {
         return Result(relative, name)
     }
 
+    private sealed class CopyOutcome {
+        data class Imported(val result: Result) : CopyOutcome()
+        data object Oversized : CopyOutcome()
+        data object Failed : CopyOutcome()
+    }
+
     private fun copyOne(
         context: Context,
         importsDir: Path,
         workspaceRoot: Path,
         uri: Uri,
-    ): Result? {
+        maxBytes: Long,
+    ): CopyOutcome {
+        val knownSize = queryContentLength(context, uri)
+        if (knownSize != null) {
+            if (knownSize <= 0L) return CopyOutcome.Failed
+            if (knownSize > maxBytes) return CopyOutcome.Oversized
+        }
         val displayName = queryDisplayName(context, uri) ?: "import-${System.currentTimeMillis()}"
         val safeBase = sanitizeFileName(displayName)
         val target = uniqueFile(importsDir, safeBase)
         val normalized = target.toAbsolutePath().normalize()
-        if (!normalized.startsWith(workspaceRoot)) return null
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            Files.newOutputStream(target).use { out ->
-                input.copyTo(out)
+        if (!normalized.startsWith(workspaceRoot)) return CopyOutcome.Failed
+        val copyResult = context.contentResolver.openInputStream(uri)?.use { input ->
+            copyStreamUpToLimit(input, target, maxBytes)
+        } ?: LimitedCopyResult.FAILED
+        if (copyResult != LimitedCopyResult.OK) {
+            Files.deleteIfExists(target)
+            return when (copyResult) {
+                LimitedCopyResult.TOO_LARGE -> CopyOutcome.Oversized
+                LimitedCopyResult.FAILED,
+                LimitedCopyResult.OK,
+                -> CopyOutcome.Failed
             }
-        } ?: return null
+        }
         if (!Files.isRegularFile(target) || Files.size(target) <= 0L) {
             Files.deleteIfExists(target)
-            return null
+            return CopyOutcome.Failed
         }
         val relative = workspaceRoot.relativize(normalized).toString().replace('\\', '/')
-        return Result(relative, displayName)
+        return CopyOutcome.Imported(Result(relative, displayName))
+    }
+
+    private enum class LimitedCopyResult {
+        OK,
+        TOO_LARGE,
+        FAILED,
+    }
+
+    private fun copyStreamUpToLimit(input: InputStream, target: Path, maxBytes: Long): LimitedCopyResult {
+        val buffer = ByteArray(8192)
+        var total = 0L
+        try {
+            Files.newOutputStream(target).use { out ->
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read <= 0) break
+                    total += read
+                    if (total > maxBytes) {
+                        return LimitedCopyResult.TOO_LARGE
+                    }
+                    out.write(buffer, 0, read)
+                }
+            }
+        } catch (_: Exception) {
+            return LimitedCopyResult.FAILED
+        }
+        return if (total > 0L) LimitedCopyResult.OK else LimitedCopyResult.FAILED
+    }
+
+    private fun queryContentLength(context: Context, uri: Uri): Long? {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            val idx = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (idx >= 0 && cursor.moveToFirst()) {
+                if (cursor.isNull(idx)) return null
+                return cursor.getLong(idx)
+            }
+        }
+        return null
     }
 
     private fun queryDisplayName(context: Context, uri: Uri): String? {

@@ -143,26 +143,29 @@ class ProductivityAgentGateway(
     /**
      * 用户从系统文件选择器导入到 workspace/imports/，更新可访问列表，不触发 LLM、不写 transcript。
      */
-    fun importUserPickedFiles(sessionId: String, uris: List<Uri>): List<String> = execute {
+    fun importUserPickedFiles(sessionId: String, uris: List<Uri>): UserPickedFilesImportResult = execute {
         val agentHost = ensureHost()
         prepareSession(sessionId)
         val workspace = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
             ?: throw IllegalStateException("workspace missing for session $sessionId")
-        val imported = WorkspaceFileImport.copyContentUrisToWorkspace(appContext, workspace, uris)
-        if (imported.isEmpty()) {
-            return@execute emptyList()
+        val batch = WorkspaceFileImport.copyContentUrisToWorkspace(appContext, workspace, uris)
+        val imported = batch.imported
+        if (imported.isNotEmpty()) {
+            SessionAccessibleFilesStore.addEntries(
+                appContext,
+                sessionId,
+                imported.map { it.workspaceRelativePath },
+                imported.map { it.displayName },
+            )
+            agentHost.setSessionEnvironmentSupplement(
+                SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
+            )
+            agentHost.switchSession(sessionId)
         }
-        SessionAccessibleFilesStore.addEntries(
-            appContext,
-            sessionId,
-            imported.map { it.workspaceRelativePath },
-            imported.map { it.displayName },
+        UserPickedFilesImportResult(
+            workspaceRelativePaths = imported.map { it.workspaceRelativePath },
+            rejectedOversizedCount = batch.rejectedOversized,
         )
-        agentHost.setSessionEnvironmentSupplement(
-            SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
-        )
-        agentHost.switchSession(sessionId)
-        imported.map { it.workspaceRelativePath }
     }
 
     /**

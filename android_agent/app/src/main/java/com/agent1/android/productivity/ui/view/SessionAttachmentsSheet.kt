@@ -30,7 +30,7 @@ import com.agent1.android.productivity.logic.business.AttachmentSheetDraft
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 
 /**
- * 本会话附件：单一草稿列表。选文件 / 移除都只改草稿，点「确定」才写入会话。
+ * 本会话附件列表；移除须点「确定」才生效（添加请用底栏加号）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -8,16 +8,15 @@ import org.junit.Test
 class AttachmentComposerLabelTest {
 
     @Test
-    fun resolve_prefersPendingOverCommitted() {
+    fun resolve_mergesPendingPickIntoCountButNotUnsavedDraft() {
         val resolved = AttachmentComposerLabel.resolve(
             pending = listOf(PendingAttachmentImport("u1", "a.pdf")),
             committed = listOf(
                 SessionAccessibleFilesStore.Entry("imports/b.pdf", "b.pdf", ""),
             ),
         )
-        assertEquals(1, resolved.selectedCount)
-        assertEquals("a.pdf", resolved.singleFileName)
-        assertTrue(resolved.unsavedDraft)
+        assertEquals(2, resolved.selectedCount)
+        assertFalse(resolved.unsavedDraft)
     }
 
     @Test

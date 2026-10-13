@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -110,12 +111,14 @@ fun ChatScreen(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris ->
         if (uris.isNotEmpty()) {
-            viewModel.stagePickedFilesForImport(uris)
+            viewModel.importPickedFilesFromDevice(uris)
         }
     }
     val needsUserKeySetup = state.needsUserKeySetup
     val composerBlocked = state.configError != null && !needsUserKeySetup
     val attachmentsEnabled = !composerBlocked && !state.isRunning && state.pendingAskUser == null
+    val canPickMoreAttachments = attachmentsEnabled &&
+        viewModel.attachmentSlotsRemaining(state) > 0
     val openFileList: (UserFileRequestMarkers.Hint?) -> Unit = { hint ->
         attachmentAssistantHint = hint
         attachmentSheetVisible = true
@@ -262,7 +265,7 @@ fun ChatScreen(
                     canSend = !composerBlocked &&
                         !state.isRunning &&
                         pendingAsk == null &&
-                        (input.isNotBlank() || !state.attachmentChangesForNextSend.isEmpty()),
+                        input.isNotBlank(),
                     enabled = !composerBlocked && pendingAsk == null,
                     inputPlaceholder = if (pendingAsk == null) {
                         stringResource(R.string.chat_input_hint)
@@ -279,6 +282,7 @@ fun ChatScreen(
                     onPickAttachment = launchPickFromDevice,
                     onOpenFileList = { openFileList(null) },
                     attachmentsEnabled = attachmentsEnabled,
+                    canPickMoreAttachments = canPickMoreAttachments,
                     modelLabel = composerModelLabel(state.configSummary),
                     onOpenModel = onOpenSettings,
                     onSend = {
@@ -329,7 +333,7 @@ fun ChatScreen(
 /**
  * 底部输入条。
  *
- * 加号打开选择器；输入框上方条进入附件列表；底栏右侧为当前模型。
+ * 底栏左侧：加号与文件入口；右侧为当前模型。
  */
 @Composable
 internal fun ChatComposer(
@@ -348,6 +352,7 @@ internal fun ChatComposer(
     onPickAttachment: () -> Unit,
     onOpenFileList: () -> Unit,
     attachmentsEnabled: Boolean,
+    canPickMoreAttachments: Boolean = attachmentsEnabled,
     modelLabel: String = "",
     onOpenModel: (() -> Unit)? = null,
     onSend: () -> Unit,
@@ -376,14 +381,6 @@ internal fun ChatComposer(
         ) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    if (showSelectedFilesBar) {
-                        ComposerSelectedFilesBar(
-                            label = fileListLabel,
-                            hasUnsavedDraft = hasAttachmentDraft,
-                            enabled = attachmentsEnabled,
-                            onClick = onOpenFileList,
-                        )
-                    }
                     ComposerField(
                         value = value,
                         onValueChange = onValueChange,
@@ -399,11 +396,20 @@ internal fun ChatComposer(
                             .fillMaxWidth()
                             .padding(top = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         ComposerPickAttachmentButton(
-                            enabled = attachmentsEnabled,
+                            enabled = canPickMoreAttachments,
                             onClick = onPickAttachment,
                         )
+                        if (showSelectedFilesBar) {
+                            ComposerSelectedFilesBar(
+                                label = fileListLabel,
+                                hasUnsavedDraft = hasAttachmentDraft,
+                                enabled = attachmentsEnabled,
+                                onClick = onOpenFileList,
+                            )
+                        }
                         Spacer(modifier = Modifier.weight(1f))
                         if (modelLabel.isNotBlank()) {
                             ComposerModelChip(label = modelLabel, onClick = onOpenModel)
@@ -427,38 +433,13 @@ private fun ComposerModelChip(
     label: String,
     onClick: (() -> Unit)?,
 ) {
-    val tint = MaterialTheme.colorScheme.onSurfaceVariant
     val modelCd = stringResource(R.string.chat_model_cd, label)
-    Row(
-        modifier = Modifier
-            .widthIn(max = 200.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(role = Role.Button, onClick = onClick)
-                } else {
-                    Modifier
-                },
-            )
-            .semantics { contentDescription = modelCd }
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            label,
-            modifier = Modifier.weight(1f, fill = false),
-            style = MaterialTheme.typography.titleMedium,
-            color = tint,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = tint,
-        )
-    }
+    ComposerBarTappableRow(
+        text = label,
+        contentDescription = modelCd,
+        onClick = onClick,
+        maxWidth = 200.dp,
+    )
 }
 
 @Composable

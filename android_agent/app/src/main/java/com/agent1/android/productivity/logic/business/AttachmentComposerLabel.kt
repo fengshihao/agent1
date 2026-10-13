@@ -34,11 +34,11 @@ object AttachmentComposerLabel {
         return Resolved(singleFileName = null, selectedCount = draftRows.size, unsavedDraft = unsaved)
     }
 
-    /** 底部按钮：有未保存草稿时为 true（文案可强调待确定）。 */
+    /** 面板里标记了移除、尚未点确定。选文件会立即入库，不算草稿。 */
     fun hasUnsavedDraft(
         pending: List<PendingAttachmentImport>,
         pendingRemovalPaths: Set<String>,
-    ): Boolean = pending.isNotEmpty() || pendingRemovalPaths.isNotEmpty()
+    ): Boolean = pendingRemovalPaths.isNotEmpty()
 
     /** 过长时在开头加 `...`，保留末尾（含扩展名）。 */
     fun ellipsizeStart(name: String, maxChars: Int = MAX_FILENAME_CHARS): String {

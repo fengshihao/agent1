@@ -27,6 +27,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.agent1.android.productivity.logic.business.ChatNewTopicPrompt
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
@@ -52,6 +53,37 @@ internal fun ChatMessageList(
     val visibleLines = state.lines.filterNot { it.hideInChat }
     val lazyRows = remember(visibleLines, state.workspacePath) {
         ChatLazyRowExpansion.expandTranscriptLines(visibleLines, state.workspacePath)
+    }
+    val offerNewTopic = remember(
+        visibleLines,
+        state.isRunning,
+        state.streamingText,
+        state.streamingReasoning,
+        state.pendingAskUser,
+    ) {
+        ChatNewTopicPrompt.shouldOffer(
+            lines = state.lines,
+            isRunning = state.isRunning,
+            streamingText = state.streamingText,
+            streamingReasoning = state.streamingReasoning,
+            pendingAskUser = state.pendingAskUser != null,
+        )
+    }
+    val tailAssistant = remember(visibleLines) {
+        ChatNewTopicPrompt.tailAssistantLine(state.lines)
+    }
+    val newTopicLazyIndex = remember(lazyRows, tailAssistant, offerNewTopic) {
+        if (!offerNewTopic || tailAssistant == null) {
+            -1
+        } else {
+            val key = tailAssistant.stableKey
+            lazyRows.indexOfLast { row ->
+                row is ChatLazyRow.Message &&
+                    row.line.role == "assistant" &&
+                    row.line.stableKey == key &&
+                    row.segmentIndex == row.segmentCount - 1
+            }
+        }
     }
     val timelineRows = remember(state.runTimeline, state.streamingReasoning, state.isRunning) {
         ChatToolBatch.groupTimeline(
@@ -180,11 +212,7 @@ internal fun ChatMessageList(
                                 Modifier
                             },
                         )
-                        if (
-                            line.role == "assistant" &&
-                            onNewChat != null &&
-                            !state.isRunning
-                        ) {
+                        if (onNewChat != null && offerNewTopic && index == newTopicLazyIndex) {
                             NewTopicAfterReplyButton(onClick = onNewChat)
                         }
                     }
@@ -225,9 +253,6 @@ internal fun ChatMessageList(
                             onOpenInApp = onOpenInApp,
                             showReasoning = false,
                         )
-                        if (onNewChat != null && !state.isRunning) {
-                            NewTopicAfterReplyButton(onClick = onNewChat)
-                        }
                     }
                 }
                 is RunTimelineRow.Activity -> {

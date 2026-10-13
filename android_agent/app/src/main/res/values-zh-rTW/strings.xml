@@ -46,7 +46,11 @@
     <string name="chat_attachments_importing">正在新增…</string>
     <string name="chat_remove_pending_file_cd">從待新增列表移除 %1$s</string>
     <string name="chat_attachments_add_from_device">從本機添加</string>
-    <string name="chat_attachments_composer_multi">加%1$d</string>
+    <string name="chat_attachments_composer_multi">%1$d個檔案</string>
+    <string name="chat_attachments_max_reached">本對話最多 %1$d 個檔案</string>
+    <string name="chat_attachments_pick_truncated">已達上限 %1$d 個，部分檔案未新增</string>
+    <string name="chat_attachments_import_all_too_large">所選檔案均超過 %1$d MB，未新增</string>
+    <string name="chat_attachments_some_too_large">%1$d 個檔案超過 %2$d MB 未新增</string>
     <string name="chat_attachments_composer_single_cd">附件 %1$s</string>
     <string name="chat_select_file">選擇檔案</string>
 

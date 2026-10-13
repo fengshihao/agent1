@@ -49,14 +49,18 @@
     <string name="chat_attachments_importing">Adding…</string>
     <string name="chat_remove_pending_file_cd">Remove %1$s from ready-to-add list</string>
     <string name="chat_attachments_add_from_device">Add from device</string>
-    <string name="chat_attachments_composer_multi">+%1$d</string>
+    <string name="chat_attachments_composer_multi">%1$d files</string>
+    <string name="chat_attachments_max_reached">Up to %1$d files per chat</string>
+    <string name="chat_attachments_pick_truncated">Limit is %1$d; some files were not added</string>
+    <string name="chat_attachments_import_all_too_large">All selected files exceed %1$d MB</string>
+    <string name="chat_attachments_some_too_large">%1$d file(s) over %2$d MB were not added</string>
     <string name="chat_attachments_composer_unsaved">Pending</string>
     <string name="chat_attachments_composer_unsaved_cd">Unsaved attachment changes</string>
     <string name="chat_attachments_empty_short">No files yet. Use the attach icon on the input bar to pick files.</string>
     <string name="chat_file_list_short">Files</string>
     <string name="chat_file_list_cd">Open file list for this chat</string>
-    <string name="chat_attachments_sheet_draft_hint">Unsaved changes — tap OK before the AI can read them. Closing discards changes.</string>
-    <string name="chat_attachments_sheet_saved_hint">In sync with this chat. Add or remove files, then tap OK to apply.</string>
+    <string name="chat_attachments_sheet_draft_hint">Files marked for removal — tap OK to delete from this chat. Closing discards removals.</string>
+    <string name="chat_attachments_sheet_saved_hint">In sync. Use + to add files; remove here and tap OK to apply.</string>
     <string name="chat_attachments_composer_single_cd">Attachment %1$s</string>
     <string name="chat_select_file">Choose file</string>
 

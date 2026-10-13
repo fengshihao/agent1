@@ -25,11 +25,13 @@ import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.WorkspaceFileImport
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
 import com.agent1.android.productivity.logic.business.SessionAccessibleFilesStore
+import com.agent1.android.productivity.logic.business.SessionAttachmentLimits
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.i18n.AppLocalization
 import com.agent1.android.R
 import com.agent1.android.productivity.logic.business.UserAttachmentMessageSuffix
+import com.agent1.android.productivity.logic.business.UserPickedFilesImportResult
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
@@ -216,7 +218,7 @@ class ChatViewModel(
     fun sendMessage(text: String): Boolean {
         val trimmed = text.trim()
         val attachmentChanges = _state.value.attachmentChangesForNextSend
-        if ((trimmed.isEmpty() && attachmentChanges.isEmpty()) || _state.value.isRunning) return false
+        if (trimmed.isEmpty() || _state.value.isRunning) return false
         if (needsUserKeySetup()) {
             _state.value = _state.value.copy(
                 inlineApiSetupVisible = true,
@@ -233,9 +235,6 @@ class ChatViewModel(
         }
         resetStreamBuffers()
         resetRunUsageAccumulators()
-        val displayLine = trimmed.ifEmpty {
-            AppLocalization.getString(R.string.chat_send_attachment_changes_only)
-        }
         val forModel = UserAttachmentMessageSuffix.appendToUserMessage(trimmed, attachmentChanges)
         _state.value = _state.value.copy(
             isRunning = true,
@@ -248,7 +247,7 @@ class ChatViewModel(
             attachmentChangesForNextSend = UserAttachmentMessageSuffix.ChangeSet(),
             lines = _state.value.lines + ChatLine(
                 role = "user",
-                content = displayLine,
+                content = trimmed,
                 stableKey = "live-user-${System.nanoTime()}",
             ),
         )
@@ -772,33 +771,70 @@ class ChatViewModel(
         return AskUserFormState(request, text, single)
     }
 
-    fun stagePickedFilesForImport(uris: List<Uri>) {
-        if (uris.isEmpty() || _state.value.isRunning) return
-        viewModelScope.launch {
-            val incoming = withContext(Dispatchers.IO) {
-                uris.map { uri ->
-                    PendingAttachmentImport(
-                        uriString = uri.toString(),
-                        displayName = WorkspaceFileImport.resolveDisplayName(appContext, uri),
-                    )
-                }
-            }
+    /** 系统选择器返回后立刻复制进 imports 并登记，供 AI read_file。 */
+    fun importPickedFilesFromDevice(uris: List<Uri>) {
+        if (uris.isEmpty() || _state.value.isRunning || _state.value.attachmentImportInProgress) return
+        val slots = attachmentSlotsRemaining(_state.value)
+        if (slots <= 0) {
             _state.value = _state.value.copy(
-                pendingAttachmentImports = PendingAttachmentImports.merge(
-                    _state.value.pendingAttachmentImports,
-                    incoming,
+                fileImportMessage = AppLocalization.getString(
+                    R.string.chat_attachments_max_reached,
+                    SessionAttachmentLimits.MAX_FILES_PER_SESSION,
                 ),
             )
+            return
+        }
+        val accepted = uris.take(slots)
+        val skipped = uris.size - accepted.size
+        viewModelScope.launch {
+            _state.value = _state.value.copy(
+                attachmentImportInProgress = true,
+                fileImportMessage = null,
+            )
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    gateway.importUserPickedFiles(sessionId, accepted)
+                }
+            }
+            result.onSuccess { importResult ->
+                val importedPaths = importResult.workspaceRelativePaths
+                val journal = if (importedPaths.isEmpty()) {
+                    _state.value.attachmentChangesForNextSend
+                } else {
+                    _state.value.attachmentChangesForNextSend.merge(
+                        UserAttachmentMessageSuffix.ChangeSet(addedPaths = importedPaths),
+                    )
+                }
+                val message = attachmentImportUserMessage(
+                    importedCount = importedPaths.size,
+                    skippedBySessionLimit = skipped,
+                    rejectedOversized = importResult.rejectedOversizedCount,
+                )
+                _state.value = _state.value.copy(
+                    attachmentImportInProgress = false,
+                    attachmentChangesForNextSend = journal,
+                    fileImportMessage = message,
+                )
+                loadTranscriptIntoState(initialLoad = false)
+            }.onFailure { error ->
+                _state.value = _state.value.copy(
+                    attachmentImportInProgress = false,
+                    fileImportMessage = UserFacingError.explain(error.message ?: error.javaClass.simpleName),
+                )
+            }
         }
     }
 
+    internal fun attachmentSlotsRemaining(state: ChatUiState = _state.value): Int {
+        val current = state.accessibleFileEntries.count {
+            it.workspaceRelativePath !in state.pendingAttachmentRemovals
+        }
+        return (SessionAttachmentLimits.MAX_FILES_PER_SESSION - current).coerceAtLeast(0)
+    }
+
     fun clearAttachmentSheetStaging() {
-        val s = _state.value
-        if (s.pendingAttachmentImports.isEmpty() && s.pendingAttachmentRemovals.isEmpty()) return
-        _state.value = s.copy(
-            pendingAttachmentImports = emptyList(),
-            pendingAttachmentRemovals = emptySet(),
-        )
+        if (_state.value.pendingAttachmentRemovals.isEmpty()) return
+        _state.value = _state.value.copy(pendingAttachmentRemovals = emptySet())
     }
 
     fun commitAttachmentSheetChanges(onApplied: (() -> Unit)? = null) {
@@ -823,12 +859,13 @@ class ChatViewModel(
                             toImport.map { Uri.parse(it.uriString) },
                         )
                     } else {
-                        emptyList()
+                        UserPickedFilesImportResult(emptyList(), 0)
                     }
                 }
             }
-            result.onSuccess { importedPaths ->
+            result.onSuccess { importResult ->
                 val importAttempted = toImport.isNotEmpty()
+                val importedPaths = importResult.workspaceRelativePaths
                 val journal = _state.value.attachmentChangesForNextSend.merge(
                     UserAttachmentMessageSuffix.ChangeSet(
                         addedPaths = importedPaths,
@@ -840,12 +877,14 @@ class ChatViewModel(
                     pendingAttachmentImports = emptyList(),
                     pendingAttachmentRemovals = emptySet(),
                     attachmentChangesForNextSend = journal,
-                    fileImportMessage = when {
-                        importAttempted && importedPaths.isEmpty() ->
-                            AppLocalization.getString(R.string.file_import_failed)
-                        importAttempted && importedPaths.isNotEmpty() ->
-                            AppLocalization.getString(R.string.file_import_ok, importedPaths.size)
-                        else -> null
+                    fileImportMessage = if (importAttempted) {
+                        attachmentImportUserMessage(
+                            importedCount = importedPaths.size,
+                            skippedBySessionLimit = 0,
+                            rejectedOversized = importResult.rejectedOversizedCount,
+                        )
+                    } else {
+                        null
                     },
                 )
                 loadTranscriptIntoState(initialLoad = false)
@@ -881,6 +920,41 @@ class ChatViewModel(
 
     private fun sessionWorkspacePath(): String {
         return SessionWorkspacePaths.workspaceRoot(appContext, sessionId)?.toAbsolutePath()?.toString().orEmpty()
+    }
+
+    private fun attachmentImportUserMessage(
+        importedCount: Int,
+        skippedBySessionLimit: Int,
+        rejectedOversized: Int,
+    ): String {
+        val maxMb = SessionAttachmentLimits.MAX_FILE_SIZE_MB
+        if (importedCount == 0) {
+            return when {
+                rejectedOversized > 0 ->
+                    AppLocalization.getString(R.string.chat_attachments_import_all_too_large, maxMb)
+                skippedBySessionLimit > 0 ->
+                    AppLocalization.getString(
+                        R.string.chat_attachments_pick_truncated,
+                        SessionAttachmentLimits.MAX_FILES_PER_SESSION,
+                    )
+                else -> AppLocalization.getString(R.string.file_import_failed)
+            }
+        }
+        val parts = mutableListOf(AppLocalization.getString(R.string.file_import_ok, importedCount))
+        if (skippedBySessionLimit > 0) {
+            parts.add(
+                AppLocalization.getString(
+                    R.string.chat_attachments_pick_truncated,
+                    SessionAttachmentLimits.MAX_FILES_PER_SESSION,
+                ),
+            )
+        }
+        if (rejectedOversized > 0) {
+            parts.add(
+                AppLocalization.getString(R.string.chat_attachments_some_too_large, rejectedOversized, maxMb),
+            )
+        }
+        return parts.joinToString(" ")
     }
 
     companion object {

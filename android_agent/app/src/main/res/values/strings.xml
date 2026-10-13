@@ -46,8 +46,8 @@
     <string name="chat_attachments_empty_short">暂无文件。请点输入条左侧附件图标选择文件。</string>
     <string name="chat_file_list_short">文件</string>
     <string name="chat_file_list_cd">打开本会话文件列表</string>
-    <string name="chat_attachments_sheet_draft_hint">有未保存的更改，点「确定」后 AI 才能读取；关闭面板将放弃更改。</string>
-    <string name="chat_attachments_sheet_saved_hint">已与会话同步。可继续添加或移除，变更后需点「确定」。</string>
+    <string name="chat_attachments_sheet_draft_hint">有标记移除的文件，点「确定」后才会从本会话删除；关闭面板将放弃移除。</string>
+    <string name="chat_attachments_sheet_saved_hint">已与会话同步。用底栏加号添加文件；在此可移除后点「确定」。</string>
     <string name="chat_attachments_pending_title">待添加 · %1$d</string>
     <string name="chat_attachments_added_title">已添加 · %1$d</string>
     <string name="chat_attachments_confirm_add">确认添加到会话</string>
@@ -56,7 +56,11 @@
     <string name="chat_attachments_importing">正在添加…</string>
     <string name="chat_remove_pending_file_cd">从待添加列表移除 %1$s</string>
     <string name="chat_attachments_add_from_device">从本机添加</string>
-    <string name="chat_attachments_composer_multi">加%1$d</string>
+    <string name="chat_attachments_composer_multi">%1$d个文件</string>
+    <string name="chat_attachments_max_reached">本会话最多 %1$d 个文件</string>
+    <string name="chat_attachments_pick_truncated">已达上限 %1$d 个，部分文件未添加</string>
+    <string name="chat_attachments_import_all_too_large">所选文件均超过 %1$d MB，未添加</string>
+    <string name="chat_attachments_some_too_large">%1$d 个文件超过 %2$d MB 未添加</string>
     <string name="chat_attachments_composer_unsaved">待确定</string>
     <string name="chat_attachments_composer_unsaved_cd">附件有未保存更改</string>
     <string name="chat_attachments_composer_single_cd">附件 %1$s</string>

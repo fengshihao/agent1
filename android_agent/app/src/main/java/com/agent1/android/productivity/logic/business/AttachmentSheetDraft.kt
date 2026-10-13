@@ -1,7 +1,7 @@
 package com.agent1.android.productivity.logic.business
 
 /**
- * 附件面板上的「草稿」视图：用户点确定前，增删都只改草稿；列表为确定后会话中的附件预览。
+ * 附件面板：选文件在系统选择器返回后即入库；仅「移除」在点确定前为草稿。
  */
 object AttachmentSheetDraft {
 

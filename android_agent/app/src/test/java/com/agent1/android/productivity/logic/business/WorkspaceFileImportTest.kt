@@ -76,4 +76,16 @@ class WorkspaceFileImportTest {
 
         assertNull(result)
     }
+
+    @Test
+    fun copyLocalFileToImports_rejectsWhenOverMaxBytes() {
+        val workspace = Files.createTempDirectory("ws-import-6")
+        val sourceDir = Files.createTempDirectory("src-import-6")
+        val source = sourceDir.resolve("big.bin").apply { writeText("0123456789") }
+
+        val result = WorkspaceFileImport.copyLocalFileToImports(workspace, source, "big.bin", maxBytes = 5L)
+
+        assertNull(result)
+        assertTrue(!Files.exists(workspace.resolve("imports").resolve("big.bin")))
+    }
 }
