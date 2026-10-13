@@ -128,6 +128,10 @@ class ProductivityAgentGateway(
         if (paths.isEmpty()) return@execute listAccessibleFilePaths(sessionId)
         val agentHost = ensureHost()
         prepareSession(sessionId)
+        val workspace = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
+        if (workspace != null) {
+            WorkspaceAccessibleFileDelete.deleteRelativeFiles(workspace, paths)
+        }
         SessionAccessibleFilesStore.removeEntries(appContext, sessionId, paths)
         agentHost.setSessionEnvironmentSupplement(
             SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
@@ -137,7 +141,7 @@ class ProductivityAgentGateway(
     }
 
     /**
-     * 用户从系统文件选择器导入到 workspace/imports/，更新可访问列表与 transcript，不触发 LLM。
+     * 用户从系统文件选择器导入到 workspace/imports/，更新可访问列表，不触发 LLM、不写 transcript。
      */
     fun importUserPickedFiles(sessionId: String, uris: List<Uri>): List<String> = execute {
         val agentHost = ensureHost()
@@ -158,9 +162,7 @@ class ProductivityAgentGateway(
             SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
         )
         agentHost.switchSession(sessionId)
-        val paths = imported.map { it.workspaceRelativePath }
-        agentHost.appendUserMessageToTranscript("[已添加附件] ${paths.joinToString(", ")}")
-        paths
+        imported.map { it.workspaceRelativePath }
     }
 
     /**
@@ -198,9 +200,7 @@ class ProductivityAgentGateway(
             SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
         )
         agentHost.switchSession(sessionId)
-        val paths = imported.map { it.workspaceRelativePath }
-        agentHost.appendUserMessageToTranscript("[已添加附件] ${paths.joinToString(", ")}")
-        paths
+        imported.map { it.workspaceRelativePath }
     }
 
     fun readTranscriptWithoutSwitch(sessionId: String): List<AgentMessage> = execute {
