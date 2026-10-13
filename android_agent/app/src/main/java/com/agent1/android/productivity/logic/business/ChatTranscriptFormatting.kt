@@ -22,6 +22,26 @@ object ChatTranscriptFormatting {
     /** Markdown 渲染器用此前缀，避免相对路径链接被当成纯文本。 */
     const val WORKSPACE_FILE_HREF_PREFIX = "agent1-file:"
 
+    /** 聊天气泡里应渲染成可点超链接、交给系统打开的 URI scheme（长的优先匹配）。 */
+    private val EXTERNAL_URI_SCHEMES = listOf(
+        "androidamap://",
+        "amapuri://",
+        "baidumap://",
+        "qqmap://",
+        "intent://",
+        "https://",
+        "http://",
+        "mailto:",
+        "smsto:",
+        "sms:",
+        "tel:",
+        "geo:",
+    ).sortedByDescending { it.length }
+
+    private val TRAILING_URI_PUNCTUATION = charArrayOf(
+        '.', ',', ';', ':', '!', '?', '。', '，', '；', '：', '！', '？', '"', '\'', '”', '’',
+    )
+
     /** Markdown 链接/图片结构（`[label](dest)` / `![label](dest)`），提取与替换时整体保护。 */
     private val markdownLinkSpan = Regex("""!?\[[^\]]*]\([^)]*\)""")
 
@@ -284,7 +304,8 @@ object ChatTranscriptFormatting {
             val raw = match.groupValues[1].trim()
             if (raw.startsWith("http://") ||
                 raw.startsWith("https://") ||
-                raw.startsWith(WORKSPACE_FILE_HREF_PREFIX)
+                raw.startsWith(WORKSPACE_FILE_HREF_PREFIX) ||
+                isExternalOpenableUri(unwrapMarkdownLinkDestination(raw))
             ) {
                 return@replace match.value
             }
@@ -293,6 +314,158 @@ object ChatTranscriptFormatting {
             val label = match.value.substringAfter('[').substringBefore(']')
             "[$label]($WORKSPACE_FILE_HREF_PREFIX$path)"
         }
+    }
+
+    /**
+     * 助手气泡渲染前的 Markdown 预处理：裸工作区路径 → 文件链接，
+     * 再把高德 `amapuri://` 等可打开 URI 写成可点超链接。
+     */
+    fun prepareAssistantMarkdown(content: String, paths: List<String> = emptyList()): String =
+        linkifyBareExternalUris(
+            rewriteWorkspaceMarkdownHrefs(linkifyBareWorkspacePaths(content, paths)),
+        )
+
+    /** http(s) 与地图/电话等可交给系统打开的 URI。 */
+    fun isExternalOpenableUri(uri: String): Boolean {
+        val trimmed = uri.trim()
+        if (trimmed.isEmpty()) return false
+        return EXTERNAL_URI_SCHEMES.any { trimmed.startsWith(it, ignoreCase = true) }
+    }
+
+    /** Markdown `[label](<uri>)` 的目的地可能带尖括号。 */
+    fun unwrapMarkdownLinkDestination(raw: String): String {
+        val trimmed = raw.trim()
+        if (trimmed.length >= 2 && trimmed.startsWith("<") && trimmed.endsWith(">")) {
+            return trimmed.substring(1, trimmed.length - 1)
+        }
+        return trimmed
+    }
+
+    /**
+     * 把正文里尚未写成 Markdown 链接的可打开 URI（含 `amapuri://`）
+     * 改成 `[打开高德打车](<uri>)`，让气泡里能一点就唤起对应 App。
+     * 代码块、已有 Markdown 链接里的 URI 保持原样。
+     */
+    fun linkifyBareExternalUris(content: String): String {
+        if (content.isEmpty()) return content
+        val out = StringBuilder(content.length)
+        var index = 0
+        var inFence = false
+        while (index < content.length) {
+            if (isFenceLineStart(content, index)) {
+                val lineEnd = content.indexOf('\n', index).let { if (it < 0) content.length else it + 1 }
+                out.append(content, index, lineEnd)
+                inFence = !inFence
+                index = lineEnd
+                continue
+            }
+            if (inFence) {
+                out.append(content[index])
+                index++
+                continue
+            }
+            if (content[index] == '`') {
+                val close = content.indexOf('`', startIndex = index + 1)
+                if (close < 0) {
+                    out.append(content, index, content.length)
+                    break
+                }
+                out.append(content, index, close + 1)
+                index = close + 1
+                continue
+            }
+            val scheme = schemeAt(content, index)
+            if (scheme != null &&
+                isUriStartBoundary(content, index) &&
+                !isAlreadyLinkedUri(content, index)
+            ) {
+                val consumed = consumeUri(content, index)
+                val uri = trimTrailingUriJunk(content.substring(index, consumed))
+                if (uri.length > scheme.length) {
+                    out.append(markdownLinkForExternalUri(uri))
+                    index += uri.length
+                    continue
+                }
+            }
+            out.append(content[index])
+            index++
+        }
+        return out.toString()
+    }
+
+    private fun markdownLinkForExternalUri(uri: String): String {
+        val label = externalUriDisplayLabel(uri).replace("]", "\\]")
+        val dest = uri.replace("<", "%3C").replace(">", "%3E")
+        return "[$label](<$dest>)"
+    }
+
+    private fun externalUriDisplayLabel(uri: String): String {
+        val lower = uri.lowercase()
+        return when {
+            lower.startsWith("amapuri://") || lower.startsWith("androidamap://") ->
+                if (lower.contains("taxi")) "打开高德打车" else "打开高德地图"
+            lower.startsWith("baidumap://") -> "打开百度地图"
+            lower.startsWith("qqmap://") -> "打开腾讯地图"
+            lower.startsWith("geo:") -> "打开地图"
+            lower.startsWith("tel:") -> "拨打电话"
+            lower.startsWith("mailto:") -> "发送邮件"
+            lower.startsWith("sms:") || lower.startsWith("smsto:") -> "发送短信"
+            lower.startsWith("intent://") -> "打开应用"
+            else -> uri
+        }
+    }
+
+    private fun schemeAt(content: String, index: Int): String? {
+        for (scheme in EXTERNAL_URI_SCHEMES) {
+            if (content.startsWith(scheme, startIndex = index, ignoreCase = true)) return scheme
+        }
+        return null
+    }
+
+    private fun isFenceLineStart(content: String, index: Int): Boolean {
+        if (!content.startsWith("```", startIndex = index)) return false
+        return index == 0 || content[index - 1] == '\n'
+    }
+
+    private fun isUriStartBoundary(content: String, index: Int): Boolean {
+        if (index == 0) return true
+        val prev = content[index - 1]
+        return !prev.isLetterOrDigit() && prev != '_' && prev != '/' &&
+            prev != ':' && prev != '.' && prev != '-' && prev != '@'
+    }
+
+    private fun isAlreadyLinkedUri(content: String, uriStart: Int): Boolean {
+        if (uriStart >= 3 && content.regionMatches(uriStart - 3, "](<", 0, 3)) return true
+        if (uriStart >= 2 && content.regionMatches(uriStart - 2, "](", 0, 2)) return true
+        return uriStart > 0 && content[uriStart - 1] == '<'
+    }
+
+    private fun consumeUri(content: String, start: Int): Int {
+        var index = start
+        while (index < content.length) {
+            val c = content[index]
+            if (c.isWhitespace() || c == '"' || c == '\'' || c.code < 32) break
+            index++
+        }
+        return index
+    }
+
+    private fun trimTrailingUriJunk(raw: String): String {
+        var uri = raw
+        while (uri.isNotEmpty() && uri.last() in TRAILING_URI_PUNCTUATION) {
+            uri = uri.dropLast(1)
+        }
+        while (uri.isNotEmpty() && uri.last() == ')' &&
+            uri.count { it == ')' } > uri.count { it == '(' }
+        ) {
+            uri = uri.dropLast(1)
+        }
+        while (uri.isNotEmpty() && uri.last() == ']' &&
+            uri.count { it == ']' } > uri.count { it == '[' }
+        ) {
+            uri = uri.dropLast(1)
+        }
+        return uri
     }
 
     /** 正文下方单独预览的图片（非 Markdown 内联 `![](path)`）。 */

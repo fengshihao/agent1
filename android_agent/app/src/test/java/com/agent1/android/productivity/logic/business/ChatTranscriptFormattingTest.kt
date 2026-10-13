@@ -305,4 +305,63 @@ class ChatTranscriptFormattingTest {
         )
         assertEquals("out/index.html", segments.last().workspacePath)
     }
+
+    @Test
+    fun linkifyBareExternalUris_amapuriFromTaxiSession_becomesMarkdownLink() {
+        // 真机「出租车」会话：助手把高德唤起 URI 当纯文本贴出，气泡里点不了
+        val uri = "amapuri://drive/takeTaxi?sourceApplication=amapplatform" +
+            "&slat=40.077624&slon=116.352332" +
+            "&sname=%E9%BE%99%E8%B7%83%E8%8B%91%E4%B8%80%E5%8C%BA(%E6%98%8C%E5%B9%B3%E5%9B%9E%E9%BE%99%E8%A7%82)" +
+            "&dlon=116.426883&dlat=39.974097" +
+            "&dname=%E4%B8%AD%E6%97%A5%E5%8F%8B%E5%A5%BD%E5%8C%BB%E9%99%A2%E6%9C%AC%E9%83%A8(%E6%A8%B1%E8%8A%B1%E5%9B%AD%E4%B8%9C%E8%A1%972%E5%8F%B7)"
+        val content = "一键叫车（手机可直接点）\n\n$uri\n\n详细信息：[打车信息](打车去中日友好医院.md)"
+        val out = ChatTranscriptFormatting.prepareAssistantMarkdown(content)
+        assertEquals("[打开高德打车](<$uri>)", out.lineSequence().first { it.startsWith("[打开高德打车]") })
+        assertTrue(out.contains("[打车信息](agent1-file:打车去中日友好医院.md)"))
+        assertFalse(out.contains("\n$uri\n"))
+    }
+
+    @Test
+    fun linkifyBareExternalUris_keepsExistingMarkdownLink() {
+        val src = "见 [官网](https://uri.amap.com/marker?position=116.4,39.9)"
+        assertEquals(src, ChatTranscriptFormatting.linkifyBareExternalUris(src))
+    }
+
+    @Test
+    fun linkifyBareExternalUris_skipsFencedCode() {
+        val src = "```\namapuri://drive/takeTaxi?slat=1&slon=2\n```"
+        assertEquals(src, ChatTranscriptFormatting.linkifyBareExternalUris(src))
+    }
+
+    @Test
+    fun linkifyBareExternalUris_skipsInlineCode() {
+        val src = "原始链接：`amapuri://drive/takeTaxi?slat=1`"
+        assertEquals(src, ChatTranscriptFormatting.linkifyBareExternalUris(src))
+    }
+
+    @Test
+    fun linkifyBareExternalUris_stripsTrailingPunctuationButKeepsBalancedParens() {
+        val out = ChatTranscriptFormatting.linkifyBareExternalUris(
+            "打开 (https://example.com/path)。",
+        )
+        assertEquals("打开 ([https://example.com/path](<https://example.com/path>))。", out)
+    }
+
+    @Test
+    fun unwrapMarkdownLinkDestination_stripsAngleBrackets() {
+        assertEquals(
+            "amapuri://drive/takeTaxi?x=1",
+            ChatTranscriptFormatting.unwrapMarkdownLinkDestination("<amapuri://drive/takeTaxi?x=1>"),
+        )
+        assertEquals("https://a.com", ChatTranscriptFormatting.unwrapMarkdownLinkDestination("https://a.com"))
+    }
+
+    @Test
+    fun isExternalOpenableUri_recognizesMapAndWebSchemes() {
+        assertTrue(ChatTranscriptFormatting.isExternalOpenableUri("amapuri://drive/takeTaxi?x=1"))
+        assertTrue(ChatTranscriptFormatting.isExternalOpenableUri("geo:39.9,116.4"))
+        assertTrue(ChatTranscriptFormatting.isExternalOpenableUri("https://example.com"))
+        assertFalse(ChatTranscriptFormatting.isExternalOpenableUri("agent1-file:out/a.docx"))
+        assertFalse(ChatTranscriptFormatting.isExternalOpenableUri("out/a.docx"))
+    }
 }

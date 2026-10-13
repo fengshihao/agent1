@@ -1,5 +1,8 @@
 package com.agent1.android.productivity.ui.view
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -58,7 +61,11 @@ fun WorkspaceMarkdown(
     val uriHandler = remember(defaultUriHandler, workspaceRoot, context, onOpenInApp) {
         object : UriHandler {
             override fun openUri(uri: String) {
-                val trimmed = uri.trim()
+                val trimmed = ChatTranscriptFormatting.unwrapMarkdownLinkDestination(uri.trim())
+                if (ChatTranscriptFormatting.isExternalOpenableUri(trimmed)) {
+                    openExternalUri(context, trimmed)
+                    return
+                }
                 val hadWorkspacePrefix = trimmed.startsWith(ChatTranscriptFormatting.WORKSPACE_FILE_HREF_PREFIX)
                 val href = trimmed.removePrefix(ChatTranscriptFormatting.WORKSPACE_FILE_HREF_PREFIX)
                 if (workspaceRoot != null &&
@@ -112,5 +119,16 @@ fun WorkspaceMarkdown(
             ),
             imageTransformer = transformer,
         )
+    }
+}
+
+/** 把 http(s) / 高德 amapuri 等交给系统，用于唤起浏览器或地图 App。 */
+private fun openExternalUri(context: Context, uri: String) {
+    runCatching {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }.onFailure {
+        Toast.makeText(context, "无法打开链接（请确认已安装对应应用）", Toast.LENGTH_SHORT).show()
     }
 }

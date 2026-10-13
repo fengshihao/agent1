@@ -46,9 +46,7 @@ fun WorkspaceChatBody(
                         .toSet()
                 }
                 WorkspaceMarkdown(
-                    content = ChatTranscriptFormatting.rewriteWorkspaceMarkdownHrefs(
-                        ChatTranscriptFormatting.linkifyBareWorkspacePaths(logicalContent, paths),
-                    ),
+                    content = ChatTranscriptFormatting.prepareAssistantMarkdown(logicalContent, paths),
                     workspaceAbsolutePath = workspaceAbsolutePath,
                     onOpenInApp = onOpenInApp,
                 )
