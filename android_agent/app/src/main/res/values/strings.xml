@@ -12,6 +12,7 @@
 
     <string name="chat_new_session">新对话</string>
     <string name="chat_input_hint">输入消息…</string>
+    <string name="chat_send_attachment_changes_only">（已更新附件）</string>
     <string name="chat_input_answer_card">请在上方卡片中回答并提交</string>
     <string name="chat_opening">正在打开对话…</string>
     <string name="chat_startup_error">暂时无法开始对话：%1$s</string>
@@ -39,8 +40,24 @@
     <string name="chat_attachments_cd_count">附件，已选 %1$d 个</string>
     <string name="chat_attachments_sheet_title">本会话附件 · %1$d</string>
     <string name="chat_attachments_assistant_banner">助手正在等待您添加文件</string>
-    <string name="chat_attachments_empty">还没有附件。可从本机选择文件，供 AI 在本对话中读取。</string>
+    <string name="chat_attachments_empty">还没有附件。从本机选择文件后，点「确认添加到会话」才会复制进本会话。</string>
+    <string name="chat_attachments_empty_short">暂无文件。请点输入条左侧附件图标选择文件。</string>
+    <string name="chat_file_list_short">文件</string>
+    <string name="chat_file_list_cd">打开本会话文件列表</string>
+    <string name="chat_attachments_sheet_draft_hint">有未保存的更改，点「确定」后 AI 才能读取；关闭面板将放弃更改。</string>
+    <string name="chat_attachments_sheet_saved_hint">已与会话同步。可继续添加或移除，变更后需点「确定」。</string>
+    <string name="chat_attachments_pending_title">待添加 · %1$d</string>
+    <string name="chat_attachments_added_title">已添加 · %1$d</string>
+    <string name="chat_attachments_confirm_add">确认添加到会话</string>
+    <string name="chat_attachments_open_picker">打开文件选择</string>
+    <string name="chat_attachments_confirm">确定</string>
+    <string name="chat_attachments_importing">正在添加…</string>
+    <string name="chat_remove_pending_file_cd">从待添加列表移除 %1$s</string>
     <string name="chat_attachments_add_from_device">从本机添加</string>
+    <string name="chat_attachments_composer_multi">加%1$d</string>
+    <string name="chat_attachments_composer_unsaved">待确定</string>
+    <string name="chat_attachments_composer_unsaved_cd">附件有未保存更改</string>
+    <string name="chat_attachments_composer_single_cd">附件 %1$s</string>
     <string name="chat_select_file">选择文件</string>
 
     <string name="cd_session_list">会话列表</string>

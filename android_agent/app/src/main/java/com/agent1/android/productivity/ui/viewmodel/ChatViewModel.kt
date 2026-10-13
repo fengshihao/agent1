@@ -15,16 +15,21 @@ import com.agent1.android.productivity.logic.business.AskUserReplyFormatter
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import org.json.JSONObject
 import com.agent1.android.productivity.logic.business.ApiSetupGate
+import com.agent1.android.productivity.logic.business.AttachmentSheetDraft
 import com.agent1.android.productivity.logic.business.DeepSeekApiKeyFormat
 import com.agent1.android.productivity.logic.business.DeepSeekKeyImportResult
 import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
+import com.agent1.android.productivity.logic.business.PendingAttachmentImport
+import com.agent1.android.productivity.logic.business.PendingAttachmentImports
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
+import com.agent1.android.productivity.logic.business.WorkspaceFileImport
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
 import com.agent1.android.productivity.logic.business.SessionAccessibleFilesStore
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.i18n.AppLocalization
 import com.agent1.android.R
+import com.agent1.android.productivity.logic.business.UserAttachmentMessageSuffix
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
@@ -210,7 +215,8 @@ class ChatViewModel(
     @Suppress("TooGenericExceptionCaught")
     fun sendMessage(text: String): Boolean {
         val trimmed = text.trim()
-        if (trimmed.isEmpty() || _state.value.isRunning) return false
+        val attachmentChanges = _state.value.attachmentChangesForNextSend
+        if ((trimmed.isEmpty() && attachmentChanges.isEmpty()) || _state.value.isRunning) return false
         if (needsUserKeySetup()) {
             _state.value = _state.value.copy(
                 inlineApiSetupVisible = true,
@@ -227,6 +233,10 @@ class ChatViewModel(
         }
         resetStreamBuffers()
         resetRunUsageAccumulators()
+        val displayLine = trimmed.ifEmpty {
+            AppLocalization.getString(R.string.chat_send_attachment_changes_only)
+        }
+        val forModel = UserAttachmentMessageSuffix.appendToUserMessage(trimmed, attachmentChanges)
         _state.value = _state.value.copy(
             isRunning = true,
             streamingText = "",
@@ -235,9 +245,10 @@ class ChatViewModel(
             runActivityLabel = AppLocalization.getString(R.string.run_connecting),
             lastRunTokenSummary = null,
             pendingAskUser = null,
+            attachmentChangesForNextSend = UserAttachmentMessageSuffix.ChangeSet(),
             lines = _state.value.lines + ChatLine(
                 role = "user",
-                content = trimmed,
+                content = displayLine,
                 stableKey = "live-user-${System.nanoTime()}",
             ),
         )
@@ -245,7 +256,7 @@ class ChatViewModel(
             var sendFailure: String? = null
             try {
                 withContext(Dispatchers.IO) {
-                    gateway.runUserMessage(sessionId, trimmed) { event ->
+                    gateway.runUserMessage(sessionId, forModel) { event ->
                         when (event.type) {
                             AgentEventType.MESSAGE_UPDATE -> {
                                 val payload = event.payload as EventPayloads.MessageUpdate
@@ -722,21 +733,23 @@ class ChatViewModel(
         )
     }
 
-    fun removeAccessibleFile(relativePath: String) {
+    fun stageRemoveAccessibleFile(relativePath: String) {
         if (relativePath.isBlank() || _state.value.isRunning) return
-        viewModelScope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    gateway.removeAccessibleFiles(sessionId, listOf(relativePath))
-                }
-            }.onSuccess {
-                loadTranscriptIntoState(initialLoad = false)
-            }.onFailure { error ->
-                _state.value = _state.value.copy(
-                    fileImportMessage = UserFacingError.explain(error.message ?: error.javaClass.simpleName),
-                )
-            }
-        }
+        val next = _state.value.pendingAttachmentRemovals + relativePath
+        _state.value = _state.value.copy(pendingAttachmentRemovals = next)
+    }
+
+    fun removeAttachmentSheetRow(row: AttachmentSheetDraft.Row) {
+        if (_state.value.isRunning) return
+        val (imports, removals) = AttachmentSheetDraft.removeFromDraft(
+            row,
+            _state.value.pendingAttachmentImports,
+            _state.value.pendingAttachmentRemovals,
+        )
+        _state.value = _state.value.copy(
+            pendingAttachmentImports = imports,
+            pendingAttachmentRemovals = removals,
+        )
     }
 
     fun submitAskUserForm() {
@@ -765,28 +778,96 @@ class ChatViewModel(
         return AskUserFormState(request, text, single)
     }
 
-    fun onUserPickedFiles(uris: List<Uri>) {
+    fun stagePickedFilesForImport(uris: List<Uri>) {
         if (uris.isEmpty() || _state.value.isRunning) return
         viewModelScope.launch {
-            _state.value = _state.value.copy(fileImportMessage = null)
-            val result = runCatching {
-                withContext(Dispatchers.IO) {
-                    gateway.importUserPickedFiles(sessionId, uris)
+            val incoming = withContext(Dispatchers.IO) {
+                uris.map { uri ->
+                    PendingAttachmentImport(
+                        uriString = uri.toString(),
+                        displayName = WorkspaceFileImport.resolveDisplayName(appContext, uri),
+                    )
                 }
             }
-            result.onSuccess { paths ->
-                if (paths.isEmpty()) {
-                    _state.value = _state.value.copy(
-                        fileImportMessage = AppLocalization.getString(R.string.file_import_failed),
-                    )
-                } else {
-                    _state.value = _state.value.copy(
-                        fileImportMessage = AppLocalization.getString(R.string.file_import_ok, paths.size),
-                    )
+            _state.value = _state.value.copy(
+                pendingAttachmentImports = PendingAttachmentImports.merge(
+                    _state.value.pendingAttachmentImports,
+                    incoming,
+                ),
+            )
+        }
+    }
+
+    fun removePendingAttachmentImport(uriString: String) {
+        if (uriString.isBlank()) return
+        _state.value = _state.value.copy(
+            pendingAttachmentImports = _state.value.pendingAttachmentImports.filter {
+                it.uriString != uriString
+            },
+        )
+    }
+
+    fun clearAttachmentSheetStaging() {
+        val s = _state.value
+        if (s.pendingAttachmentImports.isEmpty() && s.pendingAttachmentRemovals.isEmpty()) return
+        _state.value = s.copy(
+            pendingAttachmentImports = emptyList(),
+            pendingAttachmentRemovals = emptySet(),
+        )
+    }
+
+    fun commitAttachmentSheetChanges(onApplied: (() -> Unit)? = null) {
+        val snapshot = _state.value
+        val toRemove = snapshot.pendingAttachmentRemovals.toList()
+        val toImport = snapshot.pendingAttachmentImports
+        if (toRemove.isEmpty() && toImport.isEmpty()) return
+        if (snapshot.isRunning || snapshot.attachmentImportInProgress) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(
+                attachmentImportInProgress = true,
+                fileImportMessage = null,
+            )
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    if (toRemove.isNotEmpty()) {
+                        gateway.removeAccessibleFiles(sessionId, toRemove)
+                    }
+                    if (toImport.isNotEmpty()) {
+                        gateway.importUserPickedFiles(
+                            sessionId,
+                            toImport.map { Uri.parse(it.uriString) },
+                        )
+                    } else {
+                        emptyList()
+                    }
                 }
+            }
+            result.onSuccess { importedPaths ->
+                val importAttempted = toImport.isNotEmpty()
+                val journal = _state.value.attachmentChangesForNextSend.merge(
+                    UserAttachmentMessageSuffix.ChangeSet(
+                        addedPaths = importedPaths,
+                        removedPaths = toRemove,
+                    ),
+                )
+                _state.value = _state.value.copy(
+                    attachmentImportInProgress = false,
+                    pendingAttachmentImports = emptyList(),
+                    pendingAttachmentRemovals = emptySet(),
+                    attachmentChangesForNextSend = journal,
+                    fileImportMessage = when {
+                        importAttempted && importedPaths.isEmpty() ->
+                            AppLocalization.getString(R.string.file_import_failed)
+                        importAttempted && importedPaths.isNotEmpty() ->
+                            AppLocalization.getString(R.string.file_import_ok, importedPaths.size)
+                        else -> null
+                    },
+                )
                 loadTranscriptIntoState(initialLoad = false)
+                onApplied?.invoke()
             }.onFailure { error ->
                 _state.value = _state.value.copy(
+                    attachmentImportInProgress = false,
                     fileImportMessage = UserFacingError.explain(error.message ?: error.javaClass.simpleName),
                 )
             }

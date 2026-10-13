@@ -10,6 +10,7 @@
 
     <string name="chat_new_session">New chat</string>
     <string name="chat_input_hint">Message…</string>
+    <string name="chat_send_attachment_changes_only">(Attachments updated)</string>
     <string name="chat_input_answer_card">Answer in the card above and submit</string>
     <string name="chat_opening">Opening chat…</string>
     <string name="chat_startup_error">Can’t start chat: %1$s</string>
@@ -37,8 +38,24 @@
     <string name="chat_attachments_cd_count">Attachments, %1$d selected</string>
     <string name="chat_attachments_sheet_title">Attachments in this chat · %1$d</string>
     <string name="chat_attachments_assistant_banner">The assistant is waiting for files</string>
-    <string name="chat_attachments_empty">No attachments yet. Pick files from this device for the AI to read in this chat.</string>
+    <string name="chat_attachments_empty">No attachments yet. Pick files from this device, then tap Add to chat to copy them into this session.</string>
+    <string name="chat_attachments_pending_title">Ready to add · %1$d</string>
+    <string name="chat_attachments_added_title">Added · %1$d</string>
+    <string name="chat_attachments_confirm_add">Add to chat</string>
+    <string name="chat_attachments_open_picker">Open file picker</string>
+    <string name="chat_attachments_confirm">OK</string>
+    <string name="chat_attachments_importing">Adding…</string>
+    <string name="chat_remove_pending_file_cd">Remove %1$s from ready-to-add list</string>
     <string name="chat_attachments_add_from_device">Add from device</string>
+    <string name="chat_attachments_composer_multi">+%1$d</string>
+    <string name="chat_attachments_composer_unsaved">Pending</string>
+    <string name="chat_attachments_composer_unsaved_cd">Unsaved attachment changes</string>
+    <string name="chat_attachments_empty_short">No files yet. Use the attach icon on the input bar to pick files.</string>
+    <string name="chat_file_list_short">Files</string>
+    <string name="chat_file_list_cd">Open file list for this chat</string>
+    <string name="chat_attachments_sheet_draft_hint">Unsaved changes — tap OK before the AI can read them. Closing discards changes.</string>
+    <string name="chat_attachments_sheet_saved_hint">In sync with this chat. Add or remove files, then tap OK to apply.</string>
+    <string name="chat_attachments_composer_single_cd">Attachment %1$s</string>
     <string name="chat_select_file">Choose file</string>
 
     <string name="cd_session_list">Chat list</string>

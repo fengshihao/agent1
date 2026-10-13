@@ -39,7 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +67,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
+import com.agent1.android.productivity.logic.business.AttachmentComposerLabel
+import com.agent1.android.productivity.logic.business.AttachmentSheetDraft
+import com.agent1.android.productivity.logic.business.AttachmentSheetStaging
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.isFreshSession
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
@@ -93,8 +96,10 @@ fun ChatScreen(
     onSessionFreshness: (loading: Boolean, fresh: Boolean) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.state.collectAsState()
-    SideEffect {
-        onSessionFreshness(state.isLoadingTranscript, state.isFreshSession())
+    val loadingTranscript = state.isLoadingTranscript
+    val freshSession = state.isFreshSession()
+    LaunchedEffect(loadingTranscript, freshSession) {
+        onSessionFreshness(loadingTranscript, freshSession)
     }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -105,18 +110,23 @@ fun ChatScreen(
     val pickFilesLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris ->
-        viewModel.onUserPickedFiles(uris)
+        if (uris.isNotEmpty()) {
+            viewModel.stagePickedFilesForImport(uris)
+        }
     }
     val needsUserKeySetup = state.needsUserKeySetup
     val composerBlocked = state.configError != null && !needsUserKeySetup
     val attachmentsEnabled = !composerBlocked && !state.isRunning && state.pendingAskUser == null
-    val openAttachments: (UserFileRequestMarkers.Hint?) -> Unit = { hint ->
+    val openFileList: (UserFileRequestMarkers.Hint?) -> Unit = { hint ->
         attachmentAssistantHint = hint
         attachmentSheetVisible = true
     }
     val launchPickFromDevice = {
         pickFilesLauncher.launch(arrayOf("*/*"))
     }
+    val showComposerFileList = state.accessibleFileEntries.isNotEmpty() ||
+        state.pendingAttachmentImports.isNotEmpty() ||
+        state.pendingAttachmentRemovals.isNotEmpty()
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -127,7 +137,6 @@ fun ChatScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -212,7 +221,7 @@ fun ChatScreen(
                 ) {
                     ChatMessageList(
                         state = state,
-                        onOpenAttachments = openAttachments,
+                        onOpenAttachments = openFileList,
                         attachmentsActionEnabled = !composerBlocked && !state.isRunning,
                         modifier = Modifier
                             .weight(1f)
@@ -247,17 +256,23 @@ fun ChatScreen(
                     onValueChange = { input = it },
                     isRunning = state.isRunning,
                     canSend = !composerBlocked &&
-                        input.isNotBlank() &&
                         !state.isRunning &&
-                        pendingAsk == null,
+                        pendingAsk == null &&
+                        (input.isNotBlank() || !state.attachmentChangesForNextSend.isEmpty()),
                     enabled = !composerBlocked && pendingAsk == null,
                     inputPlaceholder = if (pendingAsk == null) {
                         stringResource(R.string.chat_input_hint)
                     } else {
                         stringResource(R.string.chat_input_answer_card)
                     },
-                    attachmentCount = state.accessibleFileEntries.size,
-                    onOpenAttachments = { openAttachments(null) },
+                    fileListLabel = AttachmentComposerLabel.resolve(
+                        state.pendingAttachmentImports,
+                        state.accessibleFileEntries,
+                        state.pendingAttachmentRemovals,
+                    ),
+                    showFileList = showComposerFileList,
+                    onPickAttachment = launchPickFromDevice,
+                    onOpenFileList = { openFileList(null) },
                     attachmentsEnabled = attachmentsEnabled,
                     onNewChat = onNewChat,
                     modelLabel = composerModelLabel(state.configSummary),
@@ -275,17 +290,34 @@ fun ChatScreen(
                 AgentTopFade(Modifier.align(Alignment.TopCenter))
             }
         }
+        val attachmentDraftRows = AttachmentSheetDraft.rows(
+            state.accessibleFileEntries,
+            state.pendingAttachmentImports,
+            state.pendingAttachmentRemovals,
+        )
+        val attachmentUnsavedDraft = AttachmentComposerLabel.hasUnsavedDraft(
+            state.pendingAttachmentImports,
+            state.pendingAttachmentRemovals,
+        )
         SessionAttachmentsSheet(
             visible = attachmentSheetVisible,
-            entries = state.accessibleFileEntries,
+            draftRows = attachmentDraftRows,
+            hasUnsavedDraft = attachmentUnsavedDraft,
+            importInProgress = state.attachmentImportInProgress,
             assistantHint = attachmentAssistantHint,
             addEnabled = attachmentsEnabled,
             onDismiss = {
+                viewModel.clearAttachmentSheetStaging()
                 attachmentSheetVisible = false
                 attachmentAssistantHint = null
             },
-            onRemove = viewModel::removeAccessibleFile,
-            onAddFromDevice = launchPickFromDevice,
+            onRemoveRow = viewModel::removeAttachmentSheetRow,
+            onConfirm = {
+                viewModel.commitAttachmentSheetChanges {
+                    attachmentSheetVisible = false
+                    attachmentAssistantHint = null
+                }
+            },
         )
     }
 }
@@ -293,8 +325,7 @@ fun ChatScreen(
 /**
  * 底部输入条。
  *
- * 上方是一条胶囊输入框，发送钮在框内垂直居中。下方同一行放新对话、附件（角标 + 底部托盘）和当前模型。
- * 上沿用渐变盖住对话列表，避免一条硬边。
+ * 下方同一行：新对话、附件（仅打开选择器）、文件列表（有文件时出现）、当前模型。
  * [onNewChat] 为空时不显示新对话（落位页没有活动会话）。
  */
 @Composable
@@ -305,8 +336,13 @@ internal fun ChatComposer(
     canSend: Boolean,
     enabled: Boolean,
     inputPlaceholder: String,
-    attachmentCount: Int = 0,
-    onOpenAttachments: () -> Unit,
+    fileListLabel: AttachmentComposerLabel.Resolved = AttachmentComposerLabel.Resolved(
+        singleFileName = null,
+        selectedCount = 0,
+    ),
+    showFileList: Boolean = false,
+    onPickAttachment: () -> Unit,
+    onOpenFileList: () -> Unit,
     attachmentsEnabled: Boolean,
     onNewChat: (() -> Unit)? = null,
     modelLabel: String = "",
@@ -360,11 +396,17 @@ internal fun ChatComposer(
                                 onClick = onNewChat,
                             )
                         }
-                        ComposerAttachmentButton(
-                            attachmentCount = attachmentCount,
+                        ComposerPickAttachmentButton(
                             enabled = attachmentsEnabled,
-                            onClick = onOpenAttachments,
+                            onClick = onPickAttachment,
                         )
+                        if (showFileList) {
+                            ComposerFileListButton(
+                                label = fileListLabel,
+                                enabled = attachmentsEnabled,
+                                onClick = onOpenFileList,
+                            )
+                        }
                         Spacer(modifier = Modifier.weight(1f))
                         if (modelLabel.isNotBlank()) {
                             ComposerModelChip(label = modelLabel, onClick = onOpenModel)

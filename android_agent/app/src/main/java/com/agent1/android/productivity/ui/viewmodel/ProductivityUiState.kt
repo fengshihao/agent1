@@ -3,6 +3,8 @@ package com.agent1.android.productivity.ui.viewmodel
 import com.agent1.android.productivity.logic.business.ArtifactLibraryFilter
 import com.agent1.android.productivity.logic.business.AskUserFormState
 import com.agent1.android.productivity.logic.business.AskUserFormatting
+import com.agent1.android.productivity.logic.business.PendingAttachmentImport
+import com.agent1.android.productivity.logic.business.UserAttachmentMessageSuffix
 import com.agent1.android.productivity.logic.business.SessionAccessibleFilesStore
 import com.agent1.android.productivity.logic.business.UsageOverview
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
@@ -144,6 +146,14 @@ data class ChatUiState(
     /** 本会话用户已导入、可供 AI read_file 的路径。 */
     val accessibleFilePaths: List<String> = emptyList(),
     val accessibleFileEntries: List<SessionAccessibleFilesStore.Entry> = emptyList(),
+    /** 系统选择器已选、待用户在本会话附件托盘确认后导入。 */
+    val pendingAttachmentImports: List<PendingAttachmentImport> = emptyList(),
+    /** 托盘内标记移除，点「确定」后才真正 delete。 */
+    val pendingAttachmentRemovals: Set<String> = emptySet(),
+    /** 已在面板点确定、待并入下一条 user 消息的附件增删说明。 */
+    val attachmentChangesForNextSend: UserAttachmentMessageSuffix.ChangeSet =
+        UserAttachmentMessageSuffix.ChangeSet(),
+    val attachmentImportInProgress: Boolean = false,
     val fileImportMessage: String? = null,
     /** 当前待回复的 ask_user 表单（对话列表与输入框之间，限高可滚动）。 */
     val pendingAskUser: AskUserFormState? = null,
