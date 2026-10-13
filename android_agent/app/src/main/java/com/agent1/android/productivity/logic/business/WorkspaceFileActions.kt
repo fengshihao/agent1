@@ -2,6 +2,7 @@ package com.agent1.android.productivity.logic.business
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -115,5 +116,18 @@ object WorkspaceFileActions {
             return false
         }
         return shareFiles(context, files)
+    }
+
+    /** 打开气泡里的超链接：交给系统 ACTION_VIEW（浏览器或对应 App）。 */
+    fun openExternalUri(context: Context, uri: String): Boolean {
+        val trimmed = ChatTranscriptFormatting.unwrapMarkdownLinkDestination(uri.trim())
+        if (trimmed.isEmpty()) return false
+        return runCatching {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(trimmed))
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        }.onFailure {
+            Toast.makeText(context, "无法打开链接（请确认已安装对应应用）", Toast.LENGTH_SHORT).show()
+        }.isSuccess
     }
 }

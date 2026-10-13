@@ -1,8 +1,5 @@
 package com.agent1.android.productivity.ui.view
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -16,6 +13,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
@@ -63,7 +61,7 @@ fun WorkspaceMarkdown(
             override fun openUri(uri: String) {
                 val trimmed = ChatTranscriptFormatting.unwrapMarkdownLinkDestination(uri.trim())
                 if (ChatTranscriptFormatting.isExternalOpenableUri(trimmed)) {
-                    openExternalUri(context, trimmed)
+                    WorkspaceFileActions.openExternalUri(context, trimmed)
                     return
                 }
                 val hadWorkspacePrefix = trimmed.startsWith(ChatTranscriptFormatting.WORKSPACE_FILE_HREF_PREFIX)
@@ -105,6 +103,7 @@ fun WorkspaceMarkdown(
             colors = markdownColor(
                 text = MaterialTheme.colorScheme.onSurface,
                 codeBackground = MaterialTheme.colorScheme.surfaceVariant,
+                linkText = MaterialTheme.colorScheme.primary,
             ),
             typography = markdownTypography(
                 h1 = label,
@@ -116,19 +115,13 @@ fun WorkspaceMarkdown(
                 text = body,
                 paragraph = body,
                 table = bodyMedium,
+                link = body.copy(
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium,
+                    textDecoration = TextDecoration.Underline,
+                ),
             ),
             imageTransformer = transformer,
         )
-    }
-}
-
-/** 把 http(s) / 高德 amapuri 等交给系统，用于唤起浏览器或地图 App。 */
-private fun openExternalUri(context: Context, uri: String) {
-    runCatching {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
-    }.onFailure {
-        Toast.makeText(context, "无法打开链接（请确认已安装对应应用）", Toast.LENGTH_SHORT).show()
     }
 }

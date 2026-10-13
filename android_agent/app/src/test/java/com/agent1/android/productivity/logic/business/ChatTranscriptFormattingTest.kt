@@ -316,9 +316,13 @@ class ChatTranscriptFormattingTest {
             "&dname=%E4%B8%AD%E6%97%A5%E5%8F%8B%E5%A5%BD%E5%8C%BB%E9%99%A2%E6%9C%AC%E9%83%A8(%E6%A8%B1%E8%8A%B1%E5%9B%AD%E4%B8%9C%E8%A1%972%E5%8F%B7)"
         val content = "一键叫车（手机可直接点）\n\n$uri\n\n详细信息：[打车信息](打车去中日友好医院.md)"
         val out = ChatTranscriptFormatting.prepareAssistantMarkdown(content)
-        assertEquals("[打开高德打车](<$uri>)", out.lineSequence().first { it.startsWith("[打开高德打车]") })
+        assertEquals("[打开高德打车]($uri)", out.lineSequence().first { it.startsWith("[打开高德打车]") })
         assertTrue(out.contains("[打车信息](agent1-file:打车去中日友好医院.md)"))
         assertFalse(out.contains("\n$uri\n"))
+        val segments = ChatTranscriptFormatting.splitAssistantBodySegments(out)
+        val link = segments.single { it.externalUri != null }
+        assertEquals("打开高德打车", link.linkLabel)
+        assertEquals(uri, link.externalUri)
     }
 
     @Test
@@ -344,7 +348,7 @@ class ChatTranscriptFormattingTest {
         val out = ChatTranscriptFormatting.linkifyBareExternalUris(
             "打开 (https://example.com/path)。",
         )
-        assertEquals("打开 ([https://example.com/path](<https://example.com/path>))。", out)
+        assertEquals("打开 ([https://example.com/path](https://example.com/path))。", out)
     }
 
     @Test
@@ -357,11 +361,26 @@ class ChatTranscriptFormattingTest {
     }
 
     @Test
-    fun isExternalOpenableUri_recognizesMapAndWebSchemes() {
+    fun isExternalOpenableUri_recognizesAnySchemeWithSlashSlash() {
         assertTrue(ChatTranscriptFormatting.isExternalOpenableUri("amapuri://drive/takeTaxi?x=1"))
+        assertTrue(ChatTranscriptFormatting.isExternalOpenableUri("weixin://dl/business"))
+        assertTrue(ChatTranscriptFormatting.isExternalOpenableUri("alipays://platformapi/startapp"))
         assertTrue(ChatTranscriptFormatting.isExternalOpenableUri("geo:39.9,116.4"))
         assertTrue(ChatTranscriptFormatting.isExternalOpenableUri("https://example.com"))
         assertFalse(ChatTranscriptFormatting.isExternalOpenableUri("agent1-file:out/a.docx"))
+        assertFalse(ChatTranscriptFormatting.isExternalOpenableUri("javascript:alert(1)"))
+        assertFalse(ChatTranscriptFormatting.isExternalOpenableUri("file:///sdcard/a.txt"))
         assertFalse(ChatTranscriptFormatting.isExternalOpenableUri("out/a.docx"))
+        assertFalse(ChatTranscriptFormatting.isExternalOpenableUri("Note: something"))
+    }
+
+    @Test
+    fun linkifyBareExternalUris_unknownAppSchemeBecomesOpenLink() {
+        val src = "打开 weixin://dl/business 继续"
+        val out = ChatTranscriptFormatting.linkifyBareExternalUris(src)
+        assertEquals("打开 [打开链接](weixin://dl/business) 继续", out)
+        val link = ChatTranscriptFormatting.splitAssistantBodySegments(out).single { it.externalUri != null }
+        assertEquals("打开链接", link.linkLabel)
+        assertEquals("weixin://dl/business", link.externalUri)
     }
 }

@@ -22,21 +22,28 @@ object ChatTranscriptFormatting {
     /** Markdown 渲染器用此前缀，避免相对路径链接被当成纯文本。 */
     const val WORKSPACE_FILE_HREF_PREFIX = "agent1-file:"
 
-    /** 聊天气泡里应渲染成可点超链接、交给系统打开的 URI scheme（长的优先匹配）。 */
-    private val EXTERNAL_URI_SCHEMES = listOf(
-        "androidamap://",
-        "amapuri://",
-        "baidumap://",
-        "qqmap://",
-        "intent://",
-        "https://",
-        "http://",
+    /**
+     * 没有 `://` 的可点协议（浏览器也会认 mailto/tel）。
+     * 其它自定义 App 链接走 `scheme://`，不在这里枚举。
+     */
+    private val COLON_ONLY_URI_SCHEMES = listOf(
         "mailto:",
         "smsto:",
         "sms:",
         "tel:",
         "geo:",
     ).sortedByDescending { it.length }
+
+    /** 不能当超链接交给系统打开的协议（安全 / 工作区文件另走 agent1-file）。 */
+    private val BLOCKED_URI_SCHEMES = setOf(
+        "javascript",
+        "data",
+        "vbscript",
+        "file",
+        "agent1-file",
+        "about",
+        "blob",
+    )
 
     private val TRAILING_URI_PUNCTUATION = charArrayOf(
         '.', ',', ';', ':', '!', '?', '。', '，', '；', '：', '！', '？', '"', '\'', '”', '’',
@@ -325,11 +332,53 @@ object ChatTranscriptFormatting {
             rewriteWorkspaceMarkdownHrefs(linkifyBareWorkspacePaths(content, paths)),
         )
 
-    /** http(s) 与地图/电话等可交给系统打开的 URI。 */
+    /**
+     * 把 `[打开高德打车](amapuri://…)` 这类外链从 Markdown 里拆出来，由 UI 画成可点文字。
+     */
+    fun splitAssistantBodySegments(content: String): List<AssistantBodySegment> {
+        if (content.isEmpty()) return emptyList()
+        val out = mutableListOf<AssistantBodySegment>()
+        var index = 0
+        var textStart = 0
+        while (index < content.length) {
+            if (content[index] == '[' && (index == 0 || content[index - 1] != '!')) {
+                val link = parseInlineMarkdownLink(content, index)
+                val dest = link?.destination?.let { unwrapMarkdownLinkDestination(it) }
+                if (link != null && dest != null && isExternalOpenableUri(dest)) {
+                    if (index > textStart) {
+                        out.add(AssistantBodySegment(markdown = content.substring(textStart, index)))
+                    }
+                    out.add(
+                        AssistantBodySegment(
+                            linkLabel = link.label.ifBlank { externalUriDisplayLabel(dest) },
+                            externalUri = dest,
+                        ),
+                    )
+                    index += link.span
+                    textStart = index
+                    continue
+                }
+            }
+            index++
+        }
+        if (textStart < content.length) {
+            out.add(AssistantBodySegment(markdown = content.substring(textStart)))
+        }
+        return out.ifEmpty { listOf(AssistantBodySegment(markdown = content)) }
+    }
+
+    /**
+     * 浏览器式可打开链接：任意 `scheme://…`，外加 mailto/tel/sms/geo。
+     * javascript/data/file 等除外。
+     */
     fun isExternalOpenableUri(uri: String): Boolean {
-        val trimmed = uri.trim()
-        if (trimmed.isEmpty()) return false
-        return EXTERNAL_URI_SCHEMES.any { trimmed.startsWith(it, ignoreCase = true) }
+        val trimmed = unwrapMarkdownLinkDestination(uri.trim())
+        val scheme = uriScheme(trimmed) ?: return false
+        if (scheme in BLOCKED_URI_SCHEMES) return false
+        val afterColon = trimmed.substring(scheme.length + 1)
+        if (afterColon.startsWith("//")) return afterColon.length > 2
+        return COLON_ONLY_URI_SCHEMES.any { trimmed.startsWith(it, ignoreCase = true) } &&
+            afterColon.isNotEmpty()
     }
 
     /** Markdown `[label](<uri>)` 的目的地可能带尖括号。 */
@@ -342,9 +391,8 @@ object ChatTranscriptFormatting {
     }
 
     /**
-     * 把正文里尚未写成 Markdown 链接的可打开 URI（含 `amapuri://`）
-     * 改成 `[打开高德打车](<uri>)`，让气泡里能一点就唤起对应 App。
-     * 代码块、已有 Markdown 链接里的 URI 保持原样。
+     * 把正文里尚未写成 Markdown 链接的可打开 URI 改成 `[打开…](uri)`。
+     * 任意 `scheme://`（及 mailto/tel 等）都会收；代码块、已有链接保持原样。
      */
     fun linkifyBareExternalUris(content: String): String {
         if (content.isEmpty()) return content
@@ -395,8 +443,11 @@ object ChatTranscriptFormatting {
 
     private fun markdownLinkForExternalUri(uri: String): String {
         val label = externalUriDisplayLabel(uri).replace("]", "\\]")
+        // 必须写成 [label](uri)，不能包 <>。
+        // JetBrains GFM 会把 [x](<amapuri://…>) 的目的地解析成 AUTOLINK 而不是
+        // LINK_DESTINATION；mikepenz 只认 LINK_DESTINATION，结果只显示文字、没有超链接样式。
         val dest = uri.replace("<", "%3C").replace(">", "%3E")
-        return "[$label](<$dest>)"
+        return "[$label]($dest)"
     }
 
     private fun externalUriDisplayLabel(uri: String): String {
@@ -411,13 +462,48 @@ object ChatTranscriptFormatting {
             lower.startsWith("mailto:") -> "发送邮件"
             lower.startsWith("sms:") || lower.startsWith("smsto:") -> "发送短信"
             lower.startsWith("intent://") -> "打开应用"
-            else -> uri
+            lower.startsWith("http://") || lower.startsWith("https://") -> uri
+            else -> "打开链接"
         }
     }
 
+    private fun uriScheme(uri: String): String? {
+        if (uri.isEmpty() || !uri[0].isLetter()) return null
+        var index = 1
+        while (index < uri.length) {
+            val c = uri[index]
+            if (c == ':') return uri.substring(0, index).lowercase()
+            if (!c.isLetterOrDigit() && c != '+' && c != '-' && c != '.') return null
+            index++
+        }
+        return null
+    }
+
+    /**
+     * 在 [index] 处匹配可点 URI 的 scheme 前缀（含 `://` 或 `mailto:` 这类）。
+     * 未匹配或命中黑名单时返回 null。
+     */
     private fun schemeAt(content: String, index: Int): String? {
-        for (scheme in EXTERNAL_URI_SCHEMES) {
+        for (scheme in COLON_ONLY_URI_SCHEMES) {
             if (content.startsWith(scheme, startIndex = index, ignoreCase = true)) return scheme
+        }
+        if (index >= content.length || !content[index].isLetter()) return null
+        var cursor = index + 1
+        while (cursor < content.length) {
+            val c = content[cursor]
+            if (c == ':') {
+                if (cursor + 2 < content.length &&
+                    content[cursor + 1] == '/' &&
+                    content[cursor + 2] == '/'
+                ) {
+                    val name = content.substring(index, cursor).lowercase()
+                    if (name in BLOCKED_URI_SCHEMES) return null
+                    return content.substring(index, cursor + 3)
+                }
+                return null
+            }
+            if (!c.isLetterOrDigit() && c != '+' && c != '-' && c != '.') return null
+            cursor++
         }
         return null
     }
@@ -628,10 +714,69 @@ object ChatTranscriptFormatting {
         val path: String,
         val span: Int,
     )
+
+    /**
+     * 解析 `[label](dest)` / `[label](<dest>)`，dest 允许括号配对。
+     * 图片 `![](…)` 在调用方排除。
+     */
+    private fun parseInlineMarkdownLink(content: String, index: Int): ParsedInlineMarkdownLink? {
+        if (index >= content.length || content[index] != '[') return null
+        val closeBracket = content.indexOf(']', startIndex = index + 1)
+        if (closeBracket < 0 || closeBracket + 1 >= content.length || content[closeBracket + 1] != '(') {
+            return null
+        }
+        var cursor = closeBracket + 2
+        while (cursor < content.length && content[cursor].isWhitespace()) cursor++
+        if (cursor >= content.length) return null
+        val dest: String
+        if (content[cursor] == '<') {
+            val closeAngle = content.indexOf('>', startIndex = cursor + 1)
+            if (closeAngle < 0) return null
+            dest = content.substring(cursor + 1, closeAngle)
+            cursor = closeAngle + 1
+        } else {
+            var depth = 1
+            val destStart = cursor
+            while (cursor < content.length) {
+                when (content[cursor]) {
+                    '(' -> depth++
+                    ')' -> {
+                        depth--
+                        if (depth == 0) break
+                    }
+                }
+                cursor++
+            }
+            if (depth != 0) return null
+            dest = content.substring(destStart, cursor)
+        }
+        while (cursor < content.length && content[cursor].isWhitespace()) cursor++
+        if (cursor >= content.length || content[cursor] != ')') return null
+        val label = content.substring(index + 1, closeBracket)
+        if (dest.isBlank()) return null
+        return ParsedInlineMarkdownLink(
+            label = label,
+            destination = dest.trim(),
+            span = cursor + 1 - index,
+        )
+    }
+
+    private data class ParsedInlineMarkdownLink(
+        val label: String,
+        val destination: String,
+        val span: Int,
+    )
 }
 
 /** 聊天气泡内联路径片段。 */
 data class LinkifiedSegment(
     val text: String = "",
     val workspacePath: String? = null,
+)
+
+/** 助手气泡拆段：普通 Markdown 与需单独画成超链接的外链。 */
+data class AssistantBodySegment(
+    val markdown: String = "",
+    val linkLabel: String = "",
+    val externalUri: String? = null,
 )

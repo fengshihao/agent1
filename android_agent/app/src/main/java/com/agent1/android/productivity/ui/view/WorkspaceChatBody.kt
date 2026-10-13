@@ -1,5 +1,6 @@
 package com.agent1.android.productivity.ui.view
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
@@ -7,10 +8,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
+import com.agent1.android.productivity.logic.business.WorkspaceFileActions
 import java.nio.file.Paths
 
 @Composable
@@ -45,11 +50,29 @@ fun WorkspaceChatBody(
                         .map { ChatTranscriptFormatting.normalizeWorkspacePath(it, root) }
                         .toSet()
                 }
-                WorkspaceMarkdown(
-                    content = ChatTranscriptFormatting.prepareAssistantMarkdown(logicalContent, paths),
-                    workspaceAbsolutePath = workspaceAbsolutePath,
-                    onOpenInApp = onOpenInApp,
-                )
+                val prepared = remember(logicalContent, paths) {
+                    ChatTranscriptFormatting.prepareAssistantMarkdown(logicalContent, paths)
+                }
+                val bodySegments = remember(prepared) {
+                    ChatTranscriptFormatting.splitAssistantBodySegments(prepared)
+                }
+                bodySegments.forEach { segment ->
+                    val uri = segment.externalUri
+                    if (uri != null) {
+                        ExternalUriHyperlink(
+                            label = segment.linkLabel.ifBlank {
+                                ChatTranscriptFormatting.unwrapMarkdownLinkDestination(uri)
+                            },
+                            uri = uri,
+                        )
+                    } else if (segment.markdown.isNotBlank()) {
+                        WorkspaceMarkdown(
+                            content = segment.markdown,
+                            workspaceAbsolutePath = workspaceAbsolutePath,
+                            onOpenInApp = onOpenInApp,
+                        )
+                    }
+                }
                 // 流式阶段（非 markdown 渲染）会对图片路径显示预览；完成后切到 markdown
                 // 渲染时只有超链接，图片会“消失”。这里补渲染正文引用的图片预览，保持一致。
                 // ![](path) 内联图已由 WorkspaceMarkdown 的 ImageTransformer 渲染，跳过避免重复。
@@ -95,4 +118,23 @@ fun WorkspaceChatBody(
             }
         }
     }
+}
+
+/** 高德 amapuri 等外链：主色 + 下划线，点击交给系统打开。 */
+@Composable
+internal fun ExternalUriHyperlink(
+    label: String,
+    uri: String,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    Text(
+        text = label,
+        modifier = modifier.clickable { WorkspaceFileActions.openExternalUri(context, uri) },
+        style = MaterialTheme.typography.bodyLarge.copy(
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Medium,
+            textDecoration = TextDecoration.Underline,
+        ),
+    )
 }
