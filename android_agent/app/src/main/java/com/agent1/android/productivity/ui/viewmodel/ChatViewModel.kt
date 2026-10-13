@@ -733,12 +733,6 @@ class ChatViewModel(
         )
     }
 
-    fun stageRemoveAccessibleFile(relativePath: String) {
-        if (relativePath.isBlank() || _state.value.isRunning) return
-        val next = _state.value.pendingAttachmentRemovals + relativePath
-        _state.value = _state.value.copy(pendingAttachmentRemovals = next)
-    }
-
     fun removeAttachmentSheetRow(row: AttachmentSheetDraft.Row) {
         if (_state.value.isRunning) return
         val (imports, removals) = AttachmentSheetDraft.removeFromDraft(
@@ -796,15 +790,6 @@ class ChatViewModel(
                 ),
             )
         }
-    }
-
-    fun removePendingAttachmentImport(uriString: String) {
-        if (uriString.isBlank()) return
-        _state.value = _state.value.copy(
-            pendingAttachmentImports = _state.value.pendingAttachmentImports.filter {
-                it.uriString != uriString
-            },
-        )
     }
 
     fun clearAttachmentSheetStaging() {

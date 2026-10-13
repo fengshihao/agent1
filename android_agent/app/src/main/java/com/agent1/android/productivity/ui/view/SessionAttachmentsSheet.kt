@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -28,23 +26,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.agent1.android.R
-import com.agent1.android.productivity.logic.business.AccessibleFileLabels
-import com.agent1.android.productivity.logic.business.SessionAccessibleFilesStore
+import com.agent1.android.productivity.logic.business.AttachmentSheetDraft
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 
 /**
- * 本会话附件托盘：列表、移除、从本机添加。助手请选文件时顶部展示说明条。
+ * 本会话附件：单一草稿列表。选文件 / 移除都只改草稿，点「确定」才写入会话。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionAttachmentsSheet(
     visible: Boolean,
-    entries: List<SessionAccessibleFilesStore.Entry>,
+    draftRows: List<AttachmentSheetDraft.Row>,
+    hasUnsavedDraft: Boolean,
+    importInProgress: Boolean,
     assistantHint: UserFileRequestMarkers.Hint?,
     addEnabled: Boolean,
     onDismiss: () -> Unit,
-    onRemove: (String) -> Unit,
-    onAddFromDevice: () -> Unit,
+    onRemoveRow: (AttachmentSheetDraft.Row) -> Unit,
+    onConfirm: () -> Unit,
 ) {
     if (!visible) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -59,9 +58,19 @@ fun SessionAttachmentsSheet(
                 .padding(bottom = 28.dp),
         ) {
             Text(
-                text = stringResource(R.string.chat_attachments_sheet_title, entries.size),
+                text = stringResource(R.string.chat_attachments_sheet_title, draftRows.size),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = if (hasUnsavedDraft) {
+                    stringResource(R.string.chat_attachments_sheet_draft_hint)
+                } else {
+                    stringResource(R.string.chat_attachments_sheet_saved_hint)
+                },
+                modifier = Modifier.padding(top = 6.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (assistantHint != null) {
                 AssistantAttachmentBanner(
@@ -69,38 +78,43 @@ fun SessionAttachmentsSheet(
                     modifier = Modifier.padding(top = 10.dp),
                 )
             }
-            if (entries.isEmpty()) {
+            if (draftRows.isEmpty()) {
                 Text(
-                    text = stringResource(R.string.chat_attachments_empty),
+                    text = stringResource(R.string.chat_attachments_empty_short),
                     modifier = Modifier.padding(top = 16.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                LazyColumn(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .padding(top = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    items(entries, key = { it.workspaceRelativePath }) { entry ->
-                        AttachmentSheetRow(
-                            entry = entry,
-                            onRemove = { onRemove(entry.workspaceRelativePath) },
+                    draftRows.forEach { row ->
+                        AttachmentDraftRow(
+                            row = row,
+                            onRemove = { onRemoveRow(row) },
                         )
                     }
                 }
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            val confirmEnabled = addEnabled && !importInProgress && hasUnsavedDraft
             Button(
-                onClick = {
-                    onAddFromDevice()
-                },
-                enabled = addEnabled,
+                onClick = onConfirm,
+                enabled = confirmEnabled,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Text(stringResource(R.string.chat_attachments_add_from_device))
+                Text(
+                    if (importInProgress) {
+                        stringResource(R.string.chat_attachments_importing)
+                    } else {
+                        stringResource(R.string.chat_attachments_confirm)
+                    },
+                )
             }
         }
     }
@@ -156,12 +170,16 @@ private fun buildAssistantBannerDetail(hint: UserFileRequestMarkers.Hint): Strin
 }
 
 @Composable
-private fun AttachmentSheetRow(
-    entry: SessionAccessibleFilesStore.Entry,
+private fun AttachmentDraftRow(
+    row: AttachmentSheetDraft.Row,
     onRemove: () -> Unit,
 ) {
-    val label = AccessibleFileLabels.primaryLabel(entry.workspaceRelativePath, entry.displayName)
-    val parent = AccessibleFileLabels.parentHint(entry.workspaceRelativePath)
+    val isNew = row is AttachmentSheetDraft.Row.NewPick
+    val tint = if (isNew) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -169,35 +187,24 @@ private fun AttachmentSheetRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            AgentIcons.Description,
+            if (isNew) AgentIcons.AttachFile else AgentIcons.Description,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = tint,
         )
-        Column(
+        Text(
+            text = row.displayName,
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 10.dp),
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (!parent.isNullOrBlank()) {
-                Text(
-                    text = parent,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
+            style = MaterialTheme.typography.bodyLarge,
+            color = tint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         IconButton(onClick = onRemove) {
             Icon(
                 Icons.Default.Close,
-                contentDescription = stringResource(R.string.chat_remove_file_cd, label),
+                contentDescription = stringResource(R.string.chat_remove_file_cd, row.displayName),
             )
         }
     }

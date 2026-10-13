@@ -68,6 +68,12 @@ fun ProductivityHome(
     var createRequested by rememberSaveable { mutableStateOf(false) }
     var sessionLoading by remember { mutableStateOf(false) }
     var sessionFresh by remember { mutableStateOf(false) }
+    val reportSessionFreshness = remember {
+        { loading: Boolean, fresh: Boolean ->
+            if (sessionLoading != loading) sessionLoading = loading
+            if (sessionFresh != fresh) sessionFresh = fresh
+        }
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -222,10 +228,7 @@ fun ProductivityHome(
                 onOpenHtmlPreview = onOpenHtmlPreview,
                 onOpenArtifacts = { onOpenArtifacts(sessionId) },
                 onOpenAbout = onOpenAbout,
-                onSessionFreshness = { loading, fresh ->
-                    sessionLoading = loading
-                    sessionFresh = fresh
-                },
+                onSessionFreshness = reportSessionFreshness,
             )
         }
     }

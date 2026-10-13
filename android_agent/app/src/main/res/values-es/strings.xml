@@ -37,8 +37,17 @@
     <string name="chat_attachments_cd_count">Adjuntos, %1$d seleccionados</string>
     <string name="chat_attachments_sheet_title">Adjuntos en este chat · %1$d</string>
     <string name="chat_attachments_assistant_banner">El asistente espera que añadas archivos</string>
-    <string name="chat_attachments_empty">Aún no hay adjuntos. Elige archivos del dispositivo para que la IA los lea en este chat.</string>
+    <string name="chat_attachments_empty">Aún no hay adjuntos. Elige archivos del dispositivo y pulsa «Añadir al chat» para copiarlos a esta sesión.</string>
+    <string name="chat_attachments_pending_title">Listos para añadir · %1$d</string>
+    <string name="chat_attachments_added_title">Añadidos · %1$d</string>
+    <string name="chat_attachments_confirm_add">Añadir al chat</string>
+    <string name="chat_attachments_open_picker">Abrir selector</string>
+    <string name="chat_attachments_confirm">OK</string>
+    <string name="chat_attachments_importing">Añadiendo…</string>
+    <string name="chat_remove_pending_file_cd">Quitar %1$s de la lista pendiente</string>
     <string name="chat_attachments_add_from_device">Añadir del dispositivo</string>
+    <string name="chat_attachments_composer_multi">+%1$d</string>
+    <string name="chat_attachments_composer_single_cd">Adjunto %1$s</string>
     <string name="chat_select_file">Elegir archivo</string>
 
     <string name="cd_session_list">Lista de chats</string>

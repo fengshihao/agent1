@@ -41,7 +41,7 @@
 
 | 路径（相对 `sessions/<id>/` 或 workspace） | 作用 |
 |-------------------------------------------|------|
-| `accessible-files.json` | 用户「选择文件」后的可访问列表；注入系统提示（`SessionAccessibleFilesStore`） |
+| `accessible-files.json` | 用户「选择文件」后的可访问列表；注入系统提示（`SessionAccessibleFilesStore`）。增删说明并入下一条 user 消息后缀，不单独占轮次 |
 | `workspace/imports/` | 系统选择器导入的副本（`WorkspaceFileImport`） |
 | `workspace/tmp/webview_exec/*.b64` | Weizhi `webview_exec` 大结果 / 图片（UTF-8 Base64 文本） |
 

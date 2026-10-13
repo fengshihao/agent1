@@ -3,6 +3,17 @@ package com.agent1.android.productivity.ui.view
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.ComponentActivity
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -10,12 +21,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.util.Consumer
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
@@ -43,6 +59,9 @@ private object Routes {
     const val PREVIEW = "preview/{sessionId}/{path}"
 }
 
+/** 盖在上面的那一层淡入淡出。底下的聊天页保持不透明，避免两页内容叠在一起。 */
+private const val NAV_FADE_MILLIS = 300
+
 @Composable
 fun ProductivityNavHost() {
     val context = LocalContext.current
@@ -68,116 +87,189 @@ fun ProductivityNavHost() {
         onDispose { activity.removeOnNewIntentListener(listener) }
     }
 
-    NavHost(navController = nav, startDestination = Routes.HOME) {
+    val sessionListViewModel: SessionListViewModel = viewModel(
+        factory = simpleFactory { SessionListViewModel(appContext) },
+    )
+    // 聊天层不读 back stack，避免打开产物库/设置时整页重绘、消息列表跟着闪。
+    Box(Modifier.fillMaxSize()) {
+        PersistentChatLayer(
+            sessionListViewModel = sessionListViewModel,
+            nav = nav,
+        )
+        ProductivityOverlayNav(
+            nav = nav,
+            activity = activity,
+            appContext = appContext,
+            incomingApiKey = incomingApiKey,
+            onIncomingApiKeyConsumed = { incomingApiKey = null },
+        )
+    }
+}
+
+@Composable
+private fun PersistentChatLayer(
+    sessionListViewModel: SessionListViewModel,
+    nav: NavHostController,
+) {
+    val openSettings = remember(nav) { { nav.navigate(Routes.SETTINGS) } }
+    val openMcp = remember(nav) { { nav.navigate(Routes.MCP) } }
+    val openCapabilities = remember(nav) { { nav.navigate(Routes.CAPABILITIES) } }
+    val openAbout = remember(nav) { { nav.navigate(Routes.ABOUT) } }
+    val openSystemPrompt = remember(nav) {
+        { sessionId: String ->
+            val id = sessionId.ifBlank { "-" }
+            nav.navigate("system-prompt/$id")
+        }
+    }
+    val openHtmlPreview = remember(nav) {
+        { sessionId: String, relativePath: String ->
+            nav.navigate("preview/${Uri.encode(sessionId)}/${Uri.encode(relativePath)}")
+        }
+    }
+    val openArtifacts = remember(nav) {
+        { sessionId: String ->
+            val id = sessionId.ifBlank { "-" }
+            nav.navigate("artifact-library/${Uri.encode(id)}")
+        }
+    }
+    ProductivityHome(
+        sessionListViewModel = sessionListViewModel,
+        onOpenSettings = openSettings,
+        onOpenMcp = openMcp,
+        onOpenCapabilities = openCapabilities,
+        onOpenSystemPrompt = openSystemPrompt,
+        onOpenHtmlPreview = openHtmlPreview,
+        onOpenArtifacts = openArtifacts,
+        onOpenAbout = openAbout,
+    )
+}
+
+@Composable
+private fun ProductivityOverlayNav(
+    nav: NavHostController,
+    activity: ComponentActivity?,
+    appContext: android.content.Context,
+    incomingApiKey: String?,
+    onIncomingApiKeyConsumed: () -> Unit,
+) {
+    val navEntry by nav.currentBackStackEntryAsState()
+    val overlayVisible = navEntry?.destination?.route?.let { it != Routes.HOME } == true
+    val navModifier = if (overlayVisible) {
+        Modifier.fillMaxSize()
+    } else {
+        // 在 home 占位层上透传点击，否则挡在聊天页上面点不到。
+        Modifier
+            .fillMaxSize()
+            .pointerInteropFilter { false }
+    }
+    NavHost(
+        navController = nav,
+        startDestination = Routes.HOME,
+        modifier = navModifier,
+        contentAlignment = Alignment.TopStart,
+        enterTransition = { fadeIn(animationSpec = tween(NAV_FADE_MILLIS)) },
+        exitTransition = { fadeOut(animationSpec = tween(NAV_FADE_MILLIS), targetAlpha = 1f) },
+        popEnterTransition = { fadeIn(animationSpec = tween(NAV_FADE_MILLIS), initialAlpha = 1f) },
+        popExitTransition = { fadeOut(animationSpec = tween(NAV_FADE_MILLIS)) },
+        sizeTransform = { SizeTransform(clip = false) { _, _ -> snap() } },
+    ) {
         composable(Routes.HOME) {
-            val vm: SessionListViewModel = viewModel(
-                factory = simpleFactory { SessionListViewModel(appContext) },
-            )
-            ProductivityHome(
-                sessionListViewModel = vm,
-                onOpenSettings = { nav.navigate(Routes.SETTINGS) },
-                onOpenMcp = { nav.navigate(Routes.MCP) },
-                onOpenCapabilities = { nav.navigate(Routes.CAPABILITIES) },
-                onOpenSystemPrompt = { sessionId ->
-                    val id = sessionId.ifBlank { "-" }
-                    nav.navigate("system-prompt/$id")
-                },
-                onOpenHtmlPreview = { sessionId, relativePath ->
-                    nav.navigate("preview/${Uri.encode(sessionId)}/${Uri.encode(relativePath)}")
-                },
-                onOpenArtifacts = { sessionId ->
-                    val id = sessionId.ifBlank { "-" }
-                    nav.navigate("artifact-library/${Uri.encode(id)}")
-                },
-                onOpenAbout = { nav.navigate(Routes.ABOUT) },
-            )
+            Box(Modifier.fillMaxSize())
         }
         composable(
             route = Routes.SETTINGS,
             deepLinks = listOf(navDeepLink { uriPattern = AgentAppLinks.MODEL_SETTINGS }),
         ) {
-            val coordinator = remember(appContext) { ModelSettingsCoordinator(appContext) }
-            val vm: ModelSettingsViewModel = viewModel(
-                factory = simpleFactory { ModelSettingsViewModel(coordinator) },
-            )
-            LaunchedEffect(incomingApiKey) {
-                val key = incomingApiKey ?: return@LaunchedEffect
-                incomingApiKey = null
-                vm.importIncomingKey(key)
+            NavPage {
+                val coordinator = remember(appContext) { ModelSettingsCoordinator(appContext) }
+                val vm: ModelSettingsViewModel = viewModel(
+                    factory = simpleFactory { ModelSettingsViewModel(coordinator) },
+                )
+                LaunchedEffect(incomingApiKey) {
+                    val key = incomingApiKey ?: return@LaunchedEffect
+                    onIncomingApiKeyConsumed()
+                    vm.importIncomingKey(key)
+                }
+                ModelSettingsScreen(
+                    viewModel = vm,
+                    onBack = { nav.popBackStack() },
+                )
             }
-            ModelSettingsScreen(
-                viewModel = vm,
-                onBack = { nav.popBackStack() },
-            )
         }
         composable(Routes.MCP) {
-            val coordinator = remember(appContext) { McpSettingsCoordinator(appContext) }
-            val modelSettings = remember(appContext) { ModelSettingsCoordinator(appContext) }
-            val vm: McpSettingsViewModel = viewModel(
-                factory = simpleFactory { McpSettingsViewModel(coordinator, modelSettings) },
-            )
-            McpSettingsScreen(
-                viewModel = vm,
-                onBack = { nav.popBackStack() },
-            )
+            NavPage {
+                val coordinator = remember(appContext) { McpSettingsCoordinator(appContext) }
+                val modelSettings = remember(appContext) { ModelSettingsCoordinator(appContext) }
+                val vm: McpSettingsViewModel = viewModel(
+                    factory = simpleFactory { McpSettingsViewModel(coordinator, modelSettings) },
+                )
+                McpSettingsScreen(
+                    viewModel = vm,
+                    onBack = { nav.popBackStack() },
+                )
+            }
         }
         composable(Routes.ABOUT) {
-            AboutScreen(onBack = { nav.popBackStack() })
+            NavPage { AboutScreen(onBack = { nav.popBackStack() }) }
         }
         composable(Routes.CAPABILITIES) {
-            val vm: CapabilitySearchViewModel = viewModel(
-                factory = simpleFactory { CapabilitySearchViewModel(appContext) },
-            )
-            CapabilitySearchScreen(
-                viewModel = vm,
-                onBack = { nav.popBackStack() },
-            )
+            NavPage {
+                val vm: CapabilitySearchViewModel = viewModel(
+                    factory = simpleFactory { CapabilitySearchViewModel(appContext) },
+                )
+                CapabilitySearchScreen(
+                    viewModel = vm,
+                    onBack = { nav.popBackStack() },
+                )
+            }
         }
         composable(
             route = Routes.ARTIFACTS,
             arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
         ) { entry ->
-            val raw = entry.arguments?.getString("sessionId").orEmpty()
-            val sessionId = if (raw == "-") "" else raw
-            val vm: ArtifactLibraryViewModel = viewModel(
-                key = "artifacts-$sessionId",
-                factory = simpleFactory { ArtifactLibraryViewModel(appContext, sessionId) },
-            )
-            // 与聊天页共享同一 ChatViewModel 实例（HOME 的 ViewModelStore，同 key）：
-            // 插入产物后刷新聊天页 transcript 与「已选文件」条。
-            val chatVm = remember(sessionId) {
-                if (sessionId.isBlank()) {
-                    null
-                } else {
-                    resolveHomeChatViewModel(nav, Routes.HOME, appContext, sessionId)
+            NavPage {
+                val raw = entry.arguments?.getString("sessionId").orEmpty()
+                val sessionId = if (raw == "-") "" else raw
+                val vm: ArtifactLibraryViewModel = viewModel(
+                    key = "artifacts-$sessionId",
+                    factory = simpleFactory { ArtifactLibraryViewModel(appContext, sessionId) },
+                )
+                val chatVm = remember(sessionId) {
+                    if (sessionId.isBlank()) {
+                        null
+                    } else {
+                        resolveHomeChatViewModel(activity, appContext, sessionId)
+                    }
                 }
+                ArtifactLibraryScreen(
+                    viewModel = vm,
+                    currentSessionId = sessionId,
+                    onBack = { nav.popBackStack() },
+                    onInserted = { chatVm?.reloadTranscript() },
+                    onOpenHtmlPreview = { previewSessionId, relativePath ->
+                        nav.navigate(
+                            "preview/${Uri.encode(previewSessionId)}/${Uri.encode(relativePath)}",
+                        )
+                    },
+                )
             }
-            ArtifactLibraryScreen(
-                viewModel = vm,
-                currentSessionId = sessionId,
-                onBack = { nav.popBackStack() },
-                onInserted = { chatVm?.reloadTranscript() },
-                onOpenHtmlPreview = { previewSessionId, relativePath ->
-                    nav.navigate(
-                        "preview/${Uri.encode(previewSessionId)}/${Uri.encode(relativePath)}",
-                    )
-                },
-            )
         }
         composable(
             route = Routes.PROMPT,
             arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
         ) { entry ->
-            val raw = entry.arguments?.getString("sessionId").orEmpty()
-            val sessionId = if (raw == "-") "" else raw
-            val vm: SystemPromptViewModel = viewModel(
-                key = "prompt-$sessionId",
-                factory = simpleFactory { SystemPromptViewModel(appContext, sessionId) },
-            )
-            SystemPromptScreen(
-                viewModel = vm,
-                onBack = { nav.popBackStack() },
-            )
+            NavPage {
+                val raw = entry.arguments?.getString("sessionId").orEmpty()
+                val sessionId = if (raw == "-") "" else raw
+                val vm: SystemPromptViewModel = viewModel(
+                    key = "prompt-$sessionId",
+                    factory = simpleFactory { SystemPromptViewModel(appContext, sessionId) },
+                )
+                SystemPromptScreen(
+                    viewModel = vm,
+                    onBack = { nav.popBackStack() },
+                )
+            }
         }
         composable(
             route = Routes.PREVIEW,
@@ -186,36 +278,51 @@ fun ProductivityNavHost() {
                 navArgument("path") { type = NavType.StringType },
             ),
         ) { entry ->
-            val sessionId = entry.arguments?.getString("sessionId").orEmpty()
-            val relativePath = entry.arguments?.getString("path").orEmpty()
-            // 与聊天页共享同一 ChatViewModel 实例（HOME 的 ViewModelStore，同 key）：
-            // 预览页直接发送反馈并实时展示 AI 运行状态。
-            val chatVm = remember(sessionId) {
-                resolveHomeChatViewModel(nav, Routes.HOME, appContext, sessionId)
+            NavPage {
+                val sessionId = entry.arguments?.getString("sessionId").orEmpty()
+                val relativePath = entry.arguments?.getString("path").orEmpty()
+                val chatVm = remember(sessionId) {
+                    resolveHomeChatViewModel(activity, appContext, sessionId)
+                }
+                HtmlPreviewScreen(
+                    sessionId = sessionId,
+                    relativePath = relativePath,
+                    onBack = { nav.popBackStack() },
+                    chatViewModel = chatVm,
+                    onSendFeedback = { draft -> chatVm?.sendMessage(draft) == true },
+                )
             }
-            HtmlPreviewScreen(
-                sessionId = sessionId,
-                relativePath = relativePath,
-                onBack = { nav.popBackStack() },
-                chatViewModel = chatVm,
-                onSendFeedback = { draft -> chatVm?.sendMessage(draft) == true },
-            )
         }
     }
 }
 
-/** 复用 HOME 的 ViewModelStore 中同 key 的 ChatViewModel；HOME 不在栈中（异常场景）返回 null。 */
+/** 每个目的地铺满整屏并带上不透明底色，避免淡入时透出底下的聊天页。点击落在空白处，不传到下层聊天页。 */
+@Composable
+private fun NavPage(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {},
+            ),
+    ) {
+        content()
+    }
+}
+
+/** 与一直留在屏幕上的聊天页共用 Activity 里同 key 的 ChatViewModel。 */
 private fun resolveHomeChatViewModel(
-    nav: androidx.navigation.NavController,
-    homeRoute: String,
+    activity: ComponentActivity?,
     appContext: android.content.Context,
     sessionId: String,
 ): com.agent1.android.productivity.ui.viewmodel.ChatViewModel? {
+    if (activity == null || sessionId.isBlank()) return null
     return runCatching {
-        // 预览只从聊天页 push，HOME 必在栈中
-        val homeEntry = nav.getBackStackEntry(homeRoute)
         val provider = androidx.lifecycle.ViewModelProvider(
-            homeEntry.viewModelStore,
+            activity,
             simpleFactory { com.agent1.android.productivity.ui.viewmodel.ChatViewModel(appContext, sessionId, "") },
         )
         provider.get(

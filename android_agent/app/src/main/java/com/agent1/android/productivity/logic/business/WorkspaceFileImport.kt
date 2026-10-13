@@ -18,6 +18,12 @@ object WorkspaceFileImport {
         val displayName: String,
     )
 
+    /** 系统选择器返回后、复制进 workspace 前，用于展示待添加列表。 */
+    fun resolveDisplayName(context: Context, uri: Uri): String {
+        return queryDisplayName(context, uri)
+            ?: uri.lastPathSegment?.substringAfterLast('/').orEmpty().ifBlank { "file" }
+    }
+
     fun copyContentUrisToWorkspace(
         context: Context,
         workspaceRoot: Path,

@@ -37,8 +37,17 @@
     <string name="chat_attachments_cd_count">附件，已選 %1$d 個</string>
     <string name="chat_attachments_sheet_title">本對話附件 · %1$d</string>
     <string name="chat_attachments_assistant_banner">助手正在等待您添加檔案</string>
-    <string name="chat_attachments_empty">還沒有附件。可從本機選擇檔案，供 AI 在本對話中讀取。</string>
+    <string name="chat_attachments_empty">還沒有附件。從本機選擇檔案後，需點「確認新增至對話」才會複製進本對話。</string>
+    <string name="chat_attachments_pending_title">待新增 · %1$d</string>
+    <string name="chat_attachments_added_title">已新增 · %1$d</string>
+    <string name="chat_attachments_confirm_add">確認新增至對話</string>
+    <string name="chat_attachments_open_picker">打開檔案選擇</string>
+    <string name="chat_attachments_confirm">確定</string>
+    <string name="chat_attachments_importing">正在新增…</string>
+    <string name="chat_remove_pending_file_cd">從待新增列表移除 %1$s</string>
     <string name="chat_attachments_add_from_device">從本機添加</string>
+    <string name="chat_attachments_composer_multi">加%1$d</string>
+    <string name="chat_attachments_composer_single_cd">附件 %1$s</string>
     <string name="chat_select_file">選擇檔案</string>
 
     <string name="cd_session_list">對話列表</string>

@@ -37,8 +37,17 @@
     <string name="chat_attachments_cd_count">첨부 · %1$d개 선택</string>
     <string name="chat_attachments_sheet_title">이 대화 첨부 · %1$d</string>
     <string name="chat_attachments_assistant_banner">어시스턴트가 파일 추가를 기다리는 중입니다</string>
-    <string name="chat_attachments_empty">첨부가 없습니다. 기기에서 고르면 이 대화에서 AI가 읽을 수 있습니다.</string>
+    <string name="chat_attachments_empty">첨부가 없습니다. 기기에서 고른 뒤 「채팅에 추가」를 눌러 이 대화에 복사하세요.</string>
+    <string name="chat_attachments_pending_title">추가 대기 · %1$d</string>
+    <string name="chat_attachments_added_title">추가됨 · %1$d</string>
+    <string name="chat_attachments_confirm_add">채팅에 추가</string>
+    <string name="chat_attachments_open_picker">파일 선택</string>
+    <string name="chat_attachments_confirm">확인</string>
+    <string name="chat_attachments_importing">추가 중…</string>
+    <string name="chat_remove_pending_file_cd">추가 대기 목록에서 %1$s 제거</string>
     <string name="chat_attachments_add_from_device">기기에서 추가</string>
+    <string name="chat_attachments_composer_multi">+%1$d</string>
+    <string name="chat_attachments_composer_single_cd">첨부 %1$s</string>
     <string name="chat_select_file">파일 선택</string>
 
     <string name="cd_session_list">대화 목록</string>
