@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.script.FakeScriptEngineFactory;
+import com.agent1.javaagent.script.ScriptWeizhiPackageEnsurer;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -70,6 +71,23 @@ class ExecuteScriptToolTest {
         ToolExecutionResult result = tool.execute("c1", MAPPER.createObjectNode(), new CancellationToken(), u -> {});
 
         assertTrue(result.getText().contains("code") || result.getText().contains("file"));
+    }
+
+    @Test
+    void weizhiEnsureFailureSkipsEngine() throws Exception {
+        ScriptWeizhiPackageEnsurer failing = (source, token) -> "错误：Weizhi 包安装失败: demo";
+        ExecuteScriptTool withEnsure = new ExecuteScriptTool(
+            new WorkspaceSandbox(workspaceA),
+            factory,
+            60_000,
+            null,
+            failing
+        );
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "import x from 'weizhi:demo';\n1+1");
+        ToolExecutionResult result = withEnsure.execute("c1", params, new CancellationToken(), u -> {});
+        assertTrue(result.getText().contains("Weizhi 包安装失败"));
+        assertTrue(factory.openedWorkspaces().isEmpty());
     }
 
     @Test

@@ -33,6 +33,7 @@ import com.agent1.javaagent.script.AgentToolsScriptBridge;
 import com.agent1.javaagent.script.MutableScriptToolBridge;
 import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
+import com.agent1.javaagent.script.ScriptWeizhiPackageEnsurer;
 import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import com.agent1.javaagent.tool.script.ExecuteScriptTool;
 import com.agent1.javaagent.coach.AgentCoachConfig;
@@ -90,6 +91,8 @@ public final class ProductivityAgentHost implements Closeable {
     private final WorkspaceToolProvider extraTools;
     /** find_caps 检索时按 Host 平台过滤（android / desktop），不由模型传参。 */
     private final String capabilitySearchPlatform;
+    private final ScriptWeizhiPackageEnsurer scriptWeizhiPackageEnsurer;
+    private final Runnable weizhiPackageRegistryRefresh;
     private final AgentRuntimeConfig runtimeConfig;
     private volatile ImageResizer imageResizer = UnavailableImageResizer.INSTANCE;
     private volatile MediaInspector mediaInspector = UnavailableMediaInspector.INSTANCE;
@@ -157,6 +160,34 @@ public final class ProductivityAgentHost implements Closeable {
         WorkspaceToolProvider extraTools,
         String capabilitySearchPlatform
     ) {
+        this(
+            agentRoot,
+            config,
+            llmClient,
+            scriptEngineFactory,
+            executeScriptTimeoutMs,
+            scriptPromptAppend,
+            scriptToolBridge,
+            extraTools,
+            capabilitySearchPlatform,
+            null,
+            null
+        );
+    }
+
+    public ProductivityAgentHost(
+        Path agentRoot,
+        AgentRuntimeConfig config,
+        LlmClient llmClient,
+        ScriptEngineFactory scriptEngineFactory,
+        long executeScriptTimeoutMs,
+        String scriptPromptAppend,
+        ScriptToolBridge scriptToolBridge,
+        WorkspaceToolProvider extraTools,
+        String capabilitySearchPlatform,
+        ScriptWeizhiPackageEnsurer scriptWeizhiPackageEnsurer,
+        Runnable weizhiPackageRegistryRefresh
+    ) {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
         this.projectRoot = AgentDataPaths.projectRoot(this.agentRoot);
         AgentHomeBootstrap.ensure(this.agentRoot);
@@ -169,6 +200,8 @@ public final class ProductivityAgentHost implements Closeable {
         this.scriptToolBridge = scriptToolBridge;
         this.extraTools = extraTools;
         this.capabilitySearchPlatform = normalizeCapabilitySearchPlatform(capabilitySearchPlatform);
+        this.scriptWeizhiPackageEnsurer = scriptWeizhiPackageEnsurer;
+        this.weizhiPackageRegistryRefresh = weizhiPackageRegistryRefresh;
         this.runtimeConfig = config;
         this.runtime = new AgentRuntime(
             config.toAgentOptionsBuilder("")
@@ -242,13 +275,41 @@ public final class ProductivityAgentHost implements Closeable {
         this(
             agentRoot,
             config,
+            scriptEngineFactory,
+            executeScriptTimeoutMs,
+            scriptPromptAppend,
+            scriptToolBridge,
+            extraTools,
+            capabilitySearchPlatform,
+            null,
+            null
+        );
+    }
+
+    public ProductivityAgentHost(
+        Path agentRoot,
+        AgentRuntimeConfig config,
+        ScriptEngineFactory scriptEngineFactory,
+        long executeScriptTimeoutMs,
+        String scriptPromptAppend,
+        ScriptToolBridge scriptToolBridge,
+        WorkspaceToolProvider extraTools,
+        String capabilitySearchPlatform,
+        ScriptWeizhiPackageEnsurer scriptWeizhiPackageEnsurer,
+        Runnable weizhiPackageRegistryRefresh
+    ) {
+        this(
+            agentRoot,
+            config,
             new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(Duration.ofSeconds(120), 0.2)),
             scriptEngineFactory,
             executeScriptTimeoutMs,
             scriptPromptAppend,
             scriptToolBridge,
             extraTools,
-            capabilitySearchPlatform
+            capabilitySearchPlatform,
+            scriptWeizhiPackageEnsurer,
+            weizhiPackageRegistryRefresh
         );
     }
 
@@ -342,7 +403,7 @@ public final class ProductivityAgentHost implements Closeable {
      */
     public CapabilitySearchView.Result searchCapabilities(String query, List<String> kinds, int limit) {
         if (!runtime.isRunning()) {
-            refreshMcpIndex();
+            refreshSidecarIndexes();
         }
         return CapabilitySearchView.search(agentRoot, capabilitySearchPlatform, projectRoot, query, kinds, limit);
     }
@@ -574,15 +635,22 @@ public final class ProductivityAgentHost implements Closeable {
         AgentCoachConfig coachConfig = AgentCoachConfig.load(agentRoot);
         productivityCoach = coachConfig.enabled() ? coachConfig.toCoach() : null;
         runtime.setProductivityCoach(productivityCoach);
-        refreshMcpIndex();
+        refreshSidecarIndexes();
     }
 
-    /** 配置了 MCP 时，把工具名写入 find_caps。缓存有效则不访问网络。 */
-    private void refreshMcpIndex() {
+    /** MCP 与 Weizhi Registry 等旁路索引（失败不阻断会话）。 */
+    private void refreshSidecarIndexes() {
         try {
             McpCapabilitySync.ensureIndexed(agentRoot);
         } catch (RuntimeException e) {
             LOG.log(Level.WARNING, "mcp capability index skipped", e);
+        }
+        if (weizhiPackageRegistryRefresh != null) {
+            try {
+                weizhiPackageRegistryRefresh.run();
+            } catch (RuntimeException e) {
+                LOG.log(Level.WARNING, "weizhi package registry index skipped", e);
+            }
         }
     }
 
@@ -630,7 +698,15 @@ public final class ProductivityAgentHost implements Closeable {
             }
         }
         if (scriptEngineFactory != null) {
-            tools.add(new ExecuteScriptTool(sandbox, scriptEngineFactory, executeScriptTimeoutMs, agentRoot));
+            tools.add(
+                new ExecuteScriptTool(
+                    sandbox,
+                    scriptEngineFactory,
+                    executeScriptTimeoutMs,
+                    agentRoot,
+                    scriptWeizhiPackageEnsurer
+                )
+            );
         }
         if (scriptToolBridge instanceof MutableScriptToolBridge mutable) {
             mutable.set(new AgentToolsScriptBridge(tools));
