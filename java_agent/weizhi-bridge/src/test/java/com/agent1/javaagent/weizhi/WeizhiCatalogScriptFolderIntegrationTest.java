@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
-import com.agent1.javaagent.catalog.AgentCatalogPaths;
 import com.agent1.javaagent.script.ScriptEngine;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,7 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 7.2：catalog scripts 目录作为 Weizhi scriptFolder，workspace 脚本可 loadScript。 */
+/** workspace 内相对 {@code import './lib.js'} 解析。 */
 class WeizhiCatalogScriptFolderIntegrationTest {
 
     private static Path weizhiRepo;
@@ -27,30 +26,33 @@ class WeizhiCatalogScriptFolderIntegrationTest {
     }
 
     @Test
-    void loadScriptFromCatalogScriptsDir(@TempDir Path agentRoot) throws Exception {
+    void importWorkspaceRelativeModule(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        Path scripts = AgentCatalogPaths.catalogScriptsDir(agentRoot);
-        Files.createDirectories(scripts);
+        Path workspace = agentRoot.resolve("workspace");
+        Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(
-            scripts.resolve("math-lib.js"),
+            workspace.resolve("jobs/math-lib.js"),
             "export function inc(x) { return x + 1; }\n"
         );
-
-        Path workspace = agentRoot.resolve("workspace");
-        Files.createDirectories(workspace);
+        Files.writeString(
+            workspace.resolve("jobs/run.js"),
+            """
+            import { inc } from './math-lib.js';
+            export default inc(41);
+            """.stripIndent()
+        );
 
         WeizhiScriptEngineFactory factory = new WeizhiScriptEngineFactory(
             new WeizhiRuntimeOptions().installDesktopCaps(true),
             agentRoot
         );
         try (ScriptEngine engine = factory.open(workspace)) {
-            String out = engine.eval(
-                """
-                import { inc } from './math-lib.js';
-                export default inc(41);
-                """,
+            String out = engine.evalForAgent(
+                Files.readString(workspace.resolve("jobs/run.js")),
+                null,
                 5_000,
-                null
+                null,
+                "jobs/run.js"
             );
             assertEquals("42", out.replace("\"", "").trim());
         }

@@ -33,9 +33,10 @@ public final class WeizhiScriptEngineFactory implements ScriptEngineFactory {
             if (nativeDir != null) {
                 effective.nativePluginDir(nativeDir.toString());
             }
-            Path scriptFolder = AgentCatalogPaths.resolveCatalogScriptFolder(agentRoot);
-            if (scriptFolder != null) {
-                effective.scriptFolder(scriptFolder.toString());
+            try {
+                effective.packageRoot(WeizhiBundledPackages.syncFromClasspath(agentRoot));
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException("sync bundled Weizhi packages failed", e);
             }
             effective.mcpAgentRoot(agentRoot);
             if (!effective.enableFetch()) {

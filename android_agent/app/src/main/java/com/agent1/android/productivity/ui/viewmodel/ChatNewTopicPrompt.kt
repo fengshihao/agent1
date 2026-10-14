@@ -1,6 +1,4 @@
-package com.agent1.android.productivity.logic.business
-
-import com.agent1.android.productivity.ui.viewmodel.ChatLine
+package com.agent1.android.productivity.ui.viewmodel
 
 /** 「开始新话题」：仅在最新一条助手回复后、用户尚未再发言时展示。 */
 object ChatNewTopicPrompt {

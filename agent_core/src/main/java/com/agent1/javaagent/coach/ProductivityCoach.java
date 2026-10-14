@@ -77,7 +77,7 @@ public final class ProductivityCoach {
                 advice =
                     "Android/沙箱 bash 通常没有 pandoc、LibreOffice、python3 等主机转换工具，也不要反复 which/find。"
                         + "文档类任务先 find_caps（如 docx、pptx、markdown word、幻灯片），"
-                        + "再用 run_js 按结果里的 catalog 示例调用（如 docx.js 的 markdownToDocx、pptx.js 的 renderPptx）。"
+                        + "再用 run_js 按结果里的示例调用（如 weizhi:docx 的 markdownToDocx、weizhi:pptx 的 renderPptx）。"
                         + "不要猜 Node 的 require/fs。";
             } else if (looksLikeScriptLibHunt(command)
                 && looksLikeNoMatchResult(text)
@@ -85,8 +85,8 @@ public final class ProductivityCoach {
                 // 真机案例：find_caps 已加载 pptx skill 后，模型仍 find/glob 找 pptx.js 文件浪费多轮。
                 hookId = "lib.hunt_missing";
                 advice =
-                    "pptx.js、docx.js、svg-raster.js 等是 run_js 的内置模块，直接 import 调用，例如："
-                        + "import { renderPptx } from \"pptx.js\"。"
+                    "weizhi:pptx、weizhi:docx、weizhi:svg-raster 等是 run_js 官方 Package，直接 import 调用，例如："
+                        + "import { renderPptx } from \"weizhi:pptx\"。"
                         + "需要确认可用能力时用 find_caps。";
             }
         } else if ("find_caps".equals(toolName) && text != null) {
@@ -146,7 +146,7 @@ public final class ProductivityCoach {
                     hookId = "script.wrong_file_type";
                     advice =
                         "run_js 只能运行 .js 脚本，不能把 SVG/图片当 file 执行。"
-                            + "读数据用 read_file；SVG 转 PNG/JPG 用 import { svgToImage } from \"svg-raster.js\"。";
+                            + "读数据用 read_file；SVG 转 PNG/JPG 用 import { svgToImage } from \"weizhi:svg-raster\"。";
                 } else if (text != null && text.contains("return not in a function")) {
                     hookId = "script.no_top_return";
                     advice =

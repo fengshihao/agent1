@@ -143,6 +143,12 @@ android {
         }
     }
 
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -227,6 +233,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test:core:1.6.1")
     // JVM 单测里 android.jar 的 org.json 是 stub（方法直接抛异常），
     // JSON 解析类测试（formatToolResult 等）需要真实实现。
     testImplementation("org.json:json:20240303")

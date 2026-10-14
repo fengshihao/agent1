@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
-import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -36,7 +35,8 @@ class DocxOfficeIntegrationTest {
     @Test
     void markdownToDocxViaDocxJs(@TempDir Path agentRoot, @TempDir Path workspace) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        assumeTrue(OfficeCatalogScripts.isOfficeReady(agentRoot), "docx.js not installed");
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        assumeTrue(WeizhiBundledPackages.isOfficeReady(agentRoot), "docx package not installed");
 
         Path md = workspace.resolve("notes/brief.md");
         Files.createDirectories(md.getParent());
@@ -45,7 +45,7 @@ class DocxOfficeIntegrationTest {
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot);
         String js =
             """
-            import { markdownToDocx } from "docx.js";
+            import { markdownToDocx } from "weizhi:docx";
             export default markdownToDocx({
               inputPath: 'notes/brief.md',
               outputPath: 'out/brief.docx',
@@ -64,7 +64,8 @@ class DocxOfficeIntegrationTest {
     @Test
     void markdownHeadingHierarchy(@TempDir Path agentRoot, @TempDir Path workspace) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        assumeTrue(OfficeCatalogScripts.isOfficeReady(agentRoot), "docx.js not installed");
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        assumeTrue(WeizhiBundledPackages.isOfficeReady(agentRoot), "docx package not installed");
 
         Path md = workspace.resolve("notes/headings.md");
         Files.createDirectories(md.getParent());
@@ -84,7 +85,7 @@ class DocxOfficeIntegrationTest {
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot);
         String js =
             """
-            import { markdownToDocx, readDocx } from "docx.js";
+            import { markdownToDocx, readDocx } from "weizhi:docx";
             markdownToDocx({
               inputPath: 'notes/headings.md',
               outputPath: 'out/headings.docx',

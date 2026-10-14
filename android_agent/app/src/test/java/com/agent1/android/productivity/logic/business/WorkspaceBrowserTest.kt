@@ -17,7 +17,7 @@ class WorkspaceBrowserTest {
     @Test
     fun listChildren_listsWorkspaceRoot() {
         val root = Files.createTempDirectory("ws-browser")
-        Files.writeString(root.resolve("hello.txt"), "hi")
+        Files.write(root.resolve("hello.txt"), "hi".toByteArray(Charsets.UTF_8))
         Files.createDirectories(root.resolve("out"))
         val children = WorkspaceBrowser.listChildren(root, "")
         assertTrue(children.any { it.name == "hello.txt" && !it.isDirectory })

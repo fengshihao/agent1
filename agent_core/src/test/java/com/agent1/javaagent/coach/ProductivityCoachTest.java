@@ -327,7 +327,7 @@ class ProductivityCoachTest {
         ToolExecutionResult in = ToolExecutionResult.text("Error: absolute path not allowed: /");
         ToolExecutionResult out = coach.maybeAugment("bash", params, in, false);
         assertTrue(out.getText().contains("[coach] lib.hunt_missing"));
-        assertTrue(out.getText().contains("内置模块"));
+        assertTrue(out.getText().contains("官方 Package"));
     }
 
     @Test

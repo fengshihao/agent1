@@ -7,7 +7,7 @@
 #   export WEIZHI_GIT_URL='https://github.com/<you>/weizhi.git'
 #
 # 未设置 WEIZHI_GIT_URL 时默认克隆公开仓库 fengshihao/weizhi。
-# ES module workspace→catalog 回退需 Weizhi master ≥ dd7904c（weizhi#10）；docx 标题层次需 ≥ cb3e889（weizhi#11）；
+# Weizhi Package（setPackageRoot / weizhi:<name>）需当前 master；docx 标题层次需 ≥ cb3e889（weizhi#11）；
 # webview_exec 自动落盘 tmp/webview_exec 需 ≥ 18d0786（weizhi#18）；fs.mkdirSync / writeFile 父目录需 ≥ df0e604（weizhi#27）；`git -C weizhi rev-parse HEAD` 可核对。
 #
 # 默认克隆到本仓库内 agent1/weizhi（与 android_agent/../weizhi 路径一致）。
@@ -55,17 +55,27 @@ if [[ ! -d "${TARGET}/android" ]]; then
 fi
 
 apply_weizhi_patches() {
-  local patch="${REPO_ROOT}/scripts/patches/weizhi-ndk-realpath-path-max.patch"
+  local ndk_patch="${REPO_ROOT}/scripts/patches/weizhi-ndk-realpath-path-max.patch"
   local test_c="${TARGET}/tests/test_engine.c"
-  if [[ ! -f "${patch}" ]] || [[ ! -f "${test_c}" ]]; then
-    return 0
+  if [[ -f "${ndk_patch}" ]] && [[ -f "${test_c}" ]]; then
+    if grep -q 'folder_real\[PATH_MAX\]' "${test_c}"; then
+      echo "==> weizhi NDK realpath 补丁已应用，跳过"
+    else
+      echo "==> apply weizhi patch: NDK realpath 需 PATH_MAX 缓冲区（Android NDK fortify）"
+      patch -p1 -d "${TARGET}" < "${ndk_patch}"
+    fi
   fi
-  if grep -q 'folder_real\[PATH_MAX\]' "${test_c}"; then
-    echo "==> weizhi NDK realpath 补丁已应用，跳过"
-    return 0
+
+  local pkg_installer="${TARGET}/java/com/weizhi/packages/PackageInstaller.java"
+  local pkg_patch="${REPO_ROOT}/scripts/patches/weizhi-package-installer-java11.patch"
+  if [[ -f "${pkg_patch}" ]] && [[ -f "${pkg_installer}" ]]; then
+    if grep -q 'readUtf8' "${pkg_installer}"; then
+      echo "==> weizhi PackageInstaller Java 11 补丁已应用，跳过"
+    else
+      echo "==> apply weizhi patch: PackageInstaller 避免 Android 上 Files.readString"
+      patch -p1 -d "${TARGET}" < "${pkg_patch}"
+    fi
   fi
-  echo "==> apply weizhi patch: NDK realpath 需 PATH_MAX 缓冲区（Android NDK fortify）"
-  patch -p1 -d "${TARGET}" < "${patch}"
 }
 
 apply_weizhi_patches

@@ -1,6 +1,6 @@
 ---
 name: pptx
-description: 用户要做演示文稿、幻灯片、PPT 或 pptx 时使用。用 run_js 调用 pptx.js 的 renderPptx，由版式和主题绘制形状与背景，不要手写 OOXML。
+description: 用户要做演示文稿、幻灯片、PPT 或 pptx 时使用。用 run_js 调用 weizhi:pptx 的 renderPptx，由版式和主题绘制形状与背景，不要手写 OOXML。
 ---
 
 # 生成 PPT
@@ -8,7 +8,7 @@ description: 用户要做演示文稿、幻灯片、PPT 或 pptx 时使用。用
 ## 用法
 
 ```javascript
-import { renderPptx } from "pptx.js";
+import { renderPptx } from "weizhi:pptx";
 
 export default renderPptx({
   title: "季度复盘",
@@ -22,7 +22,7 @@ export default renderPptx({
 }, "out/q3.pptx");
 ```
 
-`pptx.js` / `pptx-build.js` / `svg-raster.js` 都是 `run_js` 内置模块，像上面这样直接 `import`；链式写法用 `pptx-build.js` 的 `buildPptx`。
+`weizhi:pptx` / `weizhi:pptx-build` / `weizhi:svg-raster` 都是官方 Package，像上面这样直接 `import`；链式写法用 `weizhi:pptx-build` 的 `buildPptx`。
 
 ## 主题
 

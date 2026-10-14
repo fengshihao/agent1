@@ -2,8 +2,6 @@ package com.agent1.javaagent.agent;
 
 import com.agent1.javaagent.capability.CapabilityIndexStore;
 import com.agent1.javaagent.util.PathIo;
-import com.agent1.javaagent.catalog.OfficeCatalogScripts;
-import com.agent1.javaagent.catalog.SvgRasterCatalogScripts;
 import com.agent1.javaagent.catalog.WebLibCatalogTemplates;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -54,8 +52,6 @@ public final class AgentHomeBootstrap {
         }
         ensureManifest(root);
         removeBundledSystemDocs(root);
-        OfficeCatalogScripts.ensure(root);
-        SvgRasterCatalogScripts.ensure(root);
         WebLibCatalogTemplates.ensure(root);
         CapabilityIndexStore.ensure(root);
     }

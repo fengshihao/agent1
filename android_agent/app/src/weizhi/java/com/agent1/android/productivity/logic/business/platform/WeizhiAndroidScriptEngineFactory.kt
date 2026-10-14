@@ -1,7 +1,7 @@
 package com.agent1.android.productivity.logic.business.platform
 
 import android.content.Context
-import com.agent1.javaagent.catalog.AgentCatalogPaths
+import com.weizhi.caps.WeizhiPackages
 import com.agent1.javaagent.core.CancellationToken
 import com.agent1.javaagent.script.ScriptEngine
 import com.agent1.javaagent.script.ScriptEngineFactory
@@ -39,13 +39,9 @@ class WeizhiAndroidScriptEngineFactory(
         private val workspaceFile = workspace.toFile()
 
         init {
-            AndroidOfficeCatalogSync.ensureFromAssets(appContext, agentRoot)
             workspaceFile.mkdirs()
             engine.setFsRoot(workspaceFile.absolutePath)
-            val scriptDir = AgentCatalogPaths.resolveCatalogScriptFolder(agentRoot)
-            if (scriptDir != null) {
-                engine.setScriptFolder(scriptDir.toString())
-            }
+            engine.setPackageRoot(WeizhiPackages.syncBundled(appContext))
             engine.enableFetch()
             val session = AndroidCaps.Session(appContext, workspaceFile)
             session.confirmer = PlatformHost.Confirmer { message -> confirmer(message) }

@@ -27,7 +27,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.agent1.android.productivity.logic.business.ChatNewTopicPrompt
+import com.agent1.android.productivity.ui.viewmodel.ChatNewTopicPrompt
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import com.agent1.android.productivity.ui.viewmodel.ChatLine

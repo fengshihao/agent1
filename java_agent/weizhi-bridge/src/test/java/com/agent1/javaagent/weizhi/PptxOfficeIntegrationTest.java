@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
-import com.agent1.javaagent.catalog.OfficeCatalogScripts;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -36,12 +35,13 @@ class PptxOfficeIntegrationTest {
     @Test
     void renderPptxViaPptxJs(@TempDir Path agentRoot, @TempDir Path workspace) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        assumeTrue(OfficeCatalogScripts.isOfficeReady(agentRoot), "office catalog scripts not installed");
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        assumeTrue(WeizhiBundledPackages.isOfficeReady(agentRoot), "pptx package not installed");
 
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot);
         String js =
             """
-            import { renderPptx } from "pptx.js";
+            import { renderPptx } from "weizhi:pptx";
             export default renderPptx({
               title: "季度复盘",
               theme: "briefing",
@@ -66,12 +66,13 @@ class PptxOfficeIntegrationTest {
     @Test
     void buildPptxViaPptxBuildJs(@TempDir Path agentRoot, @TempDir Path workspace) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        assumeTrue(OfficeCatalogScripts.isOfficeReady(agentRoot), "office catalog scripts not installed");
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        assumeTrue(WeizhiBundledPackages.isOfficeReady(agentRoot), "pptx package not installed");
 
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot);
         String js =
             """
-            import { buildPptx } from "pptx-build.js";
+            import { buildPptx } from "weizhi:pptx-build";
             export default buildPptx({ title: "B", theme: "briefing" }, (b) => {
               b.title("Built", "Sub").bullets("要点", ["一", "二"]);
             }, "out/built.pptx");
