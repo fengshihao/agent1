@@ -82,6 +82,27 @@ Registry URL（可配置，默认微智官方）
 - `ProductivityAgentHost` 或系统 Job：对已安装 `name` 对照 Registry 检查新版本，策略可配置（仅 Wi‑Fi、仅充电等后置）。
 - 不与每次 run_js 强制全量升级抢带宽。
 
+### 5.4 超时（与透明装包）
+
+**现状（#90）**：`run_js` 只有一个预算，经 `AGENT1_SCRIPT_TIMEOUT_MS`（默认 **600_000 ms**）传给 `WeizhiEngine.runJs`；`engineFactory.open()` 里的 `syncBundled` 是本地拷贝，**不计入**该超时，但也**没有**单独上限。
+
+**透明远程装包后**：若把下载塞进同一个 `runJs` 超时，大 zip 或弱网会误杀正常脚本；若只在 `open()` 里下载且不设限，可能无限挂起。
+
+**约定（实现 #91 时）**：
+
+| 阶段 | 预算 | 默认 | 环境变量（建议） |
+|------|------|------|------------------|
+| Registry 拉清单（find_caps / 后台） | 短 | 30 s | `AGENT1_WEIZHI_REGISTRY_FETCH_TIMEOUT_MS` |
+| **Package ensure**（run_js 前，按脚本 `weizhi:*`） | 独立 | **180_000 ms**（3 min） | `AGENT1_WEIZHI_PACKAGE_ENSURE_TIMEOUT_MS` |
+| **QuickJS eval** | 独立，与现逻辑一致 | 600_000 ms | 沿用 `AGENT1_SCRIPT_TIMEOUT_MS` |
+
+- ensure **只计网络+安装**；已安装且版本满足时 **0 ms 级返回**，不占满 ensure 预算。
+- `CancellationToken` 取消 run_js 时，应同时中止进行中的 package 下载（与现有 cancel watcher 一致）。
+- 失败文案区分：`package ensure timeout` vs `script timeout`，避免 AI 误改业务逻辑。
+- **后台 periodic 升级**不走 run_js 超时，用 Job 自己的上限；失败只写日志/events，不打扰当前对话。
+
+不推荐「简单把 `AGENT1_SCRIPT_TIMEOUT_MS` 整体加倍」作为长期方案；双预算更清晰，也便于单独调移动端 ensure 上限。
+
 ## 6. 安全与并发
 
 - 仅信任 Registry **基址白名单** + 条目内 `url`/`sha256`（对齐 WEIZHI_PACKAGES D4/D5）。
