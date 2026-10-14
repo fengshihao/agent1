@@ -136,5 +136,5 @@ Registry URL（可配置，默认微智官方）
 ## 10. 关联 Issue
 
 - Agent1：[#91](https://github.com/fengshihao/agent1/issues/91)（find_caps + run_js 透明安装 + 后台更新）
-- Weizhi：建议在 [fengshihao/weizhi](https://github.com/fengshihao/weizhi) 开 P3 `PackageRegistryClient` issue，与 #91 联调。
+- Weizhi：[#35](https://github.com/fengshihao/weizhi/issues/35)（P3 官方 Registry manifest + `PackageRegistryClient` + `ensureInstalled`，与 #91 联调）
 - 前置（已关闭）：[#89](https://github.com/fengshihao/agent1/issues/89) 内置 Package（PR #90）
