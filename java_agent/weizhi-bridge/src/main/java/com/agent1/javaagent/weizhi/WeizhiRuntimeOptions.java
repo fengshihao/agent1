@@ -15,7 +15,7 @@ public final class WeizhiRuntimeOptions {
             return;
         }
         this.limits = from.limits;
-        this.scriptFolder = from.scriptFolder;
+        this.packageRoot = from.packageRoot;
         this.enableFetch = from.enableFetch;
         this.fetchHostAllowlist = from.fetchHostAllowlist;
         this.installDesktopCaps = from.installDesktopCaps;
@@ -30,7 +30,7 @@ public final class WeizhiRuntimeOptions {
     }
 
     private WeizhiLimits limits;
-    private String scriptFolder;
+    private String packageRoot;
     private boolean enableFetch;
     private String[] fetchHostAllowlist;
     private boolean installDesktopCaps = true;
@@ -48,12 +48,12 @@ public final class WeizhiRuntimeOptions {
         return this;
     }
 
-    public String scriptFolder() {
-        return scriptFolder;
+    public String packageRoot() {
+        return packageRoot;
     }
 
-    public WeizhiRuntimeOptions scriptFolder(String scriptFolder) {
-        this.scriptFolder = scriptFolder;
+    public WeizhiRuntimeOptions packageRoot(String packageRoot) {
+        this.packageRoot = packageRoot;
         return this;
     }
 

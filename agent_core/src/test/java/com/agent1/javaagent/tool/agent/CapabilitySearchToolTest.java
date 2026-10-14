@@ -122,7 +122,7 @@ class CapabilitySearchToolTest {
 
         assertTrue(result.getText().contains("markdownToDocx"));
         assertTrue(result.getText().contains("inputPath"));
-        assertTrue(result.getText().contains("from \"docx.js\""));
+        assertTrue(result.getText().contains("from \"weizhi:docx\""));
         assertFalse(result.getText().contains("from \"./docx.js\""));
         assertTrue(result.getText().contains("不是 workspace 文件"));
         assertFalse(result.getText().contains("office-docx.md"));

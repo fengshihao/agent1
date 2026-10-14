@@ -3,7 +3,7 @@
  *
  * import { buildPptx } from "./pptx-build.js";
  */
-import { createDeck, renderPptx } from "./pptx.js";
+import { createDeck, renderPptx } from "weizhi:pptx";
 
 function DeckBuilder(deck) {
   this._deck = deck;

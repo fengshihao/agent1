@@ -1,10 +1,10 @@
 package com.agent1.javaagent.weizhi;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
-import com.agent1.javaagent.catalog.AgentCatalogPaths;
 import com.agent1.javaagent.script.ScriptEngine;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,10 +12,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * weizhi#9 / #10：workspace 入口 {@code jobs/run.js} 可 {@code import './docx.js'}（catalog 回退），
- * {@code import './helper.js'} 仍解析 workspace。
- */
+/** workspace 入口 {@code jobs/run.js} 可 {@code import './helper.js'}；官方库走 {@code weizhi:<name>}。 */
 class WeizhiWorkspaceCatalogModuleFallbackTest {
 
     private static Path weizhiRepo;
@@ -30,18 +27,18 @@ class WeizhiWorkspaceCatalogModuleFallbackTest {
     }
 
     @Test
-    void workspaceOrchestratorImportsCatalogDocx(@TempDir Path agentRoot) throws Exception {
+    void workspaceOrchestratorImportsWeizhiDocxPackage(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        Path scripts = AgentCatalogPaths.catalogScriptsDir(agentRoot);
-        Files.writeString(scripts.resolve("docx.js"), "export const marker = 'catalog-docx';\n");
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
 
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
+        Files.writeString(workspace.resolve("jobs/in.md"), "# Hi\n\n");
         Files.writeString(
             workspace.resolve("jobs/run.js"),
             """
-                import { marker } from './docx.js';
-                export default marker;
+                import { markdownToDocx } from 'weizhi:docx';
+                export default markdownToDocx({ inputPath: 'jobs/in.md', outputPath: 'out/x.docx' });
                 """.stripIndent()
         );
 
@@ -53,19 +50,18 @@ class WeizhiWorkspaceCatalogModuleFallbackTest {
             String out = engine.evalForAgent(
                 Files.readString(workspace.resolve("jobs/run.js")),
                 null,
-                5_000,
+                30_000,
                 null,
                 "jobs/run.js"
             );
-            assertEquals("catalog-docx", out.replace("\"", "").trim());
+            assertTrue(out.contains("\"ok\":true"), out);
+            assertTrue(Files.isRegularFile(workspace.resolve("out/x.docx")));
         }
     }
 
     @Test
     void workspaceOrchestratorImportsLocalHelper(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        Path scripts = AgentCatalogPaths.catalogScriptsDir(agentRoot);
-        Files.writeString(scripts.resolve("docx.js"), "export const marker = 'unused';\n");
 
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));

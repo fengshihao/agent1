@@ -1,25 +1,26 @@
-# Catalog 模块解析（Weizhi 主干行为）
+# Weizhi Package（替代 catalog scriptFolder）
 
-Weizhi [weizhi#10](https://github.com/fengshihao/weizhi/pull/10)（closes [weizhi#9](https://github.com/fengshihao/weizhi/issues/9)）已合并：**workspace 相对 import 失败时，单层 `./leaf.js` 回退到 `setScriptFolder`**。
+Weizhi 主干已移除 **`setScriptFolder` / `import "leaf.js"`**，官方 JS 库统一为 **Weizhi Package**。
 
-规范真源：[weizhi `docs/MODULE_LOADING.md`](https://github.com/fengshihao/weizhi/blob/master/docs/MODULE_LOADING.md)
+规范真源：[weizhi `docs/WEIZHI_PACKAGES.md`](https://github.com/fengshihao/weizhi/blob/master/docs/WEIZHI_PACKAGES.md)、[MODULE_LOADING.md](https://github.com/fengshihao/weizhi/blob/master/docs/MODULE_LOADING.md)
 
 ## Agent1 约定
 
-| 根 | 路径 |
-|----|------|
+| 根 | 路径 / API |
+|----|------------|
 | `setFsRoot` | 会话 workspace |
-| `setScriptFolder` | `agentRoot/shared/catalog/scripts`（bootstrap：`docx.js`、`docx-raw.js`、`docx-build.js`、`pptx.js`、`pptx-build.js`、`svg-raster.js`） |
+| `setPackageRoot` | 桌面：`{agentRoot}/weizhi-home`（`WeizhiBundledPackages.syncFromClasspath`）；Android：`WeizhiPackages.syncBundled(Context)` → `filesDir/weizhi-home` |
 
-- **给模型的写法**：catalog 脚本用裸导入 `import { markdownToDocx } from "docx.js"`。`./` 只表示 workspace 里和当前脚本放在一起的文件（如 `import './helper.js'`）。
-- **路径沙箱**（[WEIZHI_PATHS.md](./WEIZHI_PATHS.md)）：脚本内 `fs` / workspace `import` 可用相对或绝对路径，须在 `setFsRoot` 下；Caps 的 `path` 仍仅相对路径。
-- **兼容**：单层 `./leaf.js` 在 workspace 找不到时仍回退到 `setScriptFolder`，但不再教模型写 `./`。
-- Agent1 **不再**使用 `.workspace-run/` 镜像（见 [agent1#30](https://github.com/fengshihao/agent1/issues/30)）。
+内置 Office / SVG 脚本真源：`agent_core/.../agent-home/weizhi-packages/<name>@1.0.0/`；Android 同步副本：`android_agent/app/src/main/assets/weizhi-packages/`（`scripts/build-weizhi-bundled-packages.sh` 生成）。
+
+**给模型的写法**：`import { markdownToDocx } from "weizhi:docx"`、`import { renderPptx } from "weizhi:pptx"` 等。workspace 内协作用 `import "./helper.js"`。
 
 ## 集成测
 
-- `WeizhiWorkspaceCatalogModuleFallbackTest`（`:weizhi-bridge:test`，需已构建 `libweizhijni`，Weizhi ≥ `dd7904c`）
+- `DocxOfficeIntegrationTest` / `PptxOfficeIntegrationTest`（`:weizhi-bridge:test`，需 `libweizhijni`）
+- `OfficeCatalogInstrumentedTest`（Android，`assets/weizhi-packages`）
 
 ## 关联
 
-- [WEIZHI_DOCX.md](./WEIZHI_DOCX.md)、weizhi#8
+- [WEIZHI.md](./WEIZHI.md)、[agent1#89](https://github.com/fengshihao/agent1/issues/89)
+- [WEIZHI_DOCX.md](./WEIZHI_DOCX.md)、[WEIZHI_PPTX.md](./WEIZHI_PPTX.md)

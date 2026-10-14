@@ -3,7 +3,7 @@
  *
  * import { unpackDocx, packDocx, validateDocx } from "./docx-raw.js";
  */
-import { unpackDocx, packDocx } from "./docx.js";
+import { unpackDocx, packDocx } from "weizhi:docx";
 
 var fs = require("fs");
 

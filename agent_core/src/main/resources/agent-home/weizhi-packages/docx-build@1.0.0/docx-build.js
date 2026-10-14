@@ -3,7 +3,7 @@
  *
  * import { buildDoc, buildDocx, DocBuilder } from "./docx-build.js";
  */
-import { Document, renderDocx } from "./docx.js";
+import { Document, renderDocx } from "weizhi:docx";
 
 function DocBuilder(doc) {
   this._doc = doc;

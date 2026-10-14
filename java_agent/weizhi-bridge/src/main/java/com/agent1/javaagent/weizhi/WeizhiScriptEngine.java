@@ -17,8 +17,8 @@ final class WeizhiScriptEngine implements ScriptEngine {
             : 16;
         this.engine = new WeizhiEngine(options.limits(), WeizhiIoExecutors.io(maxAsyncIo));
         engine.setFsRoot(workspace.toAbsolutePath().normalize().toString());
-        if (options.scriptFolder() != null && !options.scriptFolder().isBlank()) {
-            engine.setScriptFolder(options.scriptFolder());
+        if (options.packageRoot() != null && !options.packageRoot().isBlank()) {
+            engine.setPackageRoot(options.packageRoot());
         }
         if (options.enableFetch()) {
             if (options.fetchHostAllowlist() == null) {
