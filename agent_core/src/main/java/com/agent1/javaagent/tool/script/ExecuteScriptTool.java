@@ -7,6 +7,7 @@ import com.agent1.javaagent.log.AgentAuditEvents;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.script.ScriptEngine;
 import com.agent1.javaagent.script.ScriptEngineFactory;
+import com.agent1.javaagent.script.ScriptWeizhiPackageEnsurer;
 import com.agent1.javaagent.script.ScriptEvalFrame;
 import com.agent1.javaagent.script.ScriptFailureFormatter;
 import com.agent1.javaagent.tool.AgentTool;
@@ -31,13 +32,14 @@ public final class ExecuteScriptTool implements AgentTool {
     private final ScriptEngineFactory engineFactory;
     private final long defaultTimeoutMs;
     private final Path agentRoot;
+    private final ScriptWeizhiPackageEnsurer weizhiPackageEnsurer;
 
     public ExecuteScriptTool(
         WorkspaceSandbox sandbox,
         ScriptEngineFactory engineFactory,
         long defaultTimeoutMs
     ) {
-        this(sandbox, engineFactory, defaultTimeoutMs, null);
+        this(sandbox, engineFactory, defaultTimeoutMs, null, null);
     }
 
     public ExecuteScriptTool(
@@ -46,10 +48,21 @@ public final class ExecuteScriptTool implements AgentTool {
         long defaultTimeoutMs,
         Path agentRoot
     ) {
+        this(sandbox, engineFactory, defaultTimeoutMs, agentRoot, null);
+    }
+
+    public ExecuteScriptTool(
+        WorkspaceSandbox sandbox,
+        ScriptEngineFactory engineFactory,
+        long defaultTimeoutMs,
+        Path agentRoot,
+        ScriptWeizhiPackageEnsurer weizhiPackageEnsurer
+    ) {
         this.sandbox = sandbox;
         this.engineFactory = engineFactory;
         this.defaultTimeoutMs = defaultTimeoutMs > 0 ? defaultTimeoutMs : 600_000L;
         this.agentRoot = agentRoot == null ? null : agentRoot.toAbsolutePath().normalize();
+        this.weizhiPackageEnsurer = weizhiPackageEnsurer;
     }
 
     @Override
@@ -151,6 +164,13 @@ public final class ExecuteScriptTool implements AgentTool {
             }
         }
         final String boundFile = hasFile ? file : spilledFile;
+
+        if (weizhiPackageEnsurer != null) {
+            String ensureError = weizhiPackageEnsurer.ensureForSource(source, cancellationToken);
+            if (ensureError != null) {
+                return ToolExecutionResult.text(ensureError);
+            }
+        }
 
         String prelude = buildArgsPrelude(parameters.get("args"));
         ScriptEvalFrame.SourceKind kind = boundFile == null

@@ -1,6 +1,6 @@
 # Weizhi 官方 Package Registry（方案）
 
-> **状态：方案 / 未实现**（P3 远程 + Agent1 透明安装）  
+> **状态：已实现（Agent1 #91 + Weizhi P3）**；默认 Registry 为微智官方 URL，可用 env / manifest 覆盖  
 > 前置：[WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md)（#89 已合：内置 `weizhi:<name>` + `setPackageRoot`）  
 > 微智规格：[WEIZHI_PACKAGES.md](https://github.com/fengshihao/weizhi/blob/master/docs/WEIZHI_PACKAGES.md)（P3 远程目录仍为「未实现」）
 

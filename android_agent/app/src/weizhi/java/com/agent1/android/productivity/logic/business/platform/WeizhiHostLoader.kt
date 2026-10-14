@@ -3,7 +3,13 @@ package com.agent1.android.productivity.logic.business.platform
 import android.content.Context
 import com.agent1.javaagent.config.AgentRuntimeConfig
 import com.agent1.javaagent.script.MutableScriptToolBridge
+import com.agent1.javaagent.script.ScriptWeizhiPackageEnsurer
 import com.agent1.javaagent.session.ProductivityAgentHost
+import com.agent1.javaagent.weizhi.WeizhiPackageRegistrySync
+import com.agent1.javaagent.weizhi.WeizhiScriptPackageEnsurer
+import com.weizhi.caps.WeizhiPackages
+import com.weizhi.packages.PackageInstaller
+import java.io.IOException
 import java.nio.file.Path
 
 /** 由 {@link com.agent1.android.productivity.logic.business.ProductivityHostAssembly} 反射加载。 */
@@ -17,6 +23,22 @@ object WeizhiHostLoader {
     ): ProductivityAgentHost {
         com.agent1.javaagent.agent.AgentHomeBootstrap.ensure(agentRoot)
         val scriptTools = MutableScriptToolBridge()
+        val weizhiHome = PackageInstaller.weizhiHome(context.filesDir.toPath())
+        val packageEnsurer: ScriptWeizhiPackageEnsurer? = WeizhiScriptPackageEnsurer.optional(
+            agentRoot,
+            weizhiHome,
+            Runnable {
+                try {
+                    WeizhiPackages.syncBundled(context)
+                } catch (e: IOException) {
+                    throw RuntimeException(e)
+                }
+            },
+        )
+        val registryRefresh = Runnable {
+            WeizhiPackageRegistrySync.ensureIndexed(agentRoot)
+            WeizhiPackageRegistrySync.backgroundUpgradeInstalled(agentRoot, weizhiHome)
+        }
         return ProductivityAgentHost(
             agentRoot,
             config,
@@ -34,6 +56,8 @@ object WeizhiHostLoader {
             scriptTools,
             WeizhiAgentTools(context, agentRoot),
             "android",
+            packageEnsurer,
+            registryRefresh,
         )
     }
 }

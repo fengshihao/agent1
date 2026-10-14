@@ -15,7 +15,10 @@ import com.agent1.javaagent.cli.productivity.ProductivityToolsCommand;
 import com.agent1.javaagent.script.MutableScriptToolBridge;
 import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
+import com.agent1.javaagent.script.ScriptWeizhiPackageEnsurer;
 import com.agent1.javaagent.weizhi.WeizhiHostSupport;
+import com.agent1.javaagent.weizhi.WeizhiPackageRegistryHooks;
+import com.agent1.javaagent.weizhi.WeizhiScriptPackageEnsurer;
 import java.nio.file.Files;
 import com.agent1.javaagent.weizhi.WeizhiRuntimeOptions;
 import com.agent1.javaagent.weizhi.WeizhiWorkspaceTools;
@@ -114,6 +117,12 @@ public final class ProductivityCli {
         ScriptToolBridge bridge = scriptEngine.isPresent() ? scriptTools : null;
 
         Path projectRoot = resolveProjectRoot(agentRoot);
+        ScriptWeizhiPackageEnsurer packageEnsurer = scriptEngine.isPresent()
+            ? WeizhiScriptPackageEnsurer.optional(agentRoot)
+            : null;
+        java.lang.Runnable registryRefresh = scriptEngine.isPresent()
+            ? WeizhiPackageRegistryHooks.refreshTask(agentRoot)
+            : null;
         ProductivityAgentHost host = new ProductivityAgentHost(
             agentRoot,
             runtimeConfig,
@@ -121,7 +130,10 @@ public final class ProductivityCli {
             WeizhiHostSupport.scriptTimeoutMs(),
             "",
             bridge,
-            WeizhiWorkspaceTools.provider(agentRoot, projectRoot)
+            WeizhiWorkspaceTools.provider(agentRoot, projectRoot),
+            null,
+            packageEnsurer,
+            registryRefresh
         );
         try (host) {
             ensureActiveSession(host);
