@@ -55,17 +55,27 @@ if [[ ! -d "${TARGET}/android" ]]; then
 fi
 
 apply_weizhi_patches() {
-  local patch="${REPO_ROOT}/scripts/patches/weizhi-ndk-realpath-path-max.patch"
+  local ndk_patch="${REPO_ROOT}/scripts/patches/weizhi-ndk-realpath-path-max.patch"
   local test_c="${TARGET}/tests/test_engine.c"
-  if [[ ! -f "${patch}" ]] || [[ ! -f "${test_c}" ]]; then
-    return 0
+  if [[ -f "${ndk_patch}" ]] && [[ -f "${test_c}" ]]; then
+    if grep -q 'folder_real\[PATH_MAX\]' "${test_c}"; then
+      echo "==> weizhi NDK realpath 补丁已应用，跳过"
+    else
+      echo "==> apply weizhi patch: NDK realpath 需 PATH_MAX 缓冲区（Android NDK fortify）"
+      patch -p1 -d "${TARGET}" < "${ndk_patch}"
+    fi
   fi
-  if grep -q 'folder_real\[PATH_MAX\]' "${test_c}"; then
-    echo "==> weizhi NDK realpath 补丁已应用，跳过"
-    return 0
+
+  local pkg_installer="${TARGET}/java/com/weizhi/packages/PackageInstaller.java"
+  local pkg_patch="${REPO_ROOT}/scripts/patches/weizhi-package-installer-java11.patch"
+  if [[ -f "${pkg_patch}" ]] && [[ -f "${pkg_installer}" ]]; then
+    if grep -q 'readUtf8' "${pkg_installer}"; then
+      echo "==> weizhi PackageInstaller Java 11 补丁已应用，跳过"
+    else
+      echo "==> apply weizhi patch: PackageInstaller 避免 Android 上 Files.readString"
+      patch -p1 -d "${TARGET}" < "${pkg_patch}"
+    fi
   fi
-  echo "==> apply weizhi patch: NDK realpath 需 PATH_MAX 缓冲区（Android NDK fortify）"
-  patch -p1 -d "${TARGET}" < "${patch}"
 }
 
 apply_weizhi_patches

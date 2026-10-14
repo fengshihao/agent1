@@ -1,6 +1,5 @@
-package com.agent1.android.productivity.logic.business
+package com.agent1.android.productivity.ui.viewmodel
 
-import com.agent1.android.productivity.ui.viewmodel.ChatLine
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

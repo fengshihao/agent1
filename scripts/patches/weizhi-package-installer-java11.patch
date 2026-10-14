@@ -1,0 +1,39 @@
+diff --git a/java/com/weizhi/packages/PackageInstaller.java b/java/com/weizhi/packages/PackageInstaller.java
+index 6cacc71..71e2a90 100644
+--- a/java/com/weizhi/packages/PackageInstaller.java
++++ b/java/com/weizhi/packages/PackageInstaller.java
+@@ -71,7 +71,7 @@ public final class PackageInstaller {
+             if (!Files.isRegularFile(manifest)) {
+                 throw new IOException("package zip missing manifest.json");
+             }
+-            String json = Files.readString(manifest, StandardCharsets.UTF_8);
++            String json = readUtf8(manifest);
+             Map<String, Object> root = MiniJson.object(json);
+             String name = MiniJson.str(root, "name");
+             String version = MiniJson.str(root, "version");
+@@ -96,7 +96,7 @@ public final class PackageInstaller {
+         if (!Files.isRegularFile(index)) {
+             return new LinkedHashMap<>();
+         }
+-        String json = Files.readString(index, StandardCharsets.UTF_8);
++        String json = readUtf8(index);
+         Map<String, Object> raw = MiniJson.object(json);
+         Map<String, String> out = new LinkedHashMap<>();
+         for (Map.Entry<String, Object> e : raw.entrySet()) {
+@@ -134,7 +134,15 @@ public final class PackageInstaller {
+                     .append('"');
+         }
+         sb.append("}\n");
+-        Files.writeString(weizhiHome.resolve(INDEX_FILE), sb.toString(), StandardCharsets.UTF_8);
++        writeUtf8(weizhiHome.resolve(INDEX_FILE), sb.toString());
++    }
++
++    private static String readUtf8(Path path) throws IOException {
++        return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
++    }
++
++    private static void writeUtf8(Path path, String content) throws IOException {
++        Files.write(path, content.getBytes(StandardCharsets.UTF_8));
+     }
+ 
+     private static String escapeJson(String s) {
