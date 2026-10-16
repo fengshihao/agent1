@@ -22,7 +22,7 @@ object ProductivityToolCapabilities {
         add("todo_write：会话短清单，跨轮记住计划；空数组清空")
         add("web_search：Tavily（在模型配置中填写 Web Search Key 后生效）")
         if (weizhiIntegrated) {
-            add("run_js（Weizhi 脚本，\$tools 桥接）；文档等功能写在脚本里，例如 catalog 的 docx.js")
+            add("run_js（Weizhi 脚本，\$tools 桥接）；文档等功能写在包里，例如 import from \"weizhi:docx\"")
             add("grep · glob · zip · bash · load_skill")
             add("WebView 工具 · MCP（侧栏配置 HTTP，脚本里 \$mcp.名称.工具）")
         } else {

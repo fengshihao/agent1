@@ -10,11 +10,11 @@
 
 | 项 | 位置 |
 |----|------|
-| 脚本真源 | `agent_core/.../catalog/scripts/pptx.js`、`pptx-build.js` |
-| Android 副本 | `android_agent/app/src/main/assets/office/` |
+| 脚本真源 | `agent_core/.../weizhi-packages/pptx@1.0.0/`、`pptx-build@1.0.0/` |
+| Android 副本 | `android_agent/app/src/main/assets/weizhi-packages/` |
 | Skill | `agent-home/skills/pptx/SKILL.md`（随 core 内置） |
 | 调用卡 | `office-api-cards.jsonl` 的 `pptx.render` / `pptx.build` |
-| 调用 | `import { renderPptx } from "pptx.js"` 或 `buildPptx` from `pptx-build.js` |
+| 调用 | `import { renderPptx } from "weizhi:pptx"` 或 `buildPptx` from `weizhi:pptx-build` |
 | 测试 | `PptxOfficeIntegrationTest`（需 `libweizhijni`） |
 
-与 Word 共用 `OfficeCatalogScripts`。见 [WEIZHI_DOCX.md](./WEIZHI_DOCX.md)。
+与 Word 一样走 Weizhi Package。见 [WEIZHI_DOCX.md](./WEIZHI_DOCX.md)。

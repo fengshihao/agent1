@@ -165,6 +165,9 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // 桌面从 classpath 装 weizhi-packages；Android 只用 assets/weizhi-packages。
+            excludes += "/agent-home/weizhi-packages/**"
+            excludes += "/agent-home/catalog/scripts/**"
         }
     }
     sourceSets.named("main") {
@@ -181,6 +184,20 @@ android {
             val impl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
             impl.outputFileName = "agent1-android-${buildType.name}.apk"
         }
+    }
+}
+
+// 源码联编时，Java 与 libweizhijni.so 必须同一次 weizhi 树产物。
+// copyNativeLib 只拷贝已有 so；这里在拷贝前补齐 nativeSetPackageRoot，避免 release run_js 链接失败。
+if (weizhiAndroidRoot != null && findProject(":weizhi") != null) {
+    val ensureWeizhiJni = tasks.register<Exec>("ensureWeizhiAndroidJni") {
+        group = "weizhi"
+        description = "Rebuild libweizhijni.so when JNI sources are newer than the packaged library"
+        commandLine("bash", rootProject.file("../scripts/ensure-weizhi-android-jni.sh").absolutePath)
+    }
+    project(":weizhi").afterEvaluate {
+        val hook = tasks.findByName("copyNativeLib") ?: tasks.named("preBuild").get()
+        hook.dependsOn(ensureWeizhiJni)
     }
 }
 

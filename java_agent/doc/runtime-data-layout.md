@@ -27,7 +27,7 @@
 | `docs/system/` | 目录 | 预留；bootstrap **不**拷贝出厂手册，升级时会删除一批已退役文件名 |
 | `docs/capabilities/` | 目录 | 能力说明 markdown + SQLite 索引 |
 | `shared/catalog/skills/` | 目录 | 目录 Skill |
-| `shared/catalog/scripts/` | 目录 | `run_js` / QuickJS 脚本（含 `svg-raster.js`、Office 脚本等） |
+| `shared/catalog/scripts/` | 目录 | 用户或 catalog 安装的脚本。内置 Office / SVG 不放这里 |
 | `shared/catalog/libs/js/` | 目录 | JS 库；sync 后可镜像到 scripts |
 | `shared/catalog/libs/qjs/` | 目录 | 纯 JS QJS bundle |
 | `shared/catalog/assets/images/` | 目录 | 目录图片资源 |
@@ -37,7 +37,7 @@
 | `shared/local/skills/` | 目录 | 晋升 / 本地 Skill |
 | `shared/local/scripts/` | 目录 | 晋升脚本 |
 
-bootstrap 还会从 classpath `agent-home` 补齐空缺的 catalog 脚本（如 `svg-raster.js`）；Weizhi 联编时 Office 脚本也可从 weizhi 资源拷贝。
+bootstrap 从 classpath `agent-home` 补齐 HTML 模板。内置 Office / SVG 由 `WeizhiBundledPackages` 从 `agent-home/weizhi-packages` 装到 `weizhi-home`。
 
 | 路径 | 何时出现 | 作用 |
 |------|----------|------|

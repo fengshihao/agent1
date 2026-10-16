@@ -1,6 +1,6 @@
 # pptx.js — 幻灯片模型 + 渲染
 
-真源脚本：`agent_core/src/main/resources/agent-home/catalog/scripts/pptx.js`（及 `pptx-build.js`）。Android 副本：`android_agent/app/src/main/assets/office/`。QuickJS **ES module**，无 npm。Agent 检索见 `office-api-cards.jsonl` 的 `pptx.render` / `pptx.build`。
+真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/pptx@1.0.0/pptx.js`（及 `pptx-build`）。Android 副本：`android_agent/app/src/main/assets/weizhi-packages/`。QuickJS **ES module**，无 npm。Agent 检索见 `office-api-cards.jsonl` 的 `pptx.render` / `pptx.build`。
 
 形状、背景和坐标由渲染器绘制。调用方选择版式、主题和主题色名。
 
