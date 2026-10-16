@@ -6,6 +6,9 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- GitHub **Release** 工作流：支持手动发版、每周定时、以及 `master` 上每 N 个提交（默认 10，可配置 `RELEASE_EVERY_N_COMMITS`）；见 `doc/发布/GITHUB_RELEASE.md`。
+
 ### Removed
 - **Python CLI 永久下线**：删除 `python_agent/` 与 `install-python-agent.*` / `sync-python-agent.sh`；只读快照见分支 `archive/python-agent`。
 
