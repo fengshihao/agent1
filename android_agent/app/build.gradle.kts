@@ -72,6 +72,10 @@ android {
         applicationId = "com.agent1.android"
         minSdk = 26
         targetSdk = 34
+        // 只出 arm64。依赖里的 androidx graphics-path 会带 armeabi-v7a / x86 / x86_64，这里丢掉。
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
         versionCode = agent1VersionCode()
         versionName = agent1VersionName()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
