@@ -119,6 +119,50 @@ public final class CapabilityIndexStore {
         }
     }
 
+    /**
+     * 用一批来源相同的行换掉该来源的旧行。新行若与种子卡 id 相同，覆盖种子卡。
+     * 注册表每次只有每个 name 的当前版本，所以这里不会留下上一版的卡片。
+     */
+    public static void replaceSource(Path agentRoot, String source, List<CapabilityRecord> records) {
+        if (source == null || source.isBlank()) {
+            throw new IllegalArgumentException("source required");
+        }
+        ensure(agentRoot);
+        Path dbPath = CapabilityDatabasePaths.databaseFile(agentRoot);
+        try (CapabilityDatabase db = open(dbPath)) {
+            List<String> previous = new ArrayList<>();
+            try (CapabilityRowCursor cursor = db.query(
+                "SELECT id FROM capability WHERE source = ?",
+                List.of(source)
+            )) {
+                while (cursor.next()) {
+                    previous.add(cursor.getString("id"));
+                }
+            }
+            boolean fts = tableExists(db, "capability_fts");
+            for (String id : previous) {
+                deleteCapabilityId(db, fts, id);
+            }
+            if (records != null) {
+                for (CapabilityRecord record : records) {
+                    if (!record.id().isEmpty()) {
+                        deleteCapabilityId(db, fts, record.id());
+                    }
+                }
+                insertAll(db, records);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("replace capability source failed: " + source, e);
+        }
+    }
+
+    private static void deleteCapabilityId(CapabilityDatabase db, boolean fts, String id) throws SQLException {
+        db.execute("DELETE FROM capability WHERE id = ?", List.of(id));
+        if (fts) {
+            db.execute("DELETE FROM capability_fts WHERE id = ?", List.of(id));
+        }
+    }
+
     public static List<CapabilityHit> search(
         Path agentRoot,
         String query,

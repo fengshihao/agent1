@@ -4,6 +4,7 @@ import android.content.Context
 import com.agent1.javaagent.config.AgentRuntimeConfig
 import com.agent1.javaagent.script.MutableScriptToolBridge
 import com.agent1.javaagent.session.ProductivityAgentHost
+import com.agent1.javaagent.weizhi.WeizhiPackageSync
 import java.nio.file.Path
 
 /** 由 {@link com.agent1.android.productivity.logic.business.ProductivityHostAssembly} 反射加载。 */
@@ -16,6 +17,7 @@ object WeizhiHostLoader {
         config: AgentRuntimeConfig,
     ): ProductivityAgentHost {
         com.agent1.javaagent.agent.AgentHomeBootstrap.ensure(agentRoot)
+        WeizhiPackageSync.refreshIndexAsync(agentRoot)
         val scriptTools = MutableScriptToolBridge()
         return ProductivityAgentHost(
             agentRoot,

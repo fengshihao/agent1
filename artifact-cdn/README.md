@@ -1,6 +1,6 @@
 # 通用制品 CDN
 
-这个目录是发布侧，不是 Agent 运行时。它把一个源目录打成 zip，计算 sha256，写进清单，再上传到已有的阿里云 OSS / CDN。下载工具只负责把 zip 取回来并校验，不负责安装。
+这个目录是发布侧，不是 Agent 运行时。它把一个源目录打成 zip，计算 sha256，写进清单，再用 SSH 拷到国优服务器的网站根。下载工具只负责把 zip 取回来并校验，不负责安装。公网只能下载，不能上传。
 
 微智 JS 包是第一种 `kind=weizhi_package`。Skill 以后用同一套 `pack` / `fetch` / `upload.sh`，安装器另写，把校验过的 zip 解到 Skill 目录。
 
@@ -28,7 +28,7 @@ zip 根就是源目录里的文件（含 `manifest.json`），不套一层父目
 
 ```bash
 cd artifact-cdn
-export ARTIFACT_CDN_BASE_URL=https://cdn.example.com/agent1/
+export ARTIFACT_CDN_BASE_URL=https://agentone.guoyoutech.cn/
 node pack.mjs \
   --root ../agent_core/src/main/resources/agent-home/weizhi-packages \
   --kind weizhi_package \
@@ -55,21 +55,40 @@ node fetch.mjs \
 
 ## 上传
 
-先安装 [ossutil](https://help.aliyun.com/document_detail/120075.html) 并在本机 `ossutil config`。密钥不要写进 git。
+`./upload.sh` 用本机 SSH 密钥把 `dist/` 拷到 `root@49.232.7.38:/var/www/agentone`。没有公网上传接口。
 
 ```bash
-cp cdn.local.env.example cdn.local.env
-# 编辑 OSS_BUCKET、OSS_PREFIX、ARTIFACT_CDN_BASE_URL，使公网根与 pack --base-url 一致
+cd artifact-cdn
 ./upload.sh
 ```
 
 顺序对所有 kind 相同：全部 zip，然后 `registry/stable.json`，最后 `packages/registry/stable.json`。这样清单不会指向还没传完的对象。
 
-`UPLOAD_DRY_RUN=1 ./upload.sh` 只打印将执行的 `ossutil cp`。清单里如果是 loopback 地址，默认拒绝上传，避免把本机 URL 发到桶上。
+`UPLOAD_DRY_RUN=1 ./upload.sh` 只打印 `scp`。清单里如果是 loopback 地址，默认拒绝上传。
 
-## 微智默认主机
+服务器上的目录和 `dist/` 一样：
 
-真实 CDN 主机名还没定，不要改微智里的占位主机。等 `ARTIFACT_CDN_BASE_URL` 是正式 `https` 域名后，按 [WEIZHI_HOST.md](WEIZHI_HOST.md) 另开微智仓库的 PR。
+```text
+/var/www/agentone/
+  registry/stable.json
+  packages/registry/stable.json
+  packages/<name>/<version>/<name>-<version>.zip
+  skills/<name>/<version>/<name>-<version>.zip
+```
+
+微智读的是 `https://agentone.guoyoutech.cn/packages/registry/stable.json`。通用清单在 `https://agentone.guoyoutech.cn/registry/stable.json`。打包时加上 `--cards`，把 find_caps 卡片写进对应包的 `cards`。每个包名只保留当前版本，索引按这份清单替换 `source=registry` 的行。
+
+```bash
+node pack.mjs \
+  --root ../agent_core/src/main/resources/agent-home/weizhi-packages \
+  --kind weizhi_package \
+  --base-url "$ARTIFACT_CDN_BASE_URL" \
+  --cards ../agent_core/src/main/resources/agent-home/capabilities/office-api-cards.jsonl
+```
+
+## 公网主机
+
+微智 `PackageRegistryClient` 的默认清单和 `OFFICIAL_HOST` 已是 `agentone.guoyoutech.cn`。见 [WEIZHI_HOST.md](WEIZHI_HOST.md)。
 
 ## 自测
 

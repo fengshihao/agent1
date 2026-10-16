@@ -71,6 +71,7 @@ public final class WeizhiHostSupport {
         } catch (UnsatisfiedLinkError e) {
             return Optional.empty();
         }
+        WeizhiPackageSync.refreshIndexAsync(agentRoot);
         return Optional.of(new WeizhiScriptEngineFactory(options, agentRoot));
     }
 

@@ -7,6 +7,7 @@ import com.agent1.javaagent.script.ScriptEngine
 import com.agent1.javaagent.script.ScriptEngineFactory
 import com.agent1.javaagent.script.ScriptToolBridge
 import com.agent1.javaagent.weizhi.WeizhiIoExecutors
+import com.agent1.javaagent.weizhi.WeizhiPackageSync
 import com.agent1.javaagent.weizhi.WeizhiScriptToolInstaller
 import com.weizhi.WeizhiEngine
 import com.weizhi.caps.AndroidCaps
@@ -37,11 +38,12 @@ class WeizhiAndroidScriptEngineFactory(
 
         private val engine = WeizhiEngine(null, WeizhiIoExecutors.io(16))
         private val workspaceFile = workspace.toFile()
+        private val packageRoot = WeizhiPackages.syncBundled(appContext)
 
         init {
             workspaceFile.mkdirs()
             engine.setFsRoot(workspaceFile.absolutePath)
-            engine.setPackageRoot(WeizhiPackages.syncBundled(appContext))
+            engine.setPackageRoot(packageRoot)
             engine.enableFetch()
             val session = AndroidCaps.Session(appContext, workspaceFile)
             session.confirmer = PlatformHost.Confirmer { message -> confirmer(message) }
@@ -65,6 +67,7 @@ class WeizhiAndroidScriptEngineFactory(
             if (cancellationToken.isCancelled) {
                 throw java.util.concurrent.CancellationException("cancelled")
             }
+            WeizhiPackageSync.beforeEval(userSource, packageRoot, agentRoot)
             val timeout = timeoutMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
             var last = ""
             for (step in WeizhiScriptToolInstaller.evalSteps(

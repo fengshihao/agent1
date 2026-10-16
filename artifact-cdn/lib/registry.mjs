@@ -95,6 +95,25 @@ export function readPackageIdentity(dirName, manifest) {
   return parsed;
 }
 
+export function loadCards(jsonl) {
+  const cards = [];
+  for (const line of jsonl.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
+    cards.push(JSON.parse(trimmed));
+  }
+  return cards;
+}
+
+export function cardsForPackage(name, cards) {
+  const boundary = new RegExp(`weizhi:${name}(?![A-Za-z0-9._-])`);
+  return (cards ?? []).filter(
+    (card) => typeof card.entry === "string" && boundary.test(card.entry),
+  );
+}
+
 export function optionalMetadata(manifest) {
   const extra = {};
   if (typeof manifest.description === "string" && manifest.description.trim()) {
@@ -139,6 +158,9 @@ export function projectWeizhi(index) {
       }
       if (item.capability) {
         projected.capability = item.capability;
+      }
+      if (item.cards) {
+        projected.cards = item.cards;
       }
       return projected;
     });

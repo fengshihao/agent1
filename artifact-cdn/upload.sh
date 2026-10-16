@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # =============================================================================
 # 作用
-#   把 artifact-cdn/dist 上传到已有的阿里云 OSS / CDN 前缀。
+#   把 artifact-cdn/dist 拷到国优服务器的站点根。
 #   先传全部 zip，再覆盖两份清单。不负责安装，也不区分 kind。
 # 配置
 #   同目录 cdn.local.env（勿提交）或环境变量：
-#   ARTIFACT_CDN_BASE_URL、OSS_BUCKET、可选 OSS_PREFIX / OSS_ENDPOINT / OSSUTIL_CONFIG
-#   UPLOAD_DRY_RUN=1 只打印 ossutil 命令。
+#   ARTIFACT_CDN_BASE_URL、ARTIFACT_CDN_SSH、ARTIFACT_CDN_REMOTE_DIR
+#   UPLOAD_DRY_RUN=1 只打印 scp，不连服务器。
+# 站点根布局（与 dist 相同）
+#   registry/stable.json
+#   packages/registry/stable.json
+#   packages/<name>/<version>/<name>-<version>.zip
+#   skills/<name>/<version>/<name>-<version>.zip
 # =============================================================================
 set -euo pipefail
 
@@ -21,23 +26,16 @@ if [[ "${ARTIFACT_CDN_SKIP_LOCAL_ENV:-}" != "1" && -f "${ENV_FILE}" ]]; then
   set +a
 fi
 
-: "${OSS_BUCKET:?设置 OSS_BUCKET（cdn.local.env 或环境变量）}"
-: "${ARTIFACT_CDN_BASE_URL:?设置 ARTIFACT_CDN_BASE_URL，且必须与 pack --base-url 一致}"
+: "${ARTIFACT_CDN_BASE_URL:=https://agentone.guoyoutech.cn/}"
+SSH_TARGET="${ARTIFACT_CDN_SSH:-root@49.232.7.38}"
+REMOTE_DIR="${ARTIFACT_CDN_REMOTE_DIR:-/var/www/agentone}"
 
-if [[ ! "${OSS_BUCKET}" =~ ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$ ]]; then
-  echo "OSS_BUCKET 不合法" >&2
+if [[ ! "${SSH_TARGET}" =~ ^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+$ ]]; then
+  echo "ARTIFACT_CDN_SSH 不合法" >&2
   exit 1
 fi
-
-PREFIX="${OSS_PREFIX:-}"
-PREFIX="${PREFIX#/}"
-PREFIX="${PREFIX%/}"
-if [[ -n "${PREFIX}" && ! "${PREFIX}" =~ ^[A-Za-z0-9._/-]+$ ]]; then
-  echo "OSS_PREFIX 不合法" >&2
-  exit 1
-fi
-if [[ "${PREFIX}" == *".."* ]]; then
-  echo "OSS_PREFIX 不能包含 .." >&2
+if [[ "${REMOTE_DIR}" != /* || "${REMOTE_DIR}" == *".."* || "${REMOTE_DIR}" == */ ]]; then
+  echo "ARTIFACT_CDN_REMOTE_DIR 必须是绝对路径，且不能包含 .. 或以 / 结尾" >&2
   exit 1
 fi
 
@@ -65,49 +63,40 @@ if [[ ${#zips[@]} -eq 0 ]]; then
   exit 1
 fi
 
-object_key() {
+remote_path() {
   local rel="${1#"${DIST}/"}"
-  if [[ -n "${PREFIX}" ]]; then
-    printf '%s/%s' "${PREFIX}" "${rel}"
-  else
-    printf '%s' "${rel}"
-  fi
+  printf '%s/%s' "${REMOTE_DIR}" "${rel}"
 }
 
-run_ossutil() {
+run_ssh() {
   if [[ "${UPLOAD_DRY_RUN:-}" == "1" ]]; then
-    printf 'ossutil'
-    local arg
-    for arg in "$@"; do
-      printf ' %s' "${arg}"
-    done
-    printf '\n'
+    printf 'ssh %s %s\n' "${SSH_TARGET}" "$1"
     return 0
   fi
-  if ! command -v ossutil >/dev/null 2>&1; then
-    echo "未找到 ossutil。先在本机安装并 ossutil config，不要把密钥写进仓库。" >&2
-    exit 1
-  fi
-  ossutil "$@"
+  ssh -o BatchMode=yes "${SSH_TARGET}" "$1"
 }
 
-copy_object() {
+run_scp() {
   local src="$1"
-  local key
-  key="$(object_key "${src}")"
-  if [[ -n "${OSSUTIL_CONFIG:-}" && -n "${OSS_ENDPOINT:-}" ]]; then
-    run_ossutil -c "${OSSUTIL_CONFIG}" -e "${OSS_ENDPOINT}" cp -f "${src}" "oss://${OSS_BUCKET}/${key}"
-  elif [[ -n "${OSSUTIL_CONFIG:-}" ]]; then
-    run_ossutil -c "${OSSUTIL_CONFIG}" cp -f "${src}" "oss://${OSS_BUCKET}/${key}"
-  elif [[ -n "${OSS_ENDPOINT:-}" ]]; then
-    run_ossutil -e "${OSS_ENDPOINT}" cp -f "${src}" "oss://${OSS_BUCKET}/${key}"
-  else
-    run_ossutil cp -f "${src}" "oss://${OSS_BUCKET}/${key}"
+  local dest="$2"
+  if [[ "${UPLOAD_DRY_RUN:-}" == "1" ]]; then
+    printf 'scp %s %s:%s\n' "${src}" "${SSH_TARGET}" "${dest}"
+    return 0
   fi
+  scp -o BatchMode=yes "${src}" "${SSH_TARGET}:${dest}"
 }
+
+parents=""
+for zip in "${zips[@]}"; do
+  parent="$(dirname "$(remote_path "${zip}")")"
+  parents="${parents} ${parent}"
+done
+parents="${parents} $(dirname "$(remote_path "${GENERIC}")") $(dirname "$(remote_path "${PROJECTION}")")"
+# shellcheck disable=SC2086
+run_ssh "mkdir -p ${parents}"
 
 for zip in "${zips[@]}"; do
-  copy_object "${zip}"
+  run_scp "${zip}" "$(remote_path "${zip}")"
 done
-copy_object "${GENERIC}"
-copy_object "${PROJECTION}"
+run_scp "${GENERIC}" "$(remote_path "${GENERIC}")"
+run_scp "${PROJECTION}" "$(remote_path "${PROJECTION}")"

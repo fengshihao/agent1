@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { mkdir, readdir, readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -9,7 +9,9 @@ import {
   artifactRelPath,
   assertBaseUrl,
   joinUrl,
+  cardsForPackage,
   kindRoot,
+  loadCards,
   optionalMetadata,
   projectWeizhi,
   readJson,
@@ -18,13 +20,13 @@ import {
   writeJson,
 } from "./lib/registry.mjs";
 
-export async function packRoot({ root, kind, baseUrl, outDir, channel = "stable" }) {
+export async function packRoot({ root, kind, baseUrl, outDir, channel = "stable", cards = [] }) {
   assertBaseUrl(baseUrl);
   kindRoot(kind);
   const dirs = await packageDirs(root);
   const built = [];
   for (const dir of dirs) {
-    built.push(await packOne(dir, { kind, baseUrl, outDir }));
+    built.push(await packOne(dir, { kind, baseUrl, outDir, cards }));
   }
   built.sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
 
@@ -54,10 +56,11 @@ async function packageDirs(root) {
   return dirs.sort().map((name) => path.join(root, name));
 }
 
-async function packOne(dir, { kind, baseUrl, outDir }) {
+async function packOne(dir, { kind, baseUrl, outDir, cards }) {
   const manifestPath = path.join(dir, "manifest.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   const { name, version } = readPackageIdentity(path.basename(dir), manifest);
+  const matched = cardsForPackage(name, cards);
   const rel = artifactRelPath(kind, name, version);
   const zipPath = path.join(outDir, ...rel.split("/"));
   await mkdir(path.dirname(zipPath), { recursive: true });
@@ -70,6 +73,7 @@ async function packOne(dir, { kind, baseUrl, outDir }) {
     version,
     rel,
     ...optionalMetadata(manifest),
+    ...(matched.length > 0 ? { cards: matched } : {}),
     artifact: {
       url: joinUrl(baseUrl, rel),
       sha256: sha256Hex(bytes),
@@ -92,6 +96,16 @@ function publicRecord(item) {
   }
   if (item.capability) {
     record.capability = item.capability;
+  } else if (item.cards && item.cards.length > 0) {
+    const first = item.cards[0];
+    record.capability = {
+      title: first.title ?? "",
+      summary: first.summary ?? "",
+      entry: first.entry ?? "",
+    };
+  }
+  if (item.cards && item.cards.length > 0) {
+    record.cards = item.cards;
   }
   record.artifact = item.artifact;
   return record;
@@ -197,7 +211,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.root || !args.kind) {
     throw new Error(
-      "usage: node pack.mjs --root <name@version 的父目录> --kind <weizhi_package|skill> --base-url <公网根> [--out dist] [--channel stable]",
+      "usage: node pack.mjs --root <name@version 的父目录> --kind <weizhi_package|skill> --base-url <公网根> [--out dist] [--channel stable] [--cards <jsonl>]",
     );
   }
   const baseUrl = args["base-url"] || process.env.ARTIFACT_CDN_BASE_URL;
@@ -207,12 +221,14 @@ async function main() {
   const outDir = path.resolve(
     args.out || path.join(path.dirname(fileURLToPath(import.meta.url)), "dist"),
   );
+  const cards = args.cards ? loadCards(await readFile(args.cards, "utf8")) : [];
   const { indexPath } = await packRoot({
     root: path.resolve(args.root),
     kind: args.kind,
     baseUrl,
     outDir,
     channel: args.channel || "stable",
+    cards,
   });
   process.stdout.write(`${indexPath}\n`);
 }

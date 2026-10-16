@@ -63,6 +63,7 @@ final class WeizhiScriptEngine implements ScriptEngine {
         if (cancellationToken != null && cancellationToken.isCancelled()) {
             throw new RuntimeException("cancelled");
         }
+        WeizhiPackageSync.beforeEval(userSource, options.packageRoot(), options.mcpAgentRoot());
         String last = "";
         for (WeizhiScriptToolInstaller.EvalStep step : WeizhiScriptToolInstaller.evalSteps(
             userSource,

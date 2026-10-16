@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { projectWeizhi, sha256Hex } from "../lib/registry.mjs";
+import { cardsForPackage, projectWeizhi, sha256Hex } from "../lib/registry.mjs";
 
 const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -75,6 +75,15 @@ function startServer(root) {
     server.listen(0, "127.0.0.1", () => resolvePromise(server));
   });
 }
+
+test("cards attach only to the exact package name", () => {
+  const cards = [
+    { id: "docx.markdownToDocx", entry: 'import { markdownToDocx } from "weizhi:docx";' },
+    { id: "docx.create", entry: 'import { buildDocx } from "weizhi:docx-build";' },
+  ];
+  assert.deepEqual(cardsForPackage("docx", cards).map((card) => card.id), ["docx.markdownToDocx"]);
+  assert.deepEqual(cardsForPackage("docx-build", cards).map((card) => card.id), ["docx.create"]);
+});
 
 test("weizhi projection drops kind and non-package entries", () => {
   const projected = projectWeizhi({
@@ -282,26 +291,24 @@ test("upload prints zips before indexes and refuses loopback urls", async () => 
       "--kind",
       "weizhi_package",
       "--base-url",
-      "https://cdn.example.com/agent1/",
+      "https://agentone.guoyoutech.cn/",
       "--out",
       dist,
     ]);
     const dry = await runAllowFail("bash", [path.join(artifactCdn, "upload.sh")], {
       ARTIFACT_CDN_SKIP_LOCAL_ENV: "1",
       ARTIFACT_CDN_DIST: dist,
-      ARTIFACT_CDN_BASE_URL: "https://cdn.example.com/agent1/",
-      OSS_BUCKET: "example-bucket",
-      OSS_PREFIX: "agent1",
+      ARTIFACT_CDN_BASE_URL: "https://agentone.guoyoutech.cn/",
       UPLOAD_DRY_RUN: "1",
     });
     assert.equal(dry.code, 0, dry.stderr);
-    const lines = dry.stdout.trim().split("\n");
+    const lines = dry.stdout.trim().split("\n").filter((line) => line.startsWith("scp "));
     const firstIndex = lines.findIndex((line) => line.includes("stable.json"));
     assert.ok(firstIndex > 0);
     assert.ok(lines.slice(0, firstIndex).every((line) => line.includes(".zip")));
     assert.match(lines[firstIndex], /registry\/stable\.json/);
     assert.match(lines[lines.length - 1], /packages\/registry\/stable\.json/);
-    assert.match(lines[0], /oss:\/\/example-bucket\/agent1\/packages\//);
+    assert.match(lines[0], /root@49\.232\.7\.38:\/var\/www\/agentone\/packages\//);
 
     await run("pack.mjs", [
       "--root",
@@ -317,12 +324,11 @@ test("upload prints zips before indexes and refuses loopback urls", async () => 
       ARTIFACT_CDN_SKIP_LOCAL_ENV: "1",
       ARTIFACT_CDN_DIST: local,
       ARTIFACT_CDN_BASE_URL: "http://127.0.0.1:9/",
-      OSS_BUCKET: "example-bucket",
       UPLOAD_DRY_RUN: "1",
     });
     assert.notEqual(refused.code, 0);
     assert.match(refused.stderr, /refuse loopback url/);
-    assert.doesNotMatch(refused.stdout, /ossutil/);
+    assert.doesNotMatch(refused.stdout, /scp /);
   } finally {
     await rm(dist, { recursive: true, force: true });
     await rm(local, { recursive: true, force: true });

@@ -1,8 +1,10 @@
 # Weizhi 官方 Package Registry（方案）
 
-> **状态：方案 / 未实现**（P3 远程 + Agent1 透明安装）  
+> **状态：微智下载客户端已实现。桌面和 Android 在执行含 `weizhi:` 的脚本前调用 `ensureInstalled`，并把清单里的当前卡片写入 find_caps（`source=registry`）。**  
+> 官方清单：`https://agentone.guoyoutech.cn/packages/registry/stable.json`（发布目录见仓库 `artifact-cdn/`）。  
+> 每个 `name` 在清单里只有当前一行。换版本是改这一行；find_caps 不保留上一版的卡片。  
 > 前置：[WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md)（#89 已合：内置 `weizhi:<name>` + `setPackageRoot`）  
-> 微智规格：[WEIZHI_PACKAGES.md](https://github.com/fengshihao/weizhi/blob/master/docs/WEIZHI_PACKAGES.md)（P3 远程目录仍为「未实现」）
+> 微智规格：[WEIZHI_PACKAGES.md](https://github.com/fengshihao/weizhi/blob/master/docs/WEIZHI_PACKAGES.md)
 
 ## 1. 目标体验
 
@@ -58,6 +60,8 @@ Registry URL（可配置，默认微智官方）
 - 或 `agent.manifest.json` 新字段（与 `AGENT1_CATALOG_MANIFEST_URL` 并列）
 
 ## 5. Agent1 集成点
+
+已落地：`WeizhiPackageSync` 在桌面和 Android 的 `evalForAgent` 之前扫描 `weizhi:`，调用 `PackageRegistryClient.ensureInstalled`。同一份 `packages/registry/stable.json` 里的 `cards`（没有 cards 时用 `capability`）整批替换 find_caps 中 `source=registry` 的行。内置种子保留；同 id 时清单行覆盖种子。每个 name 只有清单上的当前版本。`AGENT1_WEIZHI_PACKAGE_REGISTRY=off` 关闭。这些包已经装在本地且网络失败时，脚本继续跑。
 
 ### 5.1 find_caps
 
