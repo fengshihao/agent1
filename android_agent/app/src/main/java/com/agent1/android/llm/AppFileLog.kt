@@ -125,8 +125,12 @@ object AppFileLog {
             }
         }
 
-        override fun flush() {}
+        override fun flush() {
+            // 逐条直写日志文件，无缓冲，无需 flush
+        }
 
-        override fun close() {}
+        override fun close() {
+            // 持续追加写，没有需要关闭的资源
+        }
     }
 }
