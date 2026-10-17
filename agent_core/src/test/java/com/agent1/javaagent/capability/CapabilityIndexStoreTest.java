@@ -42,6 +42,29 @@ class CapabilityIndexStoreTest {
         assertTrue(hits.stream().anyMatch(h -> h.entry().contains("renderPptx")));
     }
 
+    /** T7：office 卡显式 kind（weizhi_package/1.2/agent1）；weizhi 卡无 kind 仍按前缀推断兜底。 */
+    @Test
+    void officeCardsCarryExplicitKindAndWeizhiCardsInferFallback() throws Exception {
+        // 记录级：office 卡显式 kind/weight/source 全部生效
+        var records = CapabilitySeedLoader.loadBundledSeed();
+        assertTrue(records.stream().anyMatch(r -> r.id().equals("html2pptx.render")
+            && "weizhi_package".equals(r.kind()) && r.weight() == 1.2 && "agent1".equals(r.source())),
+            "office 卡应显式 weizhi_package/1.2/agent1");
+        assertTrue(records.stream().anyMatch(r -> r.id().equals("pptx.render")
+            && "weizhi_package".equals(r.kind()) && r.weight() == 1.2));
+
+        // weizhi-api-cards.jsonl（真源随 weizhi）无 kind 字段：android.* 仍按前缀推断 caps
+        assertTrue(records.stream().anyMatch(r -> r.id().equals("android.share.send")
+            && "caps".equals(r.kind()) && "weizhi".equals(r.source())),
+            "weizhi 卡未显式 kind 时按前缀推断 caps");
+
+        // 检索侧：kind 过滤与入库一致
+        Path agentRoot = temp.resolve("agentRootKind");
+        CapabilityIndexStore.ensure(agentRoot);
+        var hits = CapabilityIndexStore.search(agentRoot, "html2pptx", List.of("weizhi_package"), "any", 5);
+        assertTrue(hits.stream().anyMatch(h -> h.id().equals("html2pptx.render")));
+    }
+
     @Test
     void staleSeedRevisionRebuildsMissingPptxCards() throws Exception {
         Path agentRoot = temp.resolve("agentRootStalePptx");

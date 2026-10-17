@@ -124,7 +124,11 @@
 ### T7 —（低优）office 能力卡 kind 显式化
 
 **目标**：`office-api-cards.jsonl` 各卡显式补 `kind` 字段（现在靠 `parseWeizhiCard` 按 id 前缀推断）；顺带评估 `search-index.seed.jsonl` 与云卡 kind 枚举统一文档化（`docs/system/`）。
-**状态**：未开始
+**状态**：完成（2026-10-17，commit 见 git log：feat(capability): office 卡 kind 显式化）
+**落地形态与关键结论**：
+- `office-api-cards.jsonl` 7 张卡（docx×4 / pptx×2 / html2pptx×1）显式补 `kind:"weizhi_package"` + `weight:1.2` + `source:"agent1"`；`parseWeizhiCard` 改为**显式优先、id 前缀推断兜底**（兜底仅供 weizhi-api-cards.jsonl 过渡——真源随 weizhi 的 `docs/api-cards.jsonl` 无 kind 字段，weizhi 侧补齐后可移除）。推断兜底顺带把 `html2pptx.*` 纳入 office 前缀（此前 weight 误 1.1）。
+- kind 枚举文档化：`agent-home/docs/system/capability-kinds.md`（运行时只读区，read_file 可达）——6 个 kind（builtin / bridge_tool / caps / weizhi_package / skill / web_lib）× 含义 / id 约定 / source 约定，静态 seed 三文件现状 + 动态来源（registry / package_skill / web_lib sync）+ 变更规则（新卡必须显式 kind；对齐 AGENTS.md「能力一律微智 Package 形态」）。评估结论：`docs/system/` 是 agentRoot 运行时目录（WorkspaceSandbox 只读区）而非仓库文档目录，故枚举文档放 agent-home 资源树随宿主分发。
+- 测试：`CapabilityIndexStoreTest.officeCardsCarryExplicitKindAndWeizhiCardsInferFallback`（loadBundledSeed 记录级断言显式 kind/weight/source + android.* 推断 caps 兜底 + 检索侧 kind 过滤一致）。
 
 ## 进度记录（每任务完成后追加一行）
 
@@ -136,3 +140,4 @@
 - 2026-10-17 T4 完成：`renderHtmlDeck mode:"native"` 一次 webview 提取+区域截图、applyClips 补真、失败回退截图（详见 T4 小节）+ `Html2PptxScriptTest` 新四测全绿 + SKILL.md v0.2 双模式 + Android 同步。下一个未开始任务：T5。
 - 2026-10-17 T5 完成：三方对比样例（截图 4.0MB / native 235KB / pptx.js 12KB）+ 每页 verdict（截图 4/4、native 3/4+1 已知限制「渐变字退化黑字」记入 SKILL、pptx.js 定位不变）；验收记录见 T5 小节。下一个未开始任务：T6。
 - 2026-10-17 T6 完成：`image_search`（Tavily include_images，Key 与 web_search 共用）/ `image_download`（PublicHttpUrl + https + 10MB + 魔数定扩展名）+ builtin 能力卡 + MockWebServer 测试；顺带修稳 `AgentRuntimeConfigTest` 的 TAVILY_API_KEY 环境敏感（详见 T6 小节）。下一个未开始任务：T7。
+- 2026-10-17 T7 完成：office 卡显式 kind/weight/source（显式优先、推断兜底）+ kind 枚举文档 `agent-home/docs/system/capability-kinds.md`（详见 T7 小节）。**20-A T0–T7 全部完成**；遗留：PowerPoint/WPS/Keynote 人工打开验收（T3/T4/T5 深页）、html2pptx@0.2.0 云端重打（T0 发布侧待办）、渐变字 native 近似（T5 后续改进项）。

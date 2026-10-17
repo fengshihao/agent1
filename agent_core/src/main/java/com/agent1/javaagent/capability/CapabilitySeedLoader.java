@@ -110,13 +110,25 @@ public final class CapabilitySeedLoader {
         );
     }
 
-    /** 微智卡片没有 kind / doc_path；{@code params} 放进 requires_json，不作为下一步文档。 */
+    /**
+     * 调用卡：kind/weight/source 显式声明优先（office-api-cards.jsonl 已全部显式化，
+     * 见 docs/system/capability-kinds.md）；未声明的按 id 前缀推断兜底（weizhi 真源
+     * {@code docs/api-cards.jsonl} 同步侧）。{@code params} 放进 requires_json。
+     */
     static CapabilityRecord parseWeizhiCard(String jsonLine) throws Exception {
         JsonNode node = MAPPER.readTree(jsonLine);
         String id = node.path("id").asText("");
-        String kind = id.startsWith("android.") ? "caps" : "weizhi_package";
+        boolean office = id.startsWith("docx.") || id.startsWith("pptx.") || id.startsWith("html2pptx.");
+        String kind = node.has("kind") && !node.path("kind").asText("").isBlank()
+            ? node.path("kind").asText()
+            : (id.startsWith("android.") ? "caps" : "weizhi_package");
         String requires = node.has("params") && !node.get("params").isNull() ? node.get("params").toString() : "";
-        double weight = id.startsWith("docx.") || id.startsWith("pptx.") ? 1.2 : 1.1;
+        double weight = node.has("weight") && node.path("weight").isNumber()
+            ? node.path("weight").asDouble()
+            : (office ? 1.2 : 1.1);
+        String source = node.has("source") && !node.path("source").asText("").isBlank()
+            ? node.path("source").asText()
+            : (office ? "agent1" : "weizhi");
         return new CapabilityRecord(
             id,
             kind,
@@ -128,7 +140,7 @@ public final class CapabilitySeedLoader {
             "",
             "",
             requires,
-            id.startsWith("docx.") || id.startsWith("pptx.") ? "agent1" : "weizhi",
+            source,
             weight
         );
     }
