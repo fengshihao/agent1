@@ -1,6 +1,6 @@
 # html2pptx.js — HTML 自由版式生成 PPT（v0.1 截图模式）
 
-真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx@0.1.0/html2pptx.js`。Android 副本：`android_agent/app/src/main/assets/weizhi-packages/`。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`，触发说明见 `agent-home/skills/html2pptx/SKILL.md`。
+真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx@0.2.0/html2pptx.js`。Android 副本：`android_agent/app/src/main/assets/weizhi-packages/`。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`；使用说明（skill 正文）**随包分发**：包内 `SKILL.md`（manifest 的 `skill` 字段声明），安装后由 `PackageSkills` 写入 `kind=skill` 能力卡（`source=package_skill`），`find_caps` 查 html2pptx 会同时命中包卡与 skill 卡，正文由 `AgentSkillLoader` 从已安装包加载。
 
 定位：`pptx.js`（[OFFICE_PPTX_API.md](OFFICE_PPTX_API.md)）负责快速结构化 deck；`html2pptx` 负责**版式自由**——整页 slide HTML 用 CSS 排版，渐变、阴影、卡片、大数字、图文混排、内嵌图表（echarts/mermaid，CDN）都可以。v0.1 为截图模式：每页导出为一张全幅图片页（观感优先、不可二次编辑）；原生可编辑转换是既定方向（见 [规划 20 号文档](../规划/自进化Agent/20-Office排版升级与视觉素材管线.md)）。
 

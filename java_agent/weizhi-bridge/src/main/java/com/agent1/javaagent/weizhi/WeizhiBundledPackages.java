@@ -1,5 +1,8 @@
 package com.agent1.javaagent.weizhi;
 
+import com.agent1.javaagent.skill.PackageSkills;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weizhi.packages.PackageInstaller;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,17 +14,23 @@ import java.util.List;
 /**
  * 将 classpath {@code agent-home/weizhi-packages/<name>@<version>/} 安装到
  * {@code <agentRoot>/weizhi-home}，供 {@link com.weizhi.WeizhiEngine#setPackageRoot} 使用。
+ * 包内 manifest 声明的 {@code skill} 文件（SKILL.md）一并安装，装完把随包 skill 卡
+ * 写入 find_caps（见 {@link PackageSkills}）。
  */
 public final class WeizhiBundledPackages {
 
     public static final String VERSION = "1.0.0";
     public static final String PPTX_VERSION = "1.1.0";
-    public static final String HTML2PPTX_VERSION = "0.1.0";
+    public static final String HTML2PPTX_VERSION = "0.2.0";
 
     public static final List<String> BUNDLED_PACKAGE_NAMES =
         List.of("docx", "docx-raw", "docx-build", "pptx", "pptx-build", "svg-raster", "html2pptx");
 
     private static final String RESOURCE_ROOT = "agent-home/weizhi-packages/";
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    /** 启动后台线程与 engine open 可能并发安装同一批包，串行化避免互相删目录。 */
+    private static final Object INSTALL_LOCK = new Object();
 
     private WeizhiBundledPackages() {
     }
@@ -38,10 +47,13 @@ public final class WeizhiBundledPackages {
      */
     public static String syncFromClasspath(Path agentRoot) throws IOException {
         Path home = weizhiHome(agentRoot);
-        Files.createDirectories(home);
-        for (String name : BUNDLED_PACKAGE_NAMES) {
-            installBundledPackage(home, name, bundledVersion(name));
+        synchronized (INSTALL_LOCK) {
+            Files.createDirectories(home);
+            for (String name : BUNDLED_PACKAGE_NAMES) {
+                installBundledPackage(home, name, bundledVersion(name));
+            }
         }
+        PackageSkills.syncCapabilityCards(agentRoot);
         return home.toAbsolutePath().toString();
     }
 
@@ -84,11 +96,25 @@ public final class WeizhiBundledPackages {
         try {
             String entryName = entryFileName(name);
             copyResourceFile(prefix + "/manifest.json", temp.resolve("manifest.json"));
+            String skillFile = manifestSkillFile(temp.resolve("manifest.json"));
+            if (skillFile != null) {
+                copyResourceFile(prefix + "/" + skillFile, temp.resolve(skillFile));
+            }
             copyResourceFile(prefix + "/" + entryName, temp.resolve(entryName));
             PackageInstaller.installPackageDirectory(weizhiHome, name, version, temp);
         } finally {
             deleteRecursive(temp);
         }
+    }
+
+    /** manifest 里 {@code skill} 字段声明的随包 skill 文件名；没有声明返回 null。 */
+    private static String manifestSkillFile(Path manifest) throws IOException {
+        JsonNode node = MAPPER.readValue(manifest.toFile(), JsonNode.class);
+        String declared = node.path("skill").asText("").trim();
+        if (declared.isEmpty() || declared.contains("/") || declared.contains("\\") || declared.contains("..")) {
+            return null;
+        }
+        return declared;
     }
 
     private static String entryFileName(String packageName) {

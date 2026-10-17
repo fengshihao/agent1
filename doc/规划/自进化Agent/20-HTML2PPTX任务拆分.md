@@ -29,7 +29,14 @@
 **目标**：把 `agent-home/skills/html2pptx/SKILL.md` 迁为随 `html2pptx` 包分发的 skill：包内携带 SKILL 内容，`WeizhiPackageSync` 安装包时写入 `kind=skill` 的能力卡（对齐 web_lib 卡 `source=web_lib` / 包卡 `source=registry` 的既有模式），`AgentSkillLoader`/`CapabilitySearchTool` 能从已安装包加载 skill 正文；云端 registry 分发后本地 find_caps 命中且 kind 正确。内置 skill 文件从 `AgentSkillLoader.BUNDLED_SKILL_RESOURCES` 移除（保留兜底安装）。
 **涉及**：`WeizhiPackageSync.java`、`AgentSkillLoader.java`、`CapabilitySearchTool.java`、`weizhi-packages/html2pptx@0.1.0/`（SKILL 进包，可 bump 0.2.0）、`scripts/build-weizhi-bundled-packages.sh`、相关测试。
 **验收**：`find_caps` 查 html2pptx 同时命中 `weizhi_package` 卡与 `skill` 卡（正文可加载）；删包重装链路测试；门禁绿。
-**状态**：未开始
+**状态**：完成（commit 9bfe11b，2026-10-17）
+**落地形态与关键结论**：
+- `html2pptx@0.2.0`：包内 `SKILL.md`，manifest 声明 `"skill": "SKILL.md"`（显式声明是规范，不做「目录里有就算」的约定式）；`agent-home/skills/html2pptx/` 已删。
+- `agent_core` 新增 `skill/PackageSkills`：扫 `weizhi-home/packages/<name>@<ver>`（只认 `packages-index.json` 当前版本）→ `kind=skill` 卡（id `skill.<name>`、entry `skill:<name>`、`source=package_skill`、weight 1.3）+ 正文加载（source 标 `package`）。`AgentSkillLoader.loadMerged` 合并顺序变为 bundled → package → project → catalog → local。
+- 刷卡调用点三处：桌面 `WeizhiBundledPackages.syncFromClasspath`（engine open 幂等重装后）、registry `WeizhiPackageSync.beforeEval`（`ensureInstalled` 实际装了包才刷）、Android `WeizhiBundledInstall.syncBundled`（engine init + 宿主启动后台线程，与 engine open 共用锁防并发重装）。
+- 桌面/Android 启动各加了后台「装内置包 + 刷卡」线程，闭合**首次 run_js 之前 find_caps 查不到包内 skill** 的空窗（对齐 web_lib 卡启动即有的行为）。
+- **坑**：weizhi 桥的 `EnsureResult` 是 public 字段（`ensured.installed`），不是 record 访问器，写法要看本地 weizhi 树。seed 重建会清掉 `package_skill` 行，但每次 engine open 都会补回；云端 registry 的 html2pptx 条目发布前，`beforeEval` 对它走 offline-fallback（本地已装即放行），不会降级。
+- **待办（发布侧）**：`artifact-cdn` 需 `pack.mjs + upload.sh` 重打 html2pptx@0.2.0（含 SKILL.md）并更新云端 stable.json，否则联网设备 ensure 时 registry 无此包走 fallback（可接受）。
 
 ### T1 — DOM 几何提取器（PR2 核心，纯增量）
 
@@ -80,3 +87,4 @@
 ## 进度记录（每任务完成后追加一行）
 
 - 2026-10-17 PR1 完成：截图模式包 + CDP 双修复 + 接线全绿（详见上文「已完成」）。
+- 2026-10-17 T0 完成：html2pptx@0.2.0 随包 SKILL + `PackageSkills`（kind=skill 卡 + 正文加载）+ 三端安装链路刷卡 + 启动兜底安装；测试 `PackageSkillsTest`（含删包重装、双卡命中、local 覆盖）、`WeizhiBundledPackagesSkillTest`。下一个未开始任务：T1。

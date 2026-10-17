@@ -1,6 +1,7 @@
 ---
 name: html2pptx
 description: 用户要 PPT 且需要自由版式、设计感（配色、渐变、卡片、图表混排）时使用。先写整页 slide HTML（每页一个 class="slide"，1280×720），再用 run_js 调 weizhi:html2pptx 截图打包成 pptx。快速结构化内容仍用 pptx skill。
+tags: pptx,ppt,html,幻灯片,演示,设计,版式
 ---
 
 # 用 HTML 排版生成 PPT

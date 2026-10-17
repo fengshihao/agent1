@@ -15,6 +15,15 @@ Weizhi 主干已移除 **`setScriptFolder` / `import "leaf.js"`**，官方 JS �
 
 **给模型的写法**：`import { markdownToDocx } from "weizhi:docx"`、`import { renderPptx } from "weizhi:pptx"` 等。workspace 内协作用 `import "./helper.js"`。
 
+## 随包 Skill（2026-10-17 起，T0 规范）
+
+Skill 类能力**一律随微智包分发**，不再往 `agent-home/skills` 加内置 skill：
+
+- 包 manifest 声明 `"skill": "SKILL.md"`，SKILL.md 随包打进 zip / assets（frontmatter `name` / `description` / `tags`）。
+- 安装链路（桌面 `WeizhiBundledPackages.syncFromClasspath`、registry `WeizhiPackageSync.beforeEval`、Android `WeizhiBundledInstall`）装完包后由 `agent_core` 的 `PackageSkills` 整批写 `kind=skill` 能力卡（`source=package_skill`，id `skill.<name>`、entry `skill:<name>`）。
+- `AgentSkillLoader.loadMerged` 在 bundled 与 project 之间加载包内 skill 正文（source 标 `package`）；local / catalog / project 同名可覆盖。
+- 首例：`html2pptx@0.2.0`（`doc/集成/HTML2PPTX.md`）。存量 `pptx`、`skill-creator` 仍是内置 skill 例外。
+
 ## 集成测
 
 - `DocxOfficeIntegrationTest` / `PptxOfficeIntegrationTest`（`:weizhi-bridge:test`，需 `libweizhijni`）

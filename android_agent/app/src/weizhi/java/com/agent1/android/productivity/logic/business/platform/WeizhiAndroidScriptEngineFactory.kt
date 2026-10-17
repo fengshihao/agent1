@@ -6,6 +6,7 @@ import com.agent1.javaagent.core.CancellationToken
 import com.agent1.javaagent.script.ScriptEngine
 import com.agent1.javaagent.script.ScriptEngineFactory
 import com.agent1.javaagent.script.ScriptToolBridge
+import com.agent1.javaagent.skill.PackageSkills
 import com.agent1.javaagent.weizhi.WeizhiIoExecutors
 import com.agent1.javaagent.weizhi.WeizhiPackageSync
 import com.agent1.javaagent.weizhi.WeizhiScriptToolInstaller
@@ -38,7 +39,7 @@ class WeizhiAndroidScriptEngineFactory(
 
         private val engine = WeizhiEngine(null, WeizhiIoExecutors.io(16))
         private val workspaceFile = workspace.toFile()
-        private val packageRoot = WeizhiPackages.syncBundled(appContext)
+        private val packageRoot = WeizhiBundledInstall.syncBundled(appContext, agentRoot)
 
         init {
             workspaceFile.mkdirs()
@@ -92,5 +93,20 @@ class WeizhiAndroidScriptEngineFactory(
         override fun close() {
             engine.close()
         }
+    }
+}
+
+/**
+ * 装内置包并刷新随包 skill 卡。宿主启动线程与 engine open 共用一把锁，
+ * 避免并发重装同一个包目录时互相删文件。
+ */
+internal object WeizhiBundledInstall {
+
+    private val lock = Any()
+
+    fun syncBundled(context: Context, agentRoot: java.nio.file.Path): String {
+        val packageRoot = synchronized(lock) { WeizhiPackages.syncBundled(context) }
+        PackageSkills.syncCapabilityCards(agentRoot)
+        return packageRoot
     }
 }

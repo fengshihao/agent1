@@ -19,8 +19,7 @@ public final class AgentSkillLoader {
     /** 随 core 发布、不经过 promote 的技能。local / catalog / project 同名条目覆盖它。 */
     private static final String[] BUNDLED_SKILL_RESOURCES = {
         "/agent-home/skills/skill-creator/SKILL.md",
-        "/agent-home/skills/pptx/SKILL.md",
-        "/agent-home/skills/html2pptx/SKILL.md"
+        "/agent-home/skills/pptx/SKILL.md"
     };
 
     public SkillLoadResult loadFromProjectRoot(Path projectRoot) {
@@ -52,11 +51,18 @@ public final class AgentSkillLoader {
         return new SkillLoadResult(skills, warnings);
     }
 
-    /** 合并加载：bundled → project → catalog → local（后者覆盖同名）。 */
+    /**
+     * 合并加载：bundled → package（随微智包分发）→ project → catalog → local（后者覆盖同名）。
+     */
     public SkillLoadResult loadMerged(Path agentRoot, Path projectRoot) {
         Map<String, AgentSkill> byName = new LinkedHashMap<>();
         List<String> warnings = new ArrayList<>();
         mergeInto(byName, warnings, loadBundled());
+        mergeInto(
+            byName,
+            warnings,
+            new SkillLoadResult(PackageSkills.loadInstalled(agentRoot), List.of())
+        );
         mergeInto(byName, warnings, loadFromProjectRoot(projectRoot));
         if (agentRoot != null) {
             Path root = agentRoot.toAbsolutePath().normalize();

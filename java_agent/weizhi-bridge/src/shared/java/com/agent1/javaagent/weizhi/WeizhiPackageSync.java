@@ -2,6 +2,7 @@ package com.agent1.javaagent.weizhi;
 
 import com.agent1.javaagent.capability.CapabilityIndexStore;
 import com.agent1.javaagent.capability.CapabilityRecord;
+import com.agent1.javaagent.skill.PackageSkills;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weizhi.packages.PackageInstaller;
@@ -103,7 +104,11 @@ public final class WeizhiPackageSync {
                 applyManifest(agentRoot, manifest);
             }
             PackageRegistryClient.EnsureOptions options = new PackageRegistryClient.EnsureOptions();
-            PackageRegistryClient.ensureInstalled(home, names, options);
+            PackageRegistryClient.EnsureResult ensured =
+                PackageRegistryClient.ensureInstalled(home, names, options);
+            if (agentRoot != null && !ensured.installed.isEmpty()) {
+                PackageSkills.syncCapabilityCards(agentRoot);
+            }
         } catch (IOException e) {
             if (allInstalled(home, names)) {
                 LOG.info("package ensure offline, using installed " + names);

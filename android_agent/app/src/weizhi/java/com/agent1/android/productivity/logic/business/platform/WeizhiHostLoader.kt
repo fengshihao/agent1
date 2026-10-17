@@ -20,6 +20,7 @@ object WeizhiHostLoader {
         com.agent1.javaagent.agent.AgentHomeBootstrap.ensure(agentRoot)
         AppFileLog.i("WeizhiHost", "refresh package registry")
         WeizhiPackageSync.refreshIndexAsync(agentRoot)
+        installBundledAsync(context, agentRoot)
         val scriptTools = MutableScriptToolBridge()
         return ProductivityAgentHost(
             agentRoot,
@@ -39,5 +40,25 @@ object WeizhiHostLoader {
             WeizhiAgentTools(context, agentRoot),
             "android",
         )
+    }
+
+    /**
+     * 启动时后台装好内置包并刷随包 skill 卡，让第一次 run_js 之前的 find_caps 也能命中包内 skill。
+     * engine open 时 [WeizhiBundledInstall] 还会幂等重装。
+     */
+    private fun installBundledAsync(context: Context, agentRoot: Path) {
+        Thread(
+            {
+                try {
+                    WeizhiBundledInstall.syncBundled(context, agentRoot)
+                } catch (e: Exception) {
+                    AppFileLog.e("WeizhiHost", "install bundled packages failed: ${e.message}")
+                }
+            },
+            "weizhi-bundled-install",
+        ).apply {
+            isDaemon = true
+            start()
+        }
     }
 }
