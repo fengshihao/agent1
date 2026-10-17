@@ -37,10 +37,26 @@ export default await renderHtmlDeck({
 
 ## 限制
 
-- 需要网络（CDN 加载截图库与图表库；拍板不考虑离线，CDN 自建镜像是遗留项）。
+- 需要网络（CDN 加载截图库和图表库；几何提取本身不需要 CDN）；截图库 CDN 自建镜像是遗留项。
 - 截图模式产物每页是整页图片，不可在 PowerPoint 里二次编辑。
 - `webview_exec` 需桌面 Chromium 或 Android 系统 WebView。
 - 最多 40 页；页尺寸 320–4096px；scale 1–3。
+
+## extractDeckGeometry（内部，服务原生转换）
+
+同一 iframe 渲染后遍历 `.slide` 内可见元素，输出几何 JSON（截图/提取共用 deck 装载段，提取**不注入** html-to-image）：
+
+```javascript
+import { extractDeckGeometry } from "weizhi:html2pptx";
+
+export default await extractDeckGeometry({
+  htmlPath: "deck.html"        // 或 html 内联（此时 output 必填）
+  // output: "geo.json"        // 默认 <htmlPath 词干>-geometry.json
+});
+// { ok: true, path, slides, elements }
+```
+
+输出 `{version, generator, slides:[{slideW, slideH, bg?, bgImage?, elements:[…]}]}`；元素 `{tag, cls?, rect{x,y,w,h}（相对 slide 左上）, font{size,weight,color,align,lineHeight,family}, bg?, bgImage?, border?, radius?, shadow?, textRuns[], imgSrc?}`。纯结构容器（无背景/边框/圆角/阴影/直接文本/图片）跳过；`img/canvas/svg` 的 data URI 超过 1MB 时省略并标 `imgOmitted: true`（由后续截图补图）。该 JSON 是规划 20 号 T3「原生 OOXML 生成器」的输入，`renderHtmlDeck` 行为不变。
 
 ## 错误
 

@@ -13,6 +13,8 @@ import com.agent1.javaagent.script.ScriptToolBridge;
 import com.agent1.javaagent.weizhi.desktop.DesktopChromiumLocator;
 import com.agent1.javaagent.weizhi.desktop.WebViewExecSupport;
 import com.agent1.javaagent.weizhi.desktop.cdp.CdpWebViewRuntime;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -42,6 +44,60 @@ class Html2PptxScriptTest {
         </style></head><body>
         <section class="slide"><h1>第一页</h1><img src="pic.png"></section>
         <section class="slide"><h1>第二页</h1></section>
+        </body></html>
+        """;
+
+    /** mock webview 回执：一页带 h1 文本块、一页空，模拟真实几何 JSON 的形状。 */
+    private static final String MOCK_GEO = """
+        {"version":1,"generator":"html2pptx@0.2.0 extractDeckGeometry","slides":[
+        {"slideW":1280,"slideH":720,"bg":"#1a1423","elements":[
+        {"tag":"h1","cls":null,"rect":{"x":110,"y":300,"w":600,"h":90},
+         "font":{"size":88,"weight":"800","color":"#f6f1ea","align":"left","lineHeight":101.2},
+         "bg":"#000000","textRuns":[{"text":"第一页","size":88,"weight":"800","color":"#f6f1ea"}]}
+        ]},
+        {"slideW":1280,"slideH":720,"elements":[]}
+        ]}
+        """;
+
+    /** 真 Chromium 端到端用 deck：渐变封面（含出界 deco）+ 卡片页。 */
+    private static final String GEOMETRY_DECK_HTML = """
+        <!DOCTYPE html><html><head><meta charset="utf-8"><title>几何提取</title><style>
+        *{box-sizing:border-box;margin:0}
+        body{font-family:Helvetica,Arial,'PingFang SC',sans-serif}
+        .slide{width:1280px;height:720px;overflow:hidden;position:relative}
+        .cover{background:linear-gradient(135deg,#1a1423 0%,#312846 100%);color:#f6f1ea;
+          display:flex;flex-direction:column;justify-content:center;padding:0 110px}
+        .cover .deco{position:absolute;right:-160px;top:-160px;width:520px;height:520px;border-radius:50%;
+          background:radial-gradient(circle,rgba(125,211,192,.25),transparent 65%)}
+        .cover .kicker{color:#e8b86d;font-size:22px;letter-spacing:8px;margin-bottom:28px}
+        .cover h1{font-size:88px;font-weight:800}
+        .cover .rule{width:96px;height:6px;background:linear-gradient(90deg,#e8b86d,#7dd3c0);border-radius:3px;margin:36px 0}
+        .cover .sub{font-size:30px;color:#c4b8a8}
+        .cards{background:#faf9f6;padding:0 96px;display:flex;flex-direction:column;justify-content:center;min-height:720px}
+        .cards h2{font-size:44px;color:#122033;margin-bottom:48px}
+        .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:36px}
+        .card{background:#fff;border-radius:18px;padding:44px 32px;border-top:6px solid #7dd3c0}
+        .card:nth-child(2){border-top-color:#e8b86d}
+        .card h3{font-size:28px;color:#122033;margin-bottom:14px}
+        .card p{font-size:21px;color:#5b6b7c;line-height:1.7}
+        </style></head><body>
+        <section class="slide cover">
+          <div class="deco"></div>
+          <div class="kicker">GEOMETRY · TEST</div>
+          <h1>季度复盘</h1>
+          <div class="rule"></div>
+          <div class="sub">2026 Q3 · 产品部</div>
+        </section>
+        <section class="slide cards">
+          <div>
+            <h2>三件事</h2>
+            <div class="grid">
+              <div class="card"><h3>产品</h3><p>留存稳住。</p></div>
+              <div class="card"><h3>销售</h3><p>新客增加。</p></div>
+              <div class="card"><h3>交付</h3><p>恢复更快。</p></div>
+            </div>
+          </div>
+        </section>
         </body></html>
         """;
 
@@ -160,6 +216,153 @@ class Html2PptxScriptTest {
             assertTrue(ex.getMessage().contains("html"), ex.getMessage());
             assertEquals(0, calls.get());
         }
+    }
+
+    /** extractDeckGeometry：mock 回执测编排——输入内联、提取代码特征、JSON 落盘与清理。 */
+    @Test
+    void extractsGeometryThroughMockWebView(@TempDir Path agentRoot) throws Exception {
+        AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        Path workspace = agentRoot.resolve("ws");
+        Files.createDirectories(workspace.resolve("jobs"));
+        Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
+        Files.write(workspace.resolve("pic.png"), java.util.Base64.getDecoder().decode(PNG_B64));
+
+        AtomicReference<Map<String, Object>> seen = new AtomicReference<>();
+        AtomicReference<String> fedHtml = new AtomicReference<>();
+        ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) -> {
+            seen.set(arguments);
+            String input = String.valueOf(arguments.get("input_path"));
+            if (input.endsWith(".html")) {
+                try {
+                    fedHtml.set(Files.readString(workspace.resolve(input)));
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+            return mockWebViewReceipt(workspace, arguments, MOCK_GEO);
+        });
+        try (engine) {
+            String out = engine.evalForAgent("""
+                import { extractDeckGeometry } from "weizhi:html2pptx";
+                export default await extractDeckGeometry({ htmlPath: "deck.html" });
+                """, null, 30_000, new CancellationToken(), "jobs/run.js");
+            assertTrue(out.contains("\"ok\":true"), out);
+            assertTrue(out.contains("deck-geometry.json"), out);
+            assertTrue(out.contains("\"slides\":2"), out);
+            assertTrue(out.contains("\"elements\":1"), out);
+        }
+        // 提取代码：走 .slide 遍历 + computedStyle，且不依赖截图 CDN 库
+        String code = String.valueOf(seen.get().get("code"));
+        assertTrue(code.contains(".slide"), code);
+        assertTrue(code.contains("getComputedStyle"), code);
+        assertTrue(!code.contains("html-to-image"), "几何提取不应注入截图库");
+        // workspace 图片同样先内联再喂 webview
+        String html = String.valueOf(fedHtml.get());
+        assertTrue(html.contains("data:image/png;base64,"), "workspace 图片应内联");
+        // 几何 JSON 落盘且结构完整
+        Path geo = workspace.resolve("deck-geometry.json");
+        assertTrue(Files.isRegularFile(geo), "应生成 deck-geometry.json");
+        var root = JsonParser.parseString(Files.readString(geo)).getAsJsonObject();
+        assertEquals(1, root.get("version").getAsInt());
+        var slides = root.getAsJsonArray("slides");
+        assertEquals(2, slides.size());
+        var first = slides.get(0).getAsJsonObject();
+        assertEquals(1280, first.get("slideW").getAsInt());
+        assertEquals(720, first.get("slideH").getAsInt());
+        var h1 = firstElement(first, "h1", null);
+        assertTrue(h1 != null, "首页应有 h1 元素");
+        assertEquals("第一页", h1.getAsJsonArray("textRuns").get(0).getAsJsonObject().get("text").getAsString());
+        // 临时文件清理：geo 输入与回执不残留
+        try (var list = Files.list(workspace.resolve("tmp"))) {
+            assertEquals(0, list.filter(p -> {
+                String n = p.getFileName().toString();
+                return n.startsWith("html2pptx-geo-input-") || n.startsWith("html2pptx-geo-");
+            }).count());
+        }
+    }
+
+    /** extractDeckGeometry：回执里没有 .slide 页时报可读错误。 */
+    @Test
+    void rejectsGeometryWithoutSlides(@TempDir Path agentRoot) throws Exception {
+        AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        Path workspace = agentRoot.resolve("ws");
+        Files.createDirectories(workspace.resolve("jobs"));
+        Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
+
+        ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) ->
+            mockWebViewReceipt(workspace, arguments, "{\"version\":1,\"slides\":[]}"));
+        try (engine) {
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> engine.evalForAgent("""
+                import { extractDeckGeometry } from "weizhi:html2pptx";
+                export default await extractDeckGeometry({ htmlPath: "deck.html", output: "out/geo.json" });
+                """, null, 30_000, new CancellationToken(), "jobs/run.js"));
+            assertTrue(ex.getMessage().contains("slide"), ex.getMessage());
+        }
+    }
+
+    /** 端到端：真 Chromium 渲染并提取几何，验证元素矩形/字体/圆角/渐变背景。 */
+    @Test
+    void extractsGeometryThroughRealChromium(@TempDir Path agentRoot) throws Exception {
+        assumeTrue(CdpWebViewRuntime.isAvailable(), "需要本机 Chromium（CDP）");
+        AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        Path workspace = agentRoot.resolve("ws");
+        Files.createDirectories(workspace.resolve("jobs"));
+        Files.writeString(workspace.resolve("geo-deck.html"), GEOMETRY_DECK_HTML);
+
+        Path repo = Path.of(System.getenv().getOrDefault(WeizhiHostSupport.ENV_WEIZHI_REPO, "")).normalize();
+        if (repo.getNameCount() == 0 || !Files.isDirectory(repo)) {
+            repo = WeizhiHostSupport.defaultWeizhiRepo();
+        }
+        CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(repo);
+        com.agent1.javaagent.workspace.WorkspaceSandbox sandbox =
+            new com.agent1.javaagent.workspace.WorkspaceSandbox(workspace);
+
+        ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) -> WebViewExecSupport.execute(
+            runtime,
+            sandbox,
+            String.valueOf(arguments.get("code")),
+            null,
+            arguments.get("input_path") == null ? null : String.valueOf(arguments.get("input_path")),
+            arguments.get("output_path") == null ? null : String.valueOf(arguments.get("output_path")),
+            String.valueOf(arguments.get("timeout_ms"))
+        ));
+        try (engine) {
+            String out = engine.evalForAgent("""
+                import { extractDeckGeometry } from "weizhi:html2pptx";
+                export default await extractDeckGeometry({ htmlPath: "geo-deck.html" });
+                """, null, 300_000, new CancellationToken(), "jobs/run.js");
+            assertTrue(out.contains("\"ok\":true"), out);
+        }
+        Path geo = workspace.resolve("geo-deck-geometry.json");
+        assertTrue(Files.isRegularFile(geo), "默认输出应为 geo-deck-geometry.json");
+        var root = JsonParser.parseString(Files.readString(geo)).getAsJsonObject();
+        var slides = root.getAsJsonArray("slides");
+        assertEquals(2, slides.size());
+        var cover = slides.get(0).getAsJsonObject();
+        assertEquals(1280, cover.get("slideW").getAsInt());
+        assertEquals(720, cover.get("slideH").getAsInt());
+        assertTrue(cover.get("bgImage").getAsString().contains("linear-gradient"), "封面应有渐变背景");
+        int coverEls = cover.getAsJsonArray("elements").size();
+        assertTrue(coverEls >= 5, "封面元素数应 >= 5，实际 " + coverEls);
+        var h1 = firstElement(cover, "h1", null);
+        assertTrue(h1 != null, "封面应有 h1");
+        var rect = h1.getAsJsonObject("rect");
+        assertTrue(rect.get("x").getAsDouble() < 400 && rect.get("y").getAsDouble() < 400,
+            "封面 h1 应在左上区域: " + rect);
+        assertTrue(rect.get("w").getAsDouble() > 100, "h1 宽度应显著: " + rect);
+        assertEquals("季度复盘", h1.getAsJsonArray("textRuns").get(0).getAsJsonObject().get("text").getAsString());
+        assertTrue(h1.getAsJsonObject("font").get("size").getAsDouble() >= 80, "h1 字号应接近 88px");
+        var cards = slides.get(1).getAsJsonObject();
+        var card = firstElement(cards, "div", "card");
+        assertTrue(card != null, "卡片页应有 .card 元素");
+        assertEquals(18.0, card.get("radius").getAsDouble(), 0.01, "卡片圆角应为 18px");
+        assertEquals("#ffffff", card.get("bg").getAsString());
+        var topBorder = card.getAsJsonObject("border").getAsJsonObject("top");
+        assertEquals(6.0, topBorder.get("w").getAsDouble(), 0.01, "卡片上边框应为 6px");
+        assertTrue(topBorder.get("color").getAsString().matches("#[0-9a-f]{6}"), "边框颜色应为 hex");
     }
 
     /** 端到端：真 Chromium 渲染截图，验证 CDN/iframe/分块回传整链路。 */
@@ -366,6 +569,20 @@ class Html2PptxScriptTest {
 
     private static String shotJson(int w, int h) {
         return "{\"w\":" + w + ",\"h\":" + h + ",\"b64\":\"" + PNG_B64 + "\"}";
+    }
+
+    /** 找页内第一个 tag 匹配（clsPrefix 非空时还要求 class 前缀匹配）的元素。 */
+    private static JsonObject firstElement(JsonObject slide, String tag, String clsPrefix) {
+        for (var el : slide.getAsJsonArray("elements")) {
+            JsonObject o = el.getAsJsonObject();
+            if (!tag.equals(o.get("tag").getAsString())) {
+                continue;
+            }
+            if (clsPrefix == null || (o.has("cls") && o.get("cls").getAsString().startsWith(clsPrefix))) {
+                return o;
+            }
+        }
+        return null;
     }
 
     /** 模拟 webview_exec：把回执 JSON 写到包传入的 output_path，返回成功回执。 */

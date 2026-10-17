@@ -1,11 +1,17 @@
 /**
- * html2pptx.js — 把 HTML 幻灯片渲染成 pptx（v0.1 截图模式）。
+ * html2pptx.js — 把 HTML 幻灯片渲染成 pptx（截图模式）+ DOM 几何提取。
  *
  * 约定：HTML 里每个 class="slide" 的元素是一页，CSS 尺寸默认 1280×720（16:9）。
- * 每页经 webview_exec（Chromium / 系统 WebView）里的 html-to-image（CDN）截图成
- * PNG/JPG，再以全幅图片页打包为 pptx——图片即版面，版式自由度由 HTML/CSS 决定。
  *
- * import { renderHtmlDeck } from "weizhi:html2pptx";
+ * renderHtmlDeck：每页经 webview_exec（Chromium / 系统 WebView）里的
+ * html-to-image（CDN）截图成 PNG/JPG，再以全幅图片页打包为 pptx——
+ * 图片即版面，版式自由度由 HTML/CSS 决定。
+ *
+ * extractDeckGeometry：同一 iframe 渲染后遍历 .slide 内可见元素，输出几何
+ * JSON（矩形/字体/背景/圆角/文本 run/图片引用），落盘 *-geometry.json，
+ * 供原生 OOXML 生成（不改变 renderHtmlDeck 行为）。
+ *
+ * import { renderHtmlDeck, extractDeckGeometry } from "weizhi:html2pptx";
  *
  * export default await renderHtmlDeck({
  *   htmlPath: "deck.html",        // 或直接传 html: "<html>…</html>"
@@ -15,7 +21,12 @@
  *   format: "png"                 // png | jpg（可选，默认 png）
  * });
  *
- * 需要网络（CDN）。路径相对当前会话 workspace，不要加 workspace/ 前缀。
+ * export default await extractDeckGeometry({
+ *   htmlPath: "deck.html",        // 或 html 内联（此时 output 必填）
+ *   output: "deck-geometry.json"  // 可选，默认 <htmlPath 词干>-geometry.json
+ * });
+ *
+ * 截图模式需要网络（CDN）。路径相对当前会话 workspace，不要加 workspace/ 前缀。
  */
 var fs = require("fs");
 var zip = require("zip");
@@ -26,6 +37,9 @@ var MAX_PX = 4096;
 var MIN_SCALE = 1;
 var MAX_SCALE = 3;
 var SHOT_TIMEOUT_MS = "300000";
+var MAX_ELEMENTS_PER_SLIDE = 800;
+var IMG_SRC_MAX_CHARS = 1024 * 1024;
+var PACKAGE_TAG = "html2pptx@0.2.0";
 
 var LIB_URL = "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js";
 var LIB_TOKEN = "html-to-image";
@@ -120,20 +134,30 @@ export async function renderHtmlDeck(options) {
   }
 }
 
-/** 在 webview_exec 里跑的截图代码：iframe 渲染 deck HTML，逐页导出 base64。 */
-function captureCode(width, height, scale, format, quality) {
-  return [
+/**
+ * webview_exec 里 deck 装载的公共段：decode → 校验 → iframe srcdoc 渲染 →
+ * （截图模式）注入并等待 html-to-image → 字体就绪 → 找 .slide → 等图片、
+ * 收集加载失败清单。返回行数组，由截图/提取各自的代码生成器续写。
+ */
+function deckLoadCode(width, height, needLib) {
+  var lines = [
     "return (async () => {",
     "  var html = new TextDecoder('utf-8').decode(input).replace(/^\\uFEFF/, '').trim();",
     "  if (!/<html[\\s>]/i.test(html)) {",
     "    throw new Error('input is not an html document');",
-    "  }",
-    "  var inject = '<script src=\"" + LIB_URL + "\"></script>';",
-    "  if (html.indexOf('" + LIB_TOKEN + "') < 0) {",
-    "    html = /<\\/body>/i.test(html)",
-    "      ? html.replace(/<\\/body>/i, inject + '</body>')",
-    "      : html + inject;",
-    "  }",
+    "  }"
+  ];
+  if (needLib) {
+    lines.push(
+      "  var inject = '<script src=\"" + LIB_URL + "\"></script>';",
+      "  if (html.indexOf('" + LIB_TOKEN + "') < 0) {",
+      "    html = /<\\/body>/i.test(html)",
+      "      ? html.replace(/<\\/body>/i, inject + '</body>')",
+      "      : html + inject;",
+      "  }"
+    );
+  }
+  lines.push(
     "  var iframe = document.createElement('iframe');",
     "  iframe.style.cssText = 'position:fixed;left:-99999px;top:0;border:0;width:" + width + "px;height:" + height + "px;';",
     "  iframe.srcdoc = html;",
@@ -143,13 +167,19 @@ function captureCode(width, height, scale, format, quality) {
     "    setTimeout(function () { reject(new Error('iframe load timeout')); }, 30000);",
     "  });",
     "  var win = iframe.contentWindow;",
-    "  var doc = win.document;",
-    "  for (var wait = 0; wait < 200 && !(win.htmlToImage && win.htmlToImage.toPng); wait++) {",
-    "    await new Promise(function (r) { setTimeout(r, 100); });",
-    "  }",
-    "  if (!(win.htmlToImage && win.htmlToImage.toPng)) {",
-    "    throw new Error('html-to-image 未加载（CDN 不可达？）');",
-    "  }",
+    "  var doc = win.document;"
+  );
+  if (needLib) {
+    lines.push(
+      "  for (var wait = 0; wait < 200 && !(win.htmlToImage && win.htmlToImage.toPng); wait++) {",
+      "    await new Promise(function (r) { setTimeout(r, 100); });",
+      "  }",
+      "  if (!(win.htmlToImage && win.htmlToImage.toPng)) {",
+      "    throw new Error('html-to-image 未加载（CDN 不可达？）');",
+      "  }"
+    );
+  }
+  lines.push(
     "  if (doc.fonts && doc.fonts.ready) {",
     "    try { await doc.fonts.ready; } catch (e) {}",
     "  }",
@@ -170,7 +200,14 @@ function captureCode(width, height, scale, format, quality) {
     "    if (!img.complete || img.naturalWidth === 0) {",
     "      broken.push(img.getAttribute('src') || '(unnamed)');",
     "    }",
-    "  }",
+    "  }"
+  );
+  return lines;
+}
+
+/** 在 webview_exec 里跑的截图代码：iframe 渲染 deck HTML，逐页导出 base64。 */
+function captureCode(width, height, scale, format, quality) {
+  return deckLoadCode(width, height, true).concat([
     "  if (broken.length) {",
     "    throw new Error('图片加载失败: ' + broken.join(', ') + '（相对路径需指向 workspace 内已有图片）');",
     "  }",
@@ -192,7 +229,218 @@ function captureCode(width, height, scale, format, quality) {
     "  function merge(a, b) { var o = {}; for (var k in a) { o[k] = a[k]; } for (var k2 in b) { o[k2] = b[k2]; } return o; }",
     "  return JSON.stringify({ slides: slides });",
     "})();"
-  ].join("\n");
+  ]).join("\n");
+}
+
+/**
+ * 提取 DOM 几何：渲染 deck HTML 后遍历每个 .slide 的可见元素，输出
+ * {version, generator, slides:[{slideW, slideH, bg?, bgImage?, elements:[…]}]}。
+ * 元素：{tag, cls?, rect{x,y,w,h}(相对 slide 左上), font{size,weight,color,align,
+ * lineHeight,family}, bg?, bgImage?, border?, radius?, shadow?, textRuns[], imgSrc?}。
+ * 纯结构容器（无背景/边框/圆角/阴影/直接文本/图片）跳过；textRuns 合并相邻同款 run；
+ * img/canvas/svg 记 data/https 引用，超 IMG_SRC_MAX_CHARS 省略并标 imgOmitted。
+ */
+export async function extractDeckGeometry(options) {
+  var opts = options || {};
+  var width = intIn(opts.width == null ? 1280 : opts.width, "width", MIN_PX, MAX_PX);
+  var height = intIn(opts.height == null ? 720 : opts.height, "height", MIN_PX, MAX_PX);
+  var output = geometryOutput(opts);
+
+  var html = readHtml(opts);
+  var inlined = inlineWorkspaceImages(html);
+
+  if (typeof globalThis.$tools === "undefined" || typeof globalThis.$tools.webview_exec !== "function") {
+    throw new Error("extractDeckGeometry 需要 $tools.webview_exec（桌面需 Chromium，Android 需系统 WebView）");
+  }
+
+  var stamp = Date.now();
+  var htmlPathRel = typeof opts.htmlPath === "string" && opts.htmlPath.trim() !== ""
+    ? normalizeRel(opts.htmlPath, "htmlPath")
+    : null;
+  var useOriginalFile = htmlPathRel != null && inlined === html;
+  var inputRel = useOriginalFile
+    ? htmlPathRel
+    : "tmp/html2pptx-geo-input-" + stamp + ".html";
+  var geoRel = "tmp/html2pptx-geo-" + stamp + ".json";
+  if (!useOriginalFile) {
+    fs.writeFileSync(inputRel, inlined);
+  }
+
+  try {
+    var receiptText = await globalThis.$tools.webview_exec({
+      code: extractCode(width, height),
+      input_path: inputRel,
+      output_path: geoRel,
+      timeout_ms: SHOT_TIMEOUT_MS
+    });
+    var receipt = asObject(receiptText);
+    if (!receipt || receipt.ok === false) {
+      var err = receipt && receipt.error ? receipt.error : "webview_exec 失败";
+      throw new Error(String(err));
+    }
+    var geoPath = receipt.outputPath ? String(receipt.outputPath) : geoRel;
+    var payload;
+    try {
+      payload = JSON.parse(fs.readFileSync(geoPath).toString().trim());
+    } catch (e) {
+      throw new Error("几何提取回执不是 JSON（页面可能未找到 .slide 元素）");
+    }
+    var slides = payload && payload.slides;
+    if (!slides || !slides.length) {
+      throw new Error('HTML 里没有 class="slide" 的页元素：每页应是 <section class="slide">…</section>');
+    }
+    if (slides.length > MAX_SLIDES) {
+      throw new Error("extractDeckGeometry: too many slides（上限 " + MAX_SLIDES + "）");
+    }
+    var elementCount = 0;
+    for (var i = 0; i < slides.length; i++) {
+      var s = slides[i];
+      if (!s || typeof s.slideW !== "number" || typeof s.slideH !== "number" || !Array.isArray(s.elements)) {
+        throw new Error("第 " + (i + 1) + " 页几何数据结构不完整");
+      }
+      elementCount += s.elements.length;
+    }
+    fs.writeFileSync(output, JSON.stringify(payload, null, 2));
+    return { ok: true, path: output, slides: slides.length, elements: elementCount };
+  } finally {
+    if (!useOriginalFile) {
+      unlinkQuiet(inputRel);
+    }
+    unlinkQuiet(geoRel);
+  }
+}
+
+/** 几何 JSON 落盘路径：默认 <htmlPath 词干>-geometry.json；内联 html 必须显式传 output。 */
+function geometryOutput(opts) {
+  if (opts.output != null && String(opts.output).trim() !== "") {
+    return normalizeRel(opts.output, "output");
+  }
+  if (typeof opts.htmlPath === "string" && opts.htmlPath.trim() !== "") {
+    var path = normalizeRel(opts.htmlPath, "htmlPath");
+    return path.replace(/\.x?html?$/i, "") + "-geometry.json";
+  }
+  throw new Error("内联 html 必须显式传 output（workspace 相对的 *-geometry.json 路径）");
+}
+
+/** 在 webview_exec 里跑的几何提取代码：iframe 渲染 deck HTML，逐页遍历元素。 */
+function extractCode(width, height) {
+  return deckLoadCode(width, height, false).concat([
+    "  function px(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }",
+    "  function r2(n) { return Math.round(n * 100) / 100; }",
+    "  function normColor(c) {",
+    "    var m = /^rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?\\)$/.exec(String(c).trim());",
+    "    if (!m) { return c === 'transparent' ? null : String(c); }",
+    "    if (m[4] != null && parseFloat(m[4]) === 0) { return null; }",
+    "    function hx(s) { var b = Math.max(0, Math.min(255, Math.round(parseFloat(s)))); return (b < 16 ? '0' : '') + b.toString(16); }",
+    "    return '#' + hx(m[1]) + hx(m[2]) + hx(m[3]);",
+    "  }",
+    "  function imgSource(el, tag) {",
+    "    var src = null;",
+    "    if (tag === 'img') { src = el.currentSrc || el.getAttribute('src') || ''; }",
+    "    else if (tag === 'canvas') { try { src = el.toDataURL('image/png'); } catch (e) { src = null; } }",
+    "    else if (tag === 'svg') { try { src = 'data:image/svg+xml;utf8,' + encodeURIComponent(el.outerHTML); } catch (e) { src = null; } }",
+    "    if (src === '' || src == null) { return { src: null, omitted: false }; }",
+    "    if (src.length > " + IMG_SRC_MAX_CHARS + ") { return { src: null, omitted: true }; }",
+    "    return { src: src, omitted: false };",
+    "  }",
+    "  function runsOf(el) {",
+    "    var runs = [];",
+    "    function walk(node, cs) {",
+    "      for (var i = 0; i < node.childNodes.length; i++) {",
+    "        var ch = node.childNodes[i];",
+    "        if (ch.nodeType === 3) {",
+    "          var t = ch.nodeValue.replace(/\\s+/g, ' ').trim();",
+    "          if (!t) { continue; }",
+    "          var dec = cs.textDecorationLine || cs.textDecoration || 'none';",
+    "          var sameAsLast = false;",
+    "          if (runs.length) {",
+    "            var last = runs[runs.length - 1];",
+    "            sameAsLast = last.size === px(cs.fontSize) && last.weight === String(cs.fontWeight)",
+    "              && last.color === (normColor(cs.color) || '#000000')",
+    "              && last.italic === (cs.fontStyle === 'italic') && last.underline === (dec !== 'none');",
+    "          }",
+    "          if (sameAsLast) { last.text += ' ' + t; }",
+    "          else {",
+    "            runs.push({ text: t, size: px(cs.fontSize), weight: String(cs.fontWeight), color: normColor(cs.color) || '#000000', italic: cs.fontStyle === 'italic', underline: dec !== 'none' });",
+    "          }",
+    "        } else if (ch.nodeType === 1) {",
+    "          var d = win.getComputedStyle(ch).display;",
+    "          if (d === 'inline' || d === 'inline-block') { walk(ch, win.getComputedStyle(ch)); }",
+    "        }",
+    "      }",
+    "    }",
+    "    walk(el, win.getComputedStyle(el));",
+    "    return runs;",
+    "  }",
+    "  function borderOf(cs) {",
+    "    var sides = [['top', cs.borderTopWidth, cs.borderTopColor], ['right', cs.borderRightWidth, cs.borderRightColor], ['bottom', cs.borderBottomWidth, cs.borderBottomColor], ['left', cs.borderLeftWidth, cs.borderLeftColor]];",
+    "    var out = null;",
+    "    for (var s = 0; s < sides.length; s++) {",
+    "      var w = px(sides[s][1]);",
+    "      if (w <= 0) { continue; }",
+    "      out = out || {};",
+    "      out[sides[s][0]] = { w: r2(w), color: normColor(sides[s][2]) };",
+    "    }",
+    "    return out;",
+    "  }",
+    "  function radiusOf(cs, w, h) {",
+    "    function one(v) {",
+    "      var str = String(v);",
+    "      var n = parseFloat(str);",
+    "      if (!isFinite(n) || n <= 0) { return 0; }",
+    "      if (str.indexOf('%') >= 0) { return r2(n / 100 * Math.min(w, h) / 2); }",
+    "      return r2(n);",
+    "    }",
+    "    var tl = one(cs.borderTopLeftRadius), tr = one(cs.borderTopRightRadius), br = one(cs.borderBottomRightRadius), bl = one(cs.borderBottomLeftRadius);",
+    "    if (tl === 0 && tr === 0 && br === 0 && bl === 0) { return null; }",
+    "    if (tl === tr && tr === br && br === bl) { return tl; }",
+    "    return { tl: tl, tr: tr, br: br, bl: bl };",
+    "  }",
+    "  function recordSlide(node) {",
+    "    var cs = win.getComputedStyle(node);",
+    "    var sr = node.getBoundingClientRect();",
+    "    var slide = { slideW: Math.round(sr.width), slideH: Math.round(sr.height) };",
+    "    var sbg = normColor(cs.backgroundColor);",
+    "    if (sbg != null) { slide.bg = sbg; }",
+    "    if (cs.backgroundImage && cs.backgroundImage !== 'none') { slide.bgImage = cs.backgroundImage; }",
+    "    slide.elements = [];",
+    "    var all = node.querySelectorAll('*');",
+    "    for (var i = 0; i < all.length && slide.elements.length < " + MAX_ELEMENTS_PER_SLIDE + "; i++) {",
+    "      var el = all[i];",
+    "      var ecs = win.getComputedStyle(el);",
+    "      if (ecs.display === 'none' || ecs.visibility === 'hidden') { continue; }",
+    "      var r = el.getBoundingClientRect();",
+    "      if (r.width < 0.5 || r.height < 0.5) { continue; }",
+    "      var tag = el.tagName.toLowerCase();",
+    "      var runs = runsOf(el);",
+    "      var img = tag === 'img' || tag === 'canvas' || tag === 'svg' || tag === 'video' ? imgSource(el, tag) : { src: null, omitted: false };",
+    "      var bg = normColor(ecs.backgroundColor);",
+    "      var bgImage = ecs.backgroundImage && ecs.backgroundImage !== 'none' ? ecs.backgroundImage : null;",
+    "      var border = borderOf(ecs);",
+    "      var radius = radiusOf(ecs, r.width, r.height);",
+    "      var shadow = ecs.boxShadow && ecs.boxShadow !== 'none' ? ecs.boxShadow : null;",
+    "      var visual = bg != null || bgImage != null || border != null || radius != null || shadow != null || runs.length > 0 || (img && (img.src != null || img.omitted));",
+    "      if (!visual) { continue; }",
+    "      var item = { tag: tag, rect: { x: r2(r.left - sr.left), y: r2(r.top - sr.top), w: r2(r.width), h: r2(r.height) } };",
+    "      if (typeof el.className === 'string' && el.className.trim()) { item.cls = el.className.trim(); }",
+    "      item.font = { size: r2(px(ecs.fontSize)), weight: String(ecs.fontWeight), color: normColor(ecs.color) || '#000000', align: ecs.textAlign, lineHeight: r2(px(ecs.lineHeight)), family: ecs.fontFamily };",
+    "      if (bg != null) { item.bg = bg; }",
+    "      if (bgImage != null) { item.bgImage = bgImage; }",
+    "      if (border != null) { item.border = border; }",
+    "      if (radius != null) { item.radius = radius; }",
+    "      if (shadow != null) { item.shadow = shadow; }",
+    "      if (runs.length) { item.textRuns = runs; }",
+    "      if (img && img.src != null) { item.imgSrc = img.src; }",
+    "      else if (img && img.omitted) { item.imgOmitted = true; }",
+    "      slide.elements.push(item);",
+    "    }",
+    "    return slide;",
+    "  }",
+    "  var slides = [];",
+    "  for (var si = 0; si < nodes.length; si++) { slides.push(recordSlide(nodes[si])); }",
+    "  return JSON.stringify({ version: 1, generator: '" + PACKAGE_TAG + " extractDeckGeometry', slides: slides });",
+    "})();"
+  ]).join("\n");
 }
 
 function readHtml(opts) {
@@ -741,4 +989,4 @@ function unlinkQuiet(relPath) {
   }
 }
 
-export default { renderHtmlDeck: renderHtmlDeck };
+export default { renderHtmlDeck: renderHtmlDeck, extractDeckGeometry: extractDeckGeometry };

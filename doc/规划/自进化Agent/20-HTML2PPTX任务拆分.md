@@ -43,7 +43,14 @@
 **目标**：`html2pptx` 包新增 `extractDeckGeometry({htmlPath|html, output})`：webview_exec 里渲染 slide HTML 后遍历 `.slide` 内可见元素，输出 JSON：每元素 `{tag, rect:{x,y,w,h}, font(字号/字重/颜色/对齐), bg/border/radius, textRuns[], imgSrc}`，整页附 `{slideW, slideH}`。落盘 `*-geometry.json`。不改 `renderHtmlDeck` 行为。
 **涉及**：`html2pptx.js`（新增导出 + 提取代码生成器）、`Html2PptxScriptTest`（mock webview 断言 JSON 结构）。
 **验收**：给定样例 HTML，mock 回执路径断言编排正确；真 Chrome 端到端出 JSON 且首页元素数 > N。
-**状态**：未开始
+**状态**：完成（2026-10-17，commit 见 git log：feat(office): html2pptx extractDeckGeometry）
+**落地形态与关键结论**：
+- `extractDeckGeometry` 并入 `html2pptx@0.2.0`（未发布，不再 bump）；默认输出 `<htmlPath 词干>-geometry.json`，内联 html 必须显式传 `output`。返回 `{ok, path, slides, elements}`。
+- JSON schema：`{version:1, generator, slides:[{slideW, slideH, bg?, bgImage?, elements:[…]}]}`；元素 `{tag, cls?, rect(相对 slide 左上), font{size,weight,color,align,lineHeight,family}, bg?, bgImage?, border(逐边 w+hex color)?, radius(四角一致给数值，否则 {tl,tr,br,bl}；百分比圆角按 min(w,h)/2 折算 px)?, shadow?, textRuns[](相邻同款 run 合并，含 size/weight/color/italic/underline), imgSrc?, imgOmitted?}`。
+- **纯结构容器跳过**（无背景/边框/圆角/阴影/直接文本/图片的元素不下发），出界元素保留（封面 deco 负坐标有意义）；每页上限 800 元素。`img/canvas/svg` 记 data URI（canvas 走 `toDataURL`，svg 走 outerHTML），**超过 1MB 字符省略并标 `imgOmitted:true`**（T4 截图补图的依据）。
+- 截图与提取共用 `deckLoadCode(width,height,needLib)`（decode→iframe srcdoc→fonts→.slide→图片等待+broken 收集）；提取**不注入** html-to-image（离线可用，不依赖 CDN）。已用 Node 对拍验证重构后 `captureCode` 生成串与旧版**逐字节一致**，`renderHtmlDeck` 行为不变。
+- 提取模式对 broken 图片不硬报错（截图模式才报），几何里 imgSrc 为空的加载失败图自然消失——两模式行为刻意不同。
+- 测试：`extractsGeometryThroughMockWebView`（编排/code 特征/落盘/清理，断言提取 code 不含 html-to-image）、`rejectsGeometryWithoutSlides`、`extractsGeometryThroughRealChromium`（真 CDP：封面元素 ≥5、h1 左上+88px+textRuns、card radius==18/bg==#ffffff/border-top 6px、渐变 bgImage，全过）。
 
 ### T2 — 提取器 CDP 端到端与样式快照
 
@@ -88,3 +95,4 @@
 
 - 2026-10-17 PR1 完成：截图模式包 + CDP 双修复 + 接线全绿（详见上文「已完成」）。
 - 2026-10-17 T0 完成：html2pptx@0.2.0 随包 SKILL + `PackageSkills`（kind=skill 卡 + 正文加载）+ 三端安装链路刷卡 + 启动兜底安装；测试 `PackageSkillsTest`（含删包重装、双卡命中、local 覆盖）、`WeizhiBundledPackagesSkillTest`。下一个未开始任务：T1。
+- 2026-10-17 T1 完成：`extractDeckGeometry`（DOM 几何提取，共用 deck 装载段、零 CDN 依赖）+ mock/错误/真 Chrome 三测全绿；schema 与坑见 T1 小节。下一个未开始任务：T2。
