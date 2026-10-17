@@ -108,6 +108,15 @@
 - **结论**：截图版 4/4 保真；native 3/4 高保真可编辑 + 1 已知限制（渐变字），且体积约 1/17、文字全部可二次编辑——达到「native 为推荐模式」的验收线。pptx.js 定位不变（快速结构化，无自由版式）。
 - **后续改进（不阻塞，未排任务）**：①提取器对 `background-clip:text` 元素打标（需动几何 schema + fixture 重生成）→ native 整块 clip 补真或文字取渐变 stops 近似色；②渐变字场景在系统提示词/SKILL 已提示规避。
 
+### T5b — 复杂样例实测与范围限制（2026-10-18，用户反馈触发）
+
+用户看样例后结论「截图比 native 好很多」，并要求复杂样例验证 + 提出限制范围思路。实测结论：
+
+- **文本框渲染错乱（最大差距，且是兼容 bug 非近似问题）**：Keynote 渲染 native 版时字号/位置错乱（h2 33pt 显示成小字、footnote 13.5pt 显示成大字、位置偏移）。slide XML 本身完全规范（`mini.pptx` 最小复现：仅两个文本框也复现）——疑 Keynote 对我们自写 layout/master/theme 或无 autofit 文本框的渲染怪癖；**待用 WPS/PowerPoint 打开 `out-samples/mini.pptx` 验证是否 Keynote 特有**。
+- **复杂 deck（8 页：表格/时间线/圆点/远图/KPI/双图表/引言）native 链路失败**：native 主路径 600s 超时（多页几何提取 + 逐页截图 + 大 clip 回传），失败后 fallback 截图也在 QuickJS 手写 base64 解码处超时（8 页 ×2MB b64 逐字符解码是性能悬崖）。截图模式单跑正常（~55s）。
+- **已落地第一步范围限制**：native 模式图片一律 clip 补真（不再回传/转换 imgSrc data URI）——回执瘦身、QuickJS 内存大减、转换职责收窄为「文本框 + 盒子形状 + 页背景 + clip 图」；既有测试全绿。
+- **建议的后续范围限制（待对齐）**：①SKILL 版式套路白名单（封面/KPI 卡/图文两栏/时间线/表格/图表/引言/结尾 8 种页型），native 只承诺套路内保真；②页数 >6 或多 canvas 页自动降级截图（页级混合：复杂页整页截图、简单页原生）；③性能项：QuickJS base64 查表解码加速、native 分页分批 webview_exec。
+
 ### T6 — image_search / image_download（配套，可与 T1-T5 并行）
 
 **目标**：Java 侧新工具 `image_search`（Tavily `/search` 传 `include_images:true`，复用 `WebSearchTool` 的客户端与 key，返回 url/尺寸/来源）与 `image_download`（https 白名单 + ≤10MB + 魔数校验，落 workspace）。能力卡进 find_caps（kind 对齐新规则；工具类卡参考 `tool.media_resize` 的 `builtin` 或按 T0 定的规范走包化）。deck HTML 里可直接用下载后的 workspace 图片（html2pptx 自动内联）。

@@ -754,6 +754,274 @@ class Html2PptxScriptTest {
         </body></html>
         """;
 
+    /** 复杂样例（20-A T5 后续，用户要求）：覆盖表格/时间线/圆点/远图/KPI 网格/
+     * 圆形头像/双图表/引言等 native 尚未验证的特性。HTML2PPTX_SAMPLE_DIR 触发。 */
+    @Test
+    void rendersComplexDeckSampleForComparison(@TempDir Path agentRoot) throws Exception {
+        assumeTrue(CdpWebViewRuntime.isAvailable(), "需要本机 Chromium（CDP）");
+        String dir = System.getenv("HTML2PPTX_SAMPLE_DIR");
+        assumeTrue(dir != null && !dir.isBlank(), "HTML2PPTX_SAMPLE_DIR not set");
+        AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        Path out = Path.of(dir);
+        Files.createDirectories(out);
+        Files.writeString(out.resolve("complex-deck.html"), COMPLEX_DECK_HTML);
+
+        Path repo = Path.of(System.getenv().getOrDefault(WeizhiHostSupport.ENV_WEIZHI_REPO, "")).normalize();
+        if (repo.getNameCount() == 0 || !Files.isDirectory(repo)) {
+            repo = WeizhiHostSupport.defaultWeizhiRepo();
+        }
+        CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(repo);
+        com.agent1.javaagent.workspace.WorkspaceSandbox sandbox =
+            new com.agent1.javaagent.workspace.WorkspaceSandbox(out);
+
+        ScriptEngine engine = open(agentRoot, out, (toolName, arguments) -> WebViewExecSupport.execute(
+            runtime,
+            sandbox,
+            String.valueOf(arguments.get("code")),
+            null,
+            arguments.get("input_path") == null ? null : String.valueOf(arguments.get("input_path")),
+            arguments.get("output_path") == null ? null : String.valueOf(arguments.get("output_path")),
+            String.valueOf(arguments.get("timeout_ms"))
+        ));
+        try (engine) {
+            String shot = engine.evalForAgent("""
+                import { renderHtmlDeck } from "weizhi:html2pptx";
+                export default await renderHtmlDeck({
+                  htmlPath: "complex-deck.html",
+                  output: "complex-截图版.pptx"
+                });
+                """, null, 600_000, new CancellationToken(), "jobs/run.js");
+            assertTrue(shot.contains("\"ok\":true"), shot);
+            String nat = engine.evalForAgent("""
+                import { renderHtmlDeck } from "weizhi:html2pptx";
+                export default await renderHtmlDeck({
+                  htmlPath: "complex-deck.html",
+                  output: "complex-native版.pptx",
+                  mode: "native"
+                });
+                """, null, 600_000, new CancellationToken(), "jobs/run2.js");
+            assertTrue(nat.contains("\"ok\":true"), nat);
+        }
+        assertTrue(Files.size(out.resolve("complex-截图版.pptx")) > 10_000);
+        assertTrue(Files.size(out.resolve("complex-native版.pptx")) > 10_000);
+    }
+
+    private static final String COMPLEX_DECK_HTML = """
+        <!DOCTYPE html><html><head><meta charset="utf-8"><title>复杂样例</title><style>
+        *{box-sizing:border-box;margin:0}
+        body{font-family:Helvetica,Arial,'PingFang SC','Microsoft YaHei',sans-serif;color:#1f2937}
+        .slide{width:1280px;height:720px;overflow:hidden;position:relative;background:#fff}
+        /* P1 封面 */
+        .cover{background:linear-gradient(160deg,#0f172a 0%,#1e293b 60%,#312846 100%);color:#f8fafc;
+          display:flex;flex-direction:column;justify-content:center;padding:0 110px}
+        .cover .deco1{position:absolute;left:-140px;bottom:-180px;width:480px;height:480px;border-radius:50%;
+          background:radial-gradient(circle,rgba(125,211,192,.22),transparent 60%)}
+        .cover .deco2{position:absolute;right:-100px;top:-120px;width:360px;height:360px;border-radius:50%;
+          background:radial-gradient(circle,rgba(232,184,109,.18),transparent 65%)}
+        .cover .kicker{color:#e8b86d;font-size:20px;letter-spacing:10px;margin-bottom:24px}
+        .cover h1{font-size:76px;font-weight:800;line-height:1.2}
+        .cover .sub{font-size:26px;color:#cbd5e1;margin-top:26px}
+        .cover .meta{position:absolute;left:110px;bottom:56px;right:110px;display:flex;justify-content:space-between;
+          color:#94a3b8;font-size:16px;border-top:1px solid rgba(148,163,184,.35);padding-top:18px}
+        /* P2 KPI */
+        .kpis{padding:72px 96px}
+        .kpis h2{font-size:42px;color:#0f172a;margin-bottom:14px}
+        .kpis .desc{color:#64748b;font-size:19px;margin-bottom:44px}
+        .kgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:28px}
+        .kpi{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px 24px;
+          box-shadow:0 10px 26px rgba(15,23,42,.07);border-top:5px solid #7dd3c0}
+        .kpi:nth-child(2){border-top-color:#e8b86d}
+        .kpi:nth-child(3){border-top-color:#8b7ec8}
+        .kpi:nth-child(4){border-top-color:#f27e7e}
+        .kpi .num{font-size:52px;font-weight:800;color:#0f172a}
+        .kpi .delta{font-size:17px;margin:8px 0 10px}
+        .up{color:#2c7a7b}.down{color:#c0392b}
+        .kpi .label{color:#64748b;font-size:17px}
+        .kpi .bar{height:6px;border-radius:3px;background:#eef2f7;margin-top:16px;overflow:hidden}
+        .kpi .bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#7dd3c0,#2c7a7b)}
+        /* P3 图文 */
+        .split{display:flex;padding:0;height:720px}
+        .split .text{flex:0 0 46%;padding:88px 64px 88px 96px;background:#faf9f6}
+        .split .text h2{font-size:40px;color:#122033;margin-bottom:26px}
+        .split .text p{font-size:20px;line-height:1.8;color:#475569;margin-bottom:18px}
+        .split .text ul{list-style:none;margin-top:8px}
+        .split .text li{font-size:19px;color:#334155;padding:10px 0 10px 34px;position:relative;
+          border-bottom:1px dashed #d8dee8}
+        .split .text li::before{content:'';position:absolute;left:4px;top:19px;width:12px;height:12px;
+          border-radius:50%;background:#7dd3c0}
+        .split .pic{flex:1;position:relative;background:#122033}
+        .split .pic img{width:100%;height:100%;object-fit:cover;display:block}
+        .split .pic .badge{position:absolute;left:24px;bottom:24px;background:rgba(15,23,42,.82);color:#f8fafc;
+          border-radius:12px;padding:14px 20px;font-size:16px}
+        /* P4 时间线 */
+        .tl{padding:76px 96px;background:#fff}
+        .tl h2{font-size:42px;color:#0f172a;margin-bottom:60px}
+        .tl .track{position:relative;height:460px}
+        .tl .line{position:absolute;left:120px;top:0;bottom:0;width:4px;border-radius:2px;
+          background:linear-gradient(180deg,#7dd3c0,#8b7ec8)}
+        .tl .item{position:absolute;left:0;width:1040px;display:flex;align-items:flex-start;margin-bottom:0}
+        .tl .dot{flex:0 0 240px;display:flex;justify-content:flex-end;padding-right:44px;position:relative}
+        .tl .dot i{width:20px;height:20px;border-radius:50%;background:#fff;border:5px solid #7dd3c0;margin-top:2px}
+        .tl .item:nth-child(3) .dot i{border-color:#e8b86d}
+        .tl .item:nth-child(4) .dot i{border-color:#8b7ec8}
+        .tl .item:nth-child(5) .dot i{border-color:#f27e7e}
+        .tl .body h3{font-size:23px;color:#0f172a;margin-bottom:6px}
+        .tl .body .when{font-size:15px;color:#94a3b8;margin-bottom:6px;letter-spacing:1px}
+        .tl .body p{font-size:18px;color:#475569;line-height:1.6;max-width:660px}
+        /* P5 表格 */
+        .tbl{padding:72px 96px;background:#f8fafc}
+        .tbl h2{font-size:40px;color:#0f172a;margin-bottom:40px}
+        table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden;
+          box-shadow:0 8px 24px rgba(15,23,42,.08);font-size:19px}
+        thead th{background:#122033;color:#f8fafc;text-align:left;padding:18px 22px;font-weight:600}
+        tbody td{padding:15px 22px;border-bottom:1px solid #eef2f7;color:#334155}
+        tbody tr:nth-child(even) td{background:#f8fafc}
+        td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:#0f172a}
+        tfoot td{padding:16px 22px;background:#eef7f5;color:#2c7a7b;font-weight:700}
+        /* P6 双图表 */
+        .charts{padding:64px 88px;display:flex;flex-direction:column}
+        .charts h2{font-size:38px;color:#0f172a;margin-bottom:28px}
+        .charts .row{display:flex;gap:48px;flex:1}
+        #bars{flex:1;height:430px}
+        #donut{flex:0 0 430px;height:430px}
+        /* P7 引言 */
+        .quote{background:linear-gradient(135deg,#1e293b,#0f172a);color:#e2e8f0;display:flex;
+          flex-direction:column;justify-content:center;align-items:center;text-align:center}
+        .quote .mark{font-size:120px;color:#e8b86d;line-height:.6;font-family:Georgia,serif;margin-bottom:26px}
+        .quote blockquote{font-size:34px;line-height:1.75;max-width:900px;font-weight:300}
+        .quote .who{display:flex;align-items:center;gap:18px;margin-top:48px}
+        .quote .avatar{width:64px;height:64px;border-radius:50%;border:3px solid #7dd3c0;overflow:hidden}
+        .quote .avatar img{width:100%;height:100%;object-fit:cover}
+        .quote .who .nm{text-align:left}
+        .quote .who .nm b{display:block;font-size:20px;color:#f8fafc}
+        .quote .who .nm span{font-size:15px;color:#94a3b8}
+        /* P8 结尾 */
+        .end{background:radial-gradient(circle at 30% 20%,#312846,#122033 70%);color:#f6f1ea;display:flex;
+          flex-direction:column;justify-content:center;align-items:center;text-align:center}
+        .end .big{font-size:120px;font-weight:800;background:linear-gradient(90deg,#e8b86d,#7dd3c0);
+          -webkit-background-clip:text;background-clip:text;color:transparent}
+        .end p{font-size:26px;color:#c4b8a8;margin-top:28px}
+        .end .tags{margin-top:44px;display:flex;gap:16px}
+        .end .tags span{border:1px solid rgba(198,184,168,.5);border-radius:999px;padding:10px 26px;font-size:16px;color:#d8cfc2}
+        </style></head><body>
+        <section class="slide cover">
+          <div class="deco1"></div><div class="deco2"></div>
+          <div class="kicker">AGENT1 · 2026 ANNUAL</div>
+          <h1>复杂样例<br>全特性验收</h1>
+          <div class="sub">表格 · 时间线 · KPI · 图文 · 双图表 · 引言</div>
+          <div class="meta"><span>产品部 · 季度汇报</span><span>2026-10-17</span><span>P1 / 8</span></div>
+        </section>
+        <section class="slide kpis">
+          <h2>关键指标</h2>
+          <div class="desc">四条业务线的季度表现与目标进度。</div>
+          <div class="kgrid">
+            <div class="kpi"><div class="num">1,284</div><div class="delta up">▲ 12.4% 环比</div>
+              <div class="label">活跃用户</div><div class="bar"><i style="width:82%"></i></div></div>
+            <div class="kpi"><div class="num">98.2%</div><div class="delta up">▲ 0.6pt</div>
+              <div class="label">七天留存</div><div class="bar"><i style="width:96%"></i></div></div>
+            <div class="kpi"><div class="num">¥426w</div><div class="delta down">▼ 3.1% 环比</div>
+              <div class="label">订阅收入</div><div class="bar"><i style="width:64%"></i></div></div>
+            <div class="kpi"><div class="num">0.5d</div><div class="delta up">▲ 缩短一半</div>
+              <div class="label">故障恢复</div><div class="bar"><i style="width:75%"></i></div></div>
+          </div>
+        </section>
+        <section class="slide split">
+          <div class="text">
+            <h2>图文混排</h2>
+            <p>左侧文字列表面板，右侧整幅照片（远程图 + object-fit 裁剪）。</p>
+            <ul>
+              <li>圆点列表，虚线分隔</li>
+              <li>照片右下角浮层徽章</li>
+              <li>两栏背景色不同</li>
+            </ul>
+          </div>
+          <div class="pic">
+            <img src="https://picsum.photos/seed/agent1/820/720" alt="photo">
+            <div class="badge">图 1 · 现场照片（远程加载）</div>
+          </div>
+        </section>
+        <section class="slide tl">
+          <h2>季度时间线</h2>
+          <div class="track">
+            <div class="line"></div>
+            <div class="item" style="top:0"><div class="dot"><i></i></div>
+              <div class="body"><div class="when">2026-01</div><h3>立项启动</h3>
+              <p>团队到位，完成技术选型与首版架构评审。</p></div></div>
+            <div class="item" style="top:120px"><div class="dot"><i></i></div>
+              <div class="body"><div class="when">2026-04</div><h3>公测上线</h3>
+              <p>移动端与桌面端同步开放公测，首批种子用户 2 万。</p></div></div>
+            <div class="item" style="top:240px"><div class="dot"><i></i></div>
+              <div class="body"><div class="when">2026-07</div><h3>商业化</h3>
+              <p>订阅体系上线，首季度收入突破四百万。</p></div></div>
+            <div class="item" style="top:360px"><div class="dot"><i></i></div>
+              <div class="body"><div class="when">2026-10</div><h3>规模化</h3>
+              <p>多租户与私有化部署方案落地。</p></div></div>
+          </div>
+        </section>
+        <section class="slide tbl">
+          <h2>经营明细</h2>
+          <table>
+            <thead><tr><th>业务线</th><th>收入</th><th>成本</th><th>毛利率</th><th>趋势</th></tr></thead>
+            <tbody>
+              <tr><td>订阅</td><td class="num">¥286w</td><td class="num">¥92w</td><td class="num">67.8%</td><td>▲ 上升</td></tr>
+              <tr><td>项目交付</td><td class="num">¥102w</td><td class="num">¥71w</td><td class="num">30.4%</td><td>▼ 下降</td></tr>
+              <tr><td>增值服务</td><td class="num">¥38w</td><td class="num">¥12w</td><td class="num">68.4%</td><td>▲ 上升</td></tr>
+            </tbody>
+            <tfoot><tr><td>合计</td><td class="num">¥426w</td><td class="num">¥175w</td><td class="num">58.9%</td><td>—</td></tr></tfoot>
+          </table>
+        </section>
+        <section class="slide charts">
+          <h2>双图表</h2>
+          <div class="row"><div id="bars"></div><div id="donut"></div></div>
+        </section>
+        <section class="slide quote">
+          <div class="mark">“</div>
+          <blockquote>把排版交给 CSS，把编辑能力还给 PowerPoint——<br>这是自由与可控之间最好的折中。</blockquote>
+          <div class="who">
+            <div class="avatar"><img src="https://picsum.photos/seed/agent1face/128/128" alt="avatar"></div>
+            <div class="nm"><b>产品部</b><span>2026 Q3 复盘</span></div>
+          </div>
+        </section>
+        <section class="slide end">
+          <div class="big">THANKS</div>
+          <p>复杂样例 · 全特性验收到此结束</p>
+          <div class="tags"><span>html2pptx</span><span>native 模式</span><span>2026-10</span></div>
+        </section>
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+        <script>
+        var bars = echarts.init(document.getElementById('bars'), null, { renderer: 'canvas' });
+        bars.setOption({
+          animation: false,
+          grid: { left: 56, right: 20, top: 40, bottom: 44 },
+          xAxis: { type: 'category', data: ['Q1','Q2','Q3','Q4·E'],
+            axisLabel: { fontSize: 17, color: '#64748b' } },
+          yAxis: { type: 'value', splitLine: { lineStyle: { color: '#eef2f7' } } },
+          series: [
+            { name: '订阅', type: 'bar', stack: 'q', data: [120, 186, 286, 360],
+              itemStyle: { color: '#2c7a7b' }, barWidth: 64 },
+            { name: '项目', type: 'bar', stack: 'q', data: [88, 96, 102, 70],
+              itemStyle: { color: '#e8b86d', borderRadius: [8, 8, 0, 0] } },
+            { name: '增值', type: 'bar', stack: 'q', data: [12, 24, 38, 60],
+              itemStyle: { color: '#8b7ec8', borderRadius: [8, 8, 0, 0] } }
+          ]
+        });
+        var donut = echarts.init(document.getElementById('donut'), null, { renderer: 'canvas' });
+        donut.setOption({
+          animation: false,
+          series: [{ type: 'pie', radius: ['46%', '72%'], center: ['50%', '50%'],
+            label: { fontSize: 16, color: '#475569' },
+            data: [
+              { value: 286, name: '订阅 67%' },
+              { value: 102, name: '项目 24%' },
+              { value: 38, name: '增值 9%' }
+            ],
+            itemStyle: { borderColor: '#fff', borderWidth: 3 } }]
+        });
+        </script>
+        </body></html>
+        """;
+
     private static String shotJson(int w, int h) {
         return "{\"w\":" + w + ",\"h\":" + h + ",\"b64\":\"" + PNG_B64 + "\"}";
     }

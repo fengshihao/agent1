@@ -536,8 +536,9 @@ function nativeCaptureCode(width, height, scale) {
       "    var out = [];",
       "    for (var i = 0; i < slide.elements.length; i++) {",
       "      var el = slide.elements[i];",
+      "      var isImg = el.tag === 'img' || el.tag === 'canvas' || el.tag === 'svg' || el.tag === 'video';",
       "      if (el.shadow) { out.push(expanded(el.rect, el.shadow)); }",
-      "      else if (el.imgOmitted || (el.imgSrc && String(el.imgSrc).indexOf('data:') !== 0)) { out.push(el.rect); }",
+      "      else if (isImg || el.imgOmitted) { out.push(el.rect); }",
       "    }",
       "    return out;",
       "  }",
@@ -571,6 +572,12 @@ function nativeCaptureCode(width, height, scale) {
       "      ctx.drawImage(shot, rr.x * " + scale + ", rr.y * " + scale + ", rr.w * " + scale + ", rr.h * " + scale + ", 0, 0, cv.width, cv.height);",
       "      nslide.clips.push({ x: r2(rr.x), y: r2(rr.y), w: r2(rr.w), h: r2(rr.h), b64: cv.toDataURL('image/png').split(',')[1] });",
       "    }",
+      "  }",
+      // 图片一律走 clip 补真：回执不再携带 imgSrc/imgOmitted（data URI 动辄百 KB–MB，
+      // 是 QuickJS 回执与内存的主要负担，也把转换职责收窄为文本+盒子+背景+截图）
+      "  for (var sk = 0; sk < slides.length; sk++) {",
+      "    var sels = slides[sk].elements;",
+      "    for (var ek = 0; ek < sels.length; ek++) { delete sels[ek].imgSrc; delete sels[ek].imgOmitted; }",
       "  }",
       "  return JSON.stringify({ version: 1, generator: '" + PACKAGE_TAG + " native capture', slides: slides });",
       "})();"
