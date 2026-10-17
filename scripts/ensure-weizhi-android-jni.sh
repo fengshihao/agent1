@@ -31,7 +31,11 @@ has_symbol() {
   if ! command -v nm >/dev/null 2>&1; then
     return 0
   fi
-  nm -D --defined-only "${so}" 2>/dev/null | grep -q "${SYMBOL}"
+  # 不用 `nm | grep -q`：脚本开了 pipefail，GNU grep -q 命中即退出会让
+  # nm 收到 SIGPIPE（141），把「已导出」误判成「未导出」。先完整捕获再判子串。
+  local syms
+  syms="$(nm -D --defined-only "${so}" 2>/dev/null)" || syms=""
+  [[ "${syms}" == *"${SYMBOL}"* ]]
 }
 
 sources_newer() {
@@ -71,6 +75,10 @@ echo "ensure-weizhi-android-jni: ${WEIZHI}/scripts/build-android.sh arm64-v8a"
 
 if ! has_symbol "${SO}"; then
   echo "ensure-weizhi-android-jni: 重编后仍没有 ${SYMBOL}：${SO}" >&2
+  if command -v nm >/dev/null 2>&1; then
+    echo "  nm: $(nm --version 2>/dev/null | head -1)；dynsym 前 3 行：" >&2
+    nm -D --defined-only "${SO}" 2>&1 | head -3 | sed 's/^/    /' >&2 || true
+  fi
   exit 1
 fi
 echo "ensure-weizhi-android-jni: 已更新 ${SO}"
