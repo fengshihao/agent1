@@ -1,0 +1,5 @@
+{
+  "name": "html2pptx",
+  "version": "0.1.0",
+  "entry": "html2pptx.js"
+}

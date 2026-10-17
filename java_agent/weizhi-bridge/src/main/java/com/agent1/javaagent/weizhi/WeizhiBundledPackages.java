@@ -16,9 +16,10 @@ public final class WeizhiBundledPackages {
 
     public static final String VERSION = "1.0.0";
     public static final String PPTX_VERSION = "1.1.0";
+    public static final String HTML2PPTX_VERSION = "0.1.0";
 
     public static final List<String> BUNDLED_PACKAGE_NAMES =
-        List.of("docx", "docx-raw", "docx-build", "pptx", "pptx-build", "svg-raster");
+        List.of("docx", "docx-raw", "docx-build", "pptx", "pptx-build", "svg-raster", "html2pptx");
 
     private static final String RESOURCE_ROOT = "agent-home/weizhi-packages/";
 
@@ -70,6 +71,9 @@ public final class WeizhiBundledPackages {
         if ("pptx".equals(name)) {
             return PPTX_VERSION;
         }
+        if ("html2pptx".equals(name)) {
+            return HTML2PPTX_VERSION;
+        }
         return VERSION;
     }
 
@@ -95,6 +99,7 @@ public final class WeizhiBundledPackages {
             case "pptx" -> "pptx.js";
             case "pptx-build" -> "pptx-build.js";
             case "svg-raster" -> "svg-raster.js";
+            case "html2pptx" -> "html2pptx.js";
             default -> throw new IllegalArgumentException("unknown package: " + packageName);
         };
     }
