@@ -1,6 +1,7 @@
 package com.agent1.javaagent.promote;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
@@ -28,7 +29,7 @@ class PromotionServiceTest {
         assertEquals(2, result.promoted().size());
         assertTrue(Files.isRegularFile(agentRoot.resolve("shared/local/skills/demo-skill/SKILL.md")));
         assertTrue(Files.isRegularFile(agentRoot.resolve("shared/local/scripts/helper.js")));
-        assertTrue(Files.isRegularFile(agentRoot.resolve("shared/catalog/scripts/helper.js")));
+        assertFalse(Files.isRegularFile(agentRoot.resolve("shared/catalog/scripts/helper.js")));
         assertTrue(Files.isRegularFile(agentRoot.resolve("docs/capabilities/local.skill.demo-skill.md")));
         assertTrue(Files.isRegularFile(AgentDataPaths.eventsJsonl(agentRoot)));
     }

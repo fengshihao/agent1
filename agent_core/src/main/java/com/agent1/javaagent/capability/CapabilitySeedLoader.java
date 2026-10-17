@@ -117,7 +117,7 @@ public final class CapabilitySeedLoader {
     static CapabilityRecord parseWeizhiCard(String jsonLine) throws Exception {
         JsonNode node = MAPPER.readTree(jsonLine);
         String id = node.path("id").asText("");
-        String kind = id.startsWith("android.") ? "caps" : "catalog_script";
+        String kind = id.startsWith("android.") ? "caps" : "weizhi_package";
         String requires = node.has("params") && !node.get("params").isNull() ? node.get("params").toString() : "";
         double weight = id.startsWith("docx.") || id.startsWith("pptx.") ? 1.2 : 1.1;
         return new CapabilityRecord(

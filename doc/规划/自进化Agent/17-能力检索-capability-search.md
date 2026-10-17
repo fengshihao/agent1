@@ -1,7 +1,9 @@
 # 17 — 能力检索（find_caps）
 
+> **2026-10**：官方 JS 的 kind 是 `weizhi_package`，调用示例是 `import … from "weizhi:<name>"`。`catalog_script`、`list_catalog`、`read_agent_doc`、`catalog_install` 不再作为模型路径。下文保留当时的检索设计。
+
 > 状态：**需求 + 详细设计 + 实施安排**（2026-09-30）。  
-> 背景：Agent 定位为 **编程智能体**（JS 为主、Java Tool 极简）；内置 Caps、catalog 脚本、Skill、MCP、$tools 桥等能力数量大，**不能**全部写入系统提示词。
+> 背景：Agent 定位为 **编程智能体**（JS 为主、Java Tool 极简）；内置 Caps、Weizhi Package、Skill、MCP、`$tools` 桥等能力数量大，**不能**全部写入系统提示词。
 
 关联：[07-系统提示词与环境摘要.md](./07-系统提示词与环境摘要.md)、[12-catalog安装与AI按需拉取.md](./12-catalog安装与AI按需拉取.md)、[Agent1-SDK愿景.md](../Agent1-SDK愿景.md)、Weizhi [AGENT_SANDBOX_PROMPT](https://github.com/fengshihao/weizhi/blob/master/docs/AGENT_SANDBOX_PROMPT.md)。
 

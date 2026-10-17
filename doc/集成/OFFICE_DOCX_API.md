@@ -7,17 +7,17 @@ Agent 的发现面是 `agent-home/capabilities/office-api-cards.jsonl`（`docx.*
 ## 加载
 
 ```javascript
-import { Document, renderDocx, markdownToDocx, documentFromMarkdown } from "./docx.js";
+import { Document, renderDocx, markdownToDocx, documentFromMarkdown } from "weizhi:docx";
 ```
 
-需 `setScriptFolder` + caps（`files.mkdir` / `zipCreate`）与 `setFsRoot` 工作区对齐。
+Package 由 `setPackageRoot` 加载。工作区文件走 `setFsRoot`。
 
 ---
 
 ## 从零创建（推荐）
 
 ```javascript
-import { Document, renderDocx } from "./docx.js";
+import { Document, renderDocx } from "weizhi:docx";
 
 const doc = Document.create({
   title: "报告",
@@ -36,7 +36,7 @@ const result = renderDocx(doc, "out/report.docx");
 **写新文档**时可用 `docx-build.js` 链式 API；**改已有 docx** 仍用 `readDocx` + grep（Builder 不负责编辑）。
 
 ```javascript
-import { buildDocx } from "./docx-build.js";
+import { buildDocx } from "weizhi:docx-build";
 
 buildDocx({ title: "报告", defaultStyle: { font: "宋体", sizePt: 12 } }, (b) => {
   b.h1("摘要")
@@ -51,7 +51,7 @@ buildDocx({ title: "报告", defaultStyle: { font: "宋体", sizePt: 12 } }, (b)
 或 **JSON 块列表**（适合 Agent `@Tool` 传参）：
 
 ```javascript
-import { buildDoc, renderDocx } from "./docx-build.js";
+import { buildDoc, renderDocx } from "weizhi:docx-build";
 
 const doc = buildDoc({}, (b) =>
   b.blocks([
@@ -87,7 +87,7 @@ renderDocx(doc.doc(), "out/from-blocks.docx");
 ## Markdown → Word
 
 ```javascript
-import { markdownToDocx } from "./docx.js";
+import { markdownToDocx } from "weizhi:docx";
 
 markdownToDocx({
   inputPath: "notes/report.md",   // 与 markdown 二选一
@@ -103,7 +103,7 @@ markdownToDocx({
 或先建模型再渲染：
 
 ```javascript
-import { documentFromMarkdown, renderDocx } from "./docx.js";
+import { documentFromMarkdown, renderDocx } from "weizhi:docx";
 
 const doc = documentFromMarkdown("# Hi\n\n- a\n", { title: "Doc" });
 renderDocx(doc, "out/hi.docx");
@@ -127,7 +127,7 @@ Markdown（常用子集）：
 与代码库 **read / grep / edit / save** 类似：先把 docx 当成「带块序号的纯文本视图」观察，再按 `blockIndex` 或全文替换修改。
 
 ```javascript
-import { readDocx } from "./docx.js";
+import { readDocx } from "weizhi:docx";
 
 const doc = readDocx("out/rich.docx");   // 或 Document.load(...)
 
@@ -181,7 +181,7 @@ const md = doc.toMarkdown();             // 有损往返，复杂版式会简化
 高级模型 API 不够用时，可直接改解包后的 XML，再打包成 **.docx（OPC zip）**。模块：**`docx-raw.js`**（亦可在 `docx.js` 用 `unpackDocx` / `packDocx`）。
 
 ```javascript
-import { unpackDocx, packDocx, validateDocx } from "./docx-raw.js";
+import { unpackDocx, packDocx, validateDocx } from "weizhi:docx-raw";
 import fs from "fs";
 
 const { dir } = unpackDocx("in/report.docx", { workDir: "tmp/report-ooxml" });

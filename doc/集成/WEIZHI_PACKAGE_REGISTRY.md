@@ -52,7 +52,7 @@ Registry URL（可配置，默认微智官方）
 与 Agent1 **CatalogSyncService**（skill/js_lib/native）**共用思路**（清单 + digest），但：
 
 - 安装目标为 **`weizhi-home/packages/`**，不是 `shared/catalog/scripts/`。
-- 能力检索走 **find_caps** 的 `weizhi_package`（或等价 kind），不是 `catalog_install` 装叶子 js。
+- 能力检索走 **find_caps** 的 `weizhi_package`（或等价 kind）。模型工具 `catalog_install` / `catalog_sync_status` 已删除；官方包在 `run_js` 前安装。桌面 `./agent1 sync` 仍服务 native 等 catalog 条目。
 
 **配置（Agent1 覆盖，Weizhi 提供默认 URL 常量）**：
 

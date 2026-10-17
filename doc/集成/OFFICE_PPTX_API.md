@@ -7,11 +7,11 @@
 ## 加载
 
 ```javascript
-import { renderPptx, createDeck } from "pptx.js";
-import { buildPptx } from "pptx-build.js";
+import { renderPptx, createDeck } from "weizhi:pptx";
+import { buildPptx } from "weizhi:pptx-build";
 ```
 
-需 `setScriptFolder` + caps（`files.mkdir` / `zipCreate`）与 `setFsRoot` 工作区对齐。
+Package 由 `setPackageRoot` 加载。工作区文件走 `setFsRoot`。
 
 ## 直接渲染
 
@@ -81,7 +81,7 @@ const result = renderPptx({
 ## Builder
 
 ```javascript
-import { buildPptx } from "pptx-build.js";
+import { buildPptx } from "weizhi:pptx-build";
 
 buildPptx({ title: "演示", theme: "dark" }, (b) => {
   b.title("演示", "副标题")

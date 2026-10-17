@@ -201,17 +201,13 @@ class CapabilityIndexStoreTest {
             "agent.directories",
             CapabilityIndexStore.search(agentRoot, "directories workspace", List.of("builtin"), "any", 3).get(0).id()
         );
-        assertEquals(
-            "agent.catalog-install",
-            CapabilityIndexStore.search(agentRoot, "catalog_install", List.of("builtin"), "any", 3).get(0).id()
+        assertTrue(
+            CapabilityIndexStore.search(agentRoot, "catalog_install", List.of("builtin"), "any", 3).stream()
+                .noneMatch(hit -> "agent.catalog-install".equals(hit.id()))
         );
         assertEquals(
             "agent.events-audit",
             CapabilityIndexStore.search(agentRoot, "events.jsonl", List.of("builtin"), "any", 3).get(0).id()
-        );
-        assertEquals(
-            "agent.trusted-sources",
-            CapabilityIndexStore.search(agentRoot, "trusted source", List.of("builtin"), "any", 3).get(0).id()
         );
     }
 

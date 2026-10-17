@@ -1,6 +1,7 @@
 package com.agent1.javaagent.catalog.sync;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
@@ -82,7 +83,7 @@ class CatalogSyncServiceTest {
             Path installed = agentRoot.resolve("shared/catalog/scripts/demo.js");
             assertTrue(Files.isRegularFile(installed));
             assertTrue(Files.isRegularFile(agentRoot.resolve("shared/catalog/libs/js/demo-lib.js")));
-            assertTrue(Files.isRegularFile(agentRoot.resolve("shared/catalog/scripts/demo-lib.js")));
+            assertFalse(Files.isRegularFile(agentRoot.resolve("shared/catalog/scripts/demo-lib.js")));
             assertTrue(Files.isRegularFile(agentRoot.resolve("docs/capabilities/script.demo.md")));
             SyncState state = SyncState.load(agentRoot);
             assertTrue(state.installed("script.demo").isPresent());

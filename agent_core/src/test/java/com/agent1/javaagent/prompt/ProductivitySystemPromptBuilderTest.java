@@ -255,7 +255,7 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
-    void includesCatalogPendingWhenSyncFileExists() throws Exception {
+    void omitsCatalogPendingEvenWhenSyncFileExists() throws Exception {
         Path workspace = temp.resolve("ws");
         Path agentRoot = temp.resolve("agentRoot");
         java.nio.file.Files.createDirectories(agentRoot.resolve("sync"));
@@ -265,7 +265,8 @@ class ProductivitySystemPromptBuilderTest {
         );
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(workspace, agentRoot, false, false);
-        assertTrue(prompt.contains("catalog pending"));
+        assertFalse(prompt.contains("catalog pending"));
+        assertFalse(prompt.contains("catalog_sync_status"));
     }
 
     @Test
@@ -338,7 +339,10 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("find_caps"));
         assertTrue(prompt.contains("现成接口或同类脚本"));
         assertTrue(prompt.contains("query 写全"));
-        assertTrue(prompt.contains("不要 glob、list_dir 或 catalog_sync"));
+        assertTrue(prompt.contains("weizhi:<name>"));
+        assertTrue(prompt.contains("不要 glob 或 list_dir"));
+        assertFalse(prompt.contains("catalog_sync"));
+        assertFalse(prompt.contains("文件名.js"));
         assertTrue(prompt.contains("edit_file"));
         assertTrue(prompt.contains("外层 read_file"));
         assertTrue(prompt.contains("须在 workspace 根下"));

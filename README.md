@@ -49,7 +49,7 @@
 | **极小内核** | `java-agent-core` 专注 ReAct、Session、workspace、事件落盘;整体约 **3MB** 量级,便于与业务 APK 同包分发 |
 | **编程型助手** | 主路径是写 **JavaScript**(QuickJS / `run_js`)编排任务,而不是把几十种工具名塞进系统提示 |
 | **能干活** | 读写工作区、检索历史、拉网页、跑脚本、调 WebView、接 MCP、加载 Skill;面向真实文档 / 表格 / 流程类工作 |
-| **可进化** | Skill 沉淀、`find_caps` 按需发现能力、晋升到公共 catalog;Session 沙箱 + 审计日志支撑长期演进 |
+| **可进化** | Skill 沉淀、`find_caps` 按需发现能力、晋升到 `shared/local`；官方 JS 用 Weizhi Package。Session 沙箱 + 审计日志支撑长期演进 |
 | **双端验证** | Android 是首要宿主;macOS / Ubuntu 上的 `./agent1` 用于联调、CI 与无屏环境 |
 
 桌面 **生产力 CLI**(`./agent1`)与 **Android 生产力 App** 共用同一内核,能力对照见 [doc/CLI与Android-Agent能力对照.md](doc/CLI与Android-Agent能力对照.md)。
@@ -111,7 +111,7 @@ flowchart TB
   Core --> Bridge[weizhi-bridge]
   subgraph weizhi["微智 Weizhi · 脚本引擎"]
     Bridge --> WZ[QuickJS · run_js]
-    WZ --> Cap["Caps · catalog 脚本 · $mcp"]
+    WZ --> Cap["Caps · Weizhi Package · $mcp"]
     Bridge --> WV[WebView]
   end
 ```
@@ -157,7 +157,7 @@ Weizhi 自身文档:[README](https://github.com/fengshihao/weizhi) · [AI 集成
 
 ## 能力地图
 
-**内核工具**(不依赖 Weizhi 亦有):`read_file` · `write_file` · `edit_file` · `list_dir` · `read_url` · `chat_history` · `read_agent_doc` · catalog / promote 相关占位与自进化只读工具等。
+**内核工具**(不依赖 Weizhi 亦有):`read_file` · `write_file` · `edit_file` · `list_dir` · `read_url` · `chat_history` · `find_caps` · `ask_user` · `promote_request` · `todo_write` 等。官方 JS 包不是模型工具：`run_js` 里写 `import … from "weizhi:<name>"`，宿主在执行前安装。
 
 <details>
 <summary><strong>集成 Weizhi 后的扩展环</strong></summary>
@@ -181,7 +181,7 @@ Android 启用完整环:联编 `weizhi` 或使用 `weizhi-prebuilt`,见 [android
 Agent1 要成为 **Android / 嵌入式 JVM 宿主** 里的默认 **生产力编程智能体**:
 
 1. **用户说人话,助手写 JS**
-   在 Session `workspace/` 里用一段脚本编排任务(`run_js`),通过 Weizhi QuickJS 调用 `fs`、平台 **Caps**、catalog 脚本、以及白名单内的 `$tools` 桥。多步工作写在同一段脚本里,而不是一轮轮硬调零散 Java Tool。
+   在 Session `workspace/` 里用一段脚本编排任务(`run_js`),通过 Weizhi QuickJS 调用 `fs`、平台 **Caps**、`import … from "weizhi:<name>"` 的官方包,以及白名单内的 `$tools` 桥。多步工作写在同一段脚本里,而不是一轮轮硬调零散 Java Tool。
 
 2. **工具少而精,细节靠检索**
    Java 层只保留工作区 I/O、脚本执行、用户澄清等「内核工具」。具体怎么做 Word、分享、画图、调外部服务,先走 **`find_caps`**:结果里的调用示例可以直接写进脚本。Skill 命中时附上正文。API 手册不打进 APK。
@@ -199,7 +199,7 @@ Agent1 要成为 **Android / 嵌入式 JVM 宿主** 里的默认 **生产力编�
    - **网页图**:`find_caps` 的 `web_lib` 给出按库锁定的 CDN 和薄 HTML 壳。同一批壳安装在 `shared/catalog/templates/`。先写 Markdown / Mermaid / JSON,再套壳。`write_file` 或 `edit_file` 写入 `.html` 后宿主自动用 `webview_exec` 打开检查,失败会回到工具回执。
 
 6. **自进化数据面**
-   Session 隔离的可写沙箱;可复用产出晋升到 **shared/**;`events.jsonl` 全链路审计;catalog 与云端资源同步(规划中)。目标:越用越懂你的流程,而不是每次从零科普工具列表。
+   Session 隔离的可写沙箱;可复用 Skill 晋升到 **shared/local**;官方 Package 在 `run_js` 前按需安装;`events.jsonl` 全链路审计。目标:越用越懂你的流程,而不是每次从零科普工具列表。
 
 更完整的 SDK 集成面见 [doc/规划/Agent1-SDK愿景.md](doc/规划/Agent1-SDK愿景.md)。
 
@@ -247,11 +247,11 @@ Agent1 is a **compact, embeddable programming agent** for **Android and other JV
 
 ### How it works
 
-- **JavaScript-first**: orchestrate tasks with `run_js` (Weizhi QuickJS) in the session workspace; call Caps, catalog scripts, `$tools`, and `$mcp.*` from JS.
+- **JavaScript-first**: orchestrate tasks with `run_js` (Weizhi QuickJS) in the session workspace; call Caps, Weizhi packages (`import … from "weizhi:<name>"`), `$tools`, and `$mcp.*` from JS.
 - **Discovery, not prompt bloat**: use **`find_caps`** to get a callable example for skills, APIs, and MCP tools; load workflows with **`load_skill`**. API manuals are not shipped in the app.
 - **WebView tools**: render script-driven pages on device (Android WebView; desktop Chromium for dev). `find_caps` kind `web_lib` lists pinned CDN URLs. After `write_file` of an HTML page, the host opens it in WebView and returns a short smoke result.
 - **MCP**: configure servers under `agentRoot`; invoke from scripts without registering every tool in Java.
-- **Self-evolution**: session sandboxes, promotion to shared catalog, full event trail — see `doc/规划/自进化Agent/`.
+- **Self-evolution**: session sandboxes, skill promotion into `shared/local`, official packages installed before `run_js`, full event trail — see `doc/规划/自进化Agent/`.
 
 ### Weizhi (微智) dependency
 

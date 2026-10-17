@@ -2,7 +2,7 @@
 
 **给人读的 API：** [OFFICE_DOCX_API.md](./OFFICE_DOCX_API.md)
 
-脚本、调用卡和回归都在本仓库。Weizhi 只提供 `runJs`、`fs`、`zip` 和 `setScriptFolder`，不再附带 `docx.js`。
+脚本、调用卡和回归都在本仓库。Weizhi 提供 `runJs`、`fs`、`zip` 和 Package 加载。docx 以 `weizhi:docx` 安装，不附带裸 `docx.js`。
 
 ---
 
@@ -22,5 +22,5 @@
 
 ## 系统提示
 
-- 优先 `docx.js`（`markdownToDocx` / read→grep→save）；高级 OOXML 用 `docx-raw.js` + `validateDocx`。
+- 优先 `weizhi:docx`（`markdownToDocx` / read→grep→save）；高级 OOXML 用 `weizhi:docx-raw` + `validateDocx`。
 - 不要使用已删除的 Java `host.office.*`。

@@ -41,12 +41,10 @@ public final class CatalogMissingNativeHints {
     }
 
     public static String adviceFor(String pluginName) {
-        String idHint = pluginName.isBlank() ? "对应 catalog id" : "catalog 中 native." + pluginName + ".* 或 capabilities 里的 id";
         return "脚本需要 native 插件"
             + (pluginName.isBlank() ? "" : " \"" + pluginName + "\"")
-            + "，本地尚未安装或自动安装失败。生产力路径会在 ensureNative 失败时尝试 catalog sync；"
-            + "若仍失败请 read_file docs/system/catalog-install.md、查 docs/capabilities/，"
-            + "用 catalog_install 安装 " + idHint + "。"
+            + "，本地尚未安装或自动安装失败。宿主会在 ensureNative 时尝试 catalog 同步；"
+            + "仍失败时由用户在桌面执行 agent1 sync。"
             + "脚本内使用 await host.ensureNative(\""
             + (pluginName.isBlank() ? "插件名" : pluginName)
             + "\")。";

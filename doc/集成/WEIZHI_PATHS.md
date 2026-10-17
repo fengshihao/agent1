@@ -7,7 +7,7 @@
 | 层 | 谁 | 路径规则 |
 |----|-----|----------|
 | **QuickJS 引擎 `fs` / workspace 内 `import`** | `setFsRoot` = 会话 workspace | 相对或绝对均可；`realpath` / `normalize` 后须在 workspace 根下；越界 `path escape`；`mkdirSync`/`promises.mkdir` 支持 `{ recursive: true }`；`writeFile*` 自动建父目录（[weizhi#27](https://github.com/fengshihao/weizhi/issues/27)） |
-| **Catalog 裸 `import`** | `setScriptFolder` = `agentRoot/shared/catalog/scripts` | 仅单层叶子 `from "docx.js"`，不要 `./` |
+| **Weizhi Package** | `setPackageRoot` = `{agentRoot}/weizhi-home`（Android：`filesDir/weizhi-home`） | `import { … } from "weizhi:<name>"`。官方包由宿主在 `run_js` 前安装，模型不调用下载工具 |
 | **Java 工具** | `agent_core` 的 `read_file` / `write_file` / `grep` / `bash` 等 | `WorkspaceSandbox`：工作区相对或「落在 workspace/agent 文档区」的绝对路径，收成逻辑路径 |
 | **平台 Caps** | 脚本内 `android.files.*`、`intent.start({ path })` 等 | **仅**工作区相对路径 |
 
@@ -18,8 +18,8 @@
 | 项 | 位置 |
 |----|------|
 | `setFsRoot` | `WeizhiScriptEngine` / `WeizhiAndroidScriptEngineFactory` → 会话 workspace |
-| `setScriptFolder` | `AgentCatalogPaths.catalogScriptsDir(agentRoot)` |
-| 晋升脚本可 `import` | `PromotionService` 将 `shared/local/scripts/*.js` 镜像到 `shared/catalog/scripts/`（与 scriptFolder 一致） |
+| `setPackageRoot` | 桌面 `{agentRoot}/weizhi-home`；Android `WeizhiPackages.syncBundled` → `filesDir/weizhi-home` |
+| 官方包 | `import … from "weizhi:<name>"`。见 [WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md) |
 
 ## 验收
 

@@ -29,6 +29,7 @@ public final class CapabilitySearchView {
     public static final List<String> KINDS = List.of(
         "caps",
         "builtin",
+        "weizhi_package",
         "catalog_script",
         "catalog_lib",
         "native",

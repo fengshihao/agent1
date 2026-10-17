@@ -1,5 +1,7 @@
 # 12 — Catalog 安装与 AI 按需拉取
 
+> **现状**：模型工具 `catalog_install` / `catalog_sync_status` 已删除。官方 JS 用 Weizhi Package（`import … from "weizhi:<name>"`），由 `run_js` 前安装。下文保留当时的 catalog 设计；桌面 `./agent1 sync` 仍可供 native 等条目使用。
+
 > SO、脚本、图片、JS 库 **共用一套「清单 + sync apply」**；AI **根据文档** 在需要时安装，不必每次全量同步。
 
 ## 一句话

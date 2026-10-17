@@ -100,14 +100,6 @@ class ProductivityCoachTest {
     }
 
     @Test
-    void catalogPendingCoach() {
-        ProductivityCoach coach = new ProductivityCoach();
-        ToolExecutionResult in = ToolExecutionResult.text("manifest: x\npending: 2\n- a");
-        ToolExecutionResult out = coach.maybeAugment("catalog_sync_status", MAPPER.createObjectNode(), in, false);
-        assertTrue(out.getText().contains("[coach] catalog.pending"));
-    }
-
-    @Test
     void stagingReadyCoach() {
         ProductivityCoach coach = new ProductivityCoach();
         ObjectNode params = MAPPER.createObjectNode();
@@ -129,7 +121,8 @@ class ProductivityCoachTest {
         ToolExecutionResult out = coach.maybeAugment("run_js", params, fail, false);
         assertTrue(out.getText().contains("[coach] catalog.missing_native"));
         assertTrue(out.getText().contains("echo_math"));
-        assertTrue(out.getText().contains("catalog_install"));
+        assertTrue(out.getText().contains("agent1 sync"));
+        assertFalse(out.getText().contains("catalog_install"));
     }
 
     @Test

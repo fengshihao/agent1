@@ -72,7 +72,7 @@ await run({
 **AI 流程**：
 
 1. `find_caps("LUT 胶片 调色")` → 命中 `kind: lut` 卡片（含 **id、tags、entry**）。
-2. 若本地未安装 → `catalog_sync_status` / **`catalog_install`**（只安装 manifest 里 **trusted source** 的条目）。
+2. 若本地未安装：官方 JS 走 `weizhi:` Package（`run_js` 前安装）。LUT 尚未接到 Package；模型侧没有 `catalog_install`。
 3. LUT 落盘到 **`shared/catalog/...`** 或 sync 约定目录（**非** workspace 手 write）。
 4. `applyLut({ input, output, lutId: "<id>" })` 或 `run({ ..., lut: "<id>" })` — 执行器 **只接受 id**，内部解析为 catalog 已安装路径；**不接受** http(s) 字符串或 workspace 内自写 `.cube`。
 
@@ -89,7 +89,7 @@ await run({
 
 **默认（多数用户）**：只做 `format=gray`、`scale`（M1 Native 或 M0 WebView），**不**走 LUT。
 
-**Coach**：检测到 `fetch(` / `read_url` 下载 LUT、或 `applyLut` 传入 URL → 提示改用 **`find_caps` + `catalog_install` + lutId**。
+**Coach**：检测到 `fetch(` / `read_url` 下载 LUT、或 `applyLut` 传入 URL → 提示改用 **`find_caps`** 里的 lutId。模型侧没有安装工具。
 
 ---
 

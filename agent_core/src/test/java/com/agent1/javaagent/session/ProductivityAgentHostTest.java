@@ -157,7 +157,7 @@ class ProductivityAgentHostTest {
     }
 
     @Test
-    void registersAgentDocAndCatalogTools() {
+    void registersCoreToolsWithoutRetiredCatalogInstall() {
         java.util.concurrent.atomic.AtomicReference<List<String>> toolNames =
             new java.util.concurrent.atomic.AtomicReference<>();
         LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
@@ -171,8 +171,8 @@ class ProductivityAgentHostTest {
             assertFalse(toolNames.get().contains("read_agent_doc"));
             assertFalse(toolNames.get().contains("list_catalog"));
             assertTrue(toolNames.get().contains("promote_request"));
-            assertTrue(toolNames.get().contains("catalog_install"));
-            assertTrue(toolNames.get().contains("catalog_sync_status"));
+            assertFalse(toolNames.get().contains("catalog_install"));
+            assertFalse(toolNames.get().contains("catalog_sync_status"));
             assertTrue(toolNames.get().contains("list_sessions"));
             assertFalse(toolNames.get().contains("skill"));
             assertTrue(toolNames.get().contains("ask_user"));

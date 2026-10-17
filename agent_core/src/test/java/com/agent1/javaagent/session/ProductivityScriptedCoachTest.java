@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
 import com.agent1.javaagent.config.AgentRuntimeConfig;
-import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.llm.scripted.ScriptedLlmClient;
 import com.agent1.javaagent.llm.scripted.ScriptedResponses;
 import com.agent1.javaagent.model.AgentMessage;
@@ -16,8 +15,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -113,55 +110,6 @@ class ProductivityScriptedCoachTest {
             assertTrue(host.runtime().getStateSnapshot().getMessages().stream()
                 .filter(m -> AgentMessage.ROLE_TOOL_RESULT.equals(m.getRole()))
                 .anyMatch(m -> m.getContent().contains("[coach] script.fail_repeat")));
-        }
-    }
-
-    @Test
-    void ucCatalogPendingCoachAfterSyncStatus(@TempDir Path agentRoot) throws Exception {
-        prepareCoachManifest(agentRoot, 65_536, 80, 8_192, 3);
-        AgentHomeBootstrap.ensure(agentRoot);
-
-        try (MockWebServer server = new MockWebServer()) {
-            server.start();
-            String base = server.url("v1/").toString();
-            String manifestUrl = server.url("/catalog-index.json").toString();
-            String manifest = """
-                {"schemaVersion":1,"catalogId":"c","baseUrl":"%s","items":[
-                {"id":"script.x","kind":"script","version":"1","digest":"sha256:ab","path":"scripts/x.js"}]}
-                """.formatted(base);
-            ObjectNode root = (ObjectNode) MAPPER.readTree(
-                Files.readString(agentRoot.resolve("agent.manifest.json"))
-            );
-            ObjectNode catalog = MAPPER.createObjectNode();
-            catalog.put("manifestUrl", manifestUrl);
-            root.set("catalog", catalog);
-            Files.writeString(
-                agentRoot.resolve("agent.manifest.json"),
-                MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root)
-            );
-            server.enqueue(new MockResponse().setBody(manifest));
-
-            ScriptedLlmClient llm = ScriptedLlmClient.builder()
-                .whenUserMessageContains(
-                    "scripted-catalog-pending",
-                    ScriptedResponses.toolCall("catalog_sync_status", "{}")
-                )
-                .whenToolResultContains("pending:", ScriptedResponses.text("看到 pending"))
-                .build();
-
-            AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("mock-key").build();
-            try (ProductivityAgentHost host = new ProductivityAgentHost(agentRoot, config, llm)) {
-                host.createSession();
-                host.runUserMessage("任务:scripted-catalog-pending sync check");
-
-                assertTrue(host.runtime().getStateSnapshot().getMessages().stream()
-                    .filter(m -> AgentMessage.ROLE_TOOL_RESULT.equals(m.getRole()))
-                    .anyMatch(m -> m.getContent().contains("[coach] catalog.pending")));
-
-                String events = Files.readString(AgentDataPaths.eventsJsonl(agentRoot));
-                assertTrue(events.contains("\"type\":\"coach_fired\""));
-                assertTrue(events.contains("catalog.pending"));
-            }
         }
     }
 

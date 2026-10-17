@@ -1,10 +1,5 @@
 package com.agent1.javaagent.prompt;
 
-import com.agent1.javaagent.util.PathIo;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -73,7 +68,7 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String TOOLS_WITH_SCRIPT = """
         # 主要工具
-        - run_js：执行 JS 脚本。宿主系统能力（平台 API）只在脚本里，没有对应的外层工具；$tools、工作区读写、import 已有脚本在同一段里 await。路径：fs 与 workspace 内 import 可用相对或绝对路径，须在 workspace 根下（引擎归一化）；catalog 用 from "文件名.js"（不要 ./）；./ 只表示与当前脚本同目录的 workspace 文件；编排入口用 file（如 jobs/run.js）；平台 Caps 的 path 仅相对路径。不要 glob、list_dir 或 catalog_sync 去找脚本库。
+        - run_js：执行 JS 脚本。宿主系统能力（平台 API）只在脚本里，没有对应的外层工具；$tools、工作区读写、import 已有脚本在同一段里 await。路径：fs 与 workspace 内 import 可用相对或绝对路径，须在 workspace 根下（引擎归一化）；官方能力用 import … from "weizhi:<name>"，按 find_caps 里的示例写，宿主在执行前安装缺失的包；./ 只表示与当前脚本同目录的 workspace 文件；编排入口用 file（如 jobs/run.js）；平台 Caps 的 path 仅相对路径。不要 glob 或 list_dir 去找脚本库。
         - find_caps：检索可用能力/API。query 写全本任务要用的能力，先看有没有现成接口或同类脚本；按结果里的调用示例写，不要猜函数。
         - 外层 read_file、write_file、edit_file 只用工作区相对路径查看和改脚本，不要 workspace/ 前缀。
         """.trim();
@@ -197,7 +192,7 @@ public final class ProductivitySystemPromptBuilder {
 
     static String buildEnvironmentSection(
         Path workspaceRoot,
-        Path agentRoot,
+        Path agentRoot, // NOPMD UnusedFormalParameter — 宿主仍传入 agentRoot；环境段不读 sync/pending.json
         String environmentSupplement,
         int maxTurnsPerRun,
         int maxToolCallsPerRun,
@@ -237,10 +232,6 @@ public final class ProductivitySystemPromptBuilder {
                 + maxToolCallsPerRun
                 + " 次（可在宿主「模型配置」高级参数调节）。留给按任务和工作流程做完，不要花在逐步试探上。");
         }
-        String catalogLine = agentRoot == null ? "" : catalogPendingSummary(agentRoot);
-        if (!catalogLine.isBlank()) {
-            lines.add(catalogLine);
-        }
         if (environmentSupplement != null && !environmentSupplement.isBlank()) {
             lines.add(environmentSupplement.trim());
         }
@@ -254,22 +245,4 @@ public final class ProductivitySystemPromptBuilder {
         return zone.getId() + "（UTC" + offset + "）";
     }
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
-    static String catalogPendingSummary(Path agentRoot) {
-        Path pendingFile = agentRoot.resolve("sync/pending.json");
-        if (!Files.isRegularFile(pendingFile)) {
-            return "";
-        }
-        try {
-            JsonNode root = MAPPER.readTree(PathIo.readString(pendingFile));
-            int count = root.path("items").isArray() ? root.path("items").size() : 0;
-            if (count <= 0) {
-                return "";
-            }
-            return "- catalog pending（上次 sync check）：" + count + " 条（catalog_sync_status / sync apply）";
-        } catch (IOException ignored) {
-            return "";
-        }
-    }
 }

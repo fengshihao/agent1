@@ -27,7 +27,7 @@
 | `docs/system/` | 目录 | 预留；bootstrap **不**拷贝出厂手册，升级时会删除一批已退役文件名 |
 | `docs/capabilities/` | 目录 | 能力说明 markdown + SQLite 索引 |
 | `shared/catalog/skills/` | 目录 | 目录 Skill |
-| `shared/catalog/scripts/` | 目录 | 用户或 catalog 安装的脚本。内置 Office / SVG 不放这里 |
+| `shared/catalog/scripts/` | 目录 | 旧 catalog `kind: script` 的落盘目录。引擎不从这里 `import`。官方 JS 在 `weizhi-home/packages/` |
 | `shared/catalog/libs/js/` | 目录 | JS 库；sync 后可镜像到 scripts |
 | `shared/catalog/libs/qjs/` | 目录 | 纯 JS QJS bundle |
 | `shared/catalog/assets/images/` | 目录 | 目录图片资源 |
@@ -35,7 +35,7 @@
 | `shared/catalog/native/` | 目录 | Native 插件；常见子路径 `native/<os>-<arch>/`（如 `linux-x64`） |
 | `shared/catalog/bundles/` | 目录 | 打包型目录项 |
 | `shared/local/skills/` | 目录 | 晋升 / 本地 Skill |
-| `shared/local/scripts/` | 目录 | 晋升脚本 |
+| `shared/local/scripts/` | 目录 | `promote_request` 留下的自有脚本。官方能力用 `weizhi:<name>` |
 
 bootstrap 从 classpath `agent-home` 补齐 HTML 模板。内置 Office / SVG 由 `WeizhiBundledPackages` 从 `agent-home/weizhi-packages` 装到 `weizhi-home`。
 
@@ -47,7 +47,7 @@ bootstrap 从 classpath `agent-home` 补齐 HTML 模板。内置 Office / SVG �
 | `docs/capabilities/capabilities.db` | bootstrap | FTS5 能力索引（种子在 core `agent-home`） |
 | `docs/capabilities/*.md` | 晋升 / catalog | 单条能力说明（只读） |
 | `logs/events.jsonl` | 首次审计事件 | Run、model、tool、usage 等；启动时可能裁剪 |
-| `shared/catalog/**` 下具体文件 | `catalog_install` / sync | 远程 manifest 安装产物 |
+| `shared/catalog/**` 下具体文件 | CLI `./agent1 sync`、native 自动安装 | 远程 catalog manifest 的安装产物。模型不调用 `catalog_install` |
 
 规划中的 `shared/templates`、`shared/mcp` **当前 bootstrap 不创建**。
 

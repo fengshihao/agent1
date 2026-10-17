@@ -26,9 +26,9 @@
 
 长期默认策略（与能力检索规划一致）：
 
-1. **主路径**：模型写 **workspace 内 JS orchestrator**（`run_js` file 模式），调用 Caps、`fs`、catalog 脚本、`host.ensureNative`、`$tools` 白名单等。
-2. **Java Tool 极简**：工作区 I/O、脚本执行、用户澄清（`ask_user`）、**能力检索**、必要的 catalog/skill 只读与区外写入 API。
-3. **能力不灌进系统提示**：提示词只给 **大类地图 + 必须先检索**；细节走 `find_caps` + `read_agent_doc` / skill 正文。
+1. **主路径**：模型写 **workspace 内 JS orchestrator**（`run_js` file 模式），调用 Caps、`fs`、`import … from "weizhi:<name>"`、`host.ensureNative`、`$tools` 白名单等。
+2. **Java Tool 极简**：工作区 I/O、脚本执行、用户澄清（`ask_user`）、**能力检索**、Skill 晋升。
+3. **能力不灌进系统提示**：提示词只给 **大类地图 + 必须先检索**；细节走 `find_caps` 与 Skill 正文。
 
 ## 4. 三方最小集成面（目标 API，稳定后文档化）
 

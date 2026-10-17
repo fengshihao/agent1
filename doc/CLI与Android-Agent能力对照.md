@@ -32,10 +32,10 @@
 | `ask_user` | 向用户提问（等待回复） | ✅ | ✅ | |
 | `todo_write` | 会话短清单，整表替换；未完成项在每轮开头回注系统提示 | ✅ | ✅ | 存在 `sessions/<id>/todos.json`；脚本内 `$tools.todo_write` |
 | `find_caps` | 检索 `capabilities.db` 与 MCP 缓存 | ✅ | ✅ | Android 按平台过滤 `android` |
-| `catalog_sync_status` | 目录 sync 状态 | ✅ | ✅ | 依赖 `agent.manifest.json` / `sync/` |
-| `catalog_install` | 远程 manifest 安装（sync apply） | ✅ | ✅ | 需配置 catalog URL |
 | `promote_request` | `workspace/staging` → `shared/local` | ✅ | ✅ | `PromotionService` |
 | `web_search` | 联网搜索（配置 Key 后注册） | ✅ | ✅ | 可选 |
+
+官方 JS 不是上表里的工具。模型写 `import … from "weizhi:<name>"`，`run_js` 执行前由宿主安装缺失的 Package。`catalog_sync_status` / `catalog_install` 已从模型工具移除。桌面 `./agent1 sync` 仍可供 native 等 catalog 条目使用。
 
 ### 2.2 集成 Weizhi 时注册（实现多在 `agent_core`）
 

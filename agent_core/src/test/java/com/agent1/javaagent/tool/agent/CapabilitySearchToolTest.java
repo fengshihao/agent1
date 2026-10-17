@@ -38,7 +38,7 @@ class CapabilitySearchToolTest {
         });
 
         assertTrue(result.getText().contains("markdownToDocx"));
-        assertTrue(result.getText().contains("catalog_script"));
+        assertTrue(result.getText().contains("weizhi_package"));
     }
 
     @Test

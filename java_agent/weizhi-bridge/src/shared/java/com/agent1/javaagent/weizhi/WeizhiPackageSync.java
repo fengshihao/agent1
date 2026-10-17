@@ -142,7 +142,7 @@ public final class WeizhiPackageSync {
         String requires = card.has("params") && !card.get("params").isNull() ? card.get("params").toString() : "";
         return new CapabilityRecord(
             id,
-            "catalog_script",
+            "weizhi_package",
             card.path("title").asText(""),
             card.path("summary").asText(""),
             tagsToCsv(card.get("tags")),

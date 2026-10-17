@@ -72,7 +72,9 @@ public final class PromoteRequestTool implements AgentTool {
                 for (String item : result.promoted()) {
                     out.append("  - ").append(item).append('\n');
                 }
-                out.append("capabilities 已更新 docs/capabilities/local.*.md；脚本已同步到 shared/catalog/scripts 供 import");
+                out.append("capabilities 已更新 docs/capabilities/local.*.md。")
+                    .append("Skill 在 shared/local/skills，自有脚本在 shared/local/scripts。")
+                    .append("官方能力用 import … from \"weizhi:<name>\"。");
                 return ToolExecutionResult.text(out.toString().trim());
             }
             if (!result.rejections().isEmpty()) {

@@ -134,6 +134,7 @@ class CapabilitySearchViewModel(
         val KIND_LABELS: Map<String, String> = mapOf(
             "caps" to "Caps",
             "builtin" to "内置",
+            "weizhi_package" to "官方包",
             "catalog_script" to "catalog 脚本",
             "catalog_lib" to "catalog 库",
             "native" to "native",

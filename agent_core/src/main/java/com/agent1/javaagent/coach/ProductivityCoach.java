@@ -64,7 +64,8 @@ public final class ProductivityCoach {
         if (text != null && text.contains(OUTSIDE_MARKER)) {
             hookId = "path.outside_attempt";
             advice =
-                "仅当前会话 workspace 可写。改 shared 用 promote_request / catalog_install，勿 write_file 越界。";
+                "仅当前会话 workspace 可写。Skill 沉淀用 promote_request。"
+                    + "官方 JS 用 import … from \"weizhi:<name>\"，勿 write_file 写入 shared。";
         } else if (("bash".equals(toolName) || "glob".equals(toolName)) && parameters != null) {
             String command = "bash".equals(toolName)
                 ? parameters.path("command").asText("")
@@ -108,14 +109,6 @@ public final class ProductivityCoach {
                 advice =
                     "单次写入较大：内容应留在 workspace 文件，回复只摘要；"
                         + "若要复用可整理到 workspace/staging/ 再 promote_request。";
-            }
-        } else if ("catalog_sync_status".equals(toolName) && text != null) {
-            int pending = parsePendingCount(text);
-            if (pending > 0) {
-                hookId = "catalog.pending";
-                advice =
-                    "远程 catalog 有 " + pending + " 条待安装；可用 catalog_install 或 agent1 sync apply，"
-                        + "勿 write_file 写入 shared/catalog。";
             }
         } else if ("write_file".equals(toolName) && !isError && parameters != null) {
             String path = parameters.path("path").asText("");
@@ -209,20 +202,6 @@ public final class ProductivityCoach {
             || lower.contains("referenceerror")
             || lower.contains("typeerror")
             || text.contains("timeout:");
-    }
-
-    private static int parsePendingCount(String text) {
-        for (String line : text.split("\n")) {
-            String trimmed = line.trim();
-            if (trimmed.startsWith("pending:")) {
-                try {
-                    return Integer.parseInt(trimmed.substring("pending:".length()).trim());
-                } catch (NumberFormatException ignored) {
-                    return 0;
-                }
-            }
-        }
-        return 0;
     }
 
     private static int countLines(String code) {

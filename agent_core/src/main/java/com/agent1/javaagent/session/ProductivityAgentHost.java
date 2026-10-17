@@ -41,8 +41,6 @@ import com.agent1.javaagent.todo.TodoStore;
 import com.agent1.javaagent.tool.agent.AskUserTool;
 import com.agent1.javaagent.tool.agent.TodoWriteTool;
 import com.agent1.javaagent.tool.agent.CapabilitySearchTool;
-import com.agent1.javaagent.tool.agent.CatalogInstallTool;
-import com.agent1.javaagent.tool.agent.CatalogSyncStatusTool;
 import com.agent1.javaagent.tool.agent.ListSessionsTool;
 import com.agent1.javaagent.capability.CapabilitySearchView;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -596,8 +594,6 @@ public final class ProductivityAgentHost implements Closeable {
         tools.addAll(AnnotatedTools.from(new MediaTools(sandbox, mediaInspector)));
         tools.add(new EditFileTool(sandbox));
         tools.add(new ListDirTool(sandbox));
-        tools.add(new CatalogSyncStatusTool(agentRoot));
-        tools.add(new CatalogInstallTool(agentRoot));
         tools.add(new PromoteRequestTool(agentRoot, workspace));
         tools.add(new ListSessionsTool(sessionStore, this::getActiveSessionId));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
