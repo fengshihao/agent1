@@ -1,8 +1,8 @@
-# html2pptx.js — HTML 自由版式生成 PPT（v0.1 截图模式）
+# html2pptx.js — HTML 自由版式生成 PPT（v0.2 截图 + native 模式）
 
 真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx@0.2.0/html2pptx.js`。Android 副本：`android_agent/app/src/main/assets/weizhi-packages/`。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`；使用说明（skill 正文）**随包分发**：包内 `SKILL.md`（manifest 的 `skill` 字段声明），安装后由 `PackageSkills` 写入 `kind=skill` 能力卡（`source=package_skill`），`find_caps` 查 html2pptx 会同时命中包卡与 skill 卡，正文由 `AgentSkillLoader` 从已安装包加载。
 
-定位：`pptx.js`（[OFFICE_PPTX_API.md](OFFICE_PPTX_API.md)）负责快速结构化 deck；`html2pptx` 负责**版式自由**——整页 slide HTML 用 CSS 排版，渐变、阴影、卡片、大数字、图文混排、内嵌图表（echarts/mermaid，CDN）都可以。v0.1 为截图模式：每页导出为一张全幅图片页（观感优先、不可二次编辑）；原生可编辑转换是既定方向（见 [规划 20 号文档](../规划/自进化Agent/20-Office排版升级与视觉素材管线.md)）。
+定位：`pptx.js`（[OFFICE_PPTX_API.md](OFFICE_PPTX_API.md)）负责快速结构化 deck；`html2pptx` 负责**版式自由**——整页 slide HTML 用 CSS 排版，渐变、阴影、卡片、大数字、图文混排、内嵌图表（echarts/mermaid，CDN）都可以。v0.2 起两种模式：默认 `screenshot` 每页一张全幅图片页（观感优先）；`mode:"native"` 产出**原生可编辑** pptx（文本框/圆角矩形/图片 + 区域截图补真，见 [规划 20 号文档](../规划/自进化Agent/20-Office排版升级与视觉素材管线.md)）。
 
 ## 用法
 
@@ -12,14 +12,24 @@ import { renderHtmlDeck } from "weizhi:html2pptx";
 export default await renderHtmlDeck({
   htmlPath: "deck.html",   // 或 html: "<html>…</html>"
   output: "out/deck.pptx",
+  mode: "native",          // native = 原生可编辑（推荐）；缺省 screenshot = 整页截图
   width: 1280,             // 页 CSS 尺寸，默认 1280×720（16:9）
   height: 720,
-  scale: 2,                // 截图像素倍数，默认 2（1280×720 → 2560×1440）
-  format: "png",           // png | jpg
+  scale: 2,                // 截图/区域截图像素倍数，默认 2（1280×720 → 2560×1440）
+  format: "png",           // png | jpg（仅截图模式）
   quality: 0.92            // 仅 jpg
 });
-// { ok: true, path, slides, width, height, bytes }
+// 截图：{ ok, path, slides, width, height, bytes }
+// native：{ ok, path, slides, shapes, pictures, needsScreenshot, bytes, mode, fallback }
 ```
+
+### native 模式（20-A T4）
+
+一次 `webview_exec` 同时做几何提取 + 需截图区域导出：带阴影的元素（矩形外扩 offset/blur/spread）、远程 `https://` 图片、超限省略（`imgOmitted`）图片，整页 `toPng` 一次后按区域 canvas 裁剪出 clip PNG。QuickJS 侧把 clip 矩形完全包含的元素删掉（阴影近似/占位不再出，也避免重复绘制），clip 作为顶层 `p:pic` 补真，再走 `geometryToPptx` 组包——文本是可在 PowerPoint/WPS 选中改字的原生文本框。
+
+- 任一步失败（提取/截图/组包）**自动回退整页截图模式**，同一 `output` 产物始终可用，返回值 `fallback: true` + `fallbackReason`；成功时 `fallback: false`。
+- native 模式对 broken 图片不硬报错（对齐提取模式，交给 clip 真实渲染）；截图模式照旧报 `图片加载失败`。
+- 近似取舍：跨出 clip 边界的文字保留原生文本框，与 clip 边缘可能轻微重叠。
 
 ## HTML 约定
 
@@ -37,8 +47,9 @@ export default await renderHtmlDeck({
 
 ## 限制
 
-- 需要网络（CDN 加载截图库和图表库；几何提取本身不需要 CDN）；截图库 CDN 自建镜像是遗留项。
-- 截图模式产物每页是整页图片，不可在 PowerPoint 里二次编辑。
+- 需要网络（CDN 加载截图库和图表库；几何提取本身不需要 CDN，native 的区域截图需要）；截图库 CDN 自建镜像是遗留项。
+- 截图模式产物每页是整页图片，不可在 PowerPoint 里二次编辑；要可编辑用 `mode:"native"`。
+- native 的渐变 radial 退化为纯色近似、跨出 clip 区域的文字可能与 clip 边缘轻微重叠（见上文取舍）。
 - `webview_exec` 需桌面 Chromium 或 Android 系统 WebView。
 - 最多 40 页；页尺寸 320–4096px；scale 1–3。
 
@@ -89,7 +100,7 @@ export default await geometryToPptx({
 
 ## 测试
 
-- `Html2PptxScriptTest`（需本机 `libweizhijni`）：mock `webview_exec` 的编排/组包/错误路径 + 真 Chromium 端到端 + `HTML2PPTX_SAMPLE_DIR` 样例对比渲染（同主题同时产出 html2pptx 版与 pptx.js 版）。
+- `Html2PptxScriptTest`（需本机 `libweizhijni`）：mock `webview_exec` 的编排/组包/错误路径 + 真 Chromium 端到端（截图/几何/native 三模式）+ `HTML2PPTX_SAMPLE_DIR` 样例对比渲染（同主题同时产出 html2pptx 版与 pptx.js 版）。native 覆盖：clip 补真消解 needsScreenshot、失败回退截图（`fallback:true`）、非法 mode 拒绝。
 - `Html2PptxExtractTest`（fixture 基线部分无需 Chrome/JNI）：提取器 CDP 端到端 + 几何 fixture 快照对比。
 - `Html2PptxNativeGeneratorTest`（需 `libweizhijni`，无 Chrome/webview）：fixture → 原生 pptx，断言 slide XML 的 `p:sp`/`roundRect`/`gradFill`/`svgBlip` 与去重、错误路径、`needsScreenshot` 记录。
 - `CdpWebViewHtmlCaptureTest`：CDP 链路 spike（iframe + CDN 库 + 分块回传）。

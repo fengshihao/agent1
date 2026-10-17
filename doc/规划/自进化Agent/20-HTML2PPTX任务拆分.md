@@ -83,7 +83,14 @@
 **目标**：一次 webview_exec 同时完成「几何提取 + 需要截图的区域/图片导出」，再走 T3 生成原生 pptx；`mode` 默认仍 `"screenshot"`，`"native"` 为新选项；失败自动回退截图并提示。
 **涉及**：`html2pptx.js`、`Html2PptxScriptTest`（mock + 真 Chrome 各一）。
 **验收**：端到端 native 模式产出可编辑 pptx（文本框可在 PowerPoint 选中改字）；回退路径有测试。
-**状态**：未开始
+**状态**：完成（2026-10-17，commit 见 git log：feat(office): html2pptx native 模式）**，PowerPoint/WPS 人工打开验收待补（与 T3 一并）**
+**落地形态与关键结论**：
+- `renderHtmlDeck({..., mode})`：`"screenshot"`（默认，原行为不变，主体抽出为 `renderScreenshotDeck`）；非法 mode 在任何 webview 调用前报错；native 任一步失败（提取/区域截图/组包）自动回退整页截图，同一 output 产物始终可用，返回值 `{mode:"native", fallback, fallbackReason}`（成功也带 `fallback:false`）。
+- 一次 webview_exec（`nativeCaptureCode` = `deckLoadCode(needLib=true)` + 与 extractCode **共享**的 `geometryHelpers()/geometryRecord()` 提取段 + clip 段）：几何先在页面里算好，再对带 shadow（矩形外扩 offset/blur/spread，px 后缀 token 解析，inset 不特判与 T3 一致）、`imgOmitted`、非 data: imgSrc 的元素逐页整页 `toPng` 一次 → Image → canvas 按区域（clamp 到页内）裁剪 clip PNG 挂 `slide.clips`。
+- QuickJS 侧 `applyClips`：clip 矩形完全包含（tol 2px）的元素删除（阴影近似/远程占位不再出、避免重复绘制），clip 转成 `{tag:"img", cls:"html2pptx-clip", imgSrc:data URI}` 追加到页尾（顶层 z 序），再整体走 `geometryToPptx({geometry})` 组包——成功产物 `needsScreenshot:[]` 全消解。
+- 取舍：跨出 clip 边界的文字保留原生文本框（与 clip 边缘可能轻微重叠）；native 对 broken 图片不硬报错（对齐提取模式，交给 clip 真实渲染），截图模式照旧报错。回执 clip b64 做魔数校验（非 PNG 即抛→回退）。
+- 测试 `Html2PptxScriptTest` 新增四测：`rendersNativeDeckThroughMockWebView`（code 特征 = getComputedStyle+html-to-image+drawImage；clip 消解卡片文本/阴影近似；tmp 清理排除组包目录）、`fallsBackToScreenshotWhenNativeFails`（native 回执坏 → 二次 webview 截图 → `fallback:true` 产物为整页图片版）、`rejectsUnknownRenderMode`、`rendersNativeDeckThroughRealChromium`（真 Chrome：封面纯文本框无 pic、卡片页 clip p:pic 补真、needs 全消解）。`GEOMETRY_DECK_HTML` 的 `.card` 补了 box-shadow（对齐 SAMPLE_DECK，原生/提取断言不受影响）。
+- SKILL.md（随包）更新为 v0.2 双模式说明，推荐 `mode:"native"`；Android assets 同步（js + SKILL.md）。
 
 ### T5 — 三方对比样例与视觉验收
 
@@ -110,3 +117,4 @@
 - 2026-10-17 T1 完成：`extractDeckGeometry`（DOM 几何提取，共用 deck 装载段、零 CDN 依赖）+ mock/错误/真 Chrome 三测全绿；schema 与坑见 T1 小节。下一个未开始任务：T2。
 - 2026-10-17 T2 完成：`Html2PptxExtractTest` CDP 端到端（渐变/卡片/图表三页，图表页内联 canvas+svg 零 CDN）+ fixture 落 `src/test/resources/html2pptx/`（基线测试进 CI 冒烟、live 对比带 ±6px 容差、`HTML2PPTX_UPDATE_FIXTURES=1` 重生成）；几何行为记录见 T2 小节。下一个未开始任务：T3。
 - 2026-10-17 T3 完成：`geometryToPptx` 纯 QuickJS 原生生成器（映射规则与去重结论见 T3 小节）+ `Html2PptxNativeGeneratorTest` 三测 + Android assets 同步 + 文档/smoke 接线；PowerPoint/WPS 人工打开验收待补。下一个未开始任务：T4。
+- 2026-10-17 T4 完成：`renderHtmlDeck mode:"native"` 一次 webview 提取+区域截图、applyClips 补真、失败回退截图（详见 T4 小节）+ `Html2PptxScriptTest` 新四测全绿 + SKILL.md v0.2 双模式 + Android 同步。下一个未开始任务：T5。

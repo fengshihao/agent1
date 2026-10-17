@@ -17,12 +17,18 @@
  *
  * import { renderHtmlDeck, extractDeckGeometry, geometryToPptx } from "weizhi:html2pptx";
  *
+ * renderHtmlDeck：截图模式（默认）每页整页 PNG/JPG 打包全幅图片页 pptx；
+ * mode:"native" 时一次 webview_exec 同时做几何提取 + 需截图区域（阴影/远程图/
+ * 超限图片）导出，QuickJS 侧组原生可编辑 pptx 并用区域截图补真，失败自动回退
+ * 截图模式（返回值 fallback:true 带原因）。
+ *
  * export default await renderHtmlDeck({
  *   htmlPath: "deck.html",        // 或直接传 html: "<html>…</html>"
  *   output: "out/deck.pptx",
+ *   mode: "native",               // screenshot（默认）| native
  *   width: 1280, height: 720,     // 页 CSS 尺寸（可选）
  *   scale: 2,                     // 截图像素倍数（可选，默认 2）
- *   format: "png"                 // png | jpg（可选，默认 png）
+ *   format: "png"                 // png | jpg（可选，默认 png，仅截图模式）
  * });
  *
  * export default await extractDeckGeometry({
@@ -68,6 +74,33 @@ var NATIVE_MIME_EXT = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "g
 
 export async function renderHtmlDeck(options) {
   var opts = options || {};
+  var mode = opts.mode == null ? "screenshot" : String(opts.mode);
+  if (mode !== "screenshot" && mode !== "native") {
+    throw new Error('renderHtmlDeck: mode 只支持 "screenshot"（默认）或 "native"');
+  }
+  if (mode === "screenshot") {
+    return renderScreenshotDeck(opts);
+  }
+  try {
+    var native = await renderNativeDeck(opts);
+    native.mode = "native";
+    native.fallback = false;
+    return native;
+  } catch (e) {
+    // native 任一步失败（提取/截图/组包）自动回退整页截图模式，同一 output 产物可用
+    var fallback = await renderScreenshotDeck(opts);
+    fallback.mode = "native";
+    fallback.fallback = true;
+    fallback.fallbackReason = String((e && e.message) || e);
+    return fallback;
+  }
+}
+
+/**
+ * 截图模式（renderHtmlDeck 默认，原行为）：每页经 webview_exec 截成整页
+ * PNG/JPG，打包全幅图片页 pptx。
+ */
+async function renderScreenshotDeck(opts) {
   var output = normalizeRel(opts.output, "output");
   var width = intIn(opts.width == null ? 1280 : opts.width, "width", MIN_PX, MAX_PX);
   var height = intIn(opts.height == null ? 720 : opts.height, "height", MIN_PX, MAX_PX);
@@ -339,7 +372,18 @@ function geometryOutput(opts) {
 
 /** 在 webview_exec 里跑的几何提取代码：iframe 渲染 deck HTML，逐页遍历元素。 */
 function extractCode(width, height) {
-  return deckLoadCode(width, height, false).concat([
+  return deckLoadCode(width, height, false)
+    .concat(geometryHelpers())
+    .concat(geometryRecord())
+    .concat([
+      "  return JSON.stringify({ version: 1, generator: '" + PACKAGE_TAG + " extractDeckGeometry', slides: slides });",
+      "})();"
+    ]).join("\n");
+}
+
+/** 提取段公共函数（px/颜色/图片源/textRuns/边框/圆角），依赖 deckLoadCode 的 win。 */
+function geometryHelpers() {
+  return [
     "  function px(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }",
     "  function r2(n) { return Math.round(n * 100) / 100; }",
     "  function normColor(c) {",
@@ -410,7 +454,13 @@ function extractCode(width, height) {
     "    if (tl === 0 && tr === 0 && br === 0 && bl === 0) { return null; }",
     "    if (tl === tr && tr === br && br === bl) { return tl; }",
     "    return { tl: tl, tr: tr, br: br, bl: bl };",
-    "  }",
+    "  }"
+  ];
+}
+
+/** recordSlide 定义 + slides 收集（不含 return 行），native 模式在此基础上续写 clip 段。 */
+function geometryRecord() {
+  return [
     "  function recordSlide(node) {",
     "    var cs = win.getComputedStyle(node);",
     "    var sr = node.getBoundingClientRect();",
@@ -452,10 +502,219 @@ function extractCode(width, height) {
     "    return slide;",
     "  }",
     "  var slides = [];",
-    "  for (var si = 0; si < nodes.length; si++) { slides.push(recordSlide(nodes[si])); }",
-    "  return JSON.stringify({ version: 1, generator: '" + PACKAGE_TAG + " extractDeckGeometry', slides: slides });",
-    "})();"
-  ]).join("\n");
+    "  for (var si = 0; si < nodes.length; si++) { slides.push(recordSlide(nodes[si])); }"
+  ];
+}
+
+/**
+ * native 模式的 webview 代码：几何提取 + 区域截图一次完成。对带阴影（矩形外扩
+ * offset/blur/spread）、远程图片、超限省略图片的元素，整页 toPng 一次后按区域
+ * canvas 裁剪出 clip PNG，挂到对应页 clips 数组（QuickJS 侧补真用）。
+ */
+function nativeCaptureCode(width, height, scale) {
+  return deckLoadCode(width, height, true)
+    .concat(geometryHelpers())
+    .concat(geometryRecord())
+    .concat([
+      "  function expanded(rect, shadow) {",
+      "    var m = String(shadow).match(/-?[\\d.]+px/g) || [];",
+      "    var ox = m.length > 0 ? Math.abs(parseFloat(m[0])) : 0;",
+      "    var oy = m.length > 1 ? Math.abs(parseFloat(m[1])) : 0;",
+      "    var blur = m.length > 2 ? parseFloat(m[2]) : 0;",
+      "    var spread = m.length > 3 ? Math.abs(parseFloat(m[3])) : 0;",
+      "    var pad = Math.ceil(Math.max(ox, oy) + blur + spread);",
+      "    return { x: rect.x - pad, y: rect.y - pad, w: rect.w + pad * 2, h: rect.h + pad * 2 };",
+      "  }",
+      "  function clampRect(rect, w, h) {",
+      "    var x = Math.max(0, rect.x);",
+      "    var y = Math.max(0, rect.y);",
+      "    var x2 = Math.min(w, rect.x + rect.w);",
+      "    var y2 = Math.min(h, rect.y + rect.h);",
+      "    return { x: x, y: y, w: Math.max(0, x2 - x), h: Math.max(0, y2 - y) };",
+      "  }",
+      "  function needsRects(slide) {",
+      "    var out = [];",
+      "    for (var i = 0; i < slide.elements.length; i++) {",
+      "      var el = slide.elements[i];",
+      "      if (el.shadow) { out.push(expanded(el.rect, el.shadow)); }",
+      "      else if (el.imgOmitted || (el.imgSrc && String(el.imgSrc).indexOf('data:') !== 0)) { out.push(el.rect); }",
+      "    }",
+      "    return out;",
+      "  }",
+      "  for (var ni = 0; ni < slides.length; ni++) {",
+      "    var nslide = slides[ni];",
+      "    nslide.clips = [];",
+      "    var rects = needsRects(nslide);",
+      "    if (!rects.length) { continue; }",
+      "    var node = nodes[ni];",
+      "    var pw = Math.round(node.offsetWidth) || " + width + ";",
+      "    var ph = Math.round(node.offsetHeight) || " + height + ";",
+      "    var dataUrl;",
+      "    try {",
+      "      dataUrl = await win.htmlToImage.toPng(node, { width: pw, height: ph, pixelRatio: " + scale + " });",
+      "    } catch (e) {",
+      "      throw new Error('第 ' + (ni + 1) + ' 页区域截图失败: ' + ((e && e.message) || String(e)));",
+      "    }",
+      "    var shot = new Image();",
+      "    await new Promise(function (resolve, reject) {",
+      "      shot.onload = function () { resolve(); };",
+      "      shot.onerror = function () { reject(new Error('区域截图解码失败')); };",
+      "      shot.src = dataUrl;",
+      "    });",
+      "    for (var ri = 0; ri < rects.length; ri++) {",
+      "      var rr = clampRect(rects[ri], pw, ph);",
+      "      if (rr.w < 2 || rr.h < 2) { continue; }",
+      "      var cv = document.createElement('canvas');",
+      "      cv.width = Math.round(rr.w * " + scale + ");",
+      "      cv.height = Math.round(rr.h * " + scale + ");",
+      "      var ctx = cv.getContext('2d');",
+      "      ctx.drawImage(shot, rr.x * " + scale + ", rr.y * " + scale + ", rr.w * " + scale + ", rr.h * " + scale + ", 0, 0, cv.width, cv.height);",
+      "      nslide.clips.push({ x: r2(rr.x), y: r2(rr.y), w: r2(rr.w), h: r2(rr.h), b64: cv.toDataURL('image/png').split(',')[1] });",
+      "    }",
+      "  }",
+      "  return JSON.stringify({ version: 1, generator: '" + PACKAGE_TAG + " native capture', slides: slides });",
+      "})();"
+    ]).join("\n");
+}
+
+/**
+ * native 模式（renderHtmlDeck mode:"native"）：一次 webview_exec 完成几何提取
+ * + 需截图区域导出，QuickJS 侧 applyClips 用区域截图补真（替代阴影/远程图
+ * 近似），再走 geometryToPptx 组原生可编辑 pptx。broken 图片不硬报错（交给
+ * clip 真实渲染）；任一步失败由 renderHtmlDeck 回退整页截图模式。
+ */
+async function renderNativeDeck(opts) {
+  var output = normalizeRel(opts.output, "output");
+  var width = intIn(opts.width == null ? 1280 : opts.width, "width", MIN_PX, MAX_PX);
+  var height = intIn(opts.height == null ? 720 : opts.height, "height", MIN_PX, MAX_PX);
+  var scale = intIn(opts.scale == null ? 2 : opts.scale, "scale", MIN_SCALE, MAX_SCALE);
+
+  var html = readHtml(opts);
+  var title = deckTitle(opts, html);
+  var inlined = inlineWorkspaceImages(html);
+
+  if (typeof globalThis.$tools === "undefined" || typeof globalThis.$tools.webview_exec !== "function") {
+    throw new Error("renderHtmlDeck 需要 $tools.webview_exec（桌面需 Chromium，Android 需系统 WebView）");
+  }
+
+  var stamp = Date.now();
+  var htmlPathRel = typeof opts.htmlPath === "string" && opts.htmlPath.trim() !== ""
+    ? normalizeRel(opts.htmlPath, "htmlPath")
+    : null;
+  var useOriginalFile = htmlPathRel != null && inlined === html;
+  var inputRel = useOriginalFile
+    ? htmlPathRel
+    : "tmp/html2pptx-native-input-" + stamp + ".html";
+  var payloadRel = "tmp/html2pptx-native-" + stamp + ".json";
+  if (!useOriginalFile) {
+    fs.writeFileSync(inputRel, inlined);
+  }
+
+  try {
+    var receiptText = await globalThis.$tools.webview_exec({
+      code: nativeCaptureCode(width, height, scale),
+      input_path: inputRel,
+      output_path: payloadRel,
+      timeout_ms: SHOT_TIMEOUT_MS
+    });
+    var receipt = asObject(receiptText);
+    if (!receipt || receipt.ok === false) {
+      var err = receipt && receipt.error ? receipt.error : "webview_exec 失败";
+      throw new Error(String(err));
+    }
+    var payloadPath = receipt.outputPath ? String(receipt.outputPath) : payloadRel;
+    var payload;
+    try {
+      payload = JSON.parse(fs.readFileSync(payloadPath).toString().trim());
+    } catch (e) {
+      throw new Error("native 回执不是 JSON（页面可能未找到 .slide 元素）");
+    }
+    var slides = payload && payload.slides;
+    if (!slides || !slides.length) {
+      throw new Error('HTML 里没有 class="slide" 的页元素：每页应是 <section class="slide">…</section>');
+    }
+    if (slides.length > MAX_SLIDES) {
+      throw new Error("renderHtmlDeck: too many slides（上限 " + MAX_SLIDES + "）");
+    }
+    validateNativePayload(slides);
+    applyClips(slides);
+    var geometry = { version: 1, generator: PACKAGE_TAG + " renderHtmlDeck native", slides: slides };
+    return geometryToPptx({ geometry: geometry, output: output, title: title });
+  } finally {
+    if (!useOriginalFile) {
+      unlinkQuiet(inputRel);
+    }
+    unlinkQuiet(payloadRel);
+  }
+}
+
+/** 校验 native 回执：每页结构完整；clip 平铺矩形 + b64 必须是 PNG。 */
+function validateNativePayload(slides) {
+  for (var i = 0; i < slides.length; i++) {
+    var s = slides[i];
+    if (!s || typeof s.slideW !== "number" || typeof s.slideH !== "number" || !Array.isArray(s.elements)) {
+      throw new Error("第 " + (i + 1) + " 页几何数据结构不完整");
+    }
+    if (s.clips == null) {
+      continue;
+    }
+    if (!Array.isArray(s.clips)) {
+      throw new Error("第 " + (i + 1) + " 页 clips 结构不完整");
+    }
+    for (var c = 0; c < s.clips.length; c++) {
+      var cl = s.clips[c];
+      if (!cl || typeof cl.b64 !== "string" || !cl.b64
+        || typeof cl.x !== "number" || typeof cl.y !== "number"
+        || typeof cl.w !== "number" || typeof cl.h !== "number") {
+        throw new Error("第 " + (i + 1) + " 页 clip 数据缺失");
+      }
+      if (!isPng(decodeBase64(cl.b64))) {
+        throw new Error("第 " + (i + 1) + " 页 clip 不是有效的 PNG");
+      }
+    }
+  }
+}
+
+/**
+ * 区域截图补真：clip 矩形完全包含的元素删除（阴影近似/远程图占位不再需要，
+ * 也避免与截图重复绘制），clip 作为顶层图片元素追加到页尾（DOM 序即 z 序，
+ * 截图盖在其覆盖区域的近似之上）。跨出 clip 边界的文本保留，与 clip 边缘
+ * 轻微重叠可接受。
+ */
+function applyClips(slides) {
+  for (var i = 0; i < slides.length; i++) {
+    var slide = slides[i];
+    var clips = slide.clips;
+    if (!clips || !clips.length) {
+      continue;
+    }
+    var kept = [];
+    var els = slide.elements;
+    for (var e = 0; e < els.length; e++) {
+      var el = els[e];
+      var covered = false;
+      for (var c = 0; c < clips.length; c++) {
+        if (containsRect(clips[c], el.rect, 2)) {
+          covered = true;
+          break;
+        }
+      }
+      if (!covered) {
+        kept.push(el);
+      }
+    }
+    for (var c2 = 0; c2 < clips.length; c2++) {
+      var k = clips[c2];
+      kept.push({
+        tag: "img",
+        cls: "html2pptx-clip",
+        rect: { x: k.x, y: k.y, w: k.w, h: k.h },
+        imgSrc: "data:image/png;base64," + k.b64,
+        font: { size: 16, weight: "400", color: "#000000", align: "left", lineHeight: 0 }
+      });
+    }
+    slide.elements = kept;
+  }
 }
 
 /**

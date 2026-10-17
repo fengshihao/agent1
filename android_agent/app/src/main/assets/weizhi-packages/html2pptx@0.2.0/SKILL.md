@@ -1,6 +1,6 @@
 ---
 name: html2pptx
-description: 用户要 PPT 且需要自由版式、设计感（配色、渐变、卡片、图表混排）时使用。先写整页 slide HTML（每页一个 class="slide"，1280×720），再用 run_js 调 weizhi:html2pptx 截图打包成 pptx。快速结构化内容仍用 pptx skill。
+description: 用户要 PPT 且需要自由版式、设计感（配色、渐变、卡片、图表混排）时使用。先写整页 slide HTML（每页一个 class="slide"，1280×720），再用 run_js 调 weizhi:html2pptx 生成 pptx——mode:"native" 产出原生可编辑文本框，默认整页截图。快速结构化内容仍用 pptx skill。
 tags: pptx,ppt,html,幻灯片,演示,设计,版式
 ---
 
@@ -22,9 +22,15 @@ import { renderHtmlDeck } from "weizhi:html2pptx";
 export default await renderHtmlDeck({
   htmlPath: "deck.html",       // 或 html: "<html>…</html>"
   output: "out/deck.pptx",
-  scale: 2                     // 截图倍数，默认 2
+  mode: "native",              // native=原生可编辑（推荐）；缺省 screenshot=整页截图
+  scale: 2                     // 截图/区域截图倍数，默认 2
 });
 ```
+
+`mode:"native"` 一次渲染同时做几何提取 + 阴影/远程图区域截图，产物里文本是
+**可在 PowerPoint/WPS 选中改字**的原生文本框，卡片是原生圆角矩形，复杂效果
+（阴影、远程图片）以区域截图补真；失败自动回退整页截图（返回值 `fallback:true`
+带原因），产物始终可用。
 
 ## 约定
 
@@ -40,7 +46,8 @@ export default await renderHtmlDeck({
 - 页与页之间切换版式节奏：封面全幅 → 卡片网格 → 图表+结论 → 大数字收尾。
 - 文字层级用字号/字重/颜色拉开，别全靠加粗。
 
-## 限制（v0.1 截图模式）
+## 限制（v0.2）
 
-- 产物每页是整页图片：**观感优先、不可二次编辑**；原生可编辑转换在计划中。
+- `screenshot` 模式产物每页是整页图片（观感优先、不可二次编辑）；要可编辑就用 `mode:"native"`。
+- `native` 模式的近似取舍：渐变 radial 退化为纯色、跨出截图区域的文字可能与区域截图边缘轻微重叠。
 - 需要网络（CDN 加载截图库与图表库）。

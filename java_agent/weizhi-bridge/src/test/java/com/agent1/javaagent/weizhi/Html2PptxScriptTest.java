@@ -76,7 +76,8 @@ class Html2PptxScriptTest {
         .cards{background:#faf9f6;padding:0 96px;display:flex;flex-direction:column;justify-content:center;min-height:720px}
         .cards h2{font-size:44px;color:#122033;margin-bottom:48px}
         .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:36px}
-        .card{background:#fff;border-radius:18px;padding:44px 32px;border-top:6px solid #7dd3c0}
+        .card{background:#fff;border-radius:18px;padding:44px 32px;border-top:6px solid #7dd3c0;
+          box-shadow:0 12px 32px rgba(18,32,51,.08)}
         .card:nth-child(2){border-top-color:#e8b86d}
         .card h3{font-size:28px;color:#122033;margin-bottom:14px}
         .card p{font-size:21px;color:#5b6b7c;line-height:1.7}
@@ -410,6 +411,178 @@ class Html2PptxScriptTest {
         try (ZipFile zip = new ZipFile(pptx.toFile())) {
             ZipEntry image = zip.getEntry("ppt/media/image1.png");
             assertTrue(image != null && image.getSize() > 2_000, "首页截图应有实际内容");
+        }
+    }
+
+    /** native 模式 mock 回执：页 1 = h1 文本块 + 带 shadow 卡片（clip 覆盖），页 2 空。 */
+    private static final String MOCK_NATIVE = """
+        {"version":1,"generator":"html2pptx@0.2.0 native capture","slides":[
+        {"slideW":1280,"slideH":720,"bg":"#1a1423","elements":[
+        {"tag":"h1","rect":{"x":110,"y":300,"w":600,"h":90},
+         "font":{"size":88,"weight":"800","color":"#f6f1ea","align":"left","lineHeight":101.2},
+         "textRuns":[{"text":"第一页","size":88,"weight":"800","color":"#f6f1ea"}]},
+        {"tag":"div","cls":"card","rect":{"x":200,"y":450,"w":300,"h":120},
+         "font":{"size":21,"weight":"400","color":"#5b6b7c","align":"left","lineHeight":35.7},
+         "bg":"#ffffff","shadow":"rgba(18, 32, 51, 0.08) 0px 12px 32px 0px",
+         "textRuns":[{"text":"卡片","size":21,"weight":"400","color":"#5b6b7c"}]}
+        ],
+        "clips":[{"x":156,"y":406,"w":388,"h":208,"b64":"%s"}]},
+        {"slideW":1280,"slideH":720,"elements":[]}
+        ]}
+        """.formatted(PNG_B64);
+
+    /** renderHtmlDeck mode:"native"（20-A T4）：一次提取 + clip 编排与原生组包。 */
+    @Test
+    void rendersNativeDeckThroughMockWebView(@TempDir Path agentRoot) throws Exception {
+        AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        Path workspace = agentRoot.resolve("ws");
+        Files.createDirectories(workspace.resolve("jobs"));
+        Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
+
+        AtomicReference<Map<String, Object>> seen = new AtomicReference<>();
+        ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) -> {
+            seen.set(arguments);
+            return mockWebViewReceipt(workspace, arguments, MOCK_NATIVE);
+        });
+        try (engine) {
+            String out = engine.evalForAgent("""
+                import { renderHtmlDeck } from "weizhi:html2pptx";
+                export default await renderHtmlDeck({ htmlPath: "deck.html", output: "out/deck.pptx", mode: "native" });
+                """, null, 30_000, new CancellationToken(), "jobs/run.js");
+            assertTrue(out.contains("\"ok\":true"), out);
+            assertTrue(out.contains("\"mode\":\"native\""), out);
+            assertTrue(out.contains("\"fallback\":false"), out);
+            assertTrue(out.contains("\"needsScreenshot\":[]"), "clip 应消解全部 needs: " + out);
+        }
+        // native 代码 = 几何提取 + 截图库 + 整页截图后按区域裁剪
+        String code = String.valueOf(seen.get().get("code"));
+        assertTrue(code.contains("getComputedStyle"), "native 应做几何提取");
+        assertTrue(code.contains("html-to-image"), "区域截图需要 html-to-image");
+        assertTrue(code.contains("drawImage"), "clip 应从整页截图裁剪");
+
+        try (ZipFile zip = new ZipFile(workspace.resolve("out/deck.pptx").toFile())) {
+            String s1 = zipText(zip, "ppt/slides/slide1.xml");
+            assertTrue(s1.contains("<a:t>第一页</a:t>"), "h1 应是原生文本框");
+            assertTrue(s1.contains("<p:pic>"), "clip 应作为 p:pic 补真");
+            assertTrue(!s1.contains("<a:t>卡片</a:t>"), "clip 覆盖的卡片文本不应重复出文本框");
+            assertTrue(!s1.contains("outerShdw"), "clip 覆盖的卡片不应再出阴影近似");
+            assertTrue(zip.getEntry("ppt/media/image1.png") != null, "clip PNG 应落 media");
+        }
+        // native 临时件不残留（tmp/html2pptx-native-<stamp> 组包目录与截图模式一致保留）
+        try (var list = Files.list(workspace.resolve("tmp"))) {
+            assertEquals(0, list.filter(p -> {
+                String n = p.getFileName().toString();
+                return n.startsWith("html2pptx-native-input-")
+                    || (n.startsWith("html2pptx-native-") && n.endsWith(".json"));
+            }).count());
+        }
+    }
+
+    /** native 失败自动回退截图：同一 output 产出整页截图版，返回值带原因。 */
+    @Test
+    void fallsBackToScreenshotWhenNativeFails(@TempDir Path agentRoot) throws Exception {
+        AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        Path workspace = agentRoot.resolve("ws");
+        Files.createDirectories(workspace.resolve("jobs"));
+        Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
+
+        AtomicInteger calls = new AtomicInteger();
+        ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) -> {
+            if (calls.incrementAndGet() == 1) {
+                return mockWebViewReceipt(workspace, arguments, "not-json");
+            }
+            String shots = "{\"slides\":[" + shotJson(1280, 720) + "," + shotJson(1280, 720) + "]}";
+            return mockWebViewReceipt(workspace, arguments, shots);
+        });
+        try (engine) {
+            String out = engine.evalForAgent("""
+                import { renderHtmlDeck } from "weizhi:html2pptx";
+                export default await renderHtmlDeck({ htmlPath: "deck.html", output: "out/fb.pptx", mode: "native" });
+                """, null, 60_000, new CancellationToken(), "jobs/run.js");
+            assertTrue(out.contains("\"ok\":true"), out);
+            assertTrue(out.contains("\"fallback\":true"), out);
+            assertTrue(out.contains("native 回执不是 JSON"), out);
+        }
+        assertEquals(2, calls.get(), "应先 native 再回退截图共两次 webview_exec");
+        try (ZipFile zip = new ZipFile(workspace.resolve("out/fb.pptx").toFile())) {
+            String s1 = zipText(zip, "ppt/slides/slide1.xml");
+            assertTrue(s1.contains("<p:pic>") && !s1.contains("<a:t>"), "回退产物应是整页截图版");
+        }
+    }
+
+    /** mode 只认 screenshot（默认）/native，非法值在任何 webview 调用前报错。 */
+    @Test
+    void rejectsUnknownRenderMode(@TempDir Path agentRoot) throws Exception {
+        AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        Path workspace = agentRoot.resolve("ws");
+        Files.createDirectories(workspace.resolve("jobs"));
+        Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
+
+        AtomicInteger calls = new AtomicInteger();
+        ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) -> {
+            calls.incrementAndGet();
+            return "{\"ok\":false,\"error\":\"should not run\"}";
+        });
+        try (engine) {
+            RuntimeException ex = assertThrows(RuntimeException.class, () -> engine.evalForAgent("""
+                import { renderHtmlDeck } from "weizhi:html2pptx";
+                export default await renderHtmlDeck({ htmlPath: "deck.html", output: "out/x.pptx", mode: "bogus" });
+                """, null, 30_000, new CancellationToken(), "jobs/run.js"));
+            assertTrue(ex.getMessage().contains("mode"), ex.getMessage());
+        }
+        assertEquals(0, calls.get());
+    }
+
+    /** 端到端 native（20-A T4）：真 Chromium 提取+区域截图+原生组包，卡片阴影由 clip 补真。 */
+    @Test
+    void rendersNativeDeckThroughRealChromium(@TempDir Path agentRoot) throws Exception {
+        assumeTrue(CdpWebViewRuntime.isAvailable(), "需要本机 Chromium（CDP）");
+        AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        Path workspace = agentRoot.resolve("ws");
+        Files.createDirectories(workspace.resolve("jobs"));
+        Files.writeString(workspace.resolve("geo-deck.html"), GEOMETRY_DECK_HTML);
+
+        Path repo = Path.of(System.getenv().getOrDefault(WeizhiHostSupport.ENV_WEIZHI_REPO, "")).normalize();
+        if (repo.getNameCount() == 0 || !Files.isDirectory(repo)) {
+            repo = WeizhiHostSupport.defaultWeizhiRepo();
+        }
+        CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(repo);
+        com.agent1.javaagent.workspace.WorkspaceSandbox sandbox =
+            new com.agent1.javaagent.workspace.WorkspaceSandbox(workspace);
+
+        ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) -> WebViewExecSupport.execute(
+            runtime,
+            sandbox,
+            String.valueOf(arguments.get("code")),
+            null,
+            arguments.get("input_path") == null ? null : String.valueOf(arguments.get("input_path")),
+            arguments.get("output_path") == null ? null : String.valueOf(arguments.get("output_path")),
+            String.valueOf(arguments.get("timeout_ms"))
+        ));
+        try (engine) {
+            String out = engine.evalForAgent("""
+                import { renderHtmlDeck } from "weizhi:html2pptx";
+                export default await renderHtmlDeck({
+                  htmlPath: "geo-deck.html",
+                  output: "out/native.pptx",
+                  mode: "native"
+                });
+                """, null, 300_000, new CancellationToken(), "jobs/run.js");
+            assertTrue(out.contains("\"ok\":true"), out);
+            assertTrue(out.contains("\"fallback\":false"), out);
+            assertTrue(out.contains("\"needsScreenshot\":[]"), "阴影应由 clip 全部消解: " + out);
+        }
+        try (ZipFile zip = new ZipFile(workspace.resolve("out/native.pptx").toFile())) {
+            String s1 = zipText(zip, "ppt/slides/slide1.xml");
+            assertTrue(s1.contains("<a:t>季度复盘</a:t>"), "封面 h1 应是原生文本框");
+            assertTrue(!s1.contains("<p:pic>"), "封面无阴影/远程图，不应有 clip");
+            String s2 = zipText(zip, "ppt/slides/slide2.xml");
+            assertTrue(s2.contains("<a:t>三件事</a:t>"), "h2 应是原生文本框");
+            assertTrue(s2.contains("<p:pic>"), "卡片阴影应由 clip p:pic 补真");
         }
     }
 
