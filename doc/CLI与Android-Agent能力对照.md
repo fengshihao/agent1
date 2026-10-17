@@ -34,6 +34,8 @@
 | `find_caps` | 检索 `capabilities.db` 与 MCP 缓存 | ✅ | ✅ | Android 按平台过滤 `android` |
 | `promote_request` | `workspace/staging` → `shared/local` | ✅ | ✅ | `PromotionService` |
 | `web_search` | 联网搜索（配置 Key 后注册） | ✅ | ✅ | 可选 |
+| `image_search` | Tavily 搜图 `include_images:true`（配置 Key 后注册） | ✅ | ✅ | 可选；返回 URL + 来源页 |
+| `image_download` | https 公网图片下载到 workspace（≤10MB + 魔数校验，默认落 `imports/`） | ✅ | ✅ | 扩展名按真实类型；deck HTML 直接引用会被 html2pptx 自动内联 |
 
 官方 JS 不是上表里的工具。模型写 `import … from "weizhi:<name>"`，`run_js` 执行前由宿主安装缺失的 Package。`catalog_sync_status` / `catalog_install` 已从模型工具移除。桌面 `./agent1 sync` 仍可供 native 等 catalog 条目使用。
 

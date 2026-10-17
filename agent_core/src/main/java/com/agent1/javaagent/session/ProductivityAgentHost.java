@@ -27,6 +27,8 @@ import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ChatHistoryTool;
 import com.agent1.javaagent.tool.workspace.EditFileTool;
 import com.agent1.javaagent.tool.workspace.ListDirTool;
+import com.agent1.javaagent.tool.web.ImageDownloadTool;
+import com.agent1.javaagent.tool.web.ImageSearchTool;
 import com.agent1.javaagent.tool.web.ReadUrlTool;
 import com.agent1.javaagent.tool.workspace.ReadFileTool;
 import com.agent1.javaagent.script.AgentToolsScriptBridge;
@@ -609,7 +611,12 @@ public final class ProductivityAgentHost implements Closeable {
                 runtimeConfig.getWebSearchApiKey(),
                 runtimeConfig.getWebSearchBaseUrl()
             ));
+            tools.add(new ImageSearchTool(
+                runtimeConfig.getWebSearchApiKey(),
+                runtimeConfig.getWebSearchBaseUrl()
+            ));
         }
+        tools.add(new ImageDownloadTool(sandbox));
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);
             if (extra != null && !extra.isEmpty()) {

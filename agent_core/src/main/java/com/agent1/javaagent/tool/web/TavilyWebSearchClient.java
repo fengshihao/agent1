@@ -60,6 +60,28 @@ public final class TavilyWebSearchClient {
         body.put("max_results", limit);
         body.put("search_depth", "basic");
         body.put("include_answer", true);
+        return postSearch(q, body);
+    }
+
+    /**
+     * 搜图（20-A T6）：同一 {@code POST /search} 传 {@code include_images:true}，
+     * 返回图片 URL 清单与来源页，供 {@code image_search} 工具使用。
+     */
+    public String searchImages(String query, int maxResults) throws IOException {
+        if (apiKey.isEmpty()) {
+            throw new IOException("未配置 Tavily API Key");
+        }
+        String q = query == null ? "" : query.trim();
+        if (q.isEmpty()) {
+            throw new IOException("query 不能为空");
+        }
+        int limit = Math.max(1, Math.min(maxResults <= 0 ? 8 : maxResults, 16));
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("query", q);
+        body.put("max_results", limit);
+        body.put("search_depth", "basic");
+        body.put("include_answer", false);
+        body.put("include_images", true);
         Request request = new Request.Builder()
             .url(baseUrl + "/search")
             .header("Authorization", "Bearer " + apiKey)
@@ -71,7 +93,23 @@ public final class TavilyWebSearchClient {
             if (!response.isSuccessful()) {
                 throw new IOException("Tavily HTTP " + response.code() + ": " + clip(raw, 280));
             }
-            return format(q, raw);
+            return formatImages(q, raw);
+        }
+    }
+
+    private String postSearch(String query, ObjectNode body) throws IOException {
+        Request request = new Request.Builder()
+            .url(baseUrl + "/search")
+            .header("Authorization", "Bearer " + apiKey)
+            .post(RequestBody.create(MAPPER.writeValueAsBytes(body), JSON))
+            .build();
+        try (Response response = httpClient.newCall(request).execute()) {
+            ResponseBody responseBody = response.body();
+            String raw = responseBody == null ? "" : responseBody.string();
+            if (!response.isSuccessful()) {
+                throw new IOException("Tavily HTTP " + response.code() + ": " + clip(raw, 280));
+            }
+            return format(query, raw);
         }
     }
 
@@ -116,6 +154,71 @@ public final class TavilyWebSearchClient {
                 }
             }
         }
+        if (text.length() > MAX_OUTPUT_CHARS) {
+            return text.substring(0, MAX_OUTPUT_CHARS) + "…";
+        }
+        return text.toString().trim();
+    }
+
+    /** 解析 {@code include_images:true} 的响应：images 数组（字符串或对象）+ 来源页 results。 */
+    static String formatImages(String query, String raw) throws IOException {
+        JsonNode root;
+        try {
+            root = MAPPER.readTree(raw == null ? "" : raw);
+        } catch (IOException e) {
+            throw new IOException("Tavily 返回无法解析", e);
+        }
+        StringBuilder text = new StringBuilder();
+        text.append("image_search: ").append(query).append('\n');
+        JsonNode images = root.get("images");
+        int imageCount = 0;
+        int index = 1;
+        if (images != null && images.isArray()) {
+            for (JsonNode item : images) {
+                String url;
+                String desc = "";
+                if (item.isTextual()) {
+                    url = item.asText("").trim();
+                } else {
+                    url = item.path("url").asText("").trim();
+                    desc = item.path("description").asText("").trim();
+                }
+                if (url.isEmpty()) {
+                    continue;
+                }
+                imageCount++;
+                text.append(index).append(". ").append(url).append('\n');
+                if (!desc.isEmpty()) {
+                    text.append("   ").append(clip(desc, 160)).append('\n');
+                }
+                index++;
+                if (text.length() >= MAX_OUTPUT_CHARS) {
+                    break;
+                }
+            }
+        }
+        if (imageCount == 0) {
+            text.append("未找到与「").append(query).append("」相关的图片。");
+            return text.toString();
+        }
+        JsonNode results = root.get("results");
+        if (results != null && results.isArray() && !results.isEmpty()) {
+            text.append("来源页（产物里标注出处用）:");
+            int cited = 0;
+            for (JsonNode item : results) {
+                String url = item.path("url").asText("").trim();
+                if (url.isEmpty()) {
+                    continue;
+                }
+                text.append(' ').append(url);
+                cited++;
+                if (cited >= 3 || text.length() >= MAX_OUTPUT_CHARS) {
+                    break;
+                }
+            }
+            text.append('\n');
+        }
+        text.append("提示：用 image_download 下载到 workspace 后再插入；产物请标注来源。");
         if (text.length() > MAX_OUTPUT_CHARS) {
             return text.substring(0, MAX_OUTPUT_CHARS) + "…";
         }

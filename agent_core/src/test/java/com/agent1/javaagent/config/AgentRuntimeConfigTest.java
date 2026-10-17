@@ -29,7 +29,8 @@ class AgentRuntimeConfigTest {
         Properties p = new Properties();
         p.setProperty("model", "custom-model");
         p.setProperty("apiKey", "sk-test");
-        AgentRuntimeConfig c = AgentRuntimeConfig.fromProperties(p);
+        // 注入空 env：断言不受宿主 shell（如常驻 TAVILY_API_KEY）影响
+        AgentRuntimeConfig c = EnvAgentRuntimeConfigLoader.load(p, name -> null);
         assertEquals("custom-model", c.getModel());
         assertTrue(c.isModelConfigured());
         assertNull(c.configurationError());

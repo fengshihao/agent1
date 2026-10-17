@@ -113,7 +113,13 @@
 **目标**：Java 侧新工具 `image_search`（Tavily `/search` 传 `include_images:true`，复用 `WebSearchTool` 的客户端与 key，返回 url/尺寸/来源）与 `image_download`（https 白名单 + ≤10MB + 魔数校验，落 workspace）。能力卡进 find_caps（kind 对齐新规则；工具类卡参考 `tool.media_resize` 的 `builtin` 或按 T0 定的规范走包化）。deck HTML 里可直接用下载后的 workspace 图片（html2pptx 自动内联）。
 **涉及**：`tool/web/`、`ProductivityToolCapabilities`、能力卡、JUnit（mock HTTP）。
 **验收**：mock Tavily 返回图片列表；下载魔数校验测试；门禁绿。
-**状态**：未开始
+**状态**：完成（2026-10-17，commit 见 git log：feat(tools): image_search / image_download）
+**落地形态与关键结论**：
+- `image_search`（`tool/web/ImageSearchTool`，传统 AgentTool 风格与 WebSearchTool 并排）：`TavilyWebSearchClient` 加 `searchImages(query, count)`——同一 `POST /search` 传 `include_images:true`、`include_answer:false`、max_results 上限 16；`formatImages` 兼容 images 元素为字符串或对象（url + description），附最多 3 条来源页与「image_download 下载 + 产物标注来源」提示（版权拍板：个人使用 + 标注来源）。注册在 `buildTools` 的 `isWebSearchConfigured()` 分支内（与 web_search 同 key/baseUrl，未配 Key 不注册）。
+- `image_download`（`tool/web/ImageDownloadTool`）：复用 `PublicHttpUrl`（parse + checkPublic，拒绝本机/私网/链路本地/云元数据）+ 生产仅 https；≤ max_mb（默认 10，1-50，Content-Length 预检 + 流式读超限即断防谎报）；魔数校验 png/jpg/gif/webp（RIFF/WEBP）+ svg（文本前缀，容忍 BOM），**扩展名按真实类型定**（URL 后缀 .jpg 内容 PNG 也落 .png）；默认落 `imports/<词干>.<ext>`；返回 `{path, bytes, type, source}` JSON（source 供产物标注）。`allowLoopback`/免 https 构造只给测试 MockWebServer（对齐 ReadUrlTool 先例）。无 Key 依赖，恒注册。
+- 能力卡：`search-index.seed.jsonl` 加 `tool.image_search` / `tool.image_download`（kind `builtin`、platforms `any`、source `bundled:v1`，entry 给 `$tools.*` 样例）——按 T0 规范工具类卡走 builtin（宿主 Java 工具不适合 JS 包形态），与 `tool.media_resize` 同模式。
+- 测试：`ImageSearchToolTest`（MockWebServer：请求体 include_images:true + Bearer + images/来源页输出；401；空 query 不发网络）、`ImageDownloadToolTest`（魔数改扩展名、svg 文本、非图片拒、2.5MB 超 max_mb=1 拒且不落盘、生产模式拒 http/localhost）。`ProductivityToolCapabilities` 文案与 `doc/CLI与Android-Agent能力对照.md` 表更新。
+- 顺带修稳存量环境敏感测试：`AgentRuntimeConfigTest.propertiesOverrideModel` 在开发者 shell 常驻 `TAVILY_API_KEY` 时误红——`EnvAgentRuntimeConfigLoader` 抽出可注入 env lookup 的 `load(Properties, UnaryOperator<String>)`（public 入口仍 `System::getenv`），测试注入空 env。
 
 ### T7 —（低优）office 能力卡 kind 显式化
 
@@ -129,3 +135,4 @@
 - 2026-10-17 T3 完成：`geometryToPptx` 纯 QuickJS 原生生成器（映射规则与去重结论见 T3 小节）+ `Html2PptxNativeGeneratorTest` 三测 + Android assets 同步 + 文档/smoke 接线；PowerPoint/WPS 人工打开验收待补。下一个未开始任务：T4。
 - 2026-10-17 T4 完成：`renderHtmlDeck mode:"native"` 一次 webview 提取+区域截图、applyClips 补真、失败回退截图（详见 T4 小节）+ `Html2PptxScriptTest` 新四测全绿 + SKILL.md v0.2 双模式 + Android 同步。下一个未开始任务：T5。
 - 2026-10-17 T5 完成：三方对比样例（截图 4.0MB / native 235KB / pptx.js 12KB）+ 每页 verdict（截图 4/4、native 3/4+1 已知限制「渐变字退化黑字」记入 SKILL、pptx.js 定位不变）；验收记录见 T5 小节。下一个未开始任务：T6。
+- 2026-10-17 T6 完成：`image_search`（Tavily include_images，Key 与 web_search 共用）/ `image_download`（PublicHttpUrl + https + 10MB + 魔数定扩展名）+ builtin 能力卡 + MockWebServer 测试；顺带修稳 `AgentRuntimeConfigTest` 的 TAVILY_API_KEY 环境敏感（详见 T6 小节）。下一个未开始任务：T7。
