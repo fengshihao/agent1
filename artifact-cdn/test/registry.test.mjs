@@ -334,3 +334,74 @@ test("upload prints zips before indexes and refuses loopback urls", async () => 
     await rm(local, { recursive: true, force: true });
   }
 });
+
+test("web lib cards pack into their own registry and upload ships it last", async () => {
+  const dist = await mkdtemp(path.join(tmpdir(), "artifact-cdn-web-libs-"));
+  const badCards = await mkdtemp(path.join(tmpdir(), "artifact-cdn-web-libs-bad-"));
+  try {
+    await run("pack.mjs", [
+      "--root",
+      packagesRoot,
+      "--kind",
+      "weizhi_package",
+      "--base-url",
+      "https://agentone.guoyoutech.cn/",
+      "--out",
+      dist,
+    ]);
+    const { stdout } = await run("pack-web-libs.mjs", ["--out", dist]);
+    assert.match(stdout, /web-libs\/registry\/stable\.json cards=\d+/);
+
+    const registry = JSON.parse(
+      await readFile(path.join(dist, "web-libs", "registry", "stable.json"), "utf8"),
+    );
+    assert.equal(registry.schema_version, 1);
+    assert.equal(registry.channel, "stable");
+    assert.ok(registry.cards.length > 0);
+    for (const card of registry.cards) {
+      assert.equal(card.kind, "web_lib");
+      assert.match(card.id, /^web_lib\./);
+      assert.match(card.entry, /https:\/\//);
+    }
+
+    const dry = await runAllowFail("bash", [path.join(artifactCdn, "upload.sh")], {
+      ARTIFACT_CDN_SKIP_LOCAL_ENV: "1",
+      ARTIFACT_CDN_DIST: dist,
+      ARTIFACT_CDN_BASE_URL: "https://agentone.guoyoutech.cn/",
+      UPLOAD_DRY_RUN: "1",
+    });
+    assert.equal(dry.code, 0, dry.stderr);
+    const lines = dry.stdout.trim().split("\n").filter((line) => line.startsWith("scp "));
+    assert.match(lines[lines.length - 1], /web-libs\/registry\/stable\.json/);
+
+    const bad = path.join(badCards, "cards.jsonl");
+    await writeFile(
+      bad,
+      `${JSON.stringify({ id: "docx.markdownToDocx", kind: "weizhi_package", entry: "import" })}\n`,
+    );
+    const kindFail = await runAllowFail(
+      process.execPath,
+      [path.join(artifactCdn, "pack-web-libs.mjs"), "--cards", bad, "--out", badCards],
+    );
+    assert.notEqual(kindFail.code, 0);
+    assert.match(kindFail.stderr, /no web_lib cards/);
+
+    await writeFile(
+      bad,
+      `${JSON.stringify({
+        id: "web_lib.mermaid",
+        kind: "web_lib",
+        entry: "http://cdn.example/mermaid.js",
+      })}\n`,
+    );
+    const httpFail = await runAllowFail(
+      process.execPath,
+      [path.join(artifactCdn, "pack-web-libs.mjs"), "--cards", bad, "--out", badCards],
+    );
+    assert.notEqual(httpFail.code, 0);
+    assert.match(httpFail.stderr, /https URL/);
+  } finally {
+    await rm(dist, { recursive: true, force: true });
+    await rm(badCards, { recursive: true, force: true });
+  }
+});
