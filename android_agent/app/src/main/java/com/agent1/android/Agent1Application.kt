@@ -1,6 +1,7 @@
 package com.agent1.android
 
 import android.app.Application
+import com.agent1.android.llm.AppFileLog
 import com.agent1.android.llm.BootTrace
 import com.agent1.android.llm.CrashReporter
 import com.agent1.android.productivity.logic.business.DiagnosticExport
@@ -13,6 +14,7 @@ class Agent1Application : Application() {
         super.onCreate()
         AppLocalization.attach(this)
         CapabilityIndexStore.setDatabaseOpener { path -> AndroidCapabilityDatabase.open(path) }
+        AppFileLog.install(this)
         BootTrace.mark(this, "Application.onCreate")
         CrashReporter.install(this)
         DiagnosticExport.cleanupStaleDiagnosticExports(this)

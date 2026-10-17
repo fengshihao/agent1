@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,6 +30,8 @@ public final class WeizhiPackageSync {
 
     public static final String SOURCE = "registry";
     static final String ENV = "AGENT1_WEIZHI_PACKAGE_REGISTRY";
+
+    private static final Logger LOG = Logger.getLogger(WeizhiPackageSync.class.getName());
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Pattern PACKAGE_NAME = Pattern.compile("weizhi:([a-z0-9][a-z0-9._-]*)");
@@ -49,15 +53,24 @@ public final class WeizhiPackageSync {
         return List.copyOf(names);
     }
 
-    /** 只刷新 find_caps。网络失败时保留已有索引。 */
+    /** 只刷新 find_caps。失败时保留已有索引。 */
     public static void refreshIndex(Path agentRoot) {
         if (agentRoot == null || disabled()) {
+            if (disabled()) {
+                LOG.info("registry index skipped: disabled");
+            }
             return;
         }
         try {
-            applyManifest(agentRoot, fetchManifest());
-        } catch (IOException ignored) {
-            // 离线时继续用包内种子卡。
+            String manifest = fetchManifest();
+            int cards = cardsFromManifest(manifest).size();
+            applyManifest(agentRoot, manifest);
+            LOG.info("registry index updated cards=" + cards);
+        } catch (Exception e) {
+            String detail = e.getMessage() == null || e.getMessage().isBlank()
+                ? e.getClass().getSimpleName()
+                : e.getMessage();
+            LOG.log(Level.WARNING, "registry index kept previous cards: " + detail, e);
         }
     }
 
@@ -93,9 +106,13 @@ public final class WeizhiPackageSync {
             PackageRegistryClient.ensureInstalled(home, names, options);
         } catch (IOException e) {
             if (allInstalled(home, names)) {
+                LOG.info("package ensure offline, using installed " + names);
                 return;
             }
-            String message = e.getMessage() == null ? "package ensure failed" : e.getMessage();
+            String message = e.getMessage() == null || e.getMessage().isBlank()
+                ? "package ensure failed"
+                : e.getMessage();
+            LOG.log(Level.WARNING, "package ensure failed " + names + ": " + message, e);
             throw new RuntimeException(message, e);
         }
     }

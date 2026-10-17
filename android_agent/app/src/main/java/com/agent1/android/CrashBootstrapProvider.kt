@@ -4,6 +4,7 @@ import android.content.ContentProvider
 import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
+import com.agent1.android.llm.AppFileLog
 import com.agent1.android.llm.CrashReporter
 
 /**
@@ -12,6 +13,7 @@ import com.agent1.android.llm.CrashReporter
 class CrashBootstrapProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         val ctx = context ?: return true
+        AppFileLog.install(ctx)
         CrashReporter.installUncaughtHandler(ctx)
         return true
     }

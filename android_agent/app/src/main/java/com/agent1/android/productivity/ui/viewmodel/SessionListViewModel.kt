@@ -1,7 +1,7 @@
 package com.agent1.android.productivity.ui.viewmodel
 
 import android.content.Context
-import android.util.Log
+import com.agent1.android.llm.AppFileLog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
@@ -110,7 +110,7 @@ class SessionListViewModel(
             val events = AgentDataPaths.eventsJsonl(SessionWorkspacePaths.agentRoot(appContext))
             UsageLogSummary.summarize(events)
         } catch (t: Exception) {
-            Log.w(TAG, "read usage failed", t)
+            AppFileLog.w(TAG, "read usage failed", t)
             UsageOverview()
         }
     }

@@ -129,7 +129,7 @@ internal fun diagnosticShareIntent(context: Context, zip: File): Intent {
         putExtra(Intent.EXTRA_SUBJECT, "agent1 诊断包 ${zip.name}")
         putExtra(
             Intent.EXTRA_TEXT,
-            "手机测试诊断包，内含会话记录、events.jsonl、崩溃报告和 logcat。",
+            "手机测试诊断包，内含会话记录、events.jsonl、应用日志、崩溃报告和 logcat。",
         )
         clipData = ClipData.newRawUri("agent1-diag", uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

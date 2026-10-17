@@ -21,6 +21,8 @@
 | 路径 | 何时创建 | 作用 |
 |------|----------|------|
 | `boot_trace.txt` | `Application.onCreate` 起 | 启动阶段轨迹（`BootTrace`） |
+| `app-logs/app.log` | 进程起来后 | 应用自己写入的运行日志（`AppFileLog`）。不依赖系统 logcat |
+| `app-logs/app-*.log` | 当前文件超过 256KB 时 | 滚出去的旧日志。启动时以及大约每小时删掉超过 7 天或目录合计超过 2MB 的旧文件 |
 | `last_crash_report.txt` | 崩溃或 `recordHandledFailure` | 最近一次错误栈 |
 | `crash-reports/crash-*.txt` | 同上 | 崩溃归档（诊断 zip 会打包） |
 
@@ -68,7 +70,7 @@ Instrumented 测试可能使用 `cache/webview-canvas-test/`；正式用户路�
 
 ## 诊断 zip 内容（代码内 README）
 
-导出时打包：`agent1/` 树、`crash-reports/`、`logcat.txt`、`device.txt` 等；**不含** API Key。字段说明见 `DiagnosticExport` 内 `readme()` 文本。
+导出时打包：`agent1/` 树、`app-logs/`、`boot_trace.txt`、`crash-reports/`、`logcat.txt`、`device.txt` 等；**不含** API Key。字段说明见 `DiagnosticExport` 内 `readme()` 文本。
 
 ## 维护说明
 

@@ -3,7 +3,9 @@ package com.agent1.android.productivity.logic.business
 import android.content.Context
 import android.os.Build
 import com.agent1.android.BuildConfig
+import com.agent1.android.llm.BootTrace
 import com.agent1.android.llm.CrashReporter
+import com.agent1.android.productivity.logic.data.AppLogFiles
 import com.agent1.android.productivity.logic.data.DiagnosticBundleWriter
 import com.agent1.android.productivity.logic.data.LogcatCapture
 import java.io.File
@@ -12,7 +14,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 打包会话、事件日志、崩溃和 logcat，供分享给云端诊断。不含 API Key。
+ * 打包会话、事件日志、应用文件日志、崩溃和 logcat，供分享给云端诊断。不含 API Key。
  * Zip 仅落在 [cacheDir]/diagnostics/ 临时目录；分享后删除，启动时清理超时残留。
  */
 object DiagnosticExport {
@@ -45,10 +47,12 @@ object DiagnosticExport {
                 trees = listOf(
                     DiagnosticBundleWriter.NamedDir("agent1", agentRoot),
                     DiagnosticBundleWriter.NamedDir("crash-reports", CrashReporter.reportDirectory(app)),
+                    DiagnosticBundleWriter.NamedDir("app-logs", AppLogFiles.directory(app.filesDir)),
                 ),
                 texts = listOf(
                     DiagnosticBundleWriter.NamedText("README.txt", readme()),
                     DiagnosticBundleWriter.NamedText("device.txt", deviceNote(app, summary)),
+                    DiagnosticBundleWriter.NamedText("boot_trace.txt", BootTrace.read(app) ?: "(无 boot_trace)"),
                     DiagnosticBundleWriter.NamedText("logcat.txt", LogcatCapture.capture()),
                 ),
             ),
@@ -114,8 +118,10 @@ object DiagnosticExport {
         agent1/sessions/<sessionId>/meta.json         会话标题与时间
         agent1/sessions/<sessionId>/runs/            每次 Run 的落盘记录
         agent1/logs/events.jsonl                     结构化事件（模型、工具、用量）
+        app-logs/                                    应用自己写入的运行日志（不依赖系统 logcat）
+        boot_trace.txt                               启动阶段轨迹
         crash-reports/                               崩溃栈
-        logcat.txt                                   本进程最近 logcat
+        logcat.txt                                   本进程最近 logcat（部分机型可能为空）
         device.txt                                   机型、系统版本、模型名（不含 API Key）
         skipped.txt                                  因过大未打入的文件（若有）
     """.trimIndent() + "\n"

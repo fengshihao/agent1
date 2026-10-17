@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
+import com.agent1.android.llm.AppFileLog
 import com.agent1.android.llm.BootTrace
 import com.agent1.android.llm.CrashReporter
 import com.agent1.android.productivity.logic.business.CrashLogAccess
@@ -34,7 +35,7 @@ class MainActivity : ComponentActivity() {
             }
             openMainCompose()
         } catch (t: Throwable) {
-            Log.e(TAG, "onCreate failed", t)
+            AppFileLog.e(TAG, "onCreate failed", t)
             CrashReporter.recordHandledFailure(this, "MainActivity.onCreate", t)
             val emergency = CrashLogSnapshot(
                 displayText = Log.getStackTraceString(t),

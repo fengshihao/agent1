@@ -1,6 +1,6 @@
 package com.weizhi.agent.web;
 
-import android.util.Log;
+import com.agent1.android.llm.AppFileLog;
 
 final class WebLog {
 
@@ -10,14 +10,14 @@ final class WebLog {
     }
 
     static void i(String msg) {
-        Log.i(TAG, msg);
+        AppFileLog.INSTANCE.i(TAG, msg);
     }
 
     static void w(String msg) {
-        Log.w(TAG, msg);
+        AppFileLog.INSTANCE.w(TAG, msg, null);
     }
 
     static void e(String msg, Throwable t) {
-        Log.e(TAG, msg, t);
+        AppFileLog.INSTANCE.e(TAG, msg, t);
     }
 }

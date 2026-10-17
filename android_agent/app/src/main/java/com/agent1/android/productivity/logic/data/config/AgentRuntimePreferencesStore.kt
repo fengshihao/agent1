@@ -2,9 +2,9 @@ package com.agent1.android.productivity.logic.data.config
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.agent1.android.llm.AppFileLog
 
 /** 加密存储 API Key 与模型连接参数（仅本机 App 沙箱）。 */
 class AgentRuntimePreferencesStore(context: Context) {
@@ -101,7 +101,7 @@ class AgentRuntimePreferencesStore(context: Context) {
                     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
                 )
             } catch (error: Exception) {
-                Log.e(TAG, "EncryptedSharedPreferences unavailable, using plain prefs", error)
+                AppFileLog.e(TAG, "EncryptedSharedPreferences unavailable, using plain prefs", error)
                 context.getSharedPreferences(FILE + "_plain", Context.MODE_PRIVATE)
             }
         }

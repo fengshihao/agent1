@@ -30,14 +30,14 @@ object CrashReporter {
                 runCatching {
                     persistCrash(appContext, thread, throwable)
                 }.onFailure {
-                    Log.e(TAG, "persist crash failed", it)
+                    AppFileLog.e(TAG, "persist crash failed", it)
                 }
                 previousHandler?.uncaughtException(thread, throwable)
             }
             handlerInstalled = true
-            Log.i(TAG, "UncaughtExceptionHandler installed")
+            AppFileLog.i(TAG, "UncaughtExceptionHandler installed")
         }.onFailure {
-            Log.e(TAG, "installUncaughtHandler failed", it)
+            AppFileLog.e(TAG, "installUncaughtHandler failed", it)
         }
     }
 
@@ -50,10 +50,10 @@ object CrashReporter {
     fun logPreviousCrashIfAny(context: Context) {
         runCatching {
             getLastCrash(context.applicationContext)?.let { report ->
-                Log.e(TAG, "previous crash on disk (see files/last_crash_report.txt):\n$report")
+                AppFileLog.e(TAG, "previous crash on disk (see files/last_crash_report.txt):\n$report")
             }
         }.onFailure {
-            Log.w(TAG, "logPreviousCrashIfAny skipped: ${it.message}")
+            AppFileLog.w(TAG, "logPreviousCrashIfAny skipped: ${it.message}")
         }
     }
 
@@ -121,7 +121,7 @@ object CrashReporter {
             file.writeText(report)
             true
         }.getOrElse {
-            Log.e(TAG, "write crash file failed", it)
+            AppFileLog.e(TAG, "write crash file failed", it)
             false
         }
         val archiveSaved = runCatching {
@@ -131,10 +131,10 @@ object CrashReporter {
             File(dir, fileName).writeText(report)
             true
         }.getOrElse {
-            Log.e(TAG, "write crash archive failed", it)
+            AppFileLog.e(TAG, "write crash archive failed", it)
             false
         }
-        Log.e(TAG, "Crash report persisted prefs=$committed file=$fileSaved archive=$archiveSaved")
+        AppFileLog.e(TAG, "Crash report persisted prefs=$committed file=$fileSaved archive=$archiveSaved")
         if (BuildConfig.DEBUG) {
             runCatching {
                 Handler(Looper.getMainLooper()).post {
