@@ -15,6 +15,7 @@ import java.util.List;
 public final class WeizhiBundledPackages {
 
     public static final String VERSION = "1.0.0";
+    public static final String PPTX_VERSION = "1.1.0";
 
     public static final List<String> BUNDLED_PACKAGE_NAMES =
         List.of("docx", "docx-raw", "docx-build", "pptx", "pptx-build", "svg-raster");
@@ -38,7 +39,7 @@ public final class WeizhiBundledPackages {
         Path home = weizhiHome(agentRoot);
         Files.createDirectories(home);
         for (String name : BUNDLED_PACKAGE_NAMES) {
-            installBundledPackage(home, name, VERSION);
+            installBundledPackage(home, name, bundledVersion(name));
         }
         return home.toAbsolutePath().toString();
     }
@@ -58,11 +59,18 @@ public final class WeizhiBundledPackages {
     private static boolean isPackageInstalled(Path agentRoot, String name) {
         try {
             Path home = weizhiHome(agentRoot);
-            Path entry = home.resolve("packages").resolve(name + "@" + VERSION);
+            Path entry = home.resolve("packages").resolve(name + "@" + bundledVersion(name));
             return Files.isRegularFile(entry.resolve("manifest.json"));
         } catch (RuntimeException e) {
             return false;
         }
+    }
+
+    private static String bundledVersion(String name) {
+        if ("pptx".equals(name)) {
+            return PPTX_VERSION;
+        }
+        return VERSION;
     }
 
     private static void installBundledPackage(Path weizhiHome, String name, String version) throws IOException {

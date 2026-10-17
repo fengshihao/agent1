@@ -79,6 +79,42 @@ var THEMES = {
     onAccent: "102018",
     gradient: true,
   },
+  editorial: {
+    name: "editorial",
+    bg: "F6F1E7",
+    bg2: "E7DCC8",
+    accent: "9A3412",
+    accent2: "3F6212",
+    surface: "FFFCF7",
+    text: "1C1917",
+    muted: "6B6258",
+    onAccent: "FFF7ED",
+    gradient: false,
+  },
+  harbor: {
+    name: "harbor",
+    bg: "F3F6FB",
+    bg2: "E4EAF3",
+    accent: "0F4C81",
+    accent2: "C2410C",
+    surface: "FFFFFF",
+    text: "122033",
+    muted: "5B6B7C",
+    onAccent: "F8FBFF",
+    gradient: false,
+  },
+  dusk: {
+    name: "dusk",
+    bg: "1A1423",
+    bg2: "2A2140",
+    accent: "E8B86D",
+    accent2: "7DD3C0",
+    surface: "312846",
+    text: "F6F1EA",
+    muted: "C4B8A8",
+    onAccent: "1A1423",
+    gradient: true,
+  },
 };
 
 function xmlEscape(s) {
@@ -285,6 +321,76 @@ function slideInk(theme, bg) {
   return { text: theme.text, muted: theme.muted };
 }
 
+var EMU_PER_PT = 12700;
+var EMU_PER_IN = 914400;
+
+function pt(n) {
+  return Math.round(n * EMU_PER_PT);
+}
+
+function inches(n) {
+  return Math.round(n * EMU_PER_IN);
+}
+
+function clamp(n, lo, hi) {
+  if (n < lo) {
+    return lo;
+  }
+  if (n > hi) {
+    return hi;
+  }
+  return n;
+}
+
+function charUnits(text) {
+  var units = 0;
+  var s = String(text || "");
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    if (c === 10) {
+      continue;
+    }
+    if (c <= 32) {
+      units += 0.35;
+    } else if (c < 128) {
+      units += 0.55;
+    } else {
+      units += 1;
+    }
+  }
+  return units;
+}
+
+function wrapLines(text, widthEmu, fontPt) {
+  var s = String(text || "");
+  if (!s) {
+    return 1;
+  }
+  var parts = s.split("\n");
+  var per = Math.max(1, widthEmu / Math.max(1, fontPt * EMU_PER_PT));
+  var total = 0;
+  for (var i = 0; i < parts.length; i++) {
+    total += Math.max(1, Math.ceil(charUnits(parts[i]) / per));
+  }
+  return total;
+}
+
+function rowBand(count, width, gap, maxItem) {
+  var cols = count < 1 ? 1 : count;
+  var natural = cols * maxItem + (cols - 1) * gap;
+  var itemW;
+  var x0;
+  if (natural >= width) {
+    itemW = Math.floor((width - (cols - 1) * gap) / cols);
+    x0 = 0;
+  } else {
+    itemW = maxItem;
+    var rowW = cols * itemW + (cols - 1) * gap;
+    x0 = Math.floor((width - rowW) / 2);
+  }
+  return { itemW: itemW, x0: x0 };
+}
+
 function metricsFor(hasTitle) {
   var left = 594360;
   var right = 457200;
@@ -387,7 +493,7 @@ function validateSlide(slide) {
   }
 }
 
-function addShape(list, x, y, cx, cy, preset, fill, alpha) {
+function addShape(list, x, y, cx, cy, preset, fill, alpha, shadow) {
   list.push({
     kind: "sp",
     x: x,
@@ -398,6 +504,7 @@ function addShape(list, x, y, cx, cy, preset, fill, alpha) {
     fill: fill,
     alpha: alpha || null,
     paragraphs: null,
+    shadow: !!shadow,
   });
 }
 
@@ -429,6 +536,7 @@ function addText(list, x, y, cx, cy, paragraphs, opts) {
     tIns: opts.tIns != null ? opts.tIns : 45720,
     rIns: opts.rIns != null ? opts.rIns : 91440,
     bIns: opts.bIns != null ? opts.bIns : 45720,
+    shadow: !!opts.shadow,
   });
 }
 
@@ -450,7 +558,7 @@ function addChrome(list, slide, theme, bg) {
   if (bg.kind === "image") {
     addShape(list, 0, 0, SLIDE_CX, SLIDE_CY, "rect", "1B2430", 48000);
   }
-  if (slide.layout === "section" && theme.name === "dark") {
+  if (slide.layout === "section" && theme.gradient) {
     addShape(list, 0, 0, 274320, SLIDE_CY, "rect", theme.accent, null);
     return;
   }
@@ -458,15 +566,15 @@ function addChrome(list, slide, theme, bg) {
     addShape(list, 0, SLIDE_CY - 100584, SLIDE_CX, 100584, "rect", theme.accent2, null);
     return;
   }
-  if (slide.layout === "title" && theme.name === "briefing" && bg.kind !== "image" && bg.kind !== "accent") {
+  if (slide.layout === "title" && !theme.gradient && bg.kind !== "image" && bg.kind !== "accent") {
     addShape(list, 0, 0, 274320, SLIDE_CY, "rect", theme.accent, null);
     addShape(list, SLIDE_CX - 640080, -548640, 2286000, 2286000, "ellipse", theme.accent2, 18000);
     return;
   }
-  if (theme.name === "briefing" && bg.kind !== "accent" && bg.kind !== "image" && bg.kind !== "dark") {
+  if (!theme.gradient && bg.kind !== "accent" && bg.kind !== "image" && bg.kind !== "dark") {
     addShape(list, 0, 0, 137160, SLIDE_CY, "rect", theme.accent, null);
   }
-  if ((theme.name === "dark" || bg.kind === "dark") && bg.kind !== "image") {
+  if ((theme.gradient || bg.kind === "dark") && bg.kind !== "image") {
     addShape(list, 0, 0, SLIDE_CX, 100584, "rect", theme.accent, null);
     if (slide.layout === "title") {
       addShape(list, SLIDE_CX - 731520, -365760, 2011680, 2011680, "ellipse", theme.accent, 20000);
@@ -552,56 +660,84 @@ function renderSection(list, slide, theme, ink) {
 
 function renderBullets(list, slide, theme, m) {
   var items = limitItems(asList(slide.items), "items");
-  addShape(list, m.left, m.contentTop, m.width, m.height, "roundRect", theme.surface, null);
   if (items.length === 0) {
     return;
   }
-  var pad = 160020;
-  var gap = 54864;
-  var innerH = m.height - pad * 2;
-  var rowH = Math.floor((innerH - (items.length - 1) * gap) / items.length);
+  var n = items.length;
+  var padX = pt(20);
+  var padY = pt(14);
+  var gap = pt(8);
+  var preferred = pt(n > 6 ? 34 : 44);
+  var budget = m.height - padY * 2;
+  var rowH = preferred;
+  var stack = n * rowH + (n - 1) * gap;
+  if (stack > budget) {
+    rowH = Math.floor((budget - (n - 1) * gap) / n);
+    stack = n * rowH + (n - 1) * gap;
+  }
+  var cardH = Math.min(m.height, stack + padY * 2);
+  addShape(list, m.left, m.contentTop, m.width, cardH, "roundRect", theme.surface, null, true);
+  var sz = rowH < pt(32) ? 1400 : 1800;
   var color = textOn(theme, "surface");
-  var sz = items.length > 6 ? 1600 : 2000;
-  for (var i = 0; i < items.length; i++) {
-    var y = m.contentTop + pad + i * (rowH + gap);
-    var marker = Math.min(128016, Math.max(64008, rowH - 45720));
+  var marker = Math.min(pt(11), Math.max(pt(8), Math.floor(rowH * 0.28)));
+  for (var i = 0; i < n; i++) {
+    var y = m.contentTop + padY + i * (rowH + gap);
     var my = y + Math.floor((rowH - marker) / 2);
-    addShape(list, m.left + pad, my, marker, marker, "ellipse", theme.accent, null);
+    addShape(list, m.left + padX, my, marker, marker, "ellipse", theme.accent, null);
     addText(
       list,
-      m.left + pad + marker + 91440,
+      m.left + padX + marker + pt(12),
       y,
-      m.width - pad * 2 - marker - 91440,
+      m.width - padX * 2 - marker - pt(12),
       rowH,
       String(items[i]),
-      { sz: sz, color: color, align: "l", anchor: "ctr", lIns: 22860, rIns: 22860 }
+      { sz: sz, color: color, align: "l", anchor: "ctr", lIns: pt(2), rIns: pt(6), tIns: 0, bIns: 0 }
     );
   }
+}
+
+function columnNeed(items, head, innerW) {
+  var h = pt(24);
+  if (head) {
+    h += wrapLines(String(head), innerW, 18) * pt(24) + pt(8);
+  }
+  for (var i = 0; i < items.length; i++) {
+    h += wrapLines(String(items[i]), innerW, 16) * pt(22) + pt(6);
+  }
+  return h + pt(12);
 }
 
 function renderTwoColumn(list, slide, theme, m) {
   var left = limitItems(asList(slide.left), "items");
   var right = limitItems(asList(slide.right), "items");
-  var gap = 182880;
+  var gap = pt(16);
   var colW = Math.floor((m.width - gap) / 2);
+  var innerW = colW - pt(36);
+  var cardH = clamp(
+    Math.max(columnNeed(left, slide.leftTitle || "", innerW), columnNeed(right, slide.rightTitle || "", innerW)),
+    inches(1.7),
+    m.height
+  );
   var color = textOn(theme, "surface");
   var heads = [slide.leftTitle || "", slide.rightTitle || ""];
   var cols = [left, right];
   for (var i = 0; i < 2; i++) {
     var x = m.left + i * (colW + gap);
-    addShape(list, x, m.contentTop, colW, m.height, "roundRect", theme.surface, null);
+    addShape(list, x, m.contentTop, colW, cardH, "roundRect", theme.surface, null, true);
     var ps = [];
     if (heads[i]) {
-      ps.push({ text: String(heads[i]), sz: 2000, bold: true, color: theme.accent, align: "l" });
+      ps.push({ text: String(heads[i]), sz: 1800, bold: true, color: theme.accent, align: "l", spcAft: 800 });
     }
-    var body = listParagraphs(cols[i], color, 1800);
+    var body = listParagraphs(cols[i], color, 1600);
     for (var j = 0; j < body.length; j++) {
       ps.push(body[j]);
     }
-    addText(list, x + 91440, m.contentTop + 91440, colW - 182880, m.height - 182880, ps, {
+    addText(list, x + pt(14), m.contentTop + pt(12), colW - pt(28), cardH - pt(24), ps, {
       anchor: "t",
-      lIns: 45720,
-      tIns: 45720,
+      lIns: pt(4),
+      tIns: pt(4),
+      rIns: pt(6),
+      bIns: pt(4),
     });
   }
 }
@@ -614,22 +750,43 @@ function renderStat(list, slide, theme, m) {
   }
   var cols = items.length <= 4 ? items.length : Math.ceil(items.length / 2);
   var rows = items.length <= 4 ? 1 : 2;
-  var gap = 137160;
-  var cardW = Math.floor((m.width - (cols - 1) * gap) / cols);
-  var cardH = Math.floor((m.height - (rows - 1) * gap) / rows);
+  var gap = pt(14);
+  var maxW = items.length === 1 ? inches(3.4) : inches(3.6);
+  var band = rowBand(cols, m.width, gap, maxW);
+  var cardW = band.itemW;
+  var avail = Math.floor((m.height - (rows - 1) * gap) / rows);
+  var cardH = Math.min(rows > 1 ? inches(1.5) : inches(1.6), avail);
+  var gridH = rows * cardH + (rows - 1) * gap;
+  var y0 = m.contentTop + Math.max(0, Math.floor((m.height - gridH) / 2));
   for (var i = 0; i < items.length; i++) {
     var c = i % cols;
     var r = Math.floor(i / cols);
-    var x = m.left + c * (cardW + gap);
-    var y = m.contentTop + r * (cardH + gap);
-    addShape(list, x, y, cardW, cardH, "roundRect", theme.surface, null);
+    var inRow = Math.min(cols, items.length - r * cols);
+    var row = inRow === cols ? band : rowBand(inRow, m.width, gap, cardW);
+    var x = m.left + row.x0 + (c % inRow) * (cardW + gap);
+    var y = y0 + r * (cardH + gap);
+    addShape(list, x, y, cardW, cardH, "roundRect", theme.surface, null, true);
+    addShape(list, x, y, cardW, pt(5), "rect", theme.accent, null);
     var ps = [
-      { text: items[i].value, sz: rows > 1 ? 2800 : 3600, bold: true, color: theme.accent, align: "ctr" },
+      {
+        text: items[i].value,
+        sz: rows > 1 ? 2800 : 3600,
+        bold: true,
+        color: theme.accent,
+        align: "ctr",
+        spcAft: 400,
+      },
     ];
     if (items[i].label) {
       ps.push({ text: items[i].label, sz: 1400, bold: false, color: theme.muted, align: "ctr" });
     }
-    addText(list, x + 91440, y + 91440, cardW - 182880, cardH - 182880, ps, { anchor: "ctr", lIns: 45720 });
+    addText(list, x + pt(12), y + pt(14), cardW - pt(24), cardH - pt(26), ps, {
+      anchor: "ctr",
+      lIns: pt(4),
+      rIns: pt(4),
+      tIns: 0,
+      bIns: 0,
+    });
   }
 }
 
@@ -639,41 +796,54 @@ function renderSteps(list, slide, theme, m) {
     return;
   }
   var n = items.length;
-  var overlap = 80000;
+  var overlap = pt(8);
   var each = Math.floor((m.width + (n - 1) * overlap) / n);
-  var h = Math.min(m.height, 1600200);
+  var longest = 0;
+  for (var k = 0; k < n; k++) {
+    if (String(items[k]).length > longest) {
+      longest = String(items[k]).length;
+    }
+  }
+  var h = Math.min(m.height, inches(1.05));
   var y = m.contentTop + Math.floor((m.height - h) / 2);
+  var sz = n > 5 || longest > 8 ? 1400 : 1800;
   for (var i = 0; i < n; i++) {
     var fillKey = i % 2 === 0 ? "accent" : "accent2";
     var x = m.left + i * (each - overlap);
     addText(list, x, y, each, h, String(items[i]), {
       preset: "chevron",
       fill: theme[fillKey],
-      sz: n > 5 ? 1400 : 1800,
+      sz: sz,
       bold: true,
       color: textOn(theme, fillKey),
       align: "ctr",
       anchor: "ctr",
-      lIns: 137160,
-      rIns: 200000,
+      lIns: pt(16),
+      rIns: pt(22),
+      tIns: 0,
+      bIns: 0,
     });
   }
 }
 
 function renderCallout(list, slide, theme, m) {
-  addShape(list, m.left, m.contentTop, m.width, m.height, "roundRect", theme.surface, null);
-  addShape(list, m.left, m.contentTop, 137160, m.height, "rect", theme.accent, null);
-  var ps = [{
-    text: slide.text != null ? String(slide.text) : "",
-    sz: 2800,
-    bold: false,
-    color: textOn(theme, "surface"),
-    align: "l",
-  }];
-  addText(list, m.left + 274320, m.contentTop + 182880, m.width - 457200, m.height - 365760, ps, {
-    anchor: "ctr",
-    lIns: 45720,
-  });
+  var text = slide.text != null ? String(slide.text) : "";
+  var innerW = m.width - pt(56);
+  var fontPt = text.length > 70 ? 18 : 22;
+  var lines = wrapLines(text, innerW, fontPt);
+  var h = clamp(lines * pt(fontPt * 1.4) + pt(36), inches(1.2), Math.min(m.height, inches(2.8)));
+  var y = m.contentTop + Math.max(0, Math.floor((m.height - h) / 2));
+  addShape(list, m.left, y, m.width, h, "roundRect", theme.surface, null, true);
+  addShape(list, m.left, y, pt(8), h, "rect", theme.accent, null);
+  addText(
+    list,
+    m.left + pt(22),
+    y + pt(8),
+    m.width - pt(36),
+    h - pt(16),
+    [{ text: text, sz: fontPt * 100, bold: false, color: textOn(theme, "surface"), align: "l" }],
+    { anchor: "ctr", lIns: pt(4), rIns: pt(8), tIns: 0, bIns: 0 }
+  );
 }
 
 function renderCards(list, slide, theme, m) {
@@ -684,23 +854,43 @@ function renderCards(list, slide, theme, m) {
   }
   var cols = items.length <= 3 ? items.length : items.length === 4 ? 2 : 3;
   var rows = Math.ceil(items.length / cols);
-  var gap = 137160;
-  var cardW = Math.floor((m.width - (cols - 1) * gap) / cols);
-  var cardH = Math.floor((m.height - (rows - 1) * gap) / rows);
+  var gap = pt(14);
+  var maxW = items.length === 1 ? inches(7.2) : inches(4.6);
+  var band = rowBand(cols, m.width, gap, maxW);
+  var cardW = band.itemW;
+  var innerW = Math.max(pt(40), cardW - pt(44));
+  var measured = pt(96);
+  for (var n = 0; n < items.length; n++) {
+    var titleLines = wrapLines(items[n].title, innerW, 18);
+    var bodyLines = items[n].text ? wrapLines(items[n].text, innerW, 14) : 0;
+    var h = pt(28) + titleLines * pt(24) + (bodyLines ? pt(8) + bodyLines * pt(20) : 0) + pt(18);
+    if (h > measured) {
+      measured = h;
+    }
+  }
+  var avail = Math.floor((m.height - (rows - 1) * gap) / rows);
+  var cap = rows === 1 ? inches(2.25) : inches(1.95);
+  var cardH = clamp(measured, pt(96), Math.min(cap, avail));
+  var color = textOn(theme, "surface");
   for (var i = 0; i < items.length; i++) {
     var c = i % cols;
     var r = Math.floor(i / cols);
-    var x = m.left + c * (cardW + gap);
+    var inRow = Math.min(cols, items.length - r * cols);
+    var row = inRow === cols ? band : rowBand(inRow, m.width, gap, cardW);
+    var x = m.left + row.x0 + c * (cardW + gap);
     var y = m.contentTop + r * (cardH + gap);
-    addShape(list, x, y, cardW, cardH, "roundRect", theme.surface, null);
-    var ps = [{ text: items[i].title, sz: 2000, bold: true, color: theme.accent, align: "l" }];
+    addShape(list, x, y, cardW, cardH, "roundRect", theme.surface, null, true);
+    addShape(list, x, y, pt(6), cardH, "rect", theme.accent, null);
+    var ps = [{ text: items[i].title, sz: 1800, bold: true, color: theme.accent, align: "l", spcAft: 600 }];
     if (items[i].text) {
-      ps.push({ text: items[i].text, sz: 1400, bold: false, color: textOn(theme, "surface"), align: "l" });
+      ps.push({ text: items[i].text, sz: 1400, bold: false, color: color, align: "l" });
     }
-    addText(list, x + 137160, y + 137160, cardW - 274320, cardH - 274320, ps, {
-      anchor: "t",
-      lIns: 22860,
-      tIns: 22860,
+    addText(list, x + pt(16), y + pt(10), cardW - pt(28), cardH - pt(20), ps, {
+      anchor: "ctr",
+      lIns: pt(4),
+      tIns: pt(2),
+      rIns: pt(6),
+      bIns: pt(2),
     });
   }
 }
@@ -720,28 +910,38 @@ function renderTable(list, slide, theme, m) {
   if (rows.length > 12) {
     throw new Error("bad argument: renderPptx: too many items");
   }
-  var gap = 18288;
+  var gap = pt(3);
   var colW = Math.floor((m.width - (cols - 1) * gap) / cols);
-  var rowH = Math.floor((m.height - (rows.length - 1) * gap) / rows.length);
+  var preferred = pt(34);
+  var avail = m.height - (rows.length - 1) * gap;
+  var rowH = Math.min(preferred, Math.floor(avail / rows.length));
+  if (rowH * rows.length + (rows.length - 1) * gap > m.height) {
+    rowH = Math.floor(avail / rows.length);
+  }
+  var tableH = rows.length * rowH + (rows.length - 1) * gap;
+  var y0 = m.contentTop + Math.max(0, Math.floor((m.height - tableH) / 2));
+  var sz = rowH < pt(28) || cols > 5 ? 1200 : 1500;
   for (var r = 0; r < rows.length; r++) {
     var rowData = isArray(rows[r]) ? rows[r] : [rows[r]];
     for (var c = 0; c < cols; c++) {
       var header = r === 0;
-      var fill = header ? theme.accent : r % 2 === 0 ? theme.bg : theme.surface;
+      var fill = header ? theme.accent : r % 2 === 0 ? theme.bg2 : theme.surface;
       var color = header ? theme.onAccent : theme.text;
       var x = m.left + c * (colW + gap);
-      var y = m.contentTop + r * (rowH + gap);
+      var y = y0 + r * (rowH + gap);
       var cell = rowData[c] != null ? String(rowData[c]) : "";
       addText(list, x, y, colW, rowH, cell, {
         preset: "rect",
         fill: fill,
-        sz: cols > 5 ? 1200 : 1400,
+        sz: sz,
         bold: header,
         color: color,
         align: "ctr",
         anchor: "ctr",
-        lIns: 45720,
-        rIns: 45720,
+        lIns: pt(6),
+        rIns: pt(6),
+        tIns: 0,
+        bIns: 0,
       });
     }
   }
@@ -855,6 +1055,16 @@ function fillXml(fill, alpha) {
   return '<a:solidFill><a:srgbClr val="' + fill + '">' + alphaXml + "</a:srgbClr></a:solidFill>";
 }
 
+function effectXml(shape) {
+  if (!shape.shadow) {
+    return "";
+  }
+  return (
+    '<a:effectLst><a:outerShdw blurRad="57150" dist="25400" dir="2700000" algn="tl" rotWithShape="0">' +
+    '<a:srgbClr val="142033"><a:alpha val="12000"/></a:srgbClr></a:outerShdw></a:effectLst>'
+  );
+}
+
 function paragraphsXml(paragraphs) {
   if (!paragraphs || !paragraphs.length) {
     return '<a:p><a:endParaRPr lang="zh-CN" sz="1400"/></a:p>';
@@ -867,7 +1077,11 @@ function paragraphsXml(paragraphs) {
       xml +=
         "<a:p><a:pPr algn=\"" +
         (p.align || "l") +
-        "\"/><a:r><a:rPr lang=\"zh-CN\" sz=\"" +
+        "\"><a:lnSpc><a:spcPct val=\"" +
+        (p.lnSpc || 108000) +
+        "\"/></a:lnSpc>" +
+        (p.spcAft ? "<a:spcAft><a:spcPts val=\"" + p.spcAft + "\"/></a:spcAft>" : "") +
+        "</a:pPr><a:r><a:rPr lang=\"zh-CN\" sz=\"" +
         (p.sz || 1800) +
         "\" b=\"" +
         (p.bold ? "1" : "0") +
@@ -944,7 +1158,9 @@ function shapeToXml(shape, id) {
     '"/></a:xfrm>' +
     geomXml(shape.preset || "rect") +
     fillXml(shape.fill, shape.alpha) +
-    "<a:ln><a:noFill/></a:ln></p:spPr>" +
+    "<a:ln><a:noFill/></a:ln>" +
+    effectXml(shape) +
+    "</p:spPr>" +
     tx +
     "</p:sp>"
   );

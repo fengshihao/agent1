@@ -1,6 +1,6 @@
 # pptx.js — 幻灯片模型 + 渲染
 
-真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/pptx@1.0.0/pptx.js`（及 `pptx-build`）。Android 副本：`android_agent/app/src/main/assets/weizhi-packages/`。QuickJS **ES module**，无 npm。Agent 检索见 `office-api-cards.jsonl` 的 `pptx.render` / `pptx.build`。
+真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/pptx@1.1.0/pptx.js`（及 `pptx-build`）。Android 副本：`android_agent/app/src/main/assets/weizhi-packages/`。QuickJS **ES module**，无 npm。Agent 检索见 `office-api-cards.jsonl` 的 `pptx.render` / `pptx.build`。
 
 形状、背景和坐标由渲染器绘制。调用方选择版式、主题和主题色名。
 
@@ -28,7 +28,7 @@ const result = renderPptx({
 // { ok: true, path, bytes, slides }
 ```
 
-`theme`：`briefing`（浅底、左侧色条）或 `dark`（深底渐变、顶部色条）。省略时为 `briefing`。
+`theme`：`briefing`（浅底、左侧色条）、`dark`（深底渐变、顶部色条）、`editorial`（暖纸、赭石）、`harbor`（冷白、海军蓝）、`dusk`（深紫、金线）。省略时为 `briefing`。要点、卡片、双栏、统计、表格和结论框按文字收高，少量内容不会撑满整页。
 
 按页 `background`：
 

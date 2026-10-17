@@ -10,7 +10,7 @@
 
 | 项 | 位置 |
 |----|------|
-| 脚本真源 | `agent_core/.../weizhi-packages/pptx@1.0.0/`、`pptx-build@1.0.0/` |
+| 脚本真源 | `agent_core/.../weizhi-packages/pptx@1.1.0/`、`pptx-build@1.0.0/` |
 | Android 副本 | `android_agent/app/src/main/assets/weizhi-packages/` |
 | Skill | `agent-home/skills/pptx/SKILL.md`（随 core 内置） |
 | 调用卡 | `office-api-cards.jsonl` 的 `pptx.render` / `pptx.build` |

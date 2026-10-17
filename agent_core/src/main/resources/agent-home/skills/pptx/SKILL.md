@@ -26,7 +26,7 @@ export default renderPptx({
 
 ## 主题
 
-`briefing`（浅底、左侧色条）或 `dark`（深底渐变、顶部色条）。装饰形状、页脚、圆角卡片由渲染器绘制。
+`briefing`（浅底、左侧色条）、`dark`（深底渐变、顶部色条）、`editorial`（暖纸、赭石）、`harbor`（冷白、海军蓝）、`dusk`（深紫、金线）。装饰形状、页脚、圆角卡片由渲染器绘制。卡片、要点、表格和结论框按文字收高，不要指望把少量文字撑满整页。
 
 背景可按页覆盖：`"dark"`、`"light"`、`"accent"`，或 `{ image: "workspace/相对路径.png" }`，或 `{ color: "accent" }`。颜色只用主题色名：`bg`、`surface`、`accent`、`accent2`、`muted`。
 

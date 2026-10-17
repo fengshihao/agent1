@@ -11,7 +11,7 @@ Weizhi 主干已移除 **`setScriptFolder` / `import "leaf.js"`**，官方 JS �
 | `setFsRoot` | 会话 workspace |
 | `setPackageRoot` | 桌面：`{agentRoot}/weizhi-home`（`WeizhiBundledPackages.syncFromClasspath`）；Android：`WeizhiPackages.syncBundled(Context)` → `filesDir/weizhi-home` |
 
-内置 Office / SVG 脚本真源：`agent_core/.../agent-home/weizhi-packages/<name>@1.0.0/`（桌面 classpath）。Android 同步副本：`android_agent/app/src/main/assets/weizhi-packages/`（`scripts/build-weizhi-bundled-packages.sh` 从真源拷贝）。APK 不打 classpath 那份。
+内置 Office / SVG 脚本真源：`agent_core/.../agent-home/weizhi-packages/<name>@<version>/`（桌面 classpath，pptx 当前为 `1.1.0`）。Android 同步副本：`android_agent/app/src/main/assets/weizhi-packages/`（`scripts/build-weizhi-bundled-packages.sh` 从真源拷贝）。APK 不打 classpath 那份。
 
 **给模型的写法**：`import { markdownToDocx } from "weizhi:docx"`、`import { renderPptx } from "weizhi:pptx"` 等。workspace 内协作用 `import "./helper.js"`。
 
