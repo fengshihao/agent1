@@ -96,7 +96,17 @@
 
 **目标**：`rendersSampleDecksForComparison` 扩展为三方：pptx.js 版 / html2pptx 截图版 / html2pptx native 版；跑 visual-judge 出结论记录进本文件。
 **验收**：三份样例 + 验收记录（每页一行 verdict）。
-**状态**：未开始
+**状态**：完成（2026-10-17，commit 见 git log：feat(office): html2pptx 三方对比样例与视觉验收）
+**落地形态与验收记录**：
+- 测试扩展为三方：`out-samples/`（gitignore）落 `sample-deck.html` + `html2pptx-对比样例.pptx`（截图，4.0MB）+ `html2pptx-native-对比样例.pptx`（235KB）+ `pptx-对比样例.pptx`（12KB）。断言 native 版 `fallback:false` 且 `needsScreenshot:[]`（样例 deck 的三卡阴影、echarts canvas 全部消解）。
+- 验收方式：封面三方 qlmanage（Keynote QuickLook）实渲染对比截图基准；深页（2-4）native 以 slide XML 结构检查 + 已知映射规则推导（qlmanage 只出封面），Keynote/WPS 逐页人工复核并入 T3/T4 待补项。
+- **每页 verdict**（样例 deck 四页，基准 = 截图版页图）：
+  - P1 封面：截图 ✅ 像素级；native ✅ 高保真（135° 渐变、双色渐变 rule、文字全部原生可编辑；deco radial→纯色近似可辨）；pptx.js ✅ 规范 title 版式（无渐变/deco，模板感）。
+  - P2 卡片：截图 ✅；native ✅（h2 em 金色 run 拆分正确、三卡阴影+彩色上边框由 clip 真实带入、footnote 文本框在）；pptx.js ✅ cards 版式（三色上边框做不到）。
+  - P3 图表：截图 ✅；native ✅（echarts canvas 原生图片 + takeaway 四段文本框可编辑）；pptx.js ⚠️ 无图表能力（stat 数字卡替代）。
+  - P4 ending：截图 ✅（渐变大字）；native ⚠️ **渐变文字（`background-clip:text` + `color:transparent`）提取 fallback 成 `#000000`，深底上黑字几乎不可读——缺陷，已知限制记入 SKILL（大字用纯色或走截图模式）**；pptx.js ✅ callout 版式。
+- **结论**：截图版 4/4 保真；native 3/4 高保真可编辑 + 1 已知限制（渐变字），且体积约 1/17、文字全部可二次编辑——达到「native 为推荐模式」的验收线。pptx.js 定位不变（快速结构化，无自由版式）。
+- **后续改进（不阻塞，未排任务）**：①提取器对 `background-clip:text` 元素打标（需动几何 schema + fixture 重生成）→ native 整块 clip 补真或文字取渐变 stops 近似色；②渐变字场景在系统提示词/SKILL 已提示规避。
 
 ### T6 — image_search / image_download（配套，可与 T1-T5 并行）
 
@@ -118,3 +128,4 @@
 - 2026-10-17 T2 完成：`Html2PptxExtractTest` CDP 端到端（渐变/卡片/图表三页，图表页内联 canvas+svg 零 CDN）+ fixture 落 `src/test/resources/html2pptx/`（基线测试进 CI 冒烟、live 对比带 ±6px 容差、`HTML2PPTX_UPDATE_FIXTURES=1` 重生成）；几何行为记录见 T2 小节。下一个未开始任务：T3。
 - 2026-10-17 T3 完成：`geometryToPptx` 纯 QuickJS 原生生成器（映射规则与去重结论见 T3 小节）+ `Html2PptxNativeGeneratorTest` 三测 + Android assets 同步 + 文档/smoke 接线；PowerPoint/WPS 人工打开验收待补。下一个未开始任务：T4。
 - 2026-10-17 T4 完成：`renderHtmlDeck mode:"native"` 一次 webview 提取+区域截图、applyClips 补真、失败回退截图（详见 T4 小节）+ `Html2PptxScriptTest` 新四测全绿 + SKILL.md v0.2 双模式 + Android 同步。下一个未开始任务：T5。
+- 2026-10-17 T5 完成：三方对比样例（截图 4.0MB / native 235KB / pptx.js 12KB）+ 每页 verdict（截图 4/4、native 3/4+1 已知限制「渐变字退化黑字」记入 SKILL、pptx.js 定位不变）；验收记录见 T5 小节。下一个未开始任务：T6。

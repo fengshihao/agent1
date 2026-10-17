@@ -49,5 +49,5 @@ export default await renderHtmlDeck({
 ## 限制（v0.2）
 
 - `screenshot` 模式产物每页是整页图片（观感优先、不可二次编辑）；要可编辑就用 `mode:"native"`。
-- `native` 模式的近似取舍：渐变 radial 退化为纯色、跨出截图区域的文字可能与区域截图边缘轻微重叠。
+- `native` 模式的近似取舍：渐变 radial 退化为纯色、跨出截图区域的文字可能与区域截图边缘轻微重叠；**渐变文字（`background-clip:text`）会退化为黑字**，深底上不可读——大字收尾页请用纯色或接受截图模式。
 - 需要网络（CDN 加载截图库与图表库）。

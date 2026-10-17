@@ -586,7 +586,8 @@ class Html2PptxScriptTest {
         }
     }
 
-    /** 样例输出：HTML2PPTX_SAMPLE_DIR 设置时渲染 html2pptx 版与 pptx.js 版对比件。 */
+    /** 样例输出（20-A T5 三方）：HTML2PPTX_SAMPLE_DIR 设置时渲染 html2pptx 截图版、
+     * html2pptx native 版与 pptx.js 版三份对比件。 */
     @Test
     void rendersSampleDecksForComparison(@TempDir Path agentRoot) throws Exception {
         assumeTrue(CdpWebViewRuntime.isAvailable(), "需要本机 Chromium（CDP）");
@@ -646,9 +647,22 @@ class Html2PptxScriptTest {
                 }, "pptx-对比样例.pptx");
                 """, null, 60_000, new CancellationToken(), "jobs/run2.js");
             assertTrue(out2.contains("\"ok\":true"), out2);
+            String out3 = engine.evalForAgent("""
+                import { renderHtmlDeck } from "weizhi:html2pptx";
+                export default await renderHtmlDeck({
+                  htmlPath: "sample-deck.html",
+                  output: "html2pptx-native-对比样例.pptx",
+                  mode: "native"
+                });
+                """, null, 300_000, new CancellationToken(), "jobs/run3.js");
+            assertTrue(out3.contains("\"ok\":true"), out3);
+            assertTrue(out3.contains("\"fallback\":false"), out3);
+            assertTrue(out3.contains("\"needsScreenshot\":[]"),
+                "样例 deck 的阴影/图表都应被 clip 补真: " + out3);
         }
         assertTrue(Files.size(out.resolve("html2pptx-对比样例.pptx")) > 10_000);
         assertTrue(Files.size(out.resolve("pptx-对比样例.pptx")) > 100);
+        assertTrue(Files.size(out.resolve("html2pptx-native-对比样例.pptx")) > 10_000);
     }
 
     private static final String SAMPLE_DECK_HTML = """
