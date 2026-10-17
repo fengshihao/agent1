@@ -45,13 +45,14 @@ echo "==> :core 自进化 UC 子集"
   --tests 'com.agent1.javaagent.tool.agent.CatalogSyncToolsTest' \
   --tests 'com.agent1.javaagent.promote.PromotionServiceTest'
 
-echo "==> :weizhi-bridge UC-04 / UC-07 / 7.2"
+echo "==> :weizhi-bridge UC-04 / UC-07 / 7.2 / html2pptx 几何 fixture 基线"
 "${GRADLE[@]}" :weizhi-bridge:test \
   --tests 'com.agent1.javaagent.weizhi.ProductivityScriptedScriptLineTest' \
   --tests 'com.agent1.javaagent.weizhi.ProductivityScriptedNativeCatalogTest' \
   --tests 'com.agent1.javaagent.weizhi.WeizhiNativeCatalogIntegrationTest' \
   --tests 'com.agent1.javaagent.weizhi.WeizhiCatalogScriptFolderIntegrationTest' \
-  --tests 'com.agent1.javaagent.weizhi.WeizhiScriptEngineIntegrationTest.syntaxErrorReportsUserLineInFileMode'
+  --tests 'com.agent1.javaagent.weizhi.WeizhiScriptEngineIntegrationTest.syntaxErrorReportsUserLineInFileMode' \
+  --tests 'com.agent1.javaagent.weizhi.Html2PptxExtractTest'
 
 echo "==> :cli"
 "${GRADLE[@]}" :cli:test

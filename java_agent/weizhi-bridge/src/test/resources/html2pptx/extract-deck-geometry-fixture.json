@@ -1,0 +1,679 @@
+{
+  "version": 1,
+  "generator": "html2pptx@0.2.0 extractDeckGeometry",
+  "slides": [
+    {
+      "slideW": 1280,
+      "slideH": 720,
+      "bgImage": "linear-gradient(135deg, rgb(26, 20, 35) 0%, rgb(49, 40, 70) 100%)",
+      "elements": [
+        {
+          "tag": "div",
+          "rect": {
+            "x": 920,
+            "y": -160,
+            "w": 520,
+            "h": 520
+          },
+          "cls": "deco",
+          "font": {
+            "size": 16,
+            "weight": "400",
+            "color": "#f6f1ea",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "bgImage": "radial-gradient(circle, rgba(125, 211, 192, 0.25), rgba(0, 0, 0, 0) 65%)",
+          "radius": 130
+        },
+        {
+          "tag": "div",
+          "rect": {
+            "x": 110,
+            "y": 222.91,
+            "w": 1060,
+            "h": 25
+          },
+          "cls": "kicker",
+          "font": {
+            "size": 22,
+            "weight": "400",
+            "color": "#e8b86d",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "EXTRACT · E2E",
+              "size": 22,
+              "weight": "400",
+              "color": "#e8b86d",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "h1",
+          "rect": {
+            "x": 110,
+            "y": 275.91,
+            "w": 1060,
+            "h": 101.19
+          },
+          "font": {
+            "size": 88,
+            "weight": "800",
+            "color": "#f6f1ea",
+            "align": "start",
+            "lineHeight": 101.2,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "几何快照",
+              "size": 88,
+              "weight": "800",
+              "color": "#f6f1ea",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "rect": {
+            "x": 110,
+            "y": 413.09,
+            "w": 96,
+            "h": 6
+          },
+          "cls": "rule",
+          "font": {
+            "size": 16,
+            "weight": "400",
+            "color": "#f6f1ea",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "bgImage": "linear-gradient(90deg, rgb(232, 184, 109), rgb(125, 211, 192))",
+          "radius": 3
+        },
+        {
+          "tag": "div",
+          "rect": {
+            "x": 110,
+            "y": 455.09,
+            "w": 1060,
+            "h": 42
+          },
+          "cls": "sub",
+          "font": {
+            "size": 30,
+            "weight": "400",
+            "color": "#c4b8a8",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "2026 Q4 · 端到端",
+              "size": 30,
+              "weight": "400",
+              "color": "#c4b8a8",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slideW": 1280,
+      "slideH": 720,
+      "bg": "#faf9f6",
+      "elements": [
+        {
+          "tag": "h2",
+          "rect": {
+            "x": 96,
+            "y": 213.16,
+            "w": 1088,
+            "h": 62
+          },
+          "font": {
+            "size": 44,
+            "weight": "700",
+            "color": "#122033",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "卡片",
+              "size": 44,
+              "weight": "700",
+              "color": "#122033",
+              "italic": false,
+              "underline": false
+            },
+            {
+              "text": "样式",
+              "size": 44,
+              "weight": "700",
+              "color": "#122033",
+              "italic": true,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "em",
+          "rect": {
+            "x": 184,
+            "y": 219.16,
+            "w": 88,
+            "h": 51
+          },
+          "font": {
+            "size": 44,
+            "weight": "700",
+            "color": "#122033",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "样式",
+              "size": 44,
+              "weight": "700",
+              "color": "#122033",
+              "italic": true,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "rect": {
+            "x": 96,
+            "y": 323.16,
+            "w": 338.66,
+            "h": 183.69
+          },
+          "cls": "card",
+          "font": {
+            "size": 16,
+            "weight": "400",
+            "color": "#000000",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "bg": "#ffffff",
+          "border": {
+            "top": {
+              "w": 6,
+              "color": "#7dd3c0"
+            }
+          },
+          "radius": 18
+        },
+        {
+          "tag": "h3",
+          "rect": {
+            "x": 128,
+            "y": 373.16,
+            "w": 274.66,
+            "h": 40
+          },
+          "font": {
+            "size": 28,
+            "weight": "700",
+            "color": "#122033",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "产品",
+              "size": 28,
+              "weight": "700",
+              "color": "#122033",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "p",
+          "rect": {
+            "x": 128,
+            "y": 427.16,
+            "w": 274.66,
+            "h": 35.69
+          },
+          "font": {
+            "size": 21,
+            "weight": "400",
+            "color": "#5b6b7c",
+            "align": "start",
+            "lineHeight": 35.7,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "留存稳住。",
+              "size": 21,
+              "weight": "400",
+              "color": "#5b6b7c",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "rect": {
+            "x": 470.66,
+            "y": 323.16,
+            "w": 338.67,
+            "h": 183.69
+          },
+          "cls": "card",
+          "font": {
+            "size": 16,
+            "weight": "400",
+            "color": "#000000",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "bg": "#ffffff",
+          "border": {
+            "top": {
+              "w": 6,
+              "color": "#e8b86d"
+            }
+          },
+          "radius": 18
+        },
+        {
+          "tag": "h3",
+          "rect": {
+            "x": 502.66,
+            "y": 373.16,
+            "w": 274.67,
+            "h": 40
+          },
+          "font": {
+            "size": 28,
+            "weight": "700",
+            "color": "#122033",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "销售",
+              "size": 28,
+              "weight": "700",
+              "color": "#122033",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "p",
+          "rect": {
+            "x": 502.66,
+            "y": 427.16,
+            "w": 274.67,
+            "h": 35.69
+          },
+          "font": {
+            "size": 21,
+            "weight": "400",
+            "color": "#5b6b7c",
+            "align": "start",
+            "lineHeight": 35.7,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "新客增加。",
+              "size": 21,
+              "weight": "400",
+              "color": "#5b6b7c",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "rect": {
+            "x": 845.33,
+            "y": 323.16,
+            "w": 338.66,
+            "h": 183.69
+          },
+          "cls": "card",
+          "font": {
+            "size": 16,
+            "weight": "400",
+            "color": "#000000",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "bg": "#ffffff",
+          "border": {
+            "top": {
+              "w": 6,
+              "color": "#8b7ec8"
+            }
+          },
+          "radius": 18,
+          "shadow": "rgba(18, 32, 51, 0.08) 0px 12px 32px 0px"
+        },
+        {
+          "tag": "h3",
+          "rect": {
+            "x": 877.33,
+            "y": 373.16,
+            "w": 274.66,
+            "h": 40
+          },
+          "font": {
+            "size": 28,
+            "weight": "700",
+            "color": "#122033",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "交付",
+              "size": 28,
+              "weight": "700",
+              "color": "#122033",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "p",
+          "rect": {
+            "x": 877.33,
+            "y": 427.16,
+            "w": 274.66,
+            "h": 35.69
+          },
+          "font": {
+            "size": 21,
+            "weight": "400",
+            "color": "#5b6b7c",
+            "align": "start",
+            "lineHeight": 35.7,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "恢复更快。",
+              "size": 21,
+              "weight": "400",
+              "color": "#5b6b7c",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slideW": 1280,
+      "slideH": 720,
+      "bg": "#ffffff",
+      "elements": [
+        {
+          "tag": "canvas",
+          "rect": {
+            "x": 88,
+            "y": 160,
+            "w": 560,
+            "h": 400
+          },
+          "font": {
+            "size": 16,
+            "weight": "400",
+            "color": "#000000",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "imgSrc": "data:image/png;base64,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3DPzzactbvuDFzztvDq8VLmpOsMXAQIECBBISGCUUC39LKVcrH+rJxQLS/efa4GfvemmH1afuPxgFMo6oDzptCpMfPm8YuFoCKPbqx/zfG768en6782snvONh564MoxGnwlLx/919WD15KMH/+jhwwcPfPLIbbP/W71c/qoCyq+EUFxXzfXVIwev/8dw4vGcajc1NRpVr4unVM9vrBLLd4oivO8bDx3/SPXaFwECBAgQSE5gFJIrqV8FleWoqFe0MDVV5YL62bm2crEsq9hw2ttlGW6sfmx0Y3X4gbIIr3ri/OO/WT1f/SrK0SMnXhSPndif/fvOXTPXFqH4YlGGR5ZC+eunnHVB9fzZoQh/efjg3OurT36ur/a/GMrwper8K664Zua51fu+CBAgQIBAUgI+gWm5HcWouLeeYqool/9OSv283nbu2vcL1Y9rvnLFO9/5o/W/v1IUxbYqoDzp77zU51WB4q+rHym969DBuecUIXy7KMKf1sdPbofm5+4ulsILv398y8+ePHbqvv717eqTl7vDKPxZFYQ+P33elhfcOX/gW6vnlOHB+nkZilvq/cmtCjnLrxcXy+Ufa508bk+AAAECJwR8jysgwLTsXy4e/88TUxRXntif+L5Qlj8IRbh46fGnfPKx6R+7oj5afTryz9W+qH5s9M0q3Lyvev7kr7K8M4Ri+xVX7X92OOVxxy1z933qttnHTzm0/LT+uzMXTC98uQhF9alN+b5D8wde9ZEPzv7f8psr38oQToSZ41P/s3JoZVc8uvykCGP/uzPL5/tGgAABAgQ6EBh1MMegpzh8y/sfrX4c8+dFCK+7bPfMr53EqH+tuVwKl4SieGWo/35LCA88/8Itf1O9X1ah4vEilFe+YnZ2SzjlUX1C84b65dbw4PKnJvXztbbpsHCwev/isizeeujggf3V8zO+ihA+Xh8cTS1cVu9PbtUPvpZDVVmMnvR3a06+b0+AQGwB8xMYtsBo2MvvZvVTxeK+6sc3D1ah4LM7du+7aceemdfs3LX31dXr16xWsBRunZ2dXapfl2V5oAo2z/zJhxb+fseufZdcvmvva6trPlUs/xZS+eHbbrvteH3eWtubr5n9ierHTW8Jy/92TDldfaLz26dul16996L6+kPzc39X7R8IRbjxsj3vfdPlu9/909V576iO7ahq/vyRg9d/rXruiwABAgQIJCUgwHTQjvo3gkbn//BnqmByKBTF1UUInw71bw4V4XfKMvxLGcp7QxH+8MQ/KhfCkfkDR8oQ3l1tLy1GxcfL0eie6prXVYFi/pHR93ePU/JUufCSE+cV26sg86HTty2j0cm/yFtOhcWXVHN9bRTKu8piy/3VuR+sXt/zxA+n33RiDN8JnCngCAECBGIKCKrRi30AAAF2SURBVDAd6X/sAx947PD8gcsPH5ybXlxceO7iYvGSMNqy7fD83MtGx8tfrcsYHR/9cr2vt+q8P37q8e+ev1CGF4Wi+LlHRt/7kUPzB/bUv3Jdv7/edujg3D3VVpxzm587cHKMOmDVdRw99sQFRVh6ab2v5n/9X90+u/IbTifPtCdAgAABAmkICDAR+nDnre//7ztvvf6rh26a/X49/R233fBgmNry9EPzc0/6V3PrHxXdNT/39UM3X//v4waXerxJt7/98I1H7zh4w1fq/aRjdHedmQgQIEBgyAICTCLdPxlmEilHGQQIECBAIGkBAWbC9riMAAECBAgQiCcgwMSzNzMBAgQIEBiaQGPrFWAaozQQAQIECBAg0JWAANOVtHkIECBAIL6ACnojIMD0ppUWQoAAAQIEhiMgwAyn11ZKgEB8ARUQINCQgADTEKRhCBAgQIAAge4EBJjurM1EIL6ACggQINATAQGmJ420DAIECBAgMCSB/wcAAP//KiFsCAAAAAZJREFUAwBzOhPTmCHGpgAAAABJRU5ErkJggg=="
+        },
+        {
+          "tag": "svg",
+          "rect": {
+            "x": 672,
+            "y": 250,
+            "w": 220,
+            "h": 220
+          },
+          "font": {
+            "size": 16,
+            "weight": "400",
+            "color": "#000000",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "imgSrc": "data:image/svg+xml;utf8,%3Csvg%20width%3D%22220%22%20height%3D%22220%22%20viewBox%3D%220%200%20300%20300%22%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22150%22%20cy%3D%22150%22%20r%3D%22110%22%20fill%3D%22none%22%20stroke%3D%22%23edf2f7%22%20stroke-width%3D%2236%22%3E%3C%2Fcircle%3E%0A%20%20%20%20%3Ccircle%20cx%3D%22150%22%20cy%3D%22150%22%20r%3D%22110%22%20fill%3D%22none%22%20stroke%3D%22%232c7a7b%22%20stroke-width%3D%2236%22%20stroke-dasharray%3D%22486%20207%22%20transform%3D%22rotate(-90%20150%20150)%22%20stroke-linecap%3D%22round%22%3E%3C%2Fcircle%3E%0A%20%20%20%20%3Ctext%20x%3D%22150%22%20y%3D%22162%22%20text-anchor%3D%22middle%22%20font-size%3D%2244%22%20fill%3D%22%23122033%22%3E61%25%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E"
+        },
+        {
+          "tag": "text",
+          "rect": {
+            "x": 749.71,
+            "y": 338.8,
+            "w": 64.58,
+            "h": 37
+          },
+          "font": {
+            "size": 44,
+            "weight": "400",
+            "color": "#000000",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "61%",
+              "size": 44,
+              "weight": "400",
+              "color": "#000000",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "h2",
+          "rect": {
+            "x": 916,
+            "y": 240.5,
+            "w": 260,
+            "h": 56
+          },
+          "font": {
+            "size": 40,
+            "weight": "700",
+            "color": "#122033",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "收入结构",
+              "size": 40,
+              "weight": "700",
+              "color": "#122033",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "p",
+          "rect": {
+            "x": 916,
+            "y": 312.5,
+            "w": 260,
+            "h": 34
+          },
+          "font": {
+            "size": 20,
+            "weight": "400",
+            "color": "#5b6b7c",
+            "align": "start",
+            "lineHeight": 34,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "订阅连续三季上升。",
+              "size": 20,
+              "weight": "400",
+              "color": "#5b6b7c",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "p",
+          "rect": {
+            "x": 916,
+            "y": 362.5,
+            "w": 260,
+            "h": 51
+          },
+          "cls": "big",
+          "font": {
+            "size": 30,
+            "weight": "800",
+            "color": "#2c7a7b",
+            "align": "start",
+            "lineHeight": 51,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "+12% YoY",
+              "size": 30,
+              "weight": "800",
+              "color": "#2c7a7b",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "p",
+          "rect": {
+            "x": 916,
+            "y": 429.5,
+            "w": 260,
+            "h": 34
+          },
+          "font": {
+            "size": 20,
+            "weight": "400",
+            "color": "#5b6b7c",
+            "align": "start",
+            "lineHeight": 34,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "相邻 同款 合并",
+              "size": 20,
+              "weight": "400",
+              "color": "#5b6b7c",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "span",
+          "rect": {
+            "x": 916,
+            "y": 434.5,
+            "w": 40,
+            "h": 23
+          },
+          "font": {
+            "size": 20,
+            "weight": "400",
+            "color": "#5b6b7c",
+            "align": "start",
+            "lineHeight": 34,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "相邻",
+              "size": 20,
+              "weight": "400",
+              "color": "#5b6b7c",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        },
+        {
+          "tag": "span",
+          "rect": {
+            "x": 956,
+            "y": 434.5,
+            "w": 40,
+            "h": 23
+          },
+          "font": {
+            "size": 20,
+            "weight": "400",
+            "color": "#5b6b7c",
+            "align": "start",
+            "lineHeight": 34,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "同款",
+              "size": 20,
+              "weight": "400",
+              "color": "#5b6b7c",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

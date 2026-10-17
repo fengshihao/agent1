@@ -13,6 +13,7 @@
 - 门禁：`./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test` + `./scripts/ci-local.sh fast`；改 Java 必带 JUnit。
 - 本地跑 CDP 测试的环境变量：`AGENT1_WEIZHI_REPO=/Users/fengshihao/Work/weizhi`、`AGENT1_CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"`。
 - 样例对比输出：`HTML2PPTX_SAMPLE_DIR=<dir>` 触发 `Html2PptxScriptTest.rendersSampleDecksForComparison`。
+- 几何 fixture 重生成：`HTML2PPTX_UPDATE_FIXTURES=1` 时 `Html2PptxExtractTest` 把真 Chrome 提取 JSON 写回 `src/test/resources/html2pptx/`（Chrome 版本导致渐变/阴影序列化或字体度量漂移时用）。
 
 ## 已完成（PR1，commit 见 git log）
 
@@ -57,7 +58,12 @@
 **目标**：补 `CdpWebViewRuntime` 驱动的端到端：真实渲染样例 deck（渐变/卡片/图表页），断言提取 JSON 的关键元素矩形与颜色合理（如封面 h1 在左上区域、卡片圆角>0），把输出 JSON 存为测试 fixture 防回归。
 **涉及**：`Html2PptxScriptTest` 或新 `Html2PptxExtractTest`。
 **验收**：断言通过；fixture 落 `src/test/resources`。
-**状态**：未开始
+**状态**：完成（2026-10-17，commit 见 git log：feat(office): html2pptx 提取器 CDP 端到端与样式快照）
+**落地形态与关键结论**：
+- 新 `Html2PptxExtractTest`（weizhi-bridge）：三页 deck——渐变封面（出界 deco）、卡片页（圆角 18/上边框 6px 三色/第三卡阴影/em 斜体拆 run）、图表页（**内联 canvas 柱状图 + 内联 svg 环图，零 CDN**，deckLoadCode 不等 canvas，绘图须在 HTML 内联 `<script>` 同步完成）。断言关键矩形/颜色/字号/run 拆分与合并（相邻同款 span 合并单 run）。
+- fixture：`weizhi-bridge/src/test/resources/html2pptx/extract-deck-geometry-fixture.json`（真 Chrome 生成，29KB）。两条测试：`fixtureBaselineHolds`（纯 classpath 读 fixture 断言，无 Chrome/JNI 也能跑，已加入 `e2e-self-evolve-smoke.sh` 的 `:weizhi-bridge:test` 列表进 CI）；`extractsGeometryThroughCdpAndMatchesFixture`（真 Chrome live 提取 → 关键事实断言 → 与 fixture 结构化对比：generator/元素序列/颜色/边框/圆角/字号精确，矩形 ±6px 字体度量容差，imgSrc 只比 data URI 前缀——canvas 光栅字节随 Chrome 版本抖动）。
+- fixture 更新流：`HTML2PPTX_UPDATE_FIXTURES=1` 重跑即写回 resources（快照测试惯例，Chrome 序列化漂移时用）。
+- **几何行为记录**（对 T3 有用）：flex 列里的块级 h1/div 宽度撑满内容区（如 1060px），真实文本宽度要看 textRuns 或行内元素自身 rect；行内 `em`/`span`/svg 内 `text` 会作为**独立元素**下发（有直接文本即 visual），T3 生成器须按 rect 去重/取舍；`.grid` 三列 card 宽 =（1280−2×96−2×36)/3 ≈ 338.67；50% 圆角折算为 min(w,h)/4（deco 520px → radius 130，T1 既定简化）。
 
 ### T3 — geometry JSON → 原生 OOXML 生成器（PR3 核心，纯 QuickJS 可单测）
 
@@ -96,3 +102,4 @@
 - 2026-10-17 PR1 完成：截图模式包 + CDP 双修复 + 接线全绿（详见上文「已完成」）。
 - 2026-10-17 T0 完成：html2pptx@0.2.0 随包 SKILL + `PackageSkills`（kind=skill 卡 + 正文加载）+ 三端安装链路刷卡 + 启动兜底安装；测试 `PackageSkillsTest`（含删包重装、双卡命中、local 覆盖）、`WeizhiBundledPackagesSkillTest`。下一个未开始任务：T1。
 - 2026-10-17 T1 完成：`extractDeckGeometry`（DOM 几何提取，共用 deck 装载段、零 CDN 依赖）+ mock/错误/真 Chrome 三测全绿；schema 与坑见 T1 小节。下一个未开始任务：T2。
+- 2026-10-17 T2 完成：`Html2PptxExtractTest` CDP 端到端（渐变/卡片/图表三页，图表页内联 canvas+svg 零 CDN）+ fixture 落 `src/test/resources/html2pptx/`（基线测试进 CI 冒烟、live 对比带 ±6px 容差、`HTML2PPTX_UPDATE_FIXTURES=1` 重生成）；几何行为记录见 T2 小节。下一个未开始任务：T3。
