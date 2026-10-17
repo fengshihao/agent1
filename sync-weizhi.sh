@@ -69,8 +69,8 @@ apply_weizhi_patches() {
   local pkg_installer="${TARGET}/java/com/weizhi/packages/PackageInstaller.java"
   local pkg_patch="${REPO_ROOT}/scripts/patches/weizhi-package-installer-java11.patch"
   if [[ -f "${pkg_patch}" ]] && [[ -f "${pkg_installer}" ]]; then
-    if grep -q 'readUtf8' "${pkg_installer}"; then
-      echo "==> weizhi PackageInstaller Java 11 补丁已应用，跳过"
+    if grep -Eq 'readUtf8|Utf8Files' "${pkg_installer}"; then
+      echo "==> weizhi PackageInstaller Java 11 补丁已应用（或上游已内置 Utf8Files），跳过"
     else
       echo "==> apply weizhi patch: PackageInstaller 避免 Android 上 Files.readString"
       patch -p1 -d "${TARGET}" < "${pkg_patch}"
