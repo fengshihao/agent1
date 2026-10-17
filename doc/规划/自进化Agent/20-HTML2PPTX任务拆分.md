@@ -70,7 +70,13 @@
 **目标**：`html2pptx` 包新增 `geometryToPptx(geometry, outputPath)`：文本块→文本框（字号/颜色/对齐/字重，EMU 换算 9525/px）、圆角矩形/卡片 div→`roundRect`（fill/line/adj）、`<img>`/`canvas`→图片（引用提取 JSON 里的 data URI 或截图路径）、背景纯色/渐变（渐变先简化为双色线性或整页截图兜底）。复杂效果（阴影/滤镜/混合）标记为「区域截图」占位，由 T4 补图。
 **涉及**：`html2pptx.js`（或拆 `html2pptx-native.js`）、JUnit 用 QuickJS 直跑生成器断言 slide XML。
 **验收**：给定 fixture geometry → pptx 内 slide XML 含原生 `p:sp` 文本框与 `p:pic`；PowerPoint/WPS 打开不报修复（人工验一次并记录）。
-**状态**：未开始
+**状态**：完成（2026-10-17，commit 见 git log：feat(office): html2pptx geometryToPptx 原生生成器）**，PowerPoint/WPS 人工打开验收待补**
+**落地形态与关键结论**：
+- `geometryToPptx({geometryPath | geometry, output})` 并入 `html2pptx@0.2.0`（未发布不再 bump），纯 QuickJS（fs+zip，内置 zip 存储实现），不需要 webview/网络。默认输出 `<词干去 -geometry>.pptx`（deck-geometry.json → deck.pptx）；内联 geometry 必须显式传 `output`（报错兜底）。返回 `{ok, path, slides, shapes, pictures, needsScreenshot, bytes}`。
+- 映射规则：EMU=px×9525、字号 px×0.75 磅、≥600 记 bold、start/center/end→l/ctr/r、行距→`spcPct`、字体族拆 latin+ea；圆角块→`roundRect`（adj=圆角/min(w,h)×100000 封顶 50000，四角不等取最大）；linear 渐变→`gradFill`（CSS 角度→OOXML `ang=(θ-90°)×60000`）、radial 退化首色 alpha 近似；四边同宽同色→`a:ln`，否则逐边细色条（卡片彩色上边框）；阴影→`outerShdw` 近似并记 `needsScreenshot`；PNG data URI→`p:pic`，svg→媒体件+`asvg:svgBlip`+1×1 透明 PNG 兜底；`https://`/`imgOmitted`/不支持 mime 不出图，记 `needsScreenshot`（T4 区域截图输入）。
+- **去重**：行内元素（em/span/svg text）文本是祖先 textRuns 子串且 rect 被包含时跳过——extractor 会把行内元素同时作为独立元素下发（T2 已记录），不去重会同一文字画两遍。
+- 测试 `Html2PptxNativeGeneratorTest`（需 `libweizhijni`，无 Chrome/webview）：①fixture→pptx 全链路（slide XML 断言渐变角度/双色、roundRect adj 折算、EMU/字号/行距、上边框色条、outerShdw、svgBlip+rels+Content_Types、PNG 魔数与兜底件、em 斜体去重、span 合并、needsScreenshot 记 shadow）②默认输出名与内联缺 output 报错 ③远程/超限图片不出 `p:pic` 只记 needsScreenshot。已进 `e2e-self-evolve-smoke.sh`。
+- Android assets 同步（`android_agent/.../weizhi-packages/html2pptx@0.2.0/html2pptx.js` 与 agent_core 逐字节一致）；映射规则文档化进 `doc/集成/HTML2PPTX.md`。
 
 ### T4 — `renderHtmlDeck` mode:"native" 集成
 
@@ -103,3 +109,4 @@
 - 2026-10-17 T0 完成：html2pptx@0.2.0 随包 SKILL + `PackageSkills`（kind=skill 卡 + 正文加载）+ 三端安装链路刷卡 + 启动兜底安装；测试 `PackageSkillsTest`（含删包重装、双卡命中、local 覆盖）、`WeizhiBundledPackagesSkillTest`。下一个未开始任务：T1。
 - 2026-10-17 T1 完成：`extractDeckGeometry`（DOM 几何提取，共用 deck 装载段、零 CDN 依赖）+ mock/错误/真 Chrome 三测全绿；schema 与坑见 T1 小节。下一个未开始任务：T2。
 - 2026-10-17 T2 完成：`Html2PptxExtractTest` CDP 端到端（渐变/卡片/图表三页，图表页内联 canvas+svg 零 CDN）+ fixture 落 `src/test/resources/html2pptx/`（基线测试进 CI 冒烟、live 对比带 ±6px 容差、`HTML2PPTX_UPDATE_FIXTURES=1` 重生成）；几何行为记录见 T2 小节。下一个未开始任务：T3。
+- 2026-10-17 T3 完成：`geometryToPptx` 纯 QuickJS 原生生成器（映射规则与去重结论见 T3 小节）+ `Html2PptxNativeGeneratorTest` 三测 + Android assets 同步 + 文档/smoke 接线；PowerPoint/WPS 人工打开验收待补。下一个未开始任务：T4。

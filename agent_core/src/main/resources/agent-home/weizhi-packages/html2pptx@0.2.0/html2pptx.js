@@ -11,7 +11,11 @@
  * JSON（矩形/字体/背景/圆角/文本 run/图片引用），落盘 *-geometry.json，
  * 供原生 OOXML 生成（不改变 renderHtmlDeck 行为）。
  *
- * import { renderHtmlDeck, extractDeckGeometry } from "weizhi:html2pptx";
+ * geometryToPptx：把几何 JSON 转成**原生可编辑** pptx（纯 QuickJS，无 webview）——
+ * 文本块→文本框、卡片→roundRect、img/canvas→图片页元素、线性渐变→gradFill；
+ * 阴影等复杂效果以 outerShdw 近似并记入 needsScreenshot，由后续区域截图补真。
+ *
+ * import { renderHtmlDeck, extractDeckGeometry, geometryToPptx } from "weizhi:html2pptx";
  *
  * export default await renderHtmlDeck({
  *   htmlPath: "deck.html",        // 或直接传 html: "<html>…</html>"
@@ -24,6 +28,11 @@
  * export default await extractDeckGeometry({
  *   htmlPath: "deck.html",        // 或 html 内联（此时 output 必填）
  *   output: "deck-geometry.json"  // 可选，默认 <htmlPath 词干>-geometry.json
+ * });
+ *
+ * export default await geometryToPptx({
+ *   geometryPath: "deck-geometry.json",  // 或直接传 geometry 对象（此时 output 必填）
+ *   output: "out/deck-native.pptx"       // 可选，默认 <词干去掉 -geometry>.pptx
  * });
  *
  * 截图模式需要网络（CDN）。路径相对当前会话 workspace，不要加 workspace/ 前缀。
@@ -50,6 +59,12 @@ var R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 var REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships";
 var CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types";
 var EMU_PER_PX = 9525;
+
+// svg 图片在 PowerPoint 里要走 svgBlip 扩展：现代版本渲 SVG、老版本/WPS 渲 PNG 兜底。
+var ASVG_NS = "http://schemas.microsoft.com/office/drawing/2016/SVG/main";
+var SVG_BLIP_EXT = "{96DAC541-7B7A-43D3-8B79-37D633B846F1}";
+var FALLBACK_PNG_B64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+var NATIVE_MIME_EXT = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/svg+xml": "svg" };
 
 export async function renderHtmlDeck(options) {
   var opts = options || {};
@@ -443,6 +458,809 @@ function extractCode(width, height) {
   ]).join("\n");
 }
 
+/**
+ * geometry JSON → 原生 OOXML pptx（20-A T3）。纯 QuickJS（fs + zip），不需要
+ * webview/网络：文本块→p:sp 文本框（EMU = px×9525、字号 px×0.75pt），带背景/
+ * 圆角/边框的块→roundRect（fill/line/adj），线性渐变→gradFill，radial 渐变退化
+ * 为首色 alpha 近似；img/canvas/svg 的 data URI→p:pic（svg 走 svgBlip 扩展 +
+ * 1×1 透明 PNG 兜底）。阴影用 outerShdw 近似；阴影/超限图片/远程图片记入
+ * needsScreenshot（含页码与矩形），由 T4 的区域截图补真。行内元素（em/span/
+ * svg text）文本已包含在祖先文本块里、且 rect 被包含时跳过，避免重复绘制。
+ */
+export function geometryToPptx(options) {
+  var opts = options || {};
+  var geo = readGeometry(opts);
+  var output = nativePptxOutput(opts);
+
+  var slides = geo.slides;
+  if (!slides || !slides.length) {
+    throw new Error("几何 JSON 里没有 slides（应来自 extractDeckGeometry 的输出）");
+  }
+  if (slides.length > MAX_SLIDES) {
+    throw new Error("geometryToPptx: too many slides（上限 " + MAX_SLIDES + "）");
+  }
+  for (var i = 0; i < slides.length; i++) {
+    var s = slides[i];
+    if (!s || typeof s.slideW !== "number" || typeof s.slideH !== "number" || !Array.isArray(s.elements)) {
+      throw new Error("第 " + (i + 1) + " 页几何数据结构不完整");
+    }
+  }
+
+  var deck = buildNativeDeck(slides);
+  var title = opts.title != null && String(opts.title).trim() !== "" ? String(opts.title).trim() : "Presentation";
+  var stamp = Date.now();
+  var buildDir = "tmp/html2pptx-native-" + stamp;
+  writeNativePptxTree(buildDir, deck, title);
+  packDir(buildDir, output);
+  var total = fs.readFileSync(output).length;
+  return {
+    ok: true,
+    path: output,
+    slides: slides.length,
+    shapes: deck.shapeCount,
+    pictures: deck.picCount,
+    needsScreenshot: deck.needsScreenshot,
+    bytes: total
+  };
+}
+
+/** 读取几何：内联对象直接用；geometryPath 走 workspace .json。 */
+function readGeometry(opts) {
+  if (opts.geometry != null && typeof opts.geometry === "object") {
+    return opts.geometry;
+  }
+  if (typeof opts.geometryPath === "string" && opts.geometryPath.trim() !== "") {
+    var path = normalizeRel(opts.geometryPath, "geometryPath");
+    if (!/\.json$/i.test(path)) {
+      throw new Error("geometryPath 必须是 .json 文件");
+    }
+    try {
+      return JSON.parse(fs.readFileSync(path).toString().trim());
+    } catch (e) {
+      throw new Error("geometryPath 不是合法 JSON: " + path);
+    }
+  }
+  throw new Error("需要 geometry（extractDeckGeometry 的输出对象）或 geometryPath（workspace .json 路径）");
+}
+
+/** pptx 落盘路径：默认 <geometryPath 词干去掉 -geometry>.pptx；内联必须显式传 output。 */
+function nativePptxOutput(opts) {
+  if (opts.output != null && String(opts.output).trim() !== "") {
+    return normalizeRel(opts.output, "output");
+  }
+  if (typeof opts.geometryPath === "string" && opts.geometryPath.trim() !== "") {
+    var path = normalizeRel(opts.geometryPath, "geometryPath");
+    if (!/\.json$/i.test(path)) {
+      throw new Error("geometryPath 必须是 .json 文件");
+    }
+    return path.replace(/\.json$/i, "").replace(/-geometry$/i, "") + ".pptx";
+  }
+  throw new Error("内联 geometry 必须显式传 output（workspace 相对的 .pptx 路径）");
+}
+
+/** 组 deck：每页 slide XML + rels，媒体注册表，计数与 needsScreenshot 清单。 */
+function buildNativeDeck(slides) {
+  var media = nativeMedia();
+  var deck = {
+    slideW: slides[0].slideW,
+    slideH: slides[0].slideH,
+    slides: [],
+    media: media,
+    exts: [],
+    shapeCount: 0,
+    picCount: 0,
+    needsScreenshot: []
+  };
+  for (var i = 0; i < slides.length; i++) {
+    var built = nativeSlide(slides[i], media, i + 1);
+    deck.slides.push(built);
+    deck.shapeCount += built.shapeCount;
+    deck.picCount += built.picCount;
+    for (var n = 0; n < built.needs.length; n++) {
+      deck.needsScreenshot.push(built.needs[n]);
+    }
+  }
+  var seen = {};
+  for (var j = 0; j < media.files.length; j++) {
+    var ext = media.files[j].name.split(".").pop();
+    if (!seen[ext]) {
+      seen[ext] = true;
+      deck.exts.push(ext);
+    }
+  }
+  return deck;
+}
+
+/** 媒体注册表：data URI 去重复用；svg 附共享 1×1 透明 PNG 兜底件。 */
+function nativeMedia() {
+  var files = [];
+  var byUri = {};
+  var fallbackName = null;
+  return {
+    files: files,
+    register: function (uri) {
+      if (Object.prototype.hasOwnProperty.call(byUri, uri)) {
+        return byUri[uri];
+      }
+      var entry = null;
+      var parsed = parseDataUri(uri);
+      if (parsed && parsed.mime === "image/svg+xml") {
+        var text = null;
+        if (parsed.base64) {
+          // base64 svg 少见；按字节转字符串（多字节字符可能失真，常规路径是 utf8 百分号编码）
+          var bytes = decodeBase64(parsed.payload);
+          var out = "";
+          for (var i = 0; i < bytes.length; i++) {
+            out += String.fromCharCode(bytes[i]);
+          }
+          text = out;
+        } else {
+          try {
+            text = decodeURIComponent(parsed.payload);
+          } catch (e) {
+            text = null;
+          }
+        }
+        if (text != null) {
+          if (!fallbackName) {
+            fallbackName = "svg-fallback.png";
+            files.push({ name: fallbackName, data: decodeBase64(FALLBACK_PNG_B64), text: null });
+          }
+          var svgName = "image" + (files.length + 1) + ".svg";
+          files.push({ name: svgName, data: "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + text, text: text });
+          entry = { kind: "svg", svg: svgName, png: fallbackName };
+        }
+      } else if (parsed && parsed.base64 && NATIVE_MIME_EXT[parsed.mime]) {
+        var name = "image" + (files.length + 1) + "." + NATIVE_MIME_EXT[parsed.mime];
+        files.push({ name: name, data: decodeBase64(parsed.payload), text: null });
+        entry = { kind: "raster", file: name };
+      }
+      byUri[uri] = entry;
+      return entry;
+    }
+  };
+}
+
+/** data:image/png;base64,xx / data:image/svg+xml;utf8,%3Csvg… 解析。 */
+function parseDataUri(uri) {
+  var m = /^data:([^;,]*)((?:;[^,]*)*),([\s\S]*)$/.exec(String(uri));
+  if (!m) {
+    return null;
+  }
+  var params = m[2] ? m[2].split(";") : [];
+  var base64 = false;
+  for (var i = 0; i < params.length; i++) {
+    if (params[i].trim() === "base64") {
+      base64 = true;
+    }
+  }
+  return { mime: m[1].toLowerCase(), base64: base64, payload: m[3] };
+}
+
+/** 单页转换：去重行内文本 → 逐元素出 XML 节点（保持 DOM 序即 z 序）。 */
+function nativeSlide(slide, media, slideNo) {
+  var els = slide.elements;
+  var skip = textDupes(els);
+  var rels = [{ id: "rId1", type: LAYOUT_REL, target: "../slideLayouts/slideLayout1.xml" }];
+  var body = "";
+  var id = 2;
+  var shapeCount = 0;
+  var picCount = 0;
+  var needs = [];
+
+  function addRel(target) {
+    var relId = "rId" + (rels.length + 1);
+    rels.push({ id: relId, type: IMAGE_REL, target: target });
+    return relId;
+  }
+  function node(xml) {
+    body += xml;
+  }
+
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    if (!el || !el.rect || skip[i]) {
+      continue;
+    }
+    if (el.imgOmitted || (el.imgSrc && !/^data:/i.test(el.imgSrc))) {
+      needs.push(needEntry(slideNo, el.rect, el.imgOmitted ? "imgOmitted" : "remote image"));
+      continue;
+    }
+    if (el.imgSrc) {
+      var entry = media.register(el.imgSrc);
+      if (!entry) {
+        needs.push(needEntry(slideNo, el.rect, "unsupported image"));
+        continue;
+      }
+      node(picXml(el, entry, addRel, id, el.tag + " " + id));
+      id++;
+      picCount++;
+      continue;
+    }
+    var hasBox = el.bg != null || el.bgImage != null || el.border != null || el.radius != null;
+    var hasText = !!(el.textRuns && el.textRuns.length);
+    if (!hasBox && !hasText) {
+      continue;
+    }
+    var name = (el.cls ? el.tag + "." + el.cls.split(/\s+/)[0] : el.tag) + " " + id;
+    if (hasText) {
+      node(textSpXml(el, id, name, hasBox));
+    } else {
+      node(boxSpXml(el, id, name));
+    }
+    id++;
+    shapeCount++;
+    // 非均匀边框逐边色条，每条独立形状 id
+    node(borderStripsXml(el, function () {
+      shapeCount++;
+      return { id: ++id, name: "border " + id };
+    }));
+    if (el.shadow) {
+      needs.push(needEntry(slideNo, el.rect, "shadow"));
+    }
+  }
+  return {
+    xml: nativeSlideXml(slideBackgroundXml(slide), body),
+    rels: rels,
+    shapeCount: shapeCount,
+    picCount: picCount,
+    needs: needs
+  };
+}
+
+function needEntry(slideNo, rect, reason) {
+  return { slide: slideNo, x: rect.x, y: rect.y, w: rect.w, h: rect.h, reason: reason };
+}
+
+/**
+ * 标记应跳过的行内文本元素：其 run 文本（去空白）是另一更大文本块文本的子串、
+ * 且 rect 被该块包含（em/span 在父块里已画过）；或 rect 落在图片元素内
+ * （svg 内 text 已在导出的 svg 光栅里）。
+ */
+function textDupes(els) {
+  var skip = [];
+  var texts = [];
+  for (var i = 0; i < els.length; i++) {
+    var t = runsText(els[i]);
+    if (t) {
+      texts.push({ i: i, text: t });
+    }
+  }
+  for (var a = 0; a < texts.length; a++) {
+    var ea = els[texts[a].i];
+    for (var b = 0; b < texts.length; b++) {
+      if (a === b) {
+        continue;
+      }
+      var eb = els[texts[b].i];
+      if (texts[a].text !== texts[b].text && texts[b].text.indexOf(texts[a].text) >= 0
+        && rectArea(eb.rect) > rectArea(ea.rect) && containsRect(eb.rect, ea.rect, 2)) {
+        skip[texts[a].i] = true;
+        break;
+      }
+    }
+    if (skip[texts[a].i]) {
+      continue;
+    }
+    for (var p = 0; p < els.length; p++) {
+      var ep = els[p];
+      if (ep !== ea && (ep.imgSrc || ep.imgOmitted) && rectArea(ep.rect) > rectArea(ea.rect)
+        && containsRect(ep.rect, ea.rect, 2)) {
+        skip[texts[a].i] = true;
+        break;
+      }
+    }
+  }
+  return skip;
+}
+
+function runsText(el) {
+  if (!el || !el.textRuns || !el.textRuns.length) {
+    return "";
+  }
+  var out = "";
+  for (var i = 0; i < el.textRuns.length; i++) {
+    out += String(el.textRuns[i].text || "");
+  }
+  return out.replace(/\s+/g, "");
+}
+
+function rectArea(r) {
+  return r.w * r.h;
+}
+
+function containsRect(outer, inner, tol) {
+  return inner.x >= outer.x - tol && inner.y >= outer.y - tol
+    && inner.x + inner.w <= outer.x + outer.w + tol
+    && inner.y + inner.h <= outer.y + outer.h + tol;
+}
+
+/** 页背景：纯色 solidFill；线性渐变 gradFill（CSS 角度→OOXML ang = (θ-90°)×60000）；radial 退化首色。 */
+function slideBackgroundXml(slide) {
+  var fill = null;
+  if (slide.bgImage) {
+    var grad = parseGradient(slide.bgImage);
+    if (grad) {
+      fill = grad.type === "linear" ? gradFillXml(grad) : solidFromStops(grad.stops);
+    }
+  }
+  if (!fill && slide.bg) {
+    fill = solidFillCss(slide.bg, 1);
+  }
+  if (!fill) {
+    return "";
+  }
+  return "<p:bg><p:bgPr>" + fill + "<a:effectLst/></p:bgPr></p:bg>";
+}
+
+/** p:pic：svg 走 svgBlip 扩展（PNG 兜底在前、SVG 扩展在后），普通位图直接 blip。 */
+function picXml(el, entry, addRel, id, name) {
+  var r = el.rect;
+  var off = emuOff(r);
+  var ext = emuExt(r);
+  var geom = geomXml(el);
+  if (entry.kind === "svg") {
+    var pngRid = addRel("../media/" + entry.png);
+    var svgRid = addRel("../media/" + entry.svg);
+    return (
+      "<p:pic><p:nvPicPr><p:cNvPr id=\"" + id + "\" name=\"" + xmlEscape(name) + "\"/>" +
+      "<p:cNvPicPr><a:picLocks noChangeAspect=\"1\"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>" +
+      "<p:blipFill><a:blip r:embed=\"" + pngRid + "\"><a:extLst><a:ext uri=\"" + SVG_BLIP_EXT + "\">" +
+      "<asvg:svgBlip xmlns:asvg=\"" + ASVG_NS + "\" r:embed=\"" + svgRid + "\"/>" +
+      "</a:ext></a:extLst></a:blip><a:stretch><a:fillRect/></a:stretch></p:blipFill>" +
+      "<p:spPr><a:xfrm>" + off + ext + "</a:xfrm>" + geom + "</p:spPr></p:pic>"
+    );
+  }
+  var rid = addRel("../media/" + entry.file);
+  return (
+    "<p:pic><p:nvPicPr><p:cNvPr id=\"" + id + "\" name=\"" + xmlEscape(name) + "\"/>" +
+    "<p:cNvPicPr><a:picLocks noChangeAspect=\"1\"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>" +
+    "<p:blipFill><a:blip r:embed=\"" + rid + "\"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>" +
+    "<p:spPr><a:xfrm>" + off + ext + "</a:xfrm>" + geom + "</p:spPr></p:pic>"
+  );
+}
+
+/** 文本元素 → p:sp：无盒子特征时 txBox=1 + noFill；有则按盒子出形状再叠文字。 */
+function textSpXml(el, id, name, hasBox) {
+  var geom = hasBox ? geomXml(el) : '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>';
+  var fill = hasBox ? elementFillXml(el) : "<a:noFill/>";
+  var ln = uniformBorderLn(el);
+  var effect = shadowXml(el);
+  return (
+    "<p:sp><p:nvSpPr><p:cNvPr id=\"" + id + "\" name=\"" + xmlEscape(name) + "\"/>" +
+    (hasBox ? "<p:cNvSpPr/>" : "<p:cNvSpPr txBox=\"1\"/>") +
+    "<p:nvPr/></p:nvSpPr><p:spPr><a:xfrm>" + emuOff(el.rect) + emuExt(el.rect) + "</a:xfrm>" +
+    geom + fill + (ln || "<a:ln><a:noFill/></a:ln>") + effect + "</p:spPr>" +
+    txBodyXml(el) +
+    "</p:sp>"
+  );
+}
+
+/** 装饰块（无文本）→ p:sp：填充 + 均匀边框 + 阴影。 */
+function boxSpXml(el, id, name) {
+  return (
+    "<p:sp><p:nvSpPr><p:cNvPr id=\"" + id + "\" name=\"" + xmlEscape(name) + "\"/>" +
+    "<p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm>" + emuOff(el.rect) + emuExt(el.rect) + "</a:xfrm>" +
+    geomXml(el) + elementFillXml(el) + uniformBorderLn(el, true) + shadowXml(el) + "</p:spPr></p:sp>"
+  );
+}
+
+/**
+ * 非均匀边框（如卡片彩色上边框）→ 逐边细色条（四边全等时走 a:ln，不进这里）。
+ * 色条按圆角向内缩进，避免盖住圆角。alloc 由调用方提供（id 递增）。
+ */
+function borderStripsXml(el, alloc) {
+  var border = el.border;
+  if (!border || uniformBorderLn(el)) {
+    return "";
+  }
+  var c = radiusCorners(el);
+  var r = el.rect;
+  var out = "";
+  // 每边：色条位置按边与相邻角圆角缩进；宽/高由边宽决定
+  var sides = [
+    { key: "top", x: r.x + c.tl, y: r.y, len: r.w - c.tl - c.tr },
+    { key: "right", x: r.x + r.w, y: r.y + c.tr, len: r.h - c.tr - c.br },
+    { key: "bottom", x: r.x + c.bl, y: r.y + r.h, len: r.w - c.bl - c.br },
+    { key: "left", x: r.x, y: r.y + c.tl, len: r.h - c.tl - c.bl }
+  ];
+  for (var i = 0; i < sides.length; i++) {
+    var side = sides[i];
+    var b = border[side.key];
+    if (!b || !isHexColor(b.color) || side.len <= 0) {
+      continue;
+    }
+    var bw = Math.max(b.w, 1);
+    var x = side.key === "right" ? side.x - bw : side.x;
+    var y = side.key === "bottom" ? side.y - bw : side.y;
+    var w = side.key === "left" || side.key === "right" ? bw : side.len;
+    var h = side.key === "top" || side.key === "bottom" ? bw : side.len;
+    var info = alloc();
+    out += (
+      "<p:sp><p:nvSpPr><p:cNvPr id=\"" + info.id + "\" name=\"" + info.name + "\"/>" +
+      "<p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm>" +
+      '<a:off x="' + emu(x) + '" y="' + emu(y) + '"/><a:ext cx="' + emu(w) + '" cy="' + emu(h) + '"/>' +
+      "</a:xfrm>" + '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+      solidFillCss(b.color, 1) + "<a:ln><a:noFill/></a:ln></p:spPr></p:sp>"
+    );
+  }
+  return out;
+}
+
+/** 四边同宽同色 → a:ln；否则 null（由色条路径处理）。forceNoLine 时无均匀边框返回 noFill 线。 */
+function uniformBorderLn(el, forceNoLine) {
+  var b = el.border;
+  if (!b) {
+    return forceNoLine ? "<a:ln><a:noFill/></a:ln>" : null;
+  }
+  var sides = ["top", "right", "bottom", "left"];
+  var first = null;
+  for (var i = 0; i < sides.length; i++) {
+    var s = b[sides[i]];
+    if (!s || !isHexColor(s.color)) {
+      return forceNoLine ? "<a:ln><a:noFill/></a:ln>" : null;
+    }
+    if (!first) {
+      first = s;
+    } else if (Math.abs(s.w - first.w) > 0.5 || s.color !== first.color) {
+      return forceNoLine ? "<a:ln><a:noFill/></a:ln>" : null;
+    }
+  }
+  return (
+    "<a:ln w=\"" + emu(Math.max(first.w, 0.75)) + "\"><a:solidFill><a:srgbClr val=\"" + hexOf(first.color) + "\"/></a:solidFill></a:ln>"
+  );
+}
+
+/** 元素填充：纯色 > 线性渐变 gradFill > radial 首色近似 > noFill。 */
+function elementFillXml(el) {
+  if (el.bgImage) {
+    var grad = parseGradient(el.bgImage);
+    if (grad) {
+      if (grad.type === "linear") {
+        return gradFillXml(grad);
+      }
+      return solidFromStops(grad.stops);
+    }
+  }
+  if (el.bg != null && isHexColor(el.bg)) {
+    return solidFillCss(el.bg, 1);
+  }
+  return "<a:noFill/>";
+}
+
+function gradFillXml(grad) {
+  var stops = "";
+  for (var i = 0; i < grad.stops.length; i++) {
+    var st = grad.stops[i];
+    stops += '<a:gs pos="' + Math.round(st.pos * 100000) + '">' + solidFillCss(st.color, st.alpha) + "</a:gs>";
+  }
+  return '<a:gradFill rotWithShape="1"><a:gsLst>' + stops + '</a:gsLst><a:lin ang="' + grad.ang + '" scaled="0"/></a:gradFill>';
+}
+
+/** radial 渐变的退化：取第一个 stop 的颜色与透明度做纯色近似。 */
+function solidFromStops(stops) {
+  if (!stops || !stops.length) {
+    return "<a:noFill/>";
+  }
+  return solidFillCss(stops[0].color, stops[0].alpha);
+}
+
+function solidFillCss(color, alpha) {
+  if (!isHexColor(color)) {
+    return "<a:noFill/>";
+  }
+  var a = alpha != null && alpha < 1 ? '<a:alpha val="' + Math.round(alpha * 100000) + '"/>' : "";
+  return '<a:solidFill><a:srgbClr val="' + hexOf(color) + '">' + a + "</a:srgbClr></a:solidFill>";
+}
+
+/** box-shadow 解析 → outerShdw 近似（颜色/偏移/模糊）；解析失败返回空。 */
+function shadowXml(el) {
+  var sh = el.shadow;
+  if (!sh) {
+    return "";
+  }
+  var parts = splitTopLevel(sh, " ");
+  if (!parts.length) {
+    return "";
+  }
+  var color = parseCssColor(parts[0].trim());
+  var nums = [];
+  for (var i = 1; i < parts.length; i++) {
+    var m = /^(-?[\d.]+)px$/i.exec(parts[i].trim());
+    if (m) {
+      nums.push(parseFloat(m[1]));
+    }
+  }
+  if (!color || nums.length < 2) {
+    return "";
+  }
+  var offX = nums[0];
+  var offY = nums[1];
+  var blur = nums.length > 2 ? nums[2] : 0;
+  var dist = Math.sqrt(offX * offX + offY * offY);
+  var dir = Math.atan2(offY, offX) * 180 / Math.PI;
+  if (dir < 0) {
+    dir += 360;
+  }
+  return (
+    '<a:effectLst><a:outerShdw blurRad="' + emu(Math.max(blur, 0)) + '" dist="' + emu(Math.max(dist, 0)) +
+    '" dir="' + Math.round(dir * 60000) + '" rotWithShape="0">' +
+    '<a:srgbClr val="' + color.hex + '"><a:alpha val="' + Math.round(color.alpha * 100000) + '"/></a:srgbClr>' +
+    "</a:outerShdw></a:effectLst>"
+  );
+}
+
+/** 几何：radius → roundRect（adj = 最大圆角/min(w,h)×100000，不等圆角取最大近似）；否则 rect。 */
+function geomXml(el) {
+  var corners = radiusCorners(el);
+  var maxR = Math.max(corners.tl, corners.tr, corners.br, corners.bl);
+  if (maxR <= 0) {
+    return '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>';
+  }
+  var adj = Math.round(Math.min(Math.max(maxR / Math.min(el.rect.w, el.rect.h), 0), 0.5) * 100000);
+  return '<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val ' + adj + '"/></a:avLst></a:prstGeom>';
+}
+
+function radiusCorners(el) {
+  var r = el.radius;
+  if (r == null) {
+    return { tl: 0, tr: 0, br: 0, bl: 0 };
+  }
+  if (typeof r === "number") {
+    return { tl: r, tr: r, br: r, bl: r };
+  }
+  function n(v) {
+    return typeof v === "number" && isFinite(v) && v > 0 ? v : 0;
+  }
+  return { tl: n(r.tl), tr: n(r.tr), br: n(r.br), bl: n(r.bl) };
+}
+
+/** 文本体：bodyPr 零内边距 + 顶对齐；段落带对齐与行距；run 带字号/粗斜下划线/颜色/字体。 */
+function txBodyXml(el) {
+  var font = el.font || {};
+  var align = mapAlign(font.align);
+  var pct = 0;
+  if (font.lineHeight > 0 && font.size > 0) {
+    var ratio = font.lineHeight / font.size;
+    if (ratio >= 0.5 && ratio <= 3) {
+      pct = Math.round(ratio * 100000);
+    }
+  }
+  var pPr = '<a:pPr algn="' + align + '" marL="0" indent="0">' +
+    (pct ? "<a:lnSpc><a:spcPct val=\"" + pct + "\"/></a:lnSpc>" : "") +
+    "</a:pPr>";
+  var runs = "";
+  var faces = fontFaces(font.family);
+  for (var i = 0; i < el.textRuns.length; i++) {
+    var run = el.textRuns[i];
+    runs += "<a:r><a:rPr lang=\"zh-CN\" sz=\"" + fontSz(run.size || font.size) +
+      "\" b=\"" + (isBold(run.weight) ? "1" : "0") +
+      "\" i=\"" + (run.italic ? "1" : "0") + "\"" +
+      (run.underline ? ' u="sng"' : "") + ">" +
+      solidFillCss(run.color || font.color || "#000000", 1) +
+      (faces.latin ? '<a:latin typeface="' + xmlEscape(faces.latin) + '"/>' : "") +
+      (faces.ea ? '<a:ea typeface="' + xmlEscape(faces.ea) + '"/>' : "") +
+      "</a:rPr><a:t>" + xmlEscape(run.text || "") + "</a:t></a:r>";
+  }
+  return (
+    '<p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"/><a:lstStyle/>' +
+    "<a:p>" + pPr + runs + "</a:p></p:txBody>"
+  );
+}
+
+function mapAlign(align) {
+  if (align === "center") {
+    return "ctr";
+  }
+  if (align === "right" || align === "end") {
+    return "r";
+  }
+  if (align === "justify") {
+    return "just";
+  }
+  return "l";
+}
+
+/** 字号 px → OOXML 百分之一磅（px×0.75×100），保底 100（1pt）。 */
+function fontSz(px) {
+  var n = Number(px);
+  if (!isFinite(n) || n <= 0) {
+    n = 16;
+  }
+  return Math.max(Math.round(n * 75), 100);
+}
+
+function isBold(weight) {
+  var w = String(weight);
+  return w === "bold" || (parseInt(w, 10) >= 600 && isFinite(parseInt(w, 10)));
+}
+
+/** 字体族拆 latin/ea：首个族做 latin，CJK 常见族名做 ea。 */
+function fontFaces(family) {
+  var tokens = String(family || "").split(",");
+  var latin = "";
+  var ea = "";
+  for (var i = 0; i < tokens.length; i++) {
+    var t = tokens[i].trim().replace(/^["']|["']$/g, "");
+    if (!t) {
+      continue;
+    }
+    if (!latin) {
+      latin = t;
+    }
+    if (!ea && /pingfang|yahei|heiti|songti|simsun|simhei|kaiti|fangsong|noto sans cjk|source han/i.test(t)) {
+      ea = t;
+    }
+  }
+  return { latin: latin, ea: ea };
+}
+
+/**
+ * CSS 渐变解析（extractor 的 backgroundImage 序列化）：linear/radial，角度
+ * deg 或 to-方向，stops 取色 + 位置（缺省按首尾 0/1）。CSS 角度顺时针自
+ * 「向上」，OOXML ang 自「向右」：ang = (θ-90°)×60000。
+ */
+function parseGradient(bgImage) {
+  var m = /^\s*(linear|radial)-gradient\s*\(([\s\S]*)\)\s*$/.exec(String(bgImage));
+  if (!m) {
+    return null;
+  }
+  var type = m[1];
+  var parts = splitTopLevel(m[2], ",");
+  var idx = 0;
+  var cssDeg = 180;
+  if (type === "linear") {
+    var head = parts[0] != null ? parts[0].trim() : "";
+    var degM = /^([\d.]+)deg$/i.exec(head);
+    var toM = /^to\s+(.+)$/i.exec(head);
+    if (degM) {
+      cssDeg = parseFloat(degM[1]);
+      idx = 1;
+    } else if (toM) {
+      cssDeg = toKeywordDeg(toM[1]);
+      idx = 1;
+    }
+  } else if (/^(circle|ellipse|closest|farthest)/i.test(parts[0] != null ? parts[0].trim() : "")) {
+    idx = 1;
+  }
+  var stops = [];
+  for (var i = idx; i < parts.length; i++) {
+    var stop = parseColorStop(parts[i]);
+    if (stop) {
+      stops.push(stop);
+    }
+  }
+  if (stops.length < 2) {
+    if (stops.length === 1) {
+      stops.push({ pos: 1, color: stops[0].color, alpha: stops[0].alpha });
+    } else {
+      return null;
+    }
+  }
+  for (var j = 0; j < stops.length; j++) {
+    if (stops[j].pos == null) {
+      stops[j].pos = stops.length === 1 ? 1 : j / (stops.length - 1);
+    }
+  }
+  var out = { type: type, stops: stops };
+  if (type === "linear") {
+    out.ang = Math.round(((cssDeg - 90) % 360 + 360) % 360 * 60000);
+  }
+  return out;
+}
+
+function toKeywordDeg(keyword) {
+  var map = {
+    "top": 0, "right": 90, "bottom": 180, "left": 270,
+    "top left": 315, "left top": 315, "top right": 45, "right top": 45,
+    "bottom left": 225, "left bottom": 225, "bottom right": 135, "right bottom": 135
+  };
+  return map[keyword] != null ? map[keyword] : 180;
+}
+
+function parseColorStop(seg) {
+  var m = /^\s*(rgba?\([^)]*\)|#[0-9a-fA-F]{3,8})\s*(.*)$/.exec(seg);
+  if (!m) {
+    return null;
+  }
+  var color = parseCssColor(m[1]);
+  if (!color) {
+    return null;
+  }
+  var pos = null;
+  var posM = /^([\d.]+)%$/.exec(m[2].trim());
+  if (posM) {
+    pos = parseFloat(posM[1]) / 100;
+  }
+  return { pos: pos, color: color.hex, alpha: color.alpha };
+}
+
+/** rgb()/rgba()/#hex → {hex:"rrggbb", alpha:0..1}；解析不了返回 null。 */
+function parseCssColor(value) {
+  var s = String(value).trim();
+  var rgbM = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/i.exec(s);
+  if (rgbM) {
+    function hx(v) {
+      var b = Math.max(0, Math.min(255, Math.round(parseFloat(v))));
+      return (b < 16 ? "0" : "") + b.toString(16);
+    }
+    return {
+      hex: hx(rgbM[1]) + hx(rgbM[2]) + hx(rgbM[3]),
+      alpha: rgbM[4] != null ? Math.max(0, Math.min(1, parseFloat(rgbM[4]))) : 1
+    };
+  }
+  var hexM = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(s);
+  if (hexM) {
+    var h = hexM[1];
+    if (h.length === 3) {
+      h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+    }
+    return { hex: h.toLowerCase(), alpha: 1 };
+  }
+  return null;
+}
+
+/** 顶层切分（跳过括号内的分隔符），sep="," 用于渐变参数、空白用于 box-shadow。 */
+function splitTopLevel(s, sep) {
+  var out = [];
+  var depth = 0;
+  var cur = "";
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charAt(i);
+    if (c === "(") {
+      depth++;
+    } else if (c === ")") {
+      depth--;
+    }
+    var hit = depth === 0 && (sep === "," ? c === "," : /\s/.test(c));
+    if (hit) {
+      if (cur !== "") {
+        out.push(cur);
+        cur = "";
+      }
+    } else {
+      cur += c;
+    }
+  }
+  if (cur.trim() !== "") {
+    out.push(cur);
+  }
+  return out;
+}
+
+function isHexColor(c) {
+  return typeof c === "string" && /^#?[0-9a-fA-F]{6}$/.test(c);
+}
+
+function hexOf(c) {
+  return String(c).replace("#", "").toLowerCase();
+}
+
+function emu(px) {
+  return Math.round(px * EMU_PER_PX);
+}
+
+function emuOff(r) {
+  return '<a:off x="' + emu(r.x) + '" y="' + emu(r.y) + '"/>';
+}
+
+function emuExt(r) {
+  return '<a:ext cx="' + emu(r.w) + '" cy="' + emu(r.h) + '"/>';
+}
+
+function nativeSlideXml(bgXml, bodyXml) {
+  return (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<p:sld xmlns:a="' + A_NS + '" xmlns:r="' + R_NS + '" xmlns:p="' + P_NS + '"><p:cSld>' +
+    bgXml +
+    "<p:spTree>" +
+    '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>' +
+    '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>' +
+    bodyXml +
+    "</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>"
+  );
+}
+
 function readHtml(opts) {
   var inline = typeof opts.html === "string" ? opts.html.trim() : "";
   if (inline) {
@@ -574,8 +1392,32 @@ function writePptxTree(buildDir, slides, title, widthPx, heightPx) {
       ])
     );
   }
+  writePackageCommon(buildDir, slides.length, title, cx, cy, imageExts(slides));
+}
 
-  writeUtf8(buildDir + "/[Content_Types].xml", contentTypesXml(slides.length, imageExts(slides)));
+/** 原生模式组包：媒体件 + 每页 slide XML/rels（图片 rels 由生成器给出）+ 公共骨架。 */
+function writeNativePptxTree(buildDir, deck, title) {
+  var cx = deck.slideW * EMU_PER_PX;
+  var cy = deck.slideH * EMU_PER_PX;
+
+  for (var m = 0; m < deck.media.files.length; m++) {
+    var f = deck.media.files[m];
+    if (f.text != null) {
+      writeUtf8(buildDir + "/ppt/media/" + f.name, f.data);
+    } else {
+      writeBytes(buildDir + "/ppt/media/" + f.name, f.data);
+    }
+  }
+  for (var i = 0; i < deck.slides.length; i++) {
+    writeUtf8(buildDir + "/ppt/slides/slide" + (i + 1) + ".xml", deck.slides[i].xml);
+    writeUtf8(buildDir + "/ppt/slides/_rels/slide" + (i + 1) + ".xml.rels", relsXml(deck.slides[i].rels));
+  }
+  writePackageCommon(buildDir, deck.slides.length, title, cx, cy, deck.exts.length ? deck.exts : ["png"]);
+}
+
+/** pptx 包公共骨架：content types / 根 rels / presentation / master / layout / theme / docProps。 */
+function writePackageCommon(buildDir, slideCount, title, cx, cy, exts) {
+  writeUtf8(buildDir + "/[Content_Types].xml", contentTypesXml(slideCount, exts));
   writeUtf8(
     buildDir + "/_rels/.rels",
     relsXml([
@@ -584,10 +1426,10 @@ function writePptxTree(buildDir, slides, title, widthPx, heightPx) {
       { id: "rId3", type: OFFICE_DOC_REL + "/extended-properties", target: "docProps/app.xml" }
     ])
   );
-  writeUtf8(buildDir + "/ppt/presentation.xml", presentationXml(slides.length, cx, cy));
+  writeUtf8(buildDir + "/ppt/presentation.xml", presentationXml(slideCount, cx, cy));
   writeUtf8(
     buildDir + "/ppt/_rels/presentation.xml.rels",
-    relsXml(presentationRels(slides.length))
+    relsXml(presentationRels(slideCount))
   );
   writeUtf8(buildDir + "/ppt/slideMasters/slideMaster1.xml", masterXml());
   writeUtf8(
@@ -621,7 +1463,7 @@ function writePptxTree(buildDir, slides, title, widthPx, heightPx) {
     buildDir + "/docProps/app.xml",
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Weizhi</Application><Slides>' +
-      slides.length + "</Slides></Properties>"
+      slideCount + "</Slides></Properties>"
   );
 }
 
@@ -675,14 +1517,15 @@ function presentationRels(slideCount) {
   return rels;
 }
 
+var IMAGE_MIME_BY_EXT = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", svg: "image/svg+xml" };
+
 function contentTypesXml(slideCount, exts) {
   var xml =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="' + CT_NS + '">' +
     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
     '<Default Extension="xml" ContentType="application/xml"/>';
   for (var j = 0; j < exts.length; j++) {
-    var mime = exts[j] === "jpg" ? "image/jpeg" : "image/png";
-    xml += '<Default Extension="' + exts[j] + '" ContentType="' + mime + '"/>';
+    xml += '<Default Extension="' + exts[j] + '" ContentType="' + (IMAGE_MIME_BY_EXT[exts[j]] || "image/png") + '"/>';
   }
   xml +=
     '<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>' +
@@ -989,4 +1832,4 @@ function unlinkQuiet(relPath) {
   }
 }
 
-export default { renderHtmlDeck: renderHtmlDeck, extractDeckGeometry: extractDeckGeometry };
+export default { renderHtmlDeck: renderHtmlDeck, extractDeckGeometry: extractDeckGeometry, geometryToPptx: geometryToPptx };
