@@ -12,6 +12,7 @@
 |------|------|
 | `dist/registry/stable.json` | 通用真源。每条有 `kind`、`name`、`version`、`artifact.url`、`artifact.sha256`、`artifact.size` |
 | `dist/packages/registry/stable.json` | 从真源投影出的微智清单，只有 `packages[]`，没有 `kind`。微智现有客户端读这一份 |
+| `dist/web-libs/registry/stable.json` | WebView 库卡片清单，只有 `cards[]`。core 的 `WebLibRegistrySync` 在宿主启动后读这一份刷新 find_caps |
 
 `kind=skill` 的条目只出现在通用清单里，不会进微智投影。
 
@@ -36,6 +37,17 @@ node pack.mjs \
 ```
 
 `--base-url` 是 CDN 上该前缀的公网根。清单里的 `artifact.url` 用它拼出来。本机试拉取时可以用 `http://127.0.0.1:<port>/`。非 loopback 必须是 `https`。
+
+## WebView 库清单
+
+浏览器 JS/CSS 库卡片不随 App 预置，走云端清单，和微智包同一台服务器。真源是 `web-libs/cards.jsonl`：每行一张 `kind=web_lib` 卡，`id` 以 `web_lib.` 开头，`entry` 里必须带 `https://` 的稳定 CDN 地址（库文件本身在 jsdelivr 等公共 CDN，这里不打 zip）。
+
+```bash
+cd artifact-cdn
+node pack-web-libs.mjs
+```
+
+输出 `dist/web-libs/registry/stable.json`，由 `upload.sh` 一并上传。core 侧 `WebLibRegistrySync` 默认读 `https://agentone.guoyoutech.cn/web-libs/registry/stable.json`，失败时保留手机上已有的卡片。
 
 ## 校验下载
 
@@ -62,7 +74,7 @@ cd artifact-cdn
 ./upload.sh
 ```
 
-顺序对所有 kind 相同：全部 zip，然后 `registry/stable.json`，最后 `packages/registry/stable.json`。这样清单不会指向还没传完的对象。
+顺序对所有 kind 相同：全部 zip，然后 `registry/stable.json`，再 `packages/registry/stable.json`，最后 `web-libs/registry/stable.json`。这样清单不会指向还没传完的对象。
 
 `UPLOAD_DRY_RUN=1 ./upload.sh` 只打印 `scp`。清单里如果是 loopback 地址，默认拒绝上传。
 
@@ -74,6 +86,7 @@ cd artifact-cdn
   packages/registry/stable.json
   packages/<name>/<version>/<name>-<version>.zip
   skills/<name>/<version>/<name>-<version>.zip
+  web-libs/registry/stable.json
 ```
 
 微智读的是 `https://agentone.guoyoutech.cn/packages/registry/stable.json`。通用清单在 `https://agentone.guoyoutech.cn/registry/stable.json`。打包时加上 `--cards`，把 find_caps 卡片写进对应包的 `cards`。每个包名只保留当前版本，索引按这份清单替换 `source=registry` 的行。
@@ -94,7 +107,7 @@ node pack.mjs \
 
 ```bash
 cd artifact-cdn
-node --test test/
+node --test 'test/*.test.mjs'
 ```
 
 夹具使用仓库里的 `agent-home/weizhi-packages`，不访问阿里云。

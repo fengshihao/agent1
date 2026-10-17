@@ -6,6 +6,6 @@
   "scripts": {
     "pack": "node pack.mjs",
     "fetch": "node fetch.mjs",
-    "test": "node --test test/"
+    "test": "node --test 'test/*.test.mjs'"
   }
 }

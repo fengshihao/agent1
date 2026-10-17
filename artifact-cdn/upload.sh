@@ -10,6 +10,7 @@
 # 站点根布局（与 dist 相同）
 #   registry/stable.json
 #   packages/registry/stable.json
+#   web-libs/registry/stable.json
 #   packages/<name>/<version>/<name>-<version>.zip
 #   skills/<name>/<version>/<name>-<version>.zip
 # =============================================================================
@@ -41,6 +42,7 @@ fi
 
 GENERIC="${DIST}/registry/stable.json"
 PROJECTION="${DIST}/packages/registry/stable.json"
+WEB_LIBS="${DIST}/web-libs/registry/stable.json"
 if [[ ! -f "${GENERIC}" || ! -f "${PROJECTION}" ]]; then
   echo "缺少清单，先在该 dist 上运行 pack" >&2
   exit 1
@@ -92,6 +94,9 @@ for zip in "${zips[@]}"; do
   parents="${parents} ${parent}"
 done
 parents="${parents} $(dirname "$(remote_path "${GENERIC}")") $(dirname "$(remote_path "${PROJECTION}")")"
+if [[ -f "${WEB_LIBS}" ]]; then
+  parents="${parents} $(dirname "$(remote_path "${WEB_LIBS}")")"
+fi
 # shellcheck disable=SC2086
 run_ssh "mkdir -p ${parents}"
 
@@ -100,3 +105,6 @@ for zip in "${zips[@]}"; do
 done
 run_scp "${GENERIC}" "$(remote_path "${GENERIC}")"
 run_scp "${PROJECTION}" "$(remote_path "${PROJECTION}")"
+if [[ -f "${WEB_LIBS}" ]]; then
+  run_scp "${WEB_LIBS}" "$(remote_path "${WEB_LIBS}")"
+fi

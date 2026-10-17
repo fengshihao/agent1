@@ -1,5 +1,6 @@
 package com.agent1.javaagent.cli;
 
+import com.agent1.javaagent.catalog.WebLibRegistrySync;
 import com.agent1.javaagent.config.AgentRuntimeConfig;
 import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.event.AgentEventType;
@@ -123,6 +124,7 @@ public final class ProductivityCli {
             bridge,
             WeizhiWorkspaceTools.provider(agentRoot, projectRoot)
         );
+        WebLibRegistrySync.refreshIndexAsync(agentRoot);
         try (host) {
             ensureActiveSession(host);
             host.runtime().observeEvents().subscribe(event -> onEvent(event, enableColor));
