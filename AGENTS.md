@@ -60,6 +60,7 @@ Cloud Agent 环境无 Android SDK 时：Java 单测 + `check-java-agent-static.s
 - 保持改动 **最小且聚焦**
 - 桌面官方支持 **macOS 与 Ubuntu**；工具改动需考虑跨平台（经典 bash 仍兼顾 Windows 时勿破坏）
 - 模型调用链改动须保持 **JSONL 事件字段** 不回退
+- **能力一律微智 Package 形态**（2026-10-17 起）：新增 Skill / 脚本 / 库类能力优先做成可上云的 Weizhi Package（package registry / artifact-cdn 分发），本地必须能被 `find_caps` 检索且 `kind` 对得上（`weizhi_package` / `skill` / `web_lib` / `caps`）；不要再往 `agent-home/skills` 加内置 skill（存量 `pptx`、`skill-creator` 例外，迁走在 [20-A 任务拆分](doc/规划/自进化Agent/20-HTML2PPTX任务拆分.md) T0）
 - **Android 分层**（强制）：见 [`.cursor/rules/android-layering.mdc`](.cursor/rules/android-layering.mdc)
   - `ui.view` 不做直接 IO；IO 在 `logic.data`
   - 包路径与目录一致；禁止下层依赖 `ui.*`
