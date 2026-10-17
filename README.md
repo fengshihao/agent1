@@ -133,6 +133,8 @@ flowchart TB
   end
 ```
 
+想深入内核 ReAct 循环、桌面 / Android 双宿主链路与 run_js 脚本环,见 [架构与主流程教程](doc/架构教程.md)(含流程图与时序图)。
+
 ```text
 agent1/
 ├── agent_core/              # java-agent-core（~3MB 量级运行时）
