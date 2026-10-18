@@ -14,7 +14,7 @@
 
 代码入口：`ProductivityGatewayProvider.agentRoot()`、`SessionWorkspacePaths.agentRoot()`。
 
-首次使用生产力 Gateway（打开聊天等）时构造 `ProductivityAgentHost` → `AgentHomeBootstrap.ensure($AGENT)`。集成 Weizhi（`WEIZHI_INTEGRATED=true`）时，`WeizhiAndroidScriptEngineFactory` 用 `WeizhiPackages.syncBundled` 从 APK `assets/weizhi-packages/` 安装内置 docx / pptx 包。
+首次使用生产力 Gateway（打开聊天等）时构造 `ProductivityAgentHost` → `AgentHomeBootstrap.ensure($AGENT)`。集成 Weizhi（`WEIZHI_INTEGRATED=true`）时，`WeizhiAndroidScriptEngineFactory` 的 Package 安装走**云端 registry 动态拉取**（APK 不预装 weizhi-packages，20-A 收口）：首次 `run_js` 时 `WeizhiPackageSync.beforeEval` 按源里 import 的 `weizhi:<name>` 从 `https://agentone.guoyoutech.cn/packages/registry/stable.json` ensure 下载安装到 `$FILES/weizhi-home`，需要设备联网。
 
 ## $FILES 根下（App 壳层，非 agent1）
 

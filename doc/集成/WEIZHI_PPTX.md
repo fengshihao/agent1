@@ -11,7 +11,7 @@
 | 项 | 位置 |
 |----|------|
 | 脚本真源 | `agent_core/.../weizhi-packages/pptx@1.1.0/`、`pptx-build@1.0.0/` |
-| Android 副本 | `android_agent/app/src/main/assets/weizhi-packages/` |
+| Android 分发 | 云端 registry 动态安装（APK 不预装，20-A 收口） |
 | Skill | `agent-home/skills/pptx/SKILL.md`（随 core 内置） |
 | 调用卡 | `office-api-cards.jsonl` 的 `pptx.render` / `pptx.build` |
 | 调用 | `import { renderPptx } from "weizhi:pptx"` 或 `buildPptx` from `weizhi:pptx-build` |

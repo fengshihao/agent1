@@ -11,7 +11,7 @@ Weizhi 主干已移除 **`setScriptFolder` / `import "leaf.js"`**，官方 JS �
 | `setFsRoot` | 会话 workspace |
 | `setPackageRoot` | 桌面：`{agentRoot}/weizhi-home`（`WeizhiBundledPackages.syncFromClasspath`）；Android：`WeizhiPackages.syncBundled(Context)` → `filesDir/weizhi-home` |
 
-内置 Office / SVG 脚本真源：`agent_core/.../agent-home/weizhi-packages/<name>@<version>/`（桌面 classpath，pptx 当前为 `1.1.0`）。Android 同步副本：`android_agent/app/src/main/assets/weizhi-packages/`（`scripts/build-weizhi-bundled-packages.sh` 从真源拷贝）。APK 不打 classpath 那份。
+内置 Office / SVG 脚本真源：`agent_core/.../agent-home/weizhi-packages/<name>@<version>/`（桌面 classpath 安装；pptx 当前为 `1.1.0`）。**Android 不预装**（20-A 收口）：首次 `run_js` 由 `WeizhiPackageSync.beforeEval` 从云端 registry（`agentone.guoyoutech.cn`）动态安装，发布走 `artifact-cdn` 的 `pack.mjs + upload.sh`。
 
 **给模型的写法**：`import { markdownToDocx } from "weizhi:docx"`、`import { renderPptx } from "weizhi:pptx"` 等。workspace 内协作用 `import "./helper.js"`。
 
@@ -27,7 +27,7 @@ Skill 类能力**一律随微智包分发**，不再往 `agent-home/skills` 加�
 ## 集成测
 
 - `DocxOfficeIntegrationTest` / `PptxOfficeIntegrationTest`（`:weizhi-bridge:test`，需 `libweizhijni`）
-- `OfficeCatalogInstrumentedTest`（Android，`assets/weizhi-packages`）
+- `OfficeCatalogInstrumentedTest`（Android 真机，云端 registry 动态安装，需联网）
 
 ## 关联
 

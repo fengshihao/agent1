@@ -169,7 +169,7 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            // 桌面从 classpath 装 weizhi-packages；Android 只用 assets/weizhi-packages。
+            // weizhi-packages 不随任何端预装：桌面 classpath 排除，Android 走云端 registry 动态安装（20-A 收口）。
             excludes += "/agent-home/weizhi-packages/**"
             excludes += "/agent-home/catalog/scripts/**"
         }

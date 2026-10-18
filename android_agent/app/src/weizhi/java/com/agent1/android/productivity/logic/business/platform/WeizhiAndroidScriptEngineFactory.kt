@@ -97,8 +97,10 @@ class WeizhiAndroidScriptEngineFactory(
 }
 
 /**
- * 装内置包并刷新随包 skill 卡。宿主启动线程与 engine open 共用一把锁，
- * 避免并发重装同一个包目录时互相删文件。
+ * 刷新随包 skill 卡；Package 安装走**云端 registry 动态拉取**（APK 不再预装
+ * weizhi-packages，20-A 收口）：engine init 时 assets 为空、syncBundled 只返回
+ * weizhi-home 路径；首次 run_js 由 `WeizhiPackageSync.beforeEval` 按源里的
+ * import 从 registry ensure。宿主启动线程与 engine open 共用一把锁。
  */
 internal object WeizhiBundledInstall {
 
