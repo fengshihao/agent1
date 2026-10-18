@@ -1,5 +1,6 @@
 package com.agent1.android.productivity.ui.view
 
+import android.app.Activity
 import android.os.Handler
 import android.os.Looper
 import android.webkit.JavascriptInterface
@@ -8,23 +9,29 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,14 +45,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.agent1.android.productivity.logic.business.DeckFitScript
 import com.agent1.android.productivity.logic.business.ElementSelectorBuilder
 import com.agent1.android.productivity.logic.business.HtmlInspectParser
 import com.agent1.android.productivity.logic.business.HtmlInspectScript
@@ -60,6 +73,10 @@ import com.agent1.android.productivity.ui.viewmodel.HtmlPreviewViewModel
 
 /**
  * 会话 workspace 内 HTML 的 app 内置预览（不外跳外部浏览器）。
+ *
+ * deck 模式（21 号规划 T1）：检测到 html2pptx 约定的 `.slide` 页时自动进入——
+ * 注入 [DeckFitScript] 缩放适配（竖屏每页等宽、横屏铺满），顶栏提供全屏演示
+ * （隐藏 app chrome 与系统栏，返回键/浮动按钮退出）；非 deck HTML 行为不变。
  *
  * 审查模式（REQ-121）：开关注入 [HtmlInspectScript]，tap 元素高亮并回传结构化信息；
  * 面板内直接输入修改意见，「反馈给 AI」**立即发送**（不跳回聊天页）。
@@ -86,6 +103,8 @@ fun HtmlPreviewScreen(
         factory = previewViewModelFactory { HtmlPreviewViewModel(appContext, sessionId, relativePath) },
     )
     val state = vm.state
+    val deckMode = state.isDeck
+    var fullscreen by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var inspectEnabled by remember { mutableStateOf(false) }
     var selectedElement by remember { mutableStateOf<InspectedElement?>(null) }
@@ -96,6 +115,26 @@ fun HtmlPreviewScreen(
     val scope = rememberCoroutineScope()
     val chatState = chatViewModel?.state?.collectAsState()?.value
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    // 全屏演示时返回键先退全屏（再按才离预览页）。
+    BackHandler(enabled = fullscreen) { fullscreen = false }
+
+    // 全屏隐藏系统栏（沉浸演示）；退出或离开组合时恢复，避免带着隐藏栏回到对话页。
+    val rootView = LocalView.current
+    DisposableEffect(fullscreen, rootView) {
+        val window = (rootView.context as? Activity)?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, rootView) }
+        if (fullscreen) {
+            controller?.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller?.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            if (fullscreen) controller?.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
 
     DisposableEffect(webViewHost, lifecycleOwner) {
         val host = webViewHost ?: return@DisposableEffect onDispose { }
@@ -115,48 +154,63 @@ fun HtmlPreviewScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        // 全屏演示：内容顶到屏幕物理边缘（topBar/bottomBar 也一并隐藏）。
+        contentWindowInsets = if (fullscreen) {
+            WindowInsets(0, 0, 0, 0)
+        } else {
+            ScaffoldDefaults.contentWindowInsets
+        },
         topBar = {
-            Column {
-                AgentTopBar(
-                    title = relativePath.substringAfterLast('/').ifEmpty { relativePath },
-                    subtitle = relativePath,
-                    leading = {
-                        TopBarIconButton(
-                            icon = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回对话",
-                            onClick = onBack,
-                        )
-                    },
-                    actions = {
-                        TopBarIconButton(
-                            icon = if (inspectEnabled) {
-                                AgentIcons.VisibilityOff
-                            } else {
-                                AgentIcons.Visibility
-                            },
-                            contentDescription = if (inspectEnabled) "关闭审查模式" else "开启审查模式",
-                            onClick = {
-                                val enable = !inspectEnabled
-                                inspectEnabled = enable
-                                selectedElement = null
-                                opinion = ""
-                                webView?.evaluateJavascript(
-                                    if (enable) HtmlInspectScript.ENABLE_JS else HtmlInspectScript.DISABLE_JS,
-                                    null,
+            if (!fullscreen) {
+                Column {
+                    AgentTopBar(
+                        title = relativePath.substringAfterLast('/').ifEmpty { relativePath },
+                        subtitle = relativePath,
+                        leading = {
+                            TopBarIconButton(
+                                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "返回对话",
+                                onClick = onBack,
+                            )
+                        },
+                        actions = {
+                            if (deckMode) {
+                                TopBarIconButton(
+                                    icon = AgentIcons.Fullscreen,
+                                    contentDescription = "全屏演示",
+                                    onClick = { fullscreen = true },
                                 )
-                            },
-                        )
-                    },
-                )
-                AgentHairline()
-                // AI 工作过程可见：运行中显示当前动作（工具名/连接模型/思考），
-                // 点击状态条跳回聊天页看完整过程。
-                AnimatedVisibility(visible = chatState?.isRunning == true) {
-                    val running = chatState
-                    if (running != null) {
-                        Column {
-                            AgentHairline()
-                            AiActivityStrip(state = running, onOpenChat = onBack)
+                            }
+                            TopBarIconButton(
+                                icon = if (inspectEnabled) {
+                                    AgentIcons.VisibilityOff
+                                } else {
+                                    AgentIcons.Visibility
+                                },
+                                contentDescription = if (inspectEnabled) "关闭审查模式" else "开启审查模式",
+                                onClick = {
+                                    val enable = !inspectEnabled
+                                    inspectEnabled = enable
+                                    selectedElement = null
+                                    opinion = ""
+                                    webView?.evaluateJavascript(
+                                        if (enable) HtmlInspectScript.ENABLE_JS else HtmlInspectScript.DISABLE_JS,
+                                        null,
+                                    )
+                                },
+                            )
+                        },
+                    )
+                    AgentHairline()
+                    // AI 工作过程可见：运行中显示当前动作（工具名/连接模型/思考），
+                    // 点击状态条跳回聊天页看完整过程。
+                    AnimatedVisibility(visible = chatState?.isRunning == true) {
+                        val running = chatState
+                        if (running != null) {
+                            Column {
+                                AgentHairline()
+                                AiActivityStrip(state = running, onOpenChat = onBack)
+                            }
                         }
                     }
                 }
@@ -164,7 +218,7 @@ fun HtmlPreviewScreen(
         },
         bottomBar = {
             val element = selectedElement
-            if (element != null) {
+            if (element != null && !fullscreen) {
                 Column {
                     AgentHairline()
                     Surface(color = MaterialTheme.colorScheme.surface) {
@@ -285,6 +339,10 @@ fun HtmlPreviewScreen(
                                     if (inspectEnabled) {
                                         view.evaluateJavascript(HtmlInspectScript.ENABLE_JS, null)
                                     }
+                                    if (deckMode) {
+                                        // deck 模式：缩放适配（.slide 包 wrapper + scale，幂等）。
+                                        view.evaluateJavascript(DeckFitScript.INSTALL_JS, null)
+                                    }
                                 }
 
                                 override fun onReceivedError(
@@ -311,6 +369,24 @@ fun HtmlPreviewScreen(
                 )
                 loadError?.let { message ->
                     PreviewErrorBox(message, Modifier.fillMaxSize())
+                }
+                // 全屏演示：右上角半透明退出按钮（返回键同效），避免只靠手势发现。
+                if (fullscreen) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.35f),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp),
+                    ) {
+                        IconButton(onClick = { fullscreen = false }) {
+                            Icon(
+                                imageVector = AgentIcons.FullscreenExit,
+                                contentDescription = "退出全屏",
+                                tint = Color.White,
+                            )
+                        }
+                    }
                 }
             }
         } else {

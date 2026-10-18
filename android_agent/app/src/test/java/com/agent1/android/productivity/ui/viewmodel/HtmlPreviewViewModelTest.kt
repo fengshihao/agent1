@@ -2,6 +2,7 @@ package com.agent1.android.productivity.ui.viewmodel
 
 import java.nio.file.Files
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -69,5 +70,33 @@ class HtmlPreviewViewModelTest {
         )
         assertEquals(html.toFile(), state.file)
         assertNull(state.error)
+        assertFalse(state.isDeck)
+    }
+
+    @Test
+    fun resolve_flagsDeckHtml() {
+        val dir = Files.createTempDirectory("preview-vm")
+        val deck = dir.resolve("deck.html")
+        deck.toFile().writeText(
+            "<html><head><style>.slide{width:1280px;height:720px}</style></head>" +
+                "<body><section class=\"slide\">p1</section></body></html>",
+        )
+        val state = HtmlPreviewViewModel.resolve(
+            workspaceRoot = dir,
+            sessionId = "s1",
+            relativePath = "deck.html",
+        )
+        assertTrue(state.isDeck)
+        assertNull(state.error)
+    }
+
+    @Test
+    fun resolve_errorBranchNeverFlagsDeck() {
+        val state = HtmlPreviewViewModel.resolve(
+            workspaceRoot = null,
+            sessionId = "",
+            relativePath = "deck.html",
+        )
+        assertFalse(state.isDeck)
     }
 }

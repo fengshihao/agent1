@@ -49,11 +49,43 @@
 
 | 任务 | 内容 | 状态 |
 |------|------|------|
-| T1 | deck 检测 + 缩放适配 + 全屏沉浸（预览页改造） | 未开始 |
+| T1 | deck 检测 + 缩放适配 + 全屏沉浸（预览页改造） | 完成（2026-10-18，落地结论见下） |
 | T2 | 翻页手势 + 页码指示 + 屏幕常亮 | 未开始 |
 | T3 | 导出按钮 → 用户消息回填 → AI renderHtmlDeck（mode 由按钮决定） | 未开始 |
 | T4 | html2pptx SKILL.md 工作流修订（预览前置、导出由用户触发） | 未开始 |
 | T5 | 真机验收：投屏演示一轮 + 点选修改 + 两种导出 | 未开始 |
+
+### T1 落地结论（2026-10-18）
+
+- **deck 检测**：`logic/business/DeckHtmlDetector`——正则匹配 class 属性含独立单词
+  `slide`（`class="slide cover"` / 单引号均命中；`slideshow`/`myslide` 词边界不命中；
+  仅 CSS `.slide{}` 规则不命中）。`scanFile` 只扫文件头 256KB：deck 源图片是 workspace
+  相对路径（导出时才内联 data URI），首个 `<section class="slide">` 必在头部，避免主线程
+  读几 MB 大文件。显式双分支正则而非 `\1` 反向引用（Java 字符类内不按 backreference 解析）。
+- **`HtmlPreviewState.isDeck`**：`HtmlPreviewViewModel.resolve` 在 file 解析成功后同步检测；
+  error 分支恒 false。误报（轮播图同名 class）只影响预览形态，无破坏性。
+- **缩放适配**：`logic/business/DeckFitScript.INSTALL_JS`（对齐 HtmlInspectScript 常量模式）——
+  每页 `.slide` 包 `data-agent1-deck-wrap` wrapper（transform 不改布局，直接 scale 会叠页），
+  wrapper 尺寸 = 页尺寸×scale、水平居中、页距 12px；slide `transform: scale()` origin 0 0。
+  scale = min(1, 视口宽/页宽)：竖屏每页等宽、横屏铺满；页宽从首页 `offsetWidth` 实测
+  （非写死 1280，兼容自定义页尺寸）；resize/orientationchange 100ms 防抖重算；幂等标记
+  `__agent1DeckFitInstalled`。`onPageFinished` 时 deck 模式注入（reload/热更新后重装）。
+  与审查模式并存（transform 不影响 tap 事件）；不改 deck 源文件，html2pptx 导出走无头
+  webview_exec 不经过预览，互不影响。
+- **全屏沉浸**：deck 模式顶栏加「全屏演示」按钮（`AgentIcons.Fullscreen/FullscreenExit`，
+  自绘 path 不引 material-icons-extended）→ 隐藏 topBar/审查底栏/AI 活动条 +
+  `contentWindowInsets` 归零 + `WindowInsetsControllerCompat` 隐藏系统栏
+  （BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE 滑动可临时呼出）。返回键先退全屏（BackHandler），
+  右上角半透明浮动按钮同效；退出/离开组合恢复系统栏（防止带着隐藏栏回对话页）。
+  非 deck HTML 行为逐字节不变（回归安全）。
+- **测试**：`DeckHtmlDetectorTest`（命中/误报面/截断语义）、`DeckFitScriptTest`
+  （幂等标记/wrapper 标记/min(1,·) 封顶/resize 监听的内容特征锚点）、
+  `HtmlPreviewViewModelTest` +deck 标记与 error 不标记用例。门禁：
+  `:app:testDebugUnitTest` / `check-android-agent-static.sh`（分层+Detekt）/
+  `:core:test :cli:test` / `ci-local.sh fast` 全绿。
+- **留给 T2 的衔接**：翻页在 wrapper 化后的页序列上做（scrollIntoView/translateY 或
+  WebView 逐页截图缓存均可）；「审查开着是编辑视角、关掉是演示视角」的互斥在 T2 实现
+  （当前全屏时审查底栏仅隐藏不禁用，退出全屏恢复）。
 
 ## 5. 验收用例
 

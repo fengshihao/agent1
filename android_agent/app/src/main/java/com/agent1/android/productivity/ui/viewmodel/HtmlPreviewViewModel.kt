@@ -2,6 +2,7 @@ package com.agent1.android.productivity.ui.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
+import com.agent1.android.productivity.logic.business.DeckHtmlDetector
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.WorkspaceFileActions
 import java.io.File
@@ -10,6 +11,8 @@ import java.io.File
 data class HtmlPreviewState(
     val file: File? = null,
     val error: String? = null,
+    /** deck.html（html2pptx 约定 .slide 页）→ 预览进 deck 模式（21 号规划 T1）。 */
+    val isDeck: Boolean = false,
 )
 
 /**
@@ -39,7 +42,7 @@ class HtmlPreviewViewModel(
             }
             val file = SessionWorkspacePaths.resolveFile(workspaceRoot, relativePath)
                 ?: return HtmlPreviewState(error = "文件不存在或已被移动：$relativePath")
-            return HtmlPreviewState(file = file)
+            return HtmlPreviewState(file = file, isDeck = DeckHtmlDetector.scanFile(file))
         }
     }
 }
