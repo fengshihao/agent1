@@ -1076,7 +1076,7 @@ function slideBackgroundXml(slide, gradBg) {
 
 /** 整页背景矩形（z 序最底，nativeSlide 的 body 首个节点）。 */
 function pageBackgroundSpXml(slide, grad, id) {
-  var fill = grad.type === "linear" ? gradFillXml(grad) : radialGradFillXml(grad.stops);
+  var fill = grad.type === "linear" ? gradFillXml(grad) : radialGradFillXml(grad.stops, grad.center);
   return (
     "<p:sp><p:nvSpPr><p:cNvPr id=\"" + id + "\" name=\"background\"/>" +
     "<p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm>" +
@@ -1208,7 +1208,7 @@ function elementFillXml(el) {
   if (el.bgImage) {
     var grad = parseGradient(el.bgImage);
     if (grad) {
-      return grad.type === "linear" ? gradFillXml(grad) : radialGradFillXml(grad.stops);
+      return grad.type === "linear" ? gradFillXml(grad) : radialGradFillXml(grad.stops, grad.center);
     }
   }
   if (el.bg != null && isHexColor(el.bg)) {
@@ -1222,7 +1222,7 @@ function elementFillXml(el) {
  * alpha（如封面 deco 光点 rgba(125,211,192,.25)→transparent 65%）。此前退化为
  * 首色纯色近似，WPS 实测是一块生硬半透明圆片（20-A T5b）。
  */
-function radialGradFillXml(stops) {
+function radialGradFillXml(stops, center) {
   if (!stops || !stops.length) {
     return "<a:noFill/>";
   }
@@ -1232,19 +1232,38 @@ function radialGradFillXml(stops) {
   var gs = "";
   for (var i = 0; i < stops.length; i++) {
     gs += '<a:gs pos="' + Math.round(stops[i].pos * 100000) + '">'
-      + solidFillCss(stops[i].color, stops[i].alpha) + "</a:gs>";
+      + gsColorXml(stops[i].color, stops[i].alpha) + "</a:gs>";
   }
+  // fillToRect 表示渐变终点矩形占比，交点即中心；CSS `at x% y%` 偏移中心（默认 50/50）
+  var cx = center && isFinite(center.x) ? Math.max(0, Math.min(1, center.x)) : 0.5;
+  var cy = center && isFinite(center.y) ? Math.max(0, Math.min(1, center.y)) : 0.5;
+  var l = Math.round(cx * 100000);
+  var t = Math.round(cy * 100000);
   return '<a:gradFill rotWithShape="1"><a:gsLst>' + gs
-    + '</a:gsLst><a:path path="circle"><a:fillToRect l="50000" t="50000" r="50000" b="50000"/></a:path></a:gradFill>';
+    + '</a:gsLst><a:path path="circle"><a:fillToRect l="' + l + '" t="' + t
+    + '" r="' + (100000 - l) + '" b="' + (100000 - t) + '"/></a:path></a:gradFill>';
 }
 
 function gradFillXml(grad) {
   var stops = "";
   for (var i = 0; i < grad.stops.length; i++) {
     var st = grad.stops[i];
-    stops += '<a:gs pos="' + Math.round(st.pos * 100000) + '">' + solidFillCss(st.color, st.alpha) + "</a:gs>";
+    stops += '<a:gs pos="' + Math.round(st.pos * 100000) + '">' + gsColorXml(st.color, st.alpha) + "</a:gs>";
   }
   return '<a:gradFill rotWithShape="1"><a:gsLst>' + stops + '</a:gsLst><a:lin ang="' + grad.ang + '" scaled="0"/></a:gradFill>';
+}
+
+/**
+ * 渐变 stop 颜色：gs 直接包颜色元素，**不套 a:solidFill**（PowerPoint 生成的
+ * 渐变就是这个结构；套了 solidFill 属非规范嵌套——Keynote 宽容能渲染，WPS
+ * 严格解析会忽略整个渐变，形状回退默认黑填充，20-A T5b WPS 实测）。
+ */
+function gsColorXml(color, alpha) {
+  var hex = isHexColor(color) ? hexOf(color) : "000000";
+  var a = alpha == null ? 1 : alpha;
+  return '<a:srgbClr val="' + hex + '">'
+    + (a < 1 ? '<a:alpha val="' + Math.round(a * 100000) + '"/>' : "")
+    + "</a:srgbClr>";
 }
 
 /** radial 渐变的退化：取第一个 stop 的颜色与透明度做纯色近似。 */
@@ -1472,6 +1491,12 @@ function parseGradient(bgImage) {
   var out = { type: type, stops: stops };
   if (type === "linear") {
     out.ang = Math.round(((cssDeg - 90) % 360 + 360) % 360 * 60000);
+  } else {
+    out.center = { x: 0.5, y: 0.5 };
+    var atM = /\bat\s+([\d.]+)%\s+([\d.]+)%/i.exec(parts[0] != null ? parts[0] : "");
+    if (atM) {
+      out.center = { x: parseFloat(atM[1]) / 100, y: parseFloat(atM[2]) / 100 };
+    }
   }
   return out;
 }

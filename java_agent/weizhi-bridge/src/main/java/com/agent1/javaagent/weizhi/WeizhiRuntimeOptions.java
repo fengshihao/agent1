@@ -6,7 +6,23 @@ import com.weizhi.WeizhiLimits;
 /** 宿主侧 Weizhi 引擎开关（桌面生产力 CLI 默认值）。 */
 public final class WeizhiRuntimeOptions {
 
+    /** 默认 JS 堆/单次 IO 上限 128MB（C 默认 32MB——html2pptx 8 页 deck 的回执+解码峰值超限，20-A T5b）。 */
+    public static final long DEFAULT_MB = 128;
+
     public WeizhiRuntimeOptions() {
+        this.limits = defaultLimits(System.getenv("AGENT1_WEIZHI_JS_HEAP_MB"));
+    }
+
+    /** AGENT1_WEIZHI_JS_HEAP_MB 覆盖默认（16–1024，非法值回默认）；jsHeap 与单次 fsIo 同值。 */
+    static WeizhiLimits defaultLimits(String envMb) {
+        long mb = DEFAULT_MB;
+        if (envMb != null && envMb.matches("\\d+")) {
+            mb = Math.max(16, Math.min(1024, Long.parseLong(envMb)));
+        }
+        WeizhiLimits limits = new WeizhiLimits();
+        limits.jsHeapBytes = mb * 1024 * 1024;
+        limits.fsIoBytes = mb * 1024 * 1024;
+        return limits;
     }
 
     /** 浅拷贝，便于 open 前覆盖 nativePluginDir 等字段。 */
