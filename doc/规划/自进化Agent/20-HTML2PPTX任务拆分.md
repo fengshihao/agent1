@@ -136,6 +136,18 @@
 **状态**：完成（commit 见 git log：feat(office): HTML 源工作流）
 **未做（后续候选）**：T9 页级降级+预检+editable 比例；云端导出管线（PDF/Word/Keynote）；预览交互化（Android WebView 内嵌所见即所得）。
 
+### T8b — APK 去预装 weizhi-packages，Android 全量云端动态安装（2026-10-18 拍板）
+
+**拍板**（用户）：预装 js 会越来越多、且要实测动态更新能力——从 APK 删掉 `assets/weizhi-packages`，安装全走云端 registry。
+
+**落地**：
+- 删 `android_agent/.../assets/weizhi-packages/`（7 包）与 `scripts/build-weizhi-bundled-packages.sh`（同步脚本退役，发布走 `artifact-cdn` pack/upload）。
+- 安装链路本就已就绪：`WeizhiPackageSync.beforeEval` 在首次 `run_js` 按源里 import 的 `weizhi:<name>` 从 registry ensure；`WeizhiPackages.syncBundled` 对空 assets 优雅降级（no-op 返回 home 路径），Kotlin 侧零代码改动（注释更新）。
+- `OfficeCatalogInstrumentedTest` 改造为**云端动态安装**验收（独立 agentRoot + beforeEval ensure，需真机联网）——正好覆盖「动态更新」链路。
+- 文档同步：runtime-data-layout / WEIZHI_CATALOG_MODULES / WEIZHI_DOCX / WEIZHI_PPTX / OFFICE_*_API / HTML2PPTX。
+- 注意：桌面 classpath 内置保留（离线开发体验）。**离线语义澄清**（用户复核）：`run_js` 本身零网络依赖（无 weizhi import 直接放行；import 的包本地已装走 offline-fallback 放行）；唯一失败组合是「import 本地未装的包 + 无网」，而 Android 上 `run_js` 只由模型工具环触发、无网时模型不可达——**实际不存在离线退化场景**。`find_caps` 的 office 卡来自 agent-home capabilities 不受影响。
+- 验证：`publish-java-agent-core.sh`（core 发 mavenLocal + Android compileDebugKotlin 过）、`check-android-agent-static/layering` 全过；真机 `connectedDebugAndroidTest` 待跑（需设备+网络）。
+
 ### T6 — image_search / image_download（配套，可与 T1-T5 并行）
 
 **目标**：Java 侧新工具 `image_search`（Tavily `/search` 传 `include_images:true`，复用 `WebSearchTool` 的客户端与 key，返回 url/尺寸/来源）与 `image_download`（https 白名单 + ≤10MB + 魔数校验，落 workspace）。能力卡进 find_caps（kind 对齐新规则；工具类卡参考 `tool.media_resize` 的 `builtin` 或按 T0 定的规范走包化）。deck HTML 里可直接用下载后的 workspace 图片（html2pptx 自动内联）。
