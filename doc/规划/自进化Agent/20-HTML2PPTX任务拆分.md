@@ -117,6 +117,14 @@
 - **已落地第一步范围限制**：native 模式图片一律 clip 补真（不再回传/转换 imgSrc data URI）——回执瘦身、QuickJS 内存大减、转换职责收窄为「文本框 + 盒子形状 + 页背景 + clip 图」；既有测试全绿。
 - **建议的后续范围限制（待对齐）**：①SKILL 版式套路白名单（封面/KPI 卡/图文两栏/时间线/表格/图表/引言/结尾 8 种页型），native 只承诺套路内保真；②页数 >6 或多 canvas 页自动降级截图（页级混合：复杂页整页截图、简单页原生）；③性能项：QuickJS base64 查表解码加速、native 分页分批 webview_exec。
 
+**T5b 第二/三轮修复（用户 WPS 逐轮复验驱动，commit 843c11e / dc90752）**：
+
+- 第二轮修四项：渐变页背景 p:bg→整页底层矩形（WPS 对 p:bg gradFill 不可靠）、radial 退化纯色→OOXML path circle 射线渐变、单行文本 wrap="none"（105pt 大字折行）、渐变字（background-clip:text）clip 补真。
+- 第三轮根因（用户复验"封面更糟/黑矩形"逼出）：**渐变 stop 输出 `<a:gs><a:solidFill>…` 非规范嵌套**——规范 gs 直接包颜色元素；Keynote 宽容、WPS 严格解析忽略整个渐变（白底/变色框/黑矩形回退全部由此而来）。gsColorXml 统一修正；radial `at x% y%` 中心进 fillToRect。
+- QuickJS 堆/单次 fs IO 默认 32MB→**128MB**（Java 层注入 WeizhiLimits；AGENT1_WEIZHI_JS_HEAP_MB 可覆盖 16-1024）：8 页 deck 回执+解码峰值 ~60-75MB 必超 32MB——回执 JSON/readFileSync/JSON.parse/decode 字节全程驻留，非流式。
+- **复杂样例 8 页 native 首次全链路跑通**（1.3MB vs 截图 8.4MB；HTML2PPTX_COMPLEX_SAMPLE=1 显式触发）。Keynote 自查 8 页：封面渐变+radial 光晕/时间线 23 形状/ending radial(30%/20%)+渐变大字全部到位；用户 WPS 复验"好了很多"。
+- **已知范围边界（用户指出）**：表格与部分细节（带 box-shadow 的 table 等）是整块 clip 截图——视觉保真但不可编辑。后续候选：table→原生 `a:tbl` GraphicFrame 可编辑表格；单元格网格文本框；或页级策略接受。
+
 ### T6 — image_search / image_download（配套，可与 T1-T5 并行）
 
 **目标**：Java 侧新工具 `image_search`（Tavily `/search` 传 `include_images:true`，复用 `WebSearchTool` 的客户端与 key，返回 url/尺寸/来源）与 `image_download`（https 白名单 + ≤10MB + 魔数校验，落 workspace）。能力卡进 find_caps（kind 对齐新规则；工具类卡参考 `tool.media_resize` 的 `builtin` 或按 T0 定的规范走包化）。deck HTML 里可直接用下载后的 workspace 图片（html2pptx 自动内联）。
