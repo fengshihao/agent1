@@ -37,7 +37,7 @@
 - 刷卡调用点三处：桌面 `WeizhiBundledPackages.syncFromClasspath`（engine open 幂等重装后）、registry `WeizhiPackageSync.beforeEval`（`ensureInstalled` 实际装了包才刷）、Android `WeizhiBundledInstall.syncBundled`（engine init + 宿主启动后台线程，与 engine open 共用锁防并发重装）。
 - 桌面/Android 启动各加了后台「装内置包 + 刷卡」线程，闭合**首次 run_js 之前 find_caps 查不到包内 skill** 的空窗（对齐 web_lib 卡启动即有的行为）。
 - **坑**：weizhi 桥的 `EnsureResult` 是 public 字段（`ensured.installed`），不是 record 访问器，写法要看本地 weizhi 树。seed 重建会清掉 `package_skill` 行，但每次 engine open 都会补回；云端 registry 的 html2pptx 条目发布前，`beforeEval` 对它走 offline-fallback（本地已装即放行），不会降级。
-- **待办（发布侧）**：`artifact-cdn` 需 `pack.mjs + upload.sh` 重打 html2pptx@0.2.0（含 SKILL.md）并更新云端 stable.json，否则联网设备 ensure 时 registry 无此包走 fallback（可接受）。
+- **待办（发布侧）**：~~`artifact-cdn` 需 `pack.mjs + upload.sh` 重打 html2pptx@0.2.0（含 SKILL.md）并更新云端 stable.json~~ **已完成（2026-10-18）**：html2pptx@0.2.0（含 T8 最新 js+SKILL，51KB）已 pack + upload 上云，`https://agentone.guoyoutech.cn/packages/html2pptx/0.2.0/` 可下载、sha256 与清单一致，云端 registry 七包齐。**Android/agent_core 内置 assets 保留**（离线与首启兜底，云端是更新通道——删 assets 需改安装链路且失离线能力，收益仅省几百 KB，不做）。
 
 ### T1 — DOM 几何提取器（PR2 核心，纯增量）
 
