@@ -123,7 +123,18 @@
 - 第三轮根因（用户复验"封面更糟/黑矩形"逼出）：**渐变 stop 输出 `<a:gs><a:solidFill>…` 非规范嵌套**——规范 gs 直接包颜色元素；Keynote 宽容、WPS 严格解析忽略整个渐变（白底/变色框/黑矩形回退全部由此而来）。gsColorXml 统一修正；radial `at x% y%` 中心进 fillToRect。
 - QuickJS 堆/单次 fs IO 默认 32MB→**128MB**（Java 层注入 WeizhiLimits；AGENT1_WEIZHI_JS_HEAP_MB 可覆盖 16-1024）：8 页 deck 回执+解码峰值 ~60-75MB 必超 32MB——回执 JSON/readFileSync/JSON.parse/decode 字节全程驻留，非流式。
 - **复杂样例 8 页 native 首次全链路跑通**（1.3MB vs 截图 8.4MB；HTML2PPTX_COMPLEX_SAMPLE=1 显式触发）。Keynote 自查 8 页：封面渐变+radial 光晕/时间线 23 形状/ending radial(30%/20%)+渐变大字全部到位；用户 WPS 复验"好了很多"。
-- **已知范围边界（用户指出）**：表格与部分细节（带 box-shadow 的 table 等）是整块 clip 截图——视觉保真但不可编辑。后续候选：table→原生 `a:tbl` GraphicFrame 可编辑表格；单元格网格文本框；或页级策略接受。
+### T8 — HTML 源工作流 + SKILL 骨架化（2026-10-18 拍板落地）
+
+**拍板**（用户）：可编辑性的主战场从「PPT 内编辑」移到「HTML 源编辑」——deck.html 是资产，用户指点元素让 AI 改 HTML，迭代闭环；满意后才导出（截图版可端侧/云端，native PPTX 是「接收方要手动改字」的可选导出；云端 PDF/Word/Keynote 版式化在规划）。
+
+**落地**：
+- `exportDeckPages({htmlPath, outputDir, scale, format})`：截图链路逐页落 `<dir>/page-N.png` 不组 pptx——预览/指点修改的视觉载体（桌面/Android 通用），也可作插文档图片页。mock 测试 `exportsDeckPagesThroughMockWebView`。
+- SKILL.md 重写为工作流驱动：①deck.html 资产化（workspace 根、不清理）②exportDeckPages 预览 ③指点修改循环（用户说「第 N 页左上大标题」→ 定位 section.slide + 语义 class → edit_file → 再预览）④确认后导出（截图默认/native 可选）。
+- SKILL 页型骨架（8 种：封面/KPI/图文/时间线/表格/图表/引言/结尾，各给 class 约定与关键 CSS）+ 硬性约束（禁 transform/animation/filter/mix-blend/多列；阴影一档；表格 ≤5 列；每页元素 ≤40）——**生成侧收口**，模型从骨架起步改内容，天然不跑偏。
+- `doc/集成/HTML2PPTX.md` 补工作流与 exportDeckPages。
+
+**状态**：完成（commit 见 git log：feat(office): HTML 源工作流）
+**未做（后续候选）**：T9 页级降级+预检+editable 比例；云端导出管线（PDF/Word/Keynote）；预览交互化（Android WebView 内嵌所见即所得）。
 
 ### T6 — image_search / image_download（配套，可与 T1-T5 并行）
 

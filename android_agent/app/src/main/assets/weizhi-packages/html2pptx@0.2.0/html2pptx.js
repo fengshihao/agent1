@@ -41,6 +41,11 @@
  *   output: "out/deck-native.pptx"       // 可选，默认 <词干去掉 -geometry>.pptx
  * });
  *
+ * export default await exportDeckPages({   // 每页 PNG/JPG 落盘（预览/图片页素材）
+ *   htmlPath: "deck.html",
+ *   outputDir: "deck-pages"               // 默认 deck-pages，页文件 page-N.png
+ * });
+ *
  * 截图模式需要网络（CDN）。路径相对当前会话 workspace，不要加 workspace/ 前缀。
  */
 var fs = require("fs");
@@ -174,6 +179,94 @@ async function renderScreenshotDeck(opts) {
     packDir(buildDir, output);
     var total = fs.readFileSync(output).length;
     return { ok: true, path: output, slides: decoded.length, width: width, height: height, bytes: total };
+  } finally {
+    if (!useOriginalFile) {
+      unlinkQuiet(inputRel);
+    }
+    unlinkQuiet(shotsRel);
+  }
+}
+
+/**
+ * 导出每页 PNG/JPG（20-A T8「HTML 源工作流」的预览载体）：deck HTML 截图
+ * 逐页落盘 `<outputDir>/page-N.<ext>`，不打包 pptx。预览给用户看 → 指点修改
+ * → 再预览的回路用它；也可作插文档的图片页素材。
+ */
+export async function exportDeckPages(options) {
+  var opts = options || {};
+  var outputDir = normalizeRel(
+    opts.outputDir == null || String(opts.outputDir).trim() === "" ? "deck-pages" : opts.outputDir,
+    "outputDir"
+  );
+  var width = intIn(opts.width == null ? 1280 : opts.width, "width", MIN_PX, MAX_PX);
+  var height = intIn(opts.height == null ? 720 : opts.height, "height", MIN_PX, MAX_PX);
+  var scale = intIn(opts.scale == null ? 2 : opts.scale, "scale", MIN_SCALE, MAX_SCALE);
+  var format = normalizeFormat(opts.format);
+  var quality = jpegQuality(opts.quality);
+
+  var html = readHtml(opts);
+  var inlined = inlineWorkspaceImages(html);
+
+  if (typeof globalThis.$tools === "undefined" || typeof globalThis.$tools.webview_exec !== "function") {
+    throw new Error("exportDeckPages 需要 $tools.webview_exec（桌面需 Chromium，Android 需系统 WebView）");
+  }
+
+  var stamp = Date.now();
+  var htmlPathRel = typeof opts.htmlPath === "string" && opts.htmlPath.trim() !== ""
+    ? normalizeRel(opts.htmlPath, "htmlPath")
+    : null;
+  var useOriginalFile = htmlPathRel != null && inlined === html;
+  var inputRel = useOriginalFile
+    ? htmlPathRel
+    : "tmp/html2pptx-pages-input-" + stamp + ".html";
+  var shotsRel = "tmp/html2pptx-pages-" + stamp + ".json";
+  if (!useOriginalFile) {
+    fs.writeFileSync(inputRel, inlined);
+  }
+
+  try {
+    var receiptText = await globalThis.$tools.webview_exec({
+      code: captureCode(width, height, scale, format, quality),
+      input_path: inputRel,
+      output_path: shotsRel,
+      timeout_ms: SHOT_TIMEOUT_MS
+    });
+    var receipt = asObject(receiptText);
+    if (!receipt || receipt.ok === false) {
+      var err = receipt && receipt.error ? receipt.error : "webview_exec 失败";
+      throw new Error(String(err));
+    }
+    var shotsPath = receipt.outputPath ? String(receipt.outputPath) : shotsRel;
+    var payload;
+    try {
+      payload = JSON.parse(fs.readFileSync(shotsPath).toString().trim());
+    } catch (e) {
+      throw new Error("截图回执不是 JSON（页面可能未找到 .slide 元素）");
+    }
+    var slides = payload && payload.slides;
+    if (!slides || !slides.length) {
+      throw new Error('HTML 里没有 class="slide" 的页元素：每页应是 <section class="slide">…</section>');
+    }
+    if (slides.length > MAX_SLIDES) {
+      throw new Error("exportDeckPages: too many slides（上限 " + MAX_SLIDES + "）");
+    }
+    mkdirp(outputDir);
+    var ext = format === "jpg" ? "jpg" : "png";
+    var files = [];
+    for (var i = 0; i < slides.length; i++) {
+      var shot = slides[i];
+      if (!shot || typeof shot.b64 !== "string" || !shot.b64) {
+        throw new Error("第 " + (i + 1) + " 页截图数据缺失");
+      }
+      var bytes = decodeBase64(shot.b64);
+      if (!isImageMagic(bytes, format)) {
+        throw new Error("第 " + (i + 1) + " 页不是有效的 " + format.toUpperCase());
+      }
+      var rel = outputDir + "/page-" + (i + 1) + "." + ext;
+      writeBytes(rel, bytes);
+      files.push(rel);
+    }
+    return { ok: true, dir: outputDir, pages: files.length, files: files };
   } finally {
     if (!useOriginalFile) {
       unlinkQuiet(inputRel);
@@ -2184,4 +2277,4 @@ function unlinkQuiet(relPath) {
   }
 }
 
-export default { renderHtmlDeck: renderHtmlDeck, extractDeckGeometry: extractDeckGeometry, geometryToPptx: geometryToPptx };
+export default { renderHtmlDeck: renderHtmlDeck, extractDeckGeometry: extractDeckGeometry, geometryToPptx: geometryToPptx, exportDeckPages: exportDeckPages };

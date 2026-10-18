@@ -1,6 +1,8 @@
-# html2pptx.js — HTML 自由版式生成 PPT（v0.2 截图 + native 模式）
+# html2pptx.js — HTML 自由版式生成 PPT（v0.2 截图 + native + 页图导出）
 
 真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx@0.2.0/html2pptx.js`。Android 副本：`android_agent/app/src/main/assets/weizhi-packages/`。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`；使用说明（skill 正文）**随包分发**：包内 `SKILL.md`（manifest 的 `skill` 字段声明），安装后由 `PackageSkills` 写入 `kind=skill` 能力卡（`source=package_skill`），`find_caps` 查 html2pptx 会同时命中包卡与 skill 卡，正文由 `AgentSkillLoader` 从已安装包加载。
+
+**推荐工作流（20-A T8，「HTML 源模式」）**：deck.html 是资产（workspace 根、不清理）→ `exportDeckPages` 出每页 PNG 给用户预览 → 用户指点、AI 改 HTML、再预览（迭代闭环）→ 满意后 `renderHtmlDeck` 导出。可编辑性的主战场在 HTML 源（AI 改 HTML 比改 PPT 容易一个数量级）；PPT 只是导出快照，native 模式服务「接收方要在 PowerPoint/WPS 手动改字」的场景。云端导出（PDF/Word/Keynote 版式化）在规划中。
 
 定位：`pptx.js`（[OFFICE_PPTX_API.md](OFFICE_PPTX_API.md)）负责快速结构化 deck；`html2pptx` 负责**版式自由**——整页 slide HTML 用 CSS 排版，渐变、阴影、卡片、大数字、图文混排、内嵌图表（echarts/mermaid，CDN）都可以。v0.2 起两种模式：默认 `screenshot` 每页一张全幅图片页（观感优先）；`mode:"native"` 产出**原生可编辑** pptx（文本框/圆角矩形/图片 + 区域截图补真，见 [规划 20 号文档](../规划/自进化Agent/20-Office排版升级与视觉素材管线.md)）。
 
@@ -93,6 +95,20 @@ export default await geometryToPptx({
 - 图片：`img/canvas` 的 PNG data URI → `p:pic`；svg data URI → svg 媒体件 + `asvg:svgBlip` 扩展 + 1×1 透明 PNG 兜底（老 PowerPoint/WPS 显示兜底件）；`https://`、`imgOmitted`、不支持的 mime 不出图片，记 `needsScreenshot`。
 - 去重：行内元素（em/span/svg text）文本已是祖先 textRuns 子串且 rect 被包含时跳过，避免同一文字画两遍（extractor 会把行内元素同时作为独立元素下发）。
 - 返回的 `needsScreenshot:[{slide,x,y,w,h,reason}]` 是 T4「区域截图补图」的输入。
+
+## exportDeckPages（每页 PNG，预览载体）
+
+```javascript
+import { exportDeckPages } from "weizhi:html2pptx";
+
+export default await exportDeckPages({
+  htmlPath: "deck.html",
+  outputDir: "deck-pages"     // 默认 deck-pages，页文件 page-N.png
+});
+// { ok: true, dir, pages, files: ["deck-pages/page-1.png", …] }
+```
+
+同一截图链路但不组 pptx，逐页落盘；用于「预览 → 指点修改 → 再预览」回路与插文档的图片页。
 
 ## 错误
 

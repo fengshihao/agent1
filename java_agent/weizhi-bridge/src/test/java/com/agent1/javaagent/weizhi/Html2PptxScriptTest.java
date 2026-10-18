@@ -1025,6 +1025,44 @@ class Html2PptxScriptTest {
         </body></html>
         """;
 
+    /** exportDeckPages（T8 HTML 源工作流的预览载体）：每页 PNG 落盘、不组 pptx。 */
+    @Test
+    void exportsDeckPagesThroughMockWebView(@TempDir Path agentRoot) throws Exception {
+        AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        Path workspace = agentRoot.resolve("ws");
+        Files.createDirectories(workspace.resolve("jobs"));
+        Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
+
+        AtomicReference<Map<String, Object>> seen = new AtomicReference<>();
+        ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) -> {
+            seen.set(arguments);
+            String shots = "{\"slides\":[" + shotJson(1280, 720) + "," + shotJson(1280, 720) + "]}";
+            return mockWebViewReceipt(workspace, arguments, shots);
+        });
+        try (engine) {
+            String out = engine.evalForAgent("""
+                import { exportDeckPages } from "weizhi:html2pptx";
+                export default await exportDeckPages({ htmlPath: "deck.html" });
+                """, null, 30_000, new CancellationToken(), "jobs/run.js");
+            assertTrue(out.contains("\"ok\":true"), out);
+            assertTrue(out.contains("\"pages\":2"), out);
+            assertTrue(out.contains("deck-pages/page-1.png"), out);
+        }
+        Path p1 = workspace.resolve("deck-pages/page-1.png");
+        Path p2 = workspace.resolve("deck-pages/page-2.png");
+        assertTrue(Files.isRegularFile(p1) && Files.isRegularFile(p2), "每页 PNG 应落盘");
+        byte[] head = Files.readAllBytes(p1);
+        assertEquals(0x89, head[0] & 0xff, "PNG 魔数");
+        // 回执临时件清理
+        try (var list = Files.list(workspace.resolve("tmp"))) {
+            assertEquals(0, list.filter(p -> {
+                String n = p.getFileName().toString();
+                return n.startsWith("html2pptx-pages-input-") || n.startsWith("html2pptx-pages-");
+            }).count());
+        }
+    }
+
     private static String shotJson(int w, int h) {
         return "{\"w\":" + w + ",\"h\":" + h + ",\"b64\":\"" + PNG_B64 + "\"}";
     }
