@@ -56,12 +56,17 @@ Registry URL（可配置，默认微智官方）
 
 **配置（Agent1 覆盖，Weizhi 提供默认 URL 常量）**：
 
-- 环境变量：`AGENT1_WEIZHI_PACKAGE_REGISTRY_URL`（名称可最终与 weizhi 对齐）
-- 或 `agent.manifest.json` 新字段（与 `AGENT1_CATALOG_MANIFEST_URL` 并列）
+- 环境变量：`AGENT1_WEIZHI_PACKAGE_REGISTRY_URL`（**已实现**，`WeizhiPackageSync.registryUrl()`）
+- 系统属性：`agent1.weizhi.package.registry.url`（测试用，同上优先级在环境变量之后）
+- 或 `agent.manifest.json` 新字段（与 `AGENT1_CATALOG_MANIFEST_URL` 并列，未实现）
 
 ## 5. Agent1 集成点
 
 已落地：`WeizhiPackageSync` 在桌面和 Android 的 `evalForAgent` 之前扫描 `weizhi:`，调用 `PackageRegistryClient.ensureInstalled`。同一份 `packages/registry/stable.json` 里的 `cards`（没有 cards 时用 `capability`）整批替换 find_caps 中 `source=registry` 的行。内置种子保留；同 id 时清单行覆盖种子。每个 name 只有清单上的当前版本。`AGENT1_WEIZHI_PACKAGE_REGISTRY=off` 关闭。这些包已经装在本地且网络失败时，脚本继续跑。
+
+**只升不降**（2026-10 修复）：本地已装版本高于清单版本时保留本地，不发生「线上滞后把内置新包回退」——版本按 x.y.z 三段数字比较，任一侧解析失败回退旧的「同步清单版本」行为。自定义 registry 地址时 zip 白名单自动加入该地址 host，清单缓存写 `registry-cache-custom.json` 不污染生产缓存。
+
+**本地/测试不必上云**：`WeizhiPackageSyncLocalRegistryTest` 用回环 `HttpServer` 自建 registry（manifest + zip 全本地），通过系统属性指过去即可完整走 ensure 流程；上云灰度时也可用 `--channel staging` 打出独立清单再配 `AGENT1_WEIZHI_PACKAGE_REGISTRY_URL` 指向测试地址。
 
 ### 5.1 find_caps
 
