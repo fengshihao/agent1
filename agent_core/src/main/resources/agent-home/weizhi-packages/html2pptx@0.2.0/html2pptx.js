@@ -537,8 +537,10 @@ function nativeCaptureCode(width, height, scale) {
       "    for (var i = 0; i < slide.elements.length; i++) {",
       "      var el = slide.elements[i];",
       "      var isImg = el.tag === 'img' || el.tag === 'canvas' || el.tag === 'svg' || el.tag === 'video';",
+      "      var gradText = el.textRuns && el.textRuns.length && el.bgImage",
+      "        && String(el.bgImage).indexOf('gradient') >= 0 && el.font && el.font.color === '#000000';",
       "      if (el.shadow) { out.push(expanded(el.rect, el.shadow)); }",
-      "      else if (isImg || el.imgOmitted) { out.push(el.rect); }",
+      "      else if (isImg || el.imgOmitted || gradText) { out.push(el.rect); }",
       "    }",
       "    return out;",
       "  }",
@@ -923,6 +925,14 @@ function nativeSlide(slide, media, slideNo) {
     body += xml;
   }
 
+  // 渐变页背景 → 整页最底层矩形（WPS 对 p:bg 的 gradFill 不可靠，T5b 实测）
+  var gradBg = slide.bgImage ? parseGradient(slide.bgImage) : null;
+  if (gradBg) {
+    body += pageBackgroundSpXml(slide, gradBg, id);
+    id++;
+    shapeCount++;
+  }
+
   for (var i = 0; i < els.length; i++) {
     var el = els[i];
     if (!el || !el.rect || skip[i]) {
@@ -964,9 +974,13 @@ function nativeSlide(slide, media, slideNo) {
     if (el.shadow) {
       needs.push(needEntry(slideNo, el.rect, "shadow"));
     }
+    if (isGradientText(el)) {
+      // 渐变字独立走生成器时以渐变首色近似；native 集成模式由区域截图补真
+      needs.push(needEntry(slideNo, el.rect, "gradient text"));
+    }
   }
   return {
-    xml: nativeSlideXml(slideBackgroundXml(slide), body),
+    xml: nativeSlideXml(slideBackgroundXml(slide, gradBg), body),
     rels: rels,
     shapeCount: shapeCount,
     picCount: picCount,
@@ -1042,21 +1056,33 @@ function containsRect(outer, inner, tol) {
 }
 
 /** 页背景：纯色 solidFill；线性渐变 gradFill（CSS 角度→OOXML ang = (θ-90°)×60000）；radial 退化首色。 */
-function slideBackgroundXml(slide) {
+/**
+ * 页背景：渐变一律落整页最底层矩形（nativeSlide 里插入）——WPS 对 p:bg 的
+ * gradFill 渲染不可靠（20-A T5b 用户 WPS 实测封面背景不对）；p:bg 只留纯色
+ * （优先 slide.bg，否则渐变首色兜底，防渲染器不画矩形时白底）。
+ */
+function slideBackgroundXml(slide, gradBg) {
   var fill = null;
-  if (slide.bgImage) {
-    var grad = parseGradient(slide.bgImage);
-    if (grad) {
-      fill = grad.type === "linear" ? gradFillXml(grad) : solidFromStops(grad.stops);
-    }
-  }
-  if (!fill && slide.bg) {
+  if (slide.bg != null && isHexColor(slide.bg)) {
     fill = solidFillCss(slide.bg, 1);
+  } else if (gradBg && gradBg.stops.length) {
+    fill = solidFillCss(gradBg.stops[0].color, 1);
   }
   if (!fill) {
     return "";
   }
   return "<p:bg><p:bgPr>" + fill + "<a:effectLst/></p:bgPr></p:bg>";
+}
+
+/** 整页背景矩形（z 序最底，nativeSlide 的 body 首个节点）。 */
+function pageBackgroundSpXml(slide, grad, id) {
+  var fill = grad.type === "linear" ? gradFillXml(grad) : radialGradFillXml(grad.stops);
+  return (
+    "<p:sp><p:nvSpPr><p:cNvPr id=\"" + id + "\" name=\"background\"/>" +
+    "<p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm>" +
+    '<a:off x="0" y="0"/><a:ext cx="' + emu(slide.slideW) + '" cy="' + emu(slide.slideH) + '"/></a:xfrm>' +
+    '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' + fill + "<a:ln><a:noFill/></a:ln></p:spPr></p:sp>"
+  );
 }
 
 /** p:pic：svg 走 svgBlip 扩展（PNG 兜底在前、SVG 扩展在后），普通位图直接 blip。 */
@@ -1182,16 +1208,34 @@ function elementFillXml(el) {
   if (el.bgImage) {
     var grad = parseGradient(el.bgImage);
     if (grad) {
-      if (grad.type === "linear") {
-        return gradFillXml(grad);
-      }
-      return solidFromStops(grad.stops);
+      return grad.type === "linear" ? gradFillXml(grad) : radialGradFillXml(grad.stops);
     }
   }
   if (el.bg != null && isHexColor(el.bg)) {
     return solidFillCss(el.bg, 1);
   }
   return "<a:noFill/>";
+}
+
+/**
+ * radial → OOXML 射线渐变（path circle，中心 = fillToRect 全 50%），带各 stop
+ * alpha（如封面 deco 光点 rgba(125,211,192,.25)→transparent 65%）。此前退化为
+ * 首色纯色近似，WPS 实测是一块生硬半透明圆片（20-A T5b）。
+ */
+function radialGradFillXml(stops) {
+  if (!stops || !stops.length) {
+    return "<a:noFill/>";
+  }
+  if (stops.length < 2) {
+    return solidFillCss(stops[0].color, stops[0].alpha);
+  }
+  var gs = "";
+  for (var i = 0; i < stops.length; i++) {
+    gs += '<a:gs pos="' + Math.round(stops[i].pos * 100000) + '">'
+      + solidFillCss(stops[i].color, stops[i].alpha) + "</a:gs>";
+  }
+  return '<a:gradFill rotWithShape="1"><a:gsLst>' + gs
+    + '</a:gsLst><a:path path="circle"><a:fillToRect l="50000" t="50000" r="50000" b="50000"/></a:path></a:gradFill>';
 }
 
 function gradFillXml(grad) {
@@ -1204,13 +1248,6 @@ function gradFillXml(grad) {
 }
 
 /** radial 渐变的退化：取第一个 stop 的颜色与透明度做纯色近似。 */
-function solidFromStops(stops) {
-  if (!stops || !stops.length) {
-    return "<a:noFill/>";
-  }
-  return solidFillCss(stops[0].color, stops[0].alpha);
-}
-
 function solidFillCss(color, alpha) {
   if (!isHexColor(color)) {
     return "<a:noFill/>";
@@ -1295,23 +1332,47 @@ function txBodyXml(el) {
   var pPr = '<a:pPr algn="' + align + '" marL="0" indent="0">' +
     (pct ? "<a:lnSpc><a:spcPct val=\"" + pct + "\"/></a:lnSpc>" : "") +
     "</a:pPr>";
+  // 单行文本（rect 高 ≈ 一行行高）不折行：Office 字体度量与浏览器不同，
+  // 固定宽度下大字（如 ending 大字）会被迫折成两行（WPS 实测 20-A T5b）
+  var singleLine = el.rect && font.size > 0
+    && el.rect.h <= Math.max(font.size * 1.8, (font.lineHeight || 0) * 1.25);
   var runs = "";
   var faces = fontFaces(font.family);
+  var gradText = isGradientText(el);
   for (var i = 0; i < el.textRuns.length; i++) {
     var run = el.textRuns[i];
+    var color = run.color || font.color || "#000000";
+    if (gradText && color === "#000000") {
+      // background-clip:text 渐变字：transparent 提取 fallback 成黑——改用渐变首色近似
+      color = gradientFirstColor(el);
+    }
     runs += "<a:r><a:rPr lang=\"zh-CN\" sz=\"" + fontSz(run.size || font.size) +
       "\" b=\"" + (isBold(run.weight) ? "1" : "0") +
       "\" i=\"" + (run.italic ? "1" : "0") + "\"" +
       (run.underline ? ' u="sng"' : "") + ">" +
-      solidFillCss(run.color || font.color || "#000000", 1) +
+      solidFillCss(color, 1) +
       (faces.latin ? '<a:latin typeface="' + xmlEscape(faces.latin) + '"/>' : "") +
       (faces.ea ? '<a:ea typeface="' + xmlEscape(faces.ea) + '"/>' : "") +
       "</a:rPr><a:t>" + xmlEscape(run.text || "") + "</a:t></a:r>";
   }
   return (
-    '<p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"/><a:lstStyle/>' +
+    '<p:txBody><a:bodyPr wrap="' + (singleLine ? "none" : "square")
+    + '" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"/><a:lstStyle/>' +
     "<a:p>" + pPr + runs + "</a:p></p:txBody>"
   );
+}
+
+/** background-clip:text 渐变字：有文本 + 渐变背景图 + color transparent（提取 fallback #000000）。 */
+function isGradientText(el) {
+  return !!(el && el.textRuns && el.textRuns.length && el.bgImage
+    && String(el.bgImage).indexOf("gradient") >= 0
+    && el.font && el.font.color === "#000000");
+}
+
+/** 渐变字近似色：取首个色 stop。 */
+function gradientFirstColor(el) {
+  var grad = parseGradient(el.bgImage);
+  return grad && grad.stops.length ? grad.stops[0].color : "#000000";
 }
 
 function mapAlign(align) {

@@ -27,10 +27,10 @@ export default await renderHtmlDeck({
 });
 ```
 
-`mode:"native"` 一次渲染同时做几何提取 + 阴影/远程图区域截图，产物里文本是
-**可在 PowerPoint/WPS 选中改字**的原生文本框，卡片是原生圆角矩形，复杂效果
-（阴影、远程图片）以区域截图补真；失败自动回退整页截图（返回值 `fallback:true`
-带原因），产物始终可用。
+`mode:"native"` 一次渲染同时做几何提取 + 区域截图，产物里文本是
+**可在 PowerPoint/WPS 选中改字**的原生文本框，卡片是原生圆角矩形；图片与阴影
+等复杂效果一律以区域截图补真（视觉一致，图片本身不可二次替换）；失败自动回退
+整页截图（返回值 `fallback:true` 带原因），产物始终可用。
 
 ## 约定
 
@@ -49,5 +49,5 @@ export default await renderHtmlDeck({
 ## 限制（v0.2）
 
 - `screenshot` 模式产物每页是整页图片（观感优先、不可二次编辑）；要可编辑就用 `mode:"native"`。
-- `native` 模式的近似取舍：渐变 radial 退化为纯色、跨出截图区域的文字可能与区域截图边缘轻微重叠；**渐变文字（`background-clip:text`）会退化为黑字**，深底上不可读——大字收尾页请用纯色或接受截图模式。
+- `native` 模式的近似取舍：radial 渐变走射线渐变（path circle）保真；渐变文字（`background-clip:text`）与图片/阴影一样以区域截图补真；跨出截图区域的文字可能与区域截图边缘轻微重叠。
 - 需要网络（CDN 加载截图库与图表库）。

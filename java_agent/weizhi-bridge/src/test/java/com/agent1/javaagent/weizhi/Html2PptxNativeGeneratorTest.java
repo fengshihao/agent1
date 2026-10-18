@@ -61,7 +61,7 @@ class Html2PptxNativeGeneratorTest {
             assertTrue(out.contains("\"ok\":true"), out);
             assertTrue(out.contains("\"slides\":3"), out);
             assertTrue(out.contains("\"pictures\":2"), out);
-            assertTrue(out.contains("\"shapes\":22"), out);
+            assertTrue(out.contains("\"shapes\":23"), out);
             assertTrue(out.contains("\"reason\":\"shadow\""), "第三卡阴影应记入 needsScreenshot: " + out);
         }
 
@@ -70,13 +70,16 @@ class Html2PptxNativeGeneratorTest {
         try (ZipFile zip = new ZipFile(pptx.toFile())) {
             assertTrue(zipText(zip, "ppt/presentation.xml").contains("cx=\"12192000\" cy=\"6858000\""));
 
-            // 封面：渐变背景（135deg→ang 2700000，双色）+ deco 圆角渐变近似 + h1 原生文本框
+            // 封面：渐变背景（135deg→ang 2700000，双色）落整页最底层矩形（WPS 对 p:bg gradFill 不可靠）+ deco 射线渐变 + h1 原生文本框
             String s1 = zipText(zip, "ppt/slides/slide1.xml");
+            assertTrue(s1.contains("name=\"background\""), "渐变页背景应为整页底层矩形");
             assertTrue(s1.contains("<a:lin ang=\"2700000\""), "封面渐变角度应为 2700000");
             assertTrue(s1.contains("val=\"1a1423\"") && s1.contains("val=\"312846\""), "封面渐变双色");
+            assertTrue(s1.contains("<a:path path=\"circle\""), "radial deco 应为射线渐变而非纯色近似");
             assertTrue(s1.contains("prst=\"roundRect\"") && s1.contains("fmla=\"val 25000\""),
                 "deco 50% 圆角折算 130px/520px → adj 25000");
-            assertTrue(s1.contains("<a:alpha val=\"25000\"/>"), "radial 渐变退化为首色 alpha 近似");
+            assertTrue(s1.contains("<a:alpha val=\"25000\"/>"), "deco 首色 alpha 0.25 应保留");
+            assertTrue(s1.contains("wrap=\"none\""), "h1 单行文本不应折行");
             assertTrue(s1.contains("<a:off x=\"1047750\""), "h1 x=110px → EMU 1047750");
             assertTrue(s1.contains("sz=\"6600\"") && s1.contains("b=\"1\""), "h1 88px/800 → 6600 磅加粗");
             assertTrue(s1.contains("val=\"115000\""), "h1 行距 101.2/88 → 115%");

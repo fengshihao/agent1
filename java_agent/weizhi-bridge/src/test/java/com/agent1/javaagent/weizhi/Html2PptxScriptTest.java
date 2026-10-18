@@ -754,13 +754,16 @@ class Html2PptxScriptTest {
         </body></html>
         """;
 
-    /** 复杂样例（20-A T5 后续，用户要求）：覆盖表格/时间线/圆点/远图/KPI 网格/
-     * 圆形头像/双图表/引言等 native 尚未验证的特性。HTML2PPTX_SAMPLE_DIR 触发。 */
+    /** 复杂样例（20-A T5b，用户要求）：覆盖表格/时间线/圆点/远图/KPI 网格/
+     * 圆形头像/双图表/引言等 native 尚未验证的特性。8 页超 QuickJS 内存上限
+     * （T5b 实测），须显式 HTML2PPTX_COMPLEX_SAMPLE=1 + HTML2PPTX_SAMPLE_DIR 触发，
+     * 全量回归默认跳过。 */
     @Test
     void rendersComplexDeckSampleForComparison(@TempDir Path agentRoot) throws Exception {
         assumeTrue(CdpWebViewRuntime.isAvailable(), "需要本机 Chromium（CDP）");
         String dir = System.getenv("HTML2PPTX_SAMPLE_DIR");
         assumeTrue(dir != null && !dir.isBlank(), "HTML2PPTX_SAMPLE_DIR not set");
+        assumeTrue("1".equals(System.getenv("HTML2PPTX_COMPLEX_SAMPLE")), "复杂样例须显式开启");
         AgentHomeBootstrap.ensure(agentRoot);
         WeizhiBundledPackages.syncFromClasspath(agentRoot);
         Path out = Path.of(dir);
