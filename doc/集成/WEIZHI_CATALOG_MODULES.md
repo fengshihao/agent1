@@ -22,7 +22,7 @@ Skill 类能力**一律随微智包分发**，不再往 `agent-home/skills` 加�
 - 包 manifest 声明 `"skill": "SKILL.md"`，SKILL.md 随包打进 zip / assets（frontmatter `name` / `description` / `tags`）。
 - 安装链路（桌面 `WeizhiBundledPackages.syncFromClasspath`、registry `WeizhiPackageSync.beforeEval`、Android `WeizhiBundledInstall`）装完包后由 `agent_core` 的 `PackageSkills` 整批写 `kind=skill` 能力卡（`source=package_skill`，id `skill.<name>`、entry `skill:<name>`）。
 - `AgentSkillLoader.loadMerged` 在 bundled 与 project 之间加载包内 skill 正文（source 标 `package`）；local / catalog / project 同名可覆盖。
-- 首例：`html2pptx@0.2.0`（`doc/集成/HTML2PPTX.md`）。存量 `pptx`、`skill-creator` 仍是内置 skill 例外。
+- 首例：`html2pptx@0.2.1`（`doc/集成/HTML2PPTX.md`）。存量 `pptx`、`skill-creator` 仍是内置 skill 例外。
 
 ## 集成测
 

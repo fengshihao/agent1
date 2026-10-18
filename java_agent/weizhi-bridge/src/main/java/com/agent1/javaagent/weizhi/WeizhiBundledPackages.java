@@ -21,7 +21,7 @@ public final class WeizhiBundledPackages {
 
     public static final String VERSION = "1.0.0";
     public static final String PPTX_VERSION = "1.1.0";
-    public static final String HTML2PPTX_VERSION = "0.2.0";
+    public static final String HTML2PPTX_VERSION = "0.2.1";
 
     public static final List<String> BUNDLED_PACKAGE_NAMES =
         List.of("docx", "docx-raw", "docx-build", "pptx", "pptx-build", "svg-raster", "html2pptx");

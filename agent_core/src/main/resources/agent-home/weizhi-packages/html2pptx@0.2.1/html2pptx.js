@@ -30,6 +30,9 @@
  *   scale: 2,                     // 截图像素倍数（可选，默认 2）
  *   format: "png"                 // png | jpg（可选，默认 png，仅截图模式）
  * });
+ * // 截图模式/exportDeckPages 返回值带 overflow：[{p, over, el, text}]——内容越出
+ * // 页盒的页（越界 px、最深元素、是否含文字）。空数组=全部无溢出，不用再自查；
+ * // text:false 的越界多是装饰元素（deco 圆/光晕），属常见设计，模型自行判断。
  *
  * export default await extractDeckGeometry({
  *   htmlPath: "deck.html",        // 或 html 内联（此时 output 必填）
@@ -59,7 +62,7 @@ var MAX_SCALE = 3;
 var SHOT_TIMEOUT_MS = "300000";
 var MAX_ELEMENTS_PER_SLIDE = 800;
 var IMG_SRC_MAX_CHARS = 1024 * 1024;
-var PACKAGE_TAG = "html2pptx@0.2.0";
+var PACKAGE_TAG = "html2pptx@0.2.1";
 
 var LIB_URL = "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js";
 var LIB_TOKEN = "html-to-image";
@@ -178,7 +181,15 @@ async function renderScreenshotDeck(opts) {
     writePptxTree(buildDir, decoded, title, width, height);
     packDir(buildDir, output);
     var total = fs.readFileSync(output).length;
-    return { ok: true, path: output, slides: decoded.length, width: width, height: height, bytes: total };
+    return {
+      ok: true,
+      path: output,
+      slides: decoded.length,
+      width: width,
+      height: height,
+      bytes: total,
+      overflow: normalizeOverflow(payload && payload.over)
+    };
   } finally {
     if (!useOriginalFile) {
       unlinkQuiet(inputRel);
@@ -266,13 +277,29 @@ export async function exportDeckPages(options) {
       writeBytes(rel, bytes);
       files.push(rel);
     }
-    return { ok: true, dir: outputDir, pages: files.length, files: files };
+    return { ok: true, dir: outputDir, pages: files.length, files: files, overflow: normalizeOverflow(payload && payload.over) };
   } finally {
     if (!useOriginalFile) {
       unlinkQuiet(inputRel);
     }
     unlinkQuiet(shotsRel);
   }
+}
+
+/** 回执 over 字段防御性归一：只留 p/over 为正整数的条目，形状不对返回空数组。 */
+function normalizeOverflow(over) {
+  if (!over || typeof over.length !== "number") {
+    return [];
+  }
+  var out = [];
+  for (var i = 0; i < over.length; i++) {
+    var o = over[i];
+    if (!o || typeof o.p !== "number" || typeof o.over !== "number" || !(o.over > 0)) {
+      continue;
+    }
+    out.push({ p: o.p, over: Math.round(o.over), el: String(o.el || ""), text: !!o.text });
+  }
+  return out;
 }
 
 /**
@@ -346,9 +373,47 @@ function deckLoadCode(width, height, needLib) {
   return lines;
 }
 
-/** 在 webview_exec 里跑的截图代码：iframe 渲染 deck HTML，逐页导出 base64。 */
+/**
+ * 溢出扫描段（captureCode 用，跑在 webview 里）：对每个 .slide 找出越界最深的
+ * 可见元素（任一方向超出页盒即被截图裁掉），text 标记该元素是否含文字——
+ * 装饰元素（deco 圆、出界光晕）越界是常见设计，模型据 text 判断是否真问题。
+ * 只返回有越界的页：[{p, over(px), el(首个类名/标签), text}]。
+ */
+function overflowScanLines() {
+  return [
+    "  function scanOverflow() {",
+    "    var out = [];",
+    "    for (var i = 0; i < nodes.length; i++) {",
+    "      var s = nodes[i];",
+    "      var sb = s.getBoundingClientRect();",
+    "      var worst = 0, worstEl = '', worstText = false;",
+    "      var els = s.querySelectorAll('*');",
+    "      for (var j = 0; j < els.length; j++) {",
+    "        var el = els[j];",
+    "        var st = win.getComputedStyle(el);",
+    "        if (!st || st.display === 'none' || st.visibility === 'hidden' || st.position === 'fixed') { continue; }",
+    "        var r = el.getBoundingClientRect();",
+    "        if (r.width < 1 && r.height < 1) { continue; }",
+    "        var d = Math.round(Math.max(0, sb.top - r.top, sb.left - r.left, r.bottom - sb.bottom, r.right - sb.right));",
+    "        if (d > worst) {",
+    "          worst = d;",
+    "          worstEl = (typeof el.className === 'string' && el.className.trim())",
+    "            ? el.className.trim().split(/\\s+/)[0] : el.tagName.toLowerCase();",
+    "          worstText = !!(el.textContent && el.textContent.trim());",
+    "        }",
+    "      }",
+    "      var sOver = Math.round(Math.max(0, s.scrollHeight - s.clientHeight, s.scrollWidth - s.clientWidth));",
+    "      if (sOver > worst) { worst = sOver; worstEl = '(content)'; worstText = true; }",
+    "      if (worst > 0) { out.push({ p: i + 1, over: worst, el: worstEl, text: worstText }); }",
+    "    }",
+    "    return out;",
+    "  }"
+  ];
+}
+
+/** 在 webview_exec 里跑的截图代码：iframe 渲染 deck HTML，逐页导出 base64，并收集每页溢出信息。 */
 function captureCode(width, height, scale, format, quality) {
-  return deckLoadCode(width, height, true).concat([
+  return deckLoadCode(width, height, true).concat(overflowScanLines(), [
     "  if (broken.length) {",
     "    throw new Error('图片加载失败: ' + broken.join(', ') + '（相对路径需指向 workspace 内已有图片）');",
     "  }",
@@ -368,7 +433,8 @@ function captureCode(width, height, scale, format, quality) {
     "    slides.push({ w: w, h: h, b64: String(dataUrl).split(',')[1] });",
     "  }",
     "  function merge(a, b) { var o = {}; for (var k in a) { o[k] = a[k]; } for (var k2 in b) { o[k2] = b[k2]; } return o; }",
-    "  return JSON.stringify({ slides: slides });",
+    "  var over = scanOverflow();",
+    "  return JSON.stringify({ slides: slides, over: over });",
     "})();"
   ]).join("\n");
 }

@@ -177,6 +177,50 @@ class Html2PptxScriptTest {
     }
 
     @Test
+    void returnsOverflowFromWebViewScan(@TempDir Path agentRoot) throws Exception {
+        AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        Path workspace = agentRoot.resolve("ws");
+        Files.createDirectories(workspace.resolve("jobs"));
+        Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
+
+        AtomicReference<String> seenCode = new AtomicReference<>();
+        // 一页文字越界（真问题）、一页 deco 出界（正常设计）
+        String shots = "{\"slides\":[" + shotJson(1280, 720) + "," + shotJson(1280, 720) + "],"
+            + "\"over\":[{\"p\":2,\"over\":36,\"el\":\"kpis\",\"text\":true},"
+            + "{\"p\":1,\"over\":160,\"el\":\"glow\",\"text\":false}]}";
+        ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) -> {
+            seenCode.set(String.valueOf(arguments.get("code")));
+            return mockWebViewReceipt(workspace, arguments, shots);
+        });
+        String out;
+        try (engine) {
+            out = engine.evalForAgent("""
+                import { renderHtmlDeck } from "weizhi:html2pptx";
+                export default await renderHtmlDeck({ htmlPath: "deck.html", output: "out/deck.pptx" });
+                """, null, 30_000, new CancellationToken(), "jobs/run.js");
+        }
+        assertTrue(out.contains("\"ok\":true"), out);
+        assertTrue(out.contains("\"overflow\":[{\"p\":2,\"over\":36,\"el\":\"kpis\",\"text\":true}"), out);
+        assertTrue(out.contains("\"el\":\"glow\",\"text\":false"), out);
+        // 下发给 webview 的代码应带溢出扫描段，同趟截图零额外往返
+        String code = seenCode.get();
+        assertTrue(code.contains("scanOverflow"), code);
+
+        // 旧形状回执（无 over 字段）→ overflow 空数组，不报错
+        ScriptEngine legacy = open(agentRoot, workspace, (toolName, arguments) ->
+            mockWebViewReceipt(workspace, arguments,
+                "{\"slides\":[" + shotJson(1280, 720) + "," + shotJson(1280, 720) + "]}"));
+        try (legacy) {
+            String out2 = legacy.evalForAgent("""
+                import { renderHtmlDeck } from "weizhi:html2pptx";
+                export default await renderHtmlDeck({ htmlPath: "deck.html", output: "out/deck2.pptx" });
+                """, null, 30_000, new CancellationToken(), "jobs/run.js");
+            assertTrue(out2.contains("\"overflow\":[]"), out2);
+        }
+    }
+
+    @Test
     void rejectsShotsWithoutImageMagic(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
         WeizhiBundledPackages.syncFromClasspath(agentRoot);

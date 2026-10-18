@@ -14,6 +14,9 @@ tags: pptx,ppt,html,幻灯片,演示,设计,版式
 1. **生成**：按下面页型骨架写 `deck.html`（骨架起步，别自由发挥结构）。
 2. **预览**：`exportDeckPages({htmlPath:"deck.html"})` 出每页 PNG → 给用户看
    （移动端宿主直接打开 workspace 图片；桌面也可让用户用浏览器开 deck.html）。
+   返回值带 `overflow: [{p, over, el, text}]`——内容越出页盒的页与元素，
+   **导出前先看它**：`text:true` 的越界（文字被裁）改 HTML 收掉再导出；
+   `text:false` 多是出界 deco/光晕，属正常设计。`[]` = 全部无溢出，无需自查。
    Android 端有更好的交互预览：deck.html 交付后用户可在聊天里打开 HTML 预览，
    审查模式可直接**点选元素**把 selector 反馈给 AI——优先引导用户走这条路。
 3. **指点修改**：用户说「第 2 页左上角大标题太大」「封面换成深蓝」——读
@@ -30,7 +33,8 @@ export default await renderHtmlDeck({
   // mode: "native",           // 需要接收方在 PowerPoint/WPS 里改字时用：
                                // 文字原生可编辑，图片/阴影/表格/渐变字走区域截图
 });
-// 预览/图片页：exportDeckPages({ htmlPath: "deck.html" }) → deck-pages/page-N.png
+// 返回值 overflow 字段同 exportDeckPages；预览/图片页：
+// exportDeckPages({ htmlPath: "deck.html" }) → deck-pages/page-N.png
 ```
 
 打开产物：`android.intent.start({ action: "view", path })`。

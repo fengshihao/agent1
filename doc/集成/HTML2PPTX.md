@@ -1,6 +1,6 @@
 # html2pptx.js — HTML 自由版式生成 PPT（v0.2 截图 + native + 页图导出）
 
-真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx@0.2.0/html2pptx.js`（桌面 classpath 安装）；Android 从云端 registry 动态安装（APK 不预装，`agentone.guoyoutech.cn/packages/html2pptx/0.2.0/`）。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`；使用说明（skill 正文）**随包分发**：包内 `SKILL.md`（manifest 的 `skill` 字段声明），安装后由 `PackageSkills` 写入 `kind=skill` 能力卡（`source=package_skill`），`find_caps` 查 html2pptx 会同时命中包卡与 skill 卡，正文由 `AgentSkillLoader` 从已安装包加载。
+真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx@0.2.1/html2pptx.js`（桌面 classpath 安装）；Android 从云端 registry 动态安装（APK 不预装，`agentone.guoyoutech.cn/packages/html2pptx/0.2.1/`）。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`；使用说明（skill 正文）**随包分发**：包内 `SKILL.md`（manifest 的 `skill` 字段声明），安装后由 `PackageSkills` 写入 `kind=skill` 能力卡（`source=package_skill`），`find_caps` 查 html2pptx 会同时命中包卡与 skill 卡，正文由 `AgentSkillLoader` 从已安装包加载。
 
 **推荐工作流（20-A T8，「HTML 源模式」）**：deck.html 是资产（workspace 根、不清理）→ `exportDeckPages` 出每页 PNG 给用户预览 → 用户指点、AI 改 HTML、再预览（迭代闭环）→ 满意后 `renderHtmlDeck` 导出。可编辑性的主战场在 HTML 源（AI 改 HTML 比改 PPT 容易一个数量级）；PPT 只是导出快照，native 模式服务「接收方要在 PowerPoint/WPS 手动改字」的场景。云端导出（PDF/Word/Keynote 版式化）在规划中。
 
@@ -21,8 +21,10 @@ export default await renderHtmlDeck({
   format: "png",           // png | jpg（仅截图模式）
   quality: 0.92            // 仅 jpg
 });
-// 截图：{ ok, path, slides, width, height, bytes }
-// native：{ ok, path, slides, shapes, pictures, needsScreenshot, bytes, mode, fallback }
+// 截图：{ ok, path, slides, width, height, bytes, overflow }
+//   overflow: [{p, over, el, text}]——内容越出页盒的页（越界 px/最深元素/是否含文字），
+//   空数组=全部无溢出；text:false 多是出界 deco/光晕属正常设计（模型自行判断）
+// native：{ ok, path, slides, shapes, pictures, needsScreenshot, bytes, mode, fallback }（无 overflow）
 ```
 
 ### native 模式（20-A T4）
