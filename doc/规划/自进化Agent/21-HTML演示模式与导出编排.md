@@ -50,10 +50,10 @@
 | 任务 | 内容 | 状态 |
 |------|------|------|
 | T1 | deck 检测 + 缩放适配 + 全屏沉浸（预览页改造） | 完成（2026-10-18，落地结论见下） |
-| T2 | 翻页手势 + 页码指示 + 屏幕常亮 | 未开始 |
-| T3 | 导出按钮 → 用户消息回填 → AI renderHtmlDeck（mode 由按钮决定） | 未开始 |
-| T4 | html2pptx SKILL.md 工作流修订（预览前置、导出由用户触发） | 未开始 |
-| T5 | 真机验收：投屏演示一轮 + 点选修改 + 两种导出 | 未开始 |
+| T2 | 翻页手势 + 页码指示 + 屏幕常亮 | 完成（2026-10-19，落地结论见下） |
+| T3 | 导出按钮 → 用户消息回填 → AI renderHtmlDeck（mode 由按钮决定） | 完成（2026-10-19，落地结论见下） |
+| T4 | html2pptx SKILL.md 工作流修订（预览前置、导出由用户触发） | 完成（2026-10-19，bump 0.2.2 本地；云端发布待确认） |
+| T5 | 真机验收：投屏演示一轮 + 点选修改 + 两种导出 | 未开始（需真机，验收用例见 §5） |
 
 ### T1 落地结论（2026-10-18）
 
@@ -86,6 +86,46 @@
 - **留给 T2 的衔接**：翻页在 wrapper 化后的页序列上做（scrollIntoView/translateY 或
   WebView 逐页截图缓存均可）；「审查开着是编辑视角、关掉是演示视角」的互斥在 T2 实现
   （当前全屏时审查底栏仅隐藏不禁用，退出全屏恢复）。
+
+### T2 落地结论（2026-10-19）
+
+- **`logic/business/DeckPagerScript`**（对齐 HtmlInspectScript 常量模式）：进全屏装、
+  退出卸，与 `DeckFitScript`（编辑视角）互斥——Kotlin 侧编排顺序
+  「进：fit.UNINSTALL → pager.INSTALL；退：pager.UNINSTALL → fit.INSTALL」。
+  结构：`.slide` 移入 `position:fixed` 全屏 pager（横向 flex + `scroll-snap-type:x
+  mandatory`，每页 `flex:0 0 100%` 一屏一页），slide `scale(min(视口宽/页宽,
+  视口高/页高))` **整页 fit 居中**（区别于编辑视角的按宽适配：横屏 16:9 铺满、
+  竖屏上下留边像手机看 PPT）。UNINSTALL 依据安装时记的 expando
+  `__agent1DeckOrigin`（原父节点+后兄弟）还原 DOM。
+- **翻页**：横向滑动（scroll-snap 原生）+ 左右各 1/3 屏点击区（`__agent1DeckNext/Prev`）；
+  中间 1/3 不消费触摸穿透 WebView。音量键翻页未做（需 hook Activity
+  dispatchKeyEvent，侵入 MainActivity；§3 的候选项，真机验收后再定）。
+- **页码**：scroll 80ms 防抖 → `Agent1Deck.onPageChanged({"page","total"})` 专用桥
+  （无 eval 能力）→ 底部半透明 pill「3/16」。热更新 reload 后 onPageFinished 重建
+  pager 并 `goToJs(当前页)` 恢复页位。`parsePageEvent` 容错解析（缺字段/越界/坏 JSON → null）。
+- **常亮**：全屏 `keepScreenOn`（DisposableEffect，退出/离开组合复位）。
+- **互斥实现**：进全屏自动关审查模式（编辑↔演示两个视角），退出全屏恢复垂直滚动适配。
+- 测试：`DeckPagerScriptTest`（幂等/snap/双轴 fit/桥/翻页 API/还原锚点 + 解析容错 8 用例）。
+
+### T3 落地结论（2026-10-19）
+
+- deck 预览底栏「导出 PPT」按钮（非全屏、无点选选中时显示）→ `ModalBottomSheet`
+  半屏两选项：**可编辑版**（mode:"native"，说明「PowerPoint/WPS 可改字，复杂效果以图保真」）
+  / **原样版**（整页截图，「观感 100%」）。
+- 选择后 `DeckExportComposer.compose(relativePath, editable)` 组装**用户消息**（含
+  renderHtmlDeck + 明确 mode 与输出名），复用 `onSendFeedback` 通道发送给当前会话 AI；
+  Toast 告知「生成后产物会出现在对话里」。AI 收到的是带完整参数的用户指令——
+  导出决策从 AI 端挪到用户端。测试 `DeckExportComposerTest`。
+
+### T4 落地结论（2026-10-19）
+
+- `html2pptx@0.2.2`（目录 + manifest + `WeizhiBundledPackages.HTML2PPTX_VERSION`）：
+  SKILL.md 工作流改「**用户触发导出**」——①生成后只交付 deck.html 不立刻导出；
+  ②预览首选 Android 宿主演示模式（自动 deck 检测/全屏翻页/点选审查），
+  `exportDeckPages` 降为桌面/无宿主手段；④「用户没点导出按钮、没明说导出就不
+  renderHtmlDeck」。description 同步。
+- **云端发布待用户确认**（artifact-cdn pack+upload 0.2.2）——Android 端下次 run_js
+  自动升级依赖云端 registry 更新；桌面 classpath 已是 0.2.2。
 
 ## 5. 验收用例
 

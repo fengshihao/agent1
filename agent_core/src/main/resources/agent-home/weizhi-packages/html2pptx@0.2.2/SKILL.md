@@ -1,28 +1,31 @@
 ---
 name: html2pptx
-description: 用户要 PPT 且需要自由版式、设计感（配色、渐变、卡片、图表混排）时使用。工作流：生成 slide HTML（每页一个 class="slide"，1280×720）→ 预览给用户指点修改 → 满意后导出 pptx（默认整页截图；要可改字用 mode:"native"）。快速结构化内容仍用 pptx skill。
+description: 用户要 PPT 且需要自由版式、设计感（配色、渐变、卡片、图表混排）时使用。工作流：生成 slide HTML（每页一个 class="slide"，1280×720）→ 用户在宿主预览里指点修改（或点选审查）→ 用户点导出按钮/明说导出才导出 pptx（原样版截图观感 100%；可编辑版 mode:"native"）。快速结构化内容仍用 pptx skill。
 tags: pptx,ppt,html,幻灯片,演示,设计,版式
 ---
 
 # 用 HTML 排版生成 PPT
 
-## 工作流：HTML 是源，导出是最后一步
+## 工作流：HTML 是源，导出由用户触发
 
 **deck.html 是资产**：放 workspace 根、固定命名、绝不清理；迭代改的是 HTML，
 导出产物只是快照。
 
 1. **生成**：按下面页型骨架写 `deck.html`（骨架起步，别自由发挥结构）。
-2. **预览**：`exportDeckPages({htmlPath:"deck.html"})` 出每页 PNG → 给用户看
-   （移动端宿主直接打开 workspace 图片；桌面也可让用户用浏览器开 deck.html）。
-   返回值带 `overflow: [{p, over, el, text}]`——内容越出页盒的页与元素，
-   **导出前先看它**：`text:true` 的越界（文字被裁）改 HTML 收掉再导出；
-   `text:false` 多是出界 deco/光晕，属正常设计。`[]` = 全部无溢出，无需自查。
-   Android 端有更好的交互预览：deck.html 交付后用户可在聊天里打开 HTML 预览，
-   审查模式可直接**点选元素**把 selector 反馈给 AI——优先引导用户走这条路。
+   写完**交付 deck.html 本身即可，不要立刻导出**，让用户先进预览。
+2. **预览**（Android 宿主首选）：用户在聊天里打开 deck.html → 宿主自动进
+   deck 演示模式：全屏翻页（左右滑/点两侧）、页码、投屏演示；开审查模式可
+   **点选元素**把 selector 反馈给 AI。引导用户走这条路，不要先出 PNG。
+   桌面/无宿主预览时才用 `exportDeckPages({htmlPath:"deck.html"})` 出每页 PNG；
+   其返回值带 `overflow: [{p, over, el, text}]`（内容越出页盒的页与元素）——
+   `text:true` 的越界（文字被裁）改 HTML 收掉；`text:false` 多是出界 deco/光晕
+   属正常设计。`[]` = 全部无溢出。
 3. **指点修改**：用户说「第 2 页左上角大标题太大」「封面换成深蓝」——读
    deck.html 定位（第 N 个 `section.slide` + 语义 class；用户点选反馈会带
-   cssSelector），`edit_file` 改，重新预览确认。循环到用户满意。
-4. **导出**（用户确认后才做）：
+   cssSelector），`edit_file` 改，预览会自动刷新。循环到用户满意。
+4. **导出（用户触发才做）**：Android 预览页有「导出 PPT」按钮，用户点了会以
+   用户消息发来明确指令（可编辑版/原样版，照做即可）；用户**没点按钮、没明说
+   「导出」就不要 renderHtmlDeck**。用户明说时按需求选 mode：
 
 ```javascript
 import { renderHtmlDeck, exportDeckPages } from "weizhi:html2pptx";
