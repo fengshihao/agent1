@@ -85,7 +85,7 @@ public final class OfficeCatalogInstrumentedTest {
     }
 
     /** 独立 agentRoot；beforeEval 对源里 import 的包做云端 ensure（下载安装）。 */
-    private static Setup prepare(String name, String src) {
+    private static Setup prepare(String name, String src) throws java.io.IOException {
         Path agentRoot = new File(context().getFilesDir(), "agent-" + name + "-" + System.nanoTime()).toPath();
         AgentHomeBootstrap.ensure(agentRoot);
         String packageRoot = WeizhiPackages.syncBundled(context());
@@ -95,7 +95,7 @@ public final class OfficeCatalogInstrumentedTest {
         return new Setup(packageRoot, dir);
     }
 
-    private static WeizhiEngine engine(Setup setup) {
+    private static WeizhiEngine engine(Setup setup) throws Exception {
         WeizhiEngine engine = new WeizhiEngine();
         AndroidCaps.install(engine, new AndroidCaps.Session(context(), setup.workspace));
         engine.setPackageRoot(setup.packageRoot);

@@ -13,6 +13,8 @@ Weizhi 主干已移除 **`setScriptFolder` / `import "leaf.js"`**，官方 JS �
 
 内置 Office / SVG 脚本真源：`agent_core/.../agent-home/weizhi-packages/<name>@<version>/`（桌面 classpath 安装；pptx 当前为 `1.1.0`）。**Android 不预装**（20-A 收口）：首次 `run_js` 由 `WeizhiPackageSync.beforeEval` 从云端 registry（`agentone.guoyoutech.cn`）动态安装，发布走 `artifact-cdn` 的 `pack.mjs + upload.sh`。
 
+**例外——video（issue #98，2026-10-20）**：`weizhi:video`（video@0.3.0）与插件 SO（`libweizhivideo.so` / `libweizhitranscode.so`）强版本耦合，**不上云 registry**，随 `:weizhi-video` AAR 原子交付进 APK（SO 走 jniLibs、JS 包走 AAR assets，`WeizhiPackages.syncBundled` 自动安装）；引擎侧 `WeizhiVideo.install(engine)` 注册插件。写法：`import { exportVideo } from "weizhi:video"`（remux 剪辑/拼接；`reencode`/`filters` 走 transcode）。桌面无 MediaCodec，`ensureNative` 报 unsupported 属预期。
+
 **给模型的写法**：`import { markdownToDocx } from "weizhi:docx"`、`import { renderPptx } from "weizhi:pptx"` 等。workspace 内协作用 `import "./helper.js"`。
 
 ## 随包 Skill（2026-10-17 起，T0 规范）
@@ -28,6 +30,7 @@ Skill 类能力**一律随微智包分发**，不再往 `agent-home/skills` 加�
 
 - `DocxOfficeIntegrationTest` / `PptxOfficeIntegrationTest`（`:weizhi-bridge:test`，需 `libweizhijni`）
 - `OfficeCatalogInstrumentedTest`（Android 真机，云端 registry 动态安装，需联网）
+- `VideoExportInstrumentedTest`（Android 真机，AAR assets 离线装包 + remux 掐头去尾冒烟，无需联网）
 
 ## 关联
 

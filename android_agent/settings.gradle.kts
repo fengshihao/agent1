@@ -39,7 +39,8 @@ if (weizhiAndroidSource != null) {
         settings.rootDir.resolve("weizhi-maven-publish.gradle"),
         overwrite = true,
     )
-    include(":weizhi", ":caps")
+    include(":weizhi", ":caps", ":weizhi-video")
     project(":weizhi").projectDir = root.resolve("weizhi")
     project(":caps").projectDir = root.resolve("caps")
+    project(":weizhi-video").projectDir = root.resolve("weizhi-video")
 }

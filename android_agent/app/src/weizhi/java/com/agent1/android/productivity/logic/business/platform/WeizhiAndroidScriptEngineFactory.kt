@@ -51,6 +51,10 @@ class WeizhiAndroidScriptEngineFactory(
             session.launchIntent = true
             session.launchShareSheet = true
             AndroidCaps.install(engine, session)
+            // 视频剪辑插件（issue #98）：注册 video/transcode 内置插件（SO 随
+            // :weizhi-video AAR jniLibs 落 nativeLibraryDir）；weizhi:video JS 包
+            // 随同一 AAR assets 交付，syncBundled 已自动安装，无需另装。
+            com.weizhi.video.WeizhiVideo.install(engine)
             WeizhiScriptToolInstaller.install(engine, scriptToolBridge)
         }
 

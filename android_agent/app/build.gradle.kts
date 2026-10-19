@@ -231,6 +231,10 @@ dependencies {
     if (findProject(":weizhi") != null) {
         implementation(project(":weizhi"))
         implementation(project(":caps"))
+        if (findProject(":weizhi-video") != null) {
+            // 视频剪辑（issue #98）：插件 SO + weizhi:video JS 包随 AAR 原子交付，syncBundled 自动安装。
+            implementation(project(":weizhi-video"))
+        }
     } else if (weizhiPrebuiltBase != null) {
         val coords = Properties().apply {
             weizhiPrebuiltBase.resolve("coordinates.properties").inputStream().use { load(it) }
