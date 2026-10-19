@@ -124,8 +124,9 @@
   ②预览首选 Android 宿主演示模式（自动 deck 检测/全屏翻页/点选审查），
   `exportDeckPages` 降为桌面/无宿主手段；④「用户没点导出按钮、没明说导出就不
   renderHtmlDeck」。description 同步。
-- **云端发布待用户确认**（artifact-cdn pack+upload 0.2.2）——Android 端下次 run_js
-  自动升级依赖云端 registry 更新；桌面 classpath 已是 0.2.2。
+- **云端发布完成**（2026-10-19，用户确认后 pack+upload）：云端 registry 与 zip 均为
+  0.2.2，sha256 `0d2438a4…731334fc` 三方核对一致（本地 zip / 云端清单 / 云端 zip 下载
+  实测）；Android 端下次 run_js 自动升级。
 
 ## 5. 验收用例
 
