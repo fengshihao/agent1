@@ -27,6 +27,12 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # html2pptx 几何 fixture 由 macOS Chrome（PingFang SC）生成；runner 无 CJK 字体时
+      # 中文文本块行高差 8px+ 超 6px 容差（第 1 页 rect.h 42 vs 34 实测）。补 Noto CJK
+      # 让 Linux Chrome 的 fallback 行高进入容差，提取链路在 CI 上真实化。
+      - name: Install CJK fonts
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
       - name: Run tests (Weizhi optional)
         run: |
           set -euo pipefail
