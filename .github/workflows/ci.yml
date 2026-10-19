@@ -46,6 +46,17 @@ jobs:
             ./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test
           fi
 
+      # 失败时上传测试 XML/报告：live CDP vs fixture 的断言细节（页码/元素数/坐标差）
+      # 只在 XML 里，gradle 摘要不打印——没有它排查跨平台差异只能靠猜。
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-results
+          path: java_agent/weizhi-bridge/build/test-results/test/
+          retention-days: 7
+          if-no-files-found: ignore
+
   quality-static:
     runs-on: ubuntu-latest
     timeout-minutes: 25

@@ -323,12 +323,34 @@ class Html2PptxExtractTest {
             assertSameOptional(f, l, "bgImage", where + " bgImage（Chrome 渐变序列化变化？HTML2PPTX_UPDATE_FIXTURES=1 重生成）");
             JsonArray le = l.getAsJsonArray("elements");
             JsonArray fe = f.getAsJsonArray("elements");
+            if (fe.size() != le.size()) {
+                // 跨平台字体回退会多/少提取一个元素；打印序列让 CI 日志直接可见差异在哪。
+                System.out.println("[fixture-diff] " + where + " fixture=" + fe.size() + " live=" + le.size());
+                System.out.println("[fixture-diff] fixture: " + summarizeElements(fe));
+                System.out.println("[fixture-diff] live    : " + summarizeElements(le));
+            }
             assertEquals(fe.size(), le.size(), where + " 元素数与 fixture 不一致（保留/跳过规则回归？）");
             for (int j = 0; j < fe.size(); j++) {
                 assertElementMatches(fe.get(j).getAsJsonObject(), le.get(j).getAsJsonObject(),
                     where + " 元素[" + j + "]");
             }
         }
+    }
+
+    /** 元素序列摘要（tag.cls），用于 fixture/live 数量不一致时的日志诊断。 */
+    private static String summarizeElements(JsonArray elements) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < elements.size(); i++) {
+            JsonObject e = elements.get(i).getAsJsonObject();
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(e.get("tag").getAsString());
+            if (e.has("cls") && !e.get("cls").isJsonNull()) {
+                sb.append('.').append(e.get("cls").getAsString());
+            }
+        }
+        return sb.toString();
     }
 
     private static void assertElementMatches(JsonObject f, JsonObject l, String where) {
