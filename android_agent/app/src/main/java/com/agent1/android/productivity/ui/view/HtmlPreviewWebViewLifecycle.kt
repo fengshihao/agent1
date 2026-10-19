@@ -2,6 +2,7 @@ package com.agent1.android.productivity.ui.view
 
 import android.view.ViewGroup
 import android.webkit.WebView
+import com.agent1.android.productivity.logic.business.DeckPagerScript
 import com.agent1.android.productivity.logic.business.HtmlInspectScript
 
 /**
@@ -96,6 +97,7 @@ internal class HtmlPreviewWebViewHost(webView: WebView) : HtmlPreviewWebViewLife
         val view = target ?: return
         target = null
         view.removeJavascriptInterface(HtmlInspectScript.BRIDGE_NAME)
+        view.removeJavascriptInterface(DeckPagerScript.BRIDGE_NAME)
         (view.parent as? ViewGroup)?.removeView(view)
         view.removeAllViews()
         view.destroy()

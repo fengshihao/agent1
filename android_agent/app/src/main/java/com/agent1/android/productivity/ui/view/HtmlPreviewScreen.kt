@@ -12,11 +12,13 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -26,15 +28,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -49,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -58,7 +64,9 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.agent1.android.productivity.logic.business.DeckExportComposer
 import com.agent1.android.productivity.logic.business.DeckFitScript
+import com.agent1.android.productivity.logic.business.DeckPagerScript
 import com.agent1.android.productivity.logic.business.ElementSelectorBuilder
 import com.agent1.android.productivity.logic.business.HtmlInspectParser
 import com.agent1.android.productivity.logic.business.HtmlInspectScript
@@ -109,6 +117,8 @@ fun HtmlPreviewScreen(
     var inspectEnabled by remember { mutableStateOf(false) }
     var selectedElement by remember { mutableStateOf<InspectedElement?>(null) }
     var opinion by remember { mutableStateOf("") }
+    var deckPage by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var showExportSheet by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var webViewHost by remember { mutableStateOf<HtmlPreviewWebViewHost?>(null) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
@@ -116,10 +126,30 @@ fun HtmlPreviewScreen(
     val chatState = chatViewModel?.state?.collectAsState()?.value
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 全屏演示时返回键先退全屏（再按才离预览页）。
-    BackHandler(enabled = fullscreen) { fullscreen = false }
+    // 进入演示视角（21 号 T2）：关审查（编辑/演示互斥）→ 撤垂直适配 → 装横向翻页 pager。
+    fun enterPresentation() {
+        fullscreen = true
+        deckPage = null
+        if (inspectEnabled) {
+            inspectEnabled = false
+            webView?.evaluateJavascript(HtmlInspectScript.DISABLE_JS, null)
+        }
+        selectedElement = null
+        webView?.evaluateJavascript(DeckFitScript.UNINSTALL_JS, null)
+        webView?.evaluateJavascript(DeckPagerScript.INSTALL_JS, null)
+    }
 
-    // 全屏隐藏系统栏（沉浸演示）；退出或离开组合时恢复，避免带着隐藏栏回到对话页。
+    // 退回编辑视角：撤 pager → 恢复垂直滚动适配。
+    fun exitPresentation() {
+        fullscreen = false
+        webView?.evaluateJavascript(DeckPagerScript.UNINSTALL_JS, null)
+        webView?.evaluateJavascript(DeckFitScript.INSTALL_JS, null)
+    }
+
+    // 全屏演示时返回键先退全屏（再按才离预览页）。
+    BackHandler(enabled = fullscreen) { exitPresentation() }
+
+    // 全屏隐藏系统栏（沉浸演示）+ 屏幕常亮（投屏不熄屏）；退出或离开组合时恢复。
     val rootView = LocalView.current
     DisposableEffect(fullscreen, rootView) {
         val window = (rootView.context as? Activity)?.window
@@ -131,7 +161,9 @@ fun HtmlPreviewScreen(
         } else {
             controller?.show(WindowInsetsCompat.Type.systemBars())
         }
+        rootView.keepScreenOn = fullscreen
         onDispose {
+            rootView.keepScreenOn = false
             if (fullscreen) controller?.show(WindowInsetsCompat.Type.systemBars())
         }
     }
@@ -178,7 +210,7 @@ fun HtmlPreviewScreen(
                                 TopBarIconButton(
                                     icon = AgentIcons.Fullscreen,
                                     contentDescription = "全屏演示",
-                                    onClick = { fullscreen = true },
+                                    onClick = ::enterPresentation,
                                 )
                             }
                             TopBarIconButton(
@@ -287,6 +319,23 @@ fun HtmlPreviewScreen(
                         }
                     }
                 }
+            } else if (deckMode && !fullscreen) {
+                // deck 专属：导出决策入口在用户手里（21 号 T3）——AI 不再擅自导出。
+                Column {
+                    AgentHairline()
+                    Surface(color = MaterialTheme.colorScheme.surface) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Button(onClick = { showExportSheet = true }) {
+                                Text("导出 PPT")
+                            }
+                        }
+                    }
+                }
             }
         },
     ) { innerPadding ->
@@ -332,6 +381,21 @@ fun HtmlPreviewScreen(
                                 },
                                 HtmlInspectScript.BRIDGE_NAME,
                             )
+                            if (deckMode) {
+                                // deck 演示桥：只回传页码（page/total），无 eval 能力。
+                                addJavascriptInterface(
+                                    object : Any() {
+                                        @JavascriptInterface
+                                        fun onPageChanged(json: String) {
+                                            val parsed = DeckPagerScript.parsePageEvent(json)
+                                            if (parsed != null) {
+                                                mainHandler.post { deckPage = parsed }
+                                            }
+                                        }
+                                    },
+                                    DeckPagerScript.BRIDGE_NAME,
+                                )
+                            }
                             webViewClient = object : WebViewClient() {
                                 override fun onPageFinished(view: WebView, url: String?) {
                                     // 页面（含跳转/刷新/热更新 reload）就绪后重装脚本；开关状态保持。
@@ -339,8 +403,14 @@ fun HtmlPreviewScreen(
                                     if (inspectEnabled) {
                                         view.evaluateJavascript(HtmlInspectScript.ENABLE_JS, null)
                                     }
-                                    if (deckMode) {
-                                        // deck 模式：缩放适配（.slide 包 wrapper + scale，幂等）。
+                                    if (deckMode && fullscreen) {
+                                        // 演示视角：重建 pager 并回到当前页（热更新不打断观看）。
+                                        view.evaluateJavascript(DeckPagerScript.INSTALL_JS, null)
+                                        deckPage?.first?.let { page ->
+                                            view.evaluateJavascript(DeckPagerScript.goToJs(page), null)
+                                        }
+                                    } else if (deckMode) {
+                                        // 编辑视角：缩放适配（.slide 包 wrapper + scale，幂等）。
                                         view.evaluateJavascript(DeckFitScript.INSTALL_JS, null)
                                     }
                                 }
@@ -370,8 +440,46 @@ fun HtmlPreviewScreen(
                 loadError?.let { message ->
                     PreviewErrorBox(message, Modifier.fillMaxSize())
                 }
-                // 全屏演示：右上角半透明退出按钮（返回键同效），避免只靠手势发现。
+                // 全屏演示：左右点击区翻页 + 底部页码 + 右上角半透明退出（返回键同效）。
                 if (fullscreen) {
+                    // 左右各 1/3 屏点击翻页；中间不消费触摸，穿透给 WebView（滑动本就翻页）。
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .weight(1f)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) { webView?.evaluateJavascript(DeckPagerScript.PREV_JS, null) },
+                        )
+                        Box(modifier = Modifier.weight(1f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .weight(1f)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) { webView?.evaluateJavascript(DeckPagerScript.NEXT_JS, null) },
+                        )
+                    }
+                    deckPage?.let { (page, total) ->
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = 0.45f),
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 20.dp),
+                        ) {
+                            Text(
+                                "$page/$total",
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color.White,
+                            )
+                        }
+                    }
                     Surface(
                         shape = CircleShape,
                         color = Color.Black.copy(alpha = 0.35f),
@@ -379,7 +487,7 @@ fun HtmlPreviewScreen(
                             .align(Alignment.TopEnd)
                             .padding(16.dp),
                     ) {
-                        IconButton(onClick = { fullscreen = false }) {
+                        IconButton(onClick = ::exitPresentation) {
                             Icon(
                                 imageVector = AgentIcons.FullscreenExit,
                                 contentDescription = "退出全屏",
@@ -392,6 +500,96 @@ fun HtmlPreviewScreen(
         } else {
             // resolve() 只有 error 或 file 两种结果；防御分支。
             PreviewErrorBox("无法预览：$relativePath", Modifier.fillMaxSize().padding(innerPadding))
+        }
+    }
+
+    if (showExportSheet) {
+        DeckExportSheet(
+            onDismiss = { showExportSheet = false },
+            onExport = { editable: Boolean ->
+                showExportSheet = false
+                // 用户消息回填对话：AI 收到明确指令才调 renderHtmlDeck 对应 mode。
+                val draft = DeckExportComposer.compose(relativePath, editable)
+                val ok = onSendFeedback(draft)
+                Toast.makeText(
+                    context,
+                    if (ok) {
+                        "已请求导出，生成后产物会出现在对话里"
+                    } else {
+                        "发送失败：模型忙碌或配置有误，稍后再试"
+                    },
+                    Toast.LENGTH_SHORT,
+                ).show()
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DeckExportSheet(
+    onDismiss: () -> Unit,
+    onExport: (editable: Boolean) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            Text(
+                "导出 PPT",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                "基于当前 deck.html 生成，两种版本任选：",
+                modifier = Modifier.padding(top = 6.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            DeckExportOptionRow(
+                title = "可编辑版",
+                desc = "文字在 PowerPoint/WPS 里可直接修改；阴影、图表等复杂效果以图片保真",
+                modifier = Modifier.padding(top = 14.dp),
+                onClick = { onExport(true) },
+            )
+            DeckExportOptionRow(
+                title = "原样版（整页截图）",
+                desc = "观感 100% 与预览一致，不可二次编辑",
+                modifier = Modifier.padding(top = 10.dp),
+                onClick = { onExport(false) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun DeckExportOptionRow(
+    title: String,
+    desc: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick,
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(
+                desc,
+                modifier = Modifier.padding(top = 2.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
