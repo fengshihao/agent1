@@ -6,6 +6,20 @@
 
 不进入 `java_agent` / `android_agent` 的 Gradle，也不进入 `./scripts/ci-local.sh`。
 
+## TODO：清单条目标明最低客户端版本
+
+包只增不改会引入一类兼容问题：**新包用了高版本客户端才有的能力**（如 html2pptx@0.2.1
+依赖 webview 自动 async 包装修复、溢出检测桥），低版本客户端「下载成功但跑不起来」。
+待办（协议变更，实施前先对齐）：
+
+- 清单条目 schema 加 `min_client_version`（如 `"0.3.0"`；缺省视为 `0.0.0` 兼容全部，
+  存量条目零迁移）；`pack.mjs` 读包内 `manifest.json` 的同名字段写入清单。
+- 客户端 `WeizhiPackageSync.namesNeedingEnsure` 拿到清单后先比宿主版本
+  （宿主版本来源对齐 `WeizhiBundledPackages.VERSION` 一类常量），低于则**跳过下载**、
+  保留本地已装版本（行为与「只升不降」的降级保护同轨）。
+- 云端 registry 条目可多版本并存时（目前只保留最新），低版本客户端回落取
+  `<= 自身版本` 的最大版本。
+
 ## 清单
 
 | 文件 | 谁读 |
