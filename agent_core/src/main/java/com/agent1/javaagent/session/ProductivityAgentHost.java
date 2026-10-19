@@ -12,6 +12,7 @@ import com.agent1.javaagent.log.AgentEventJsonlBridge;
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
 import com.agent1.javaagent.log.AgentDataPaths;
 import com.agent1.javaagent.log.EventJsonlRetention;
+import com.agent1.javaagent.log.EventJsonlWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.agent1.javaagent.mcp.McpCapabilitySync;
 import com.agent1.javaagent.log.RunLogContext;
@@ -37,6 +38,7 @@ import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
 import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import com.agent1.javaagent.tool.script.ExecuteScriptTool;
+import com.agent1.javaagent.workspace.WorkspaceTmpCleaner;
 import com.agent1.javaagent.coach.AgentCoachConfig;
 import com.agent1.javaagent.coach.ProductivityCoach;
 import com.agent1.javaagent.todo.TodoStore;
@@ -77,6 +79,14 @@ import com.agent1.javaagent.llm.openai.OpenAiCompatibleClient;
 public final class ProductivityAgentHost implements Closeable {
 
     private static final Logger LOG = Logger.getLogger(ProductivityAgentHost.class.getName());
+
+    /** tmp 清扫后台单线程（22 号规划：run 收尾异步清，不拖慢回话收口）。 */
+    private static final java.util.concurrent.ExecutorService TMP_CLEANER =
+        java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "workspace-tmp-cleaner");
+            thread.setDaemon(true);
+            return thread;
+        });
 
     private final Path agentRoot;
     private final Path projectRoot;
@@ -401,6 +411,7 @@ public final class ProductivityAgentHost implements Closeable {
         runtime.setRunAuditBinding(agentRoot, logContext);
         AgentEventJsonlBridge bridge = new AgentEventJsonlBridge(logContext, AgentDataPaths.eventsJsonl(agentRoot));
         bridge.setDeferRunTerminal(true);
+        writeWorkspaceSnapshot(logContext, sessionId, "start");
         AutoCloseable bridgeSubscription = runtime.subscribe(bridge); // NOPMD CloseResource — finally 中 closeQuietly
 
         int[] messageCountBefore = {runtime.getStateSnapshot().getMessages().size()};
@@ -444,6 +455,8 @@ public final class ProductivityAgentHost implements Closeable {
             runStore.write(
                 runningRef[0].withTerminal(terminal, Instant.now().toString(), lastError)
             );
+            writeWorkspaceSnapshot(logContext, sessionId, "end");
+            scheduleTmpClean(logContext, sessionId);
             closeQuietly(checkpointSubscription);
             closeQuietly(bridgeSubscription);
             runtime.clearRunAuditBinding();
@@ -480,6 +493,52 @@ public final class ProductivityAgentHost implements Closeable {
             now
         );
         runStore.write(runningRef[0]);
+    }
+
+    /**
+     * workspace 快照台账事件（22 号规划 T3）：run 起止各一次，聚合文件数/总字节/tmp 字节，
+     * 供产物库「本会话占用 X MB、可清理 Y MB」类展示；IO 失败静默（不打断 run）。
+     */
+    private void writeWorkspaceSnapshot(RunLogContext logContext, String sessionId, String phase) {
+        try {
+            WorkspaceTmpCleaner.SnapshotStats stats =
+                WorkspaceTmpCleaner.snapshot(sessionStore.workspaceDir(sessionId));
+            new EventJsonlWriter(AgentDataPaths.eventsJsonl(agentRoot)).write(
+                logContext,
+                "workspace_snapshot",
+                WorkspaceTmpCleaner.snapshotEventFields(phase, stats)
+            );
+        } catch (RuntimeException e) {
+            LOG.warning("workspace snapshot failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * run 收尾后台清扫 tmp（22 号规划 T1/T2）：代管前缀 + 年龄窗口 + 配额 LRU，
+     * 删了东西才写 {@code tmp_cleaned} audit 事件；清扫不阻塞回话收口。
+     */
+    private void scheduleTmpClean(RunLogContext logContext, String sessionId) {
+        Path workspace = sessionStore.workspaceDir(sessionId);
+        Path root = agentRoot;
+        TMP_CLEANER.execute(() -> {
+            try {
+                WorkspaceTmpCleaner.CleanResult result = WorkspaceTmpCleaner.clean(
+                    workspace, WorkspaceTmpCleaner.DEFAULT_MIN_AGE, WorkspaceTmpCleaner.DEFAULT_QUOTA_BYTES);
+                if (result.removedCount > 0) {
+                    new EventJsonlWriter(AgentDataPaths.eventsJsonl(root)).write(
+                        logContext,
+                        "tmp_cleaned",
+                        java.util.Map.of(
+                            "removedCount", result.removedCount,
+                            "removedBytes", result.removedBytes,
+                            "quotaTrimmed", result.quotaTrimmed
+                        )
+                    );
+                }
+            } catch (RuntimeException e) {
+                LOG.warning("workspace tmp clean failed: " + e.getMessage());
+            }
+        });
     }
 
     private static RunState resolveTerminal(String error) {

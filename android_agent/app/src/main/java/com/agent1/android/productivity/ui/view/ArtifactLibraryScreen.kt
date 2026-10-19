@@ -108,6 +108,12 @@ fun ArtifactLibraryScreen(
                 )
             },
             actions = {
+                // tmp 代管条目（组包目录/webview_exec 回执）有得清时给一键入口（22 号 T3）。
+                if (!state.selectionMode && state.tmpCleanableBytes > 0L && !state.busy) {
+                    TextButton(onClick = viewModel::cleanTmp) {
+                        Text("清理临时")
+                    }
+                }
                 if (state.selectionMode && !state.busy) {
                     TopBarIconButton(
                         icon = Icons.Filled.Close,

@@ -8,6 +8,7 @@ import com.agent1.android.productivity.logic.business.ArtifactLibraryStore
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
 import com.agent1.android.productivity.logic.business.UserFacingError
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,9 +45,13 @@ class ArtifactLibraryViewModel(
                 val loaded = withContext(Dispatchers.IO) {
                     val titles = gateway.listSessions()
                         .associate { it.sessionId to it.title.ifBlank { "新对话" } }
-                    titles to ArtifactLibraryStore.listArtifacts(appContext)
+                    val entries = ArtifactLibraryStore.listArtifacts(appContext)
+                    val tmpBytes = ArtifactLibraryStore.tmpCleanableBytes(
+                        ArtifactLibraryStore.sessionsRoot(appContext),
+                    )
+                    Triple(titles, entries, tmpBytes)
                 }
-                val (titles, entries) = loaded
+                val (titles, entries, tmpBytes) = loaded
                 _state.value = applyFilter(
                     _state.value.copy(
                         isLoading = false,
@@ -62,6 +67,7 @@ class ArtifactLibraryViewModel(
                         },
                         selectedKeys = emptySet(),
                         selectionMode = false,
+                        tmpCleanableBytes = tmpBytes,
                     ),
                 )
             } catch (t: Exception) {
@@ -75,6 +81,41 @@ class ArtifactLibraryViewModel(
 
     fun onQueryChange(query: String) {
         _state.value = applyFilter(_state.value.copy(query = query))
+    }
+
+    /** 用户主动清理各会话 tmp 代管条目（22 号规划 T3）；完成提示清理量并刷新。 */
+    fun cleanTmp() {
+        if (_state.value.busy) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(busy = true, error = null, message = null)
+            @Suppress("TooGenericExceptionCaught")
+            try {
+                val removed = withContext(Dispatchers.IO) {
+                    ArtifactLibraryStore.cleanAllSessionTmp(
+                        ArtifactLibraryStore.sessionsRoot(appContext),
+                    )
+                }
+                _state.value = _state.value.copy(
+                    busy = false,
+                    message = if (removed > 0L) {
+                        "已清理临时文件 ${formatBytes(removed)}"
+                    } else {
+                        "没有可清理的临时文件"
+                    },
+                )
+                refresh()
+            } catch (t: Exception) {
+                _state.value = _state.value.copy(
+                    busy = false,
+                    error = UserFacingError.explain(t.message ?: t.javaClass.simpleName),
+                )
+            }
+        }
+    }
+
+    private fun formatBytes(bytes: Long): String {
+        val mb = bytes / (1024.0 * 1024.0)
+        return if (mb >= 1.0) String.format(Locale.getDefault(), "%.1f MB", mb) else "${bytes / 1024} KB"
     }
 
     fun onShelfChange(shelf: ArtifactLibraryFilter.Shelf) {

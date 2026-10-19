@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.logic.business
 
 import android.content.Context
+import com.agent1.javaagent.workspace.WorkspaceTmpCleaner
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -86,6 +87,61 @@ object ArtifactLibraryStore {
     fun deleteArtifact(context: Context, ref: ArtifactRef): Boolean {
         val file = resolveArtifactFile(context, ref) ?: return false
         return runCatching { file.delete() }.getOrDefault(false)
+    }
+
+    /**
+     * 所有会话 tmp/ 里**宿主代管**（组包目录、webview_exec 回执等，前缀同
+     * [WorkspaceTmpCleaner.MANAGED_PREFIXES]）的字节数——「清理临时文件」入口的展示值。
+     */
+    fun tmpCleanableBytes(sessionsRoot: Path): Long {
+        if (!Files.isDirectory(sessionsRoot)) return 0L
+        var total = 0L
+        runCatching {
+            Files.list(sessionsRoot).use { sessions ->
+                sessions.filter { Files.isDirectory(it) }.forEach { sessionDir ->
+                    val tmp = sessionDir.resolve("workspace/tmp")
+                    if (!Files.isDirectory(tmp)) return@forEach
+                    Files.list(tmp).use { children ->
+                        children.forEach { child ->
+                            val name = child.fileName?.toString().orEmpty()
+                            if (!WorkspaceTmpCleaner.isManaged(name)) return@forEach
+                            total += runCatching {
+                                Files.walk(child).use { stream ->
+                                    stream.filter { Files.isRegularFile(it) }
+                                        .mapToLong { Files.size(it) }
+                                        .sum()
+                                }
+                            }.getOrDefault(0L)
+                        }
+                    }
+                }
+            }
+        }
+        return total
+    }
+
+    /**
+     * 用户主动清理（22 号规划 T3）：所有会话 tmp 代管条目立即清（minAge=0、配额 0），
+     * 返回清理字节数。前缀与判定复用 agent_core [WorkspaceTmpCleaner]，两端一致。
+     */
+    fun cleanAllSessionTmp(sessionsRoot: Path): Long {
+        if (!Files.isDirectory(sessionsRoot)) return 0L
+        var removed = 0L
+        runCatching {
+            Files.list(sessionsRoot).use { sessions ->
+                sessions.filter { Files.isDirectory(it) }.forEach { sessionDir ->
+                    val workspace = sessionDir.resolve("workspace")
+                    if (!Files.isDirectory(workspace.resolve("tmp"))) return@forEach
+                    val result = WorkspaceTmpCleaner.clean(
+                        workspace,
+                        java.time.Duration.ZERO,
+                        0L,
+                    )
+                    removed += result.removedBytes
+                }
+            }
+        }
+        return removed
     }
 
     private fun collectWorkspaceArtifacts(

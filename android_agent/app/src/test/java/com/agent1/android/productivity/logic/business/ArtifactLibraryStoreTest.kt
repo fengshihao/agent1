@@ -93,4 +93,43 @@ class ArtifactLibraryStoreTest {
         assertEquals("s1/out/v2/final.md", entries[0].stableKey)
         assertEquals(ArtifactLibraryStore.ArtifactRef("s1", "out/v2/final.md"), entries[0].toRef())
     }
+
+    @Test
+    fun tmpCleanable_countsManagedEntriesOnly() {
+        val root = Files.createTempDirectory("art-tmp")
+        val ws = sessionWorkspace(root, "s1")
+        val renderDir = ws.resolve("tmp").resolve("html2pptx-render-abc")
+        Files.createDirectories(renderDir)
+        renderDir.resolve("p1.png").writeText("x".repeat(1000))
+        // 非代管条目不计入（用户/未知来源），也不可被清理。
+        val own = ws.resolve("tmp").resolve("my-notes")
+        Files.createDirectories(own)
+        own.resolve("n.txt").writeText("n".repeat(500))
+
+        assertEquals(1000L, ArtifactLibraryStore.tmpCleanableBytes(root))
+    }
+
+    @Test
+    fun cleanAllSessionTmp_removesManagedEntriesAcrossSessions() {
+        val root = Files.createTempDirectory("art-clean")
+        val ws1 = sessionWorkspace(root, "s1")
+        val ws2 = sessionWorkspace(root, "s2")
+        val dir1 = ws1.resolve("tmp").resolve("html2pptx-native-x")
+        Files.createDirectories(dir1)
+        dir1.resolve("f").writeText("x".repeat(300))
+        val dir2 = ws2.resolve("tmp").resolve("webview_exec")
+        Files.createDirectories(dir2)
+        dir2.resolve("r.b64").writeText("y".repeat(200))
+        val keep = ws2.resolve("tmp").resolve("user-data")
+        Files.createDirectories(keep)
+        keep.resolve("k.txt").writeText("k")
+
+        val removed = ArtifactLibraryStore.cleanAllSessionTmp(root)
+
+        assertEquals(500L, removed)
+        assertFalse(Files.exists(dir1))
+        assertFalse(Files.exists(dir2))
+        assertTrue(Files.exists(keep.resolve("k.txt")))
+        assertEquals(0L, ArtifactLibraryStore.tmpCleanableBytes(root))
+    }
 }

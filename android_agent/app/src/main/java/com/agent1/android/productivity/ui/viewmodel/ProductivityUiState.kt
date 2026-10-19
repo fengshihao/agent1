@@ -200,6 +200,8 @@ data class ArtifactLibraryUiState(
     val selectedKeys: Set<String> = emptySet(),
     /** 删除 / 插入进行中，按钮防重入。 */
     val busy: Boolean = false,
+    /** 所有会话 tmp 代管条目的字节数（22 号规划 T3）：>0 时显示「清理临时文件」。 */
+    val tmpCleanableBytes: Long = 0L,
     val message: String? = null,
     val error: String? = null,
 )
