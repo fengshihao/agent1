@@ -46,7 +46,13 @@ class Html2PptxExtractTest {
 
     private static final String FIXTURE_RESOURCE = "/html2pptx/extract-deck-geometry-fixture.json";
     private static final String UPDATE_FIXTURES_ENV = "HTML2PPTX_UPDATE_FIXTURES";
-    private static final String GENERATOR = "html2pptx@0.2.0 extractDeckGeometry";
+    /**
+     * generator 只断言「包名@semver + 用途」格式，不锁死版本号：包 bump（如 0.2.1→0.2.2）
+     * 时 {@code PACKAGE_TAG} 变化不应牵连本测试与 fixture 同步重生成——几何内容才是基线
+     * （曾因 0.2.1 改 PACKAGE_TAG 而常量停在 0.2.0 在 CI 挂过一次）。
+     */
+    private static final java.util.regex.Pattern GENERATOR_PATTERN =
+        java.util.regex.Pattern.compile("html2pptx@\\d+\\.\\d+\\.\\d+ extractDeckGeometry");
     private static final double RECT_TOLERANCE_PX = 6.0;
 
     /** 三页 deck：渐变封面（出界 deco）+ 卡片页（圆角/边框/阴影/em 斜体 run）+ 图表页（canvas+svg）。 */
@@ -203,7 +209,10 @@ class Html2PptxExtractTest {
     /** 关键事实断言：对 live 提取结果与 fixture 快照同样适用。 */
     private static void assertKeyFacts(JsonObject root, String src) throws Exception {
         assertEquals(1, root.get("version").getAsInt(), src);
-        assertEquals(GENERATOR, root.get("generator").getAsString(), src);
+        assertTrue(
+            GENERATOR_PATTERN.matcher(root.get("generator").getAsString()).matches(),
+            src + " generator 应为 html2pptx@<semver> extractDeckGeometry，实为 "
+                + root.get("generator").getAsString());
         JsonArray slides = root.getAsJsonArray("slides");
         assertEquals(3, slides.size(), src);
 
@@ -294,8 +303,13 @@ class Html2PptxExtractTest {
 
     /** live 与 fixture 的结构化对比：序列/数量/颜色/字号精确比对，矩形留字体度量容差。 */
     private static void assertMatchesFixture(JsonObject live, JsonObject fixture) {
-        assertEquals(fixture.get("generator").getAsString(), live.get("generator").getAsString(),
-            "generator 与 fixture 不一致（提取器版本变化，HTML2PPTX_UPDATE_FIXTURES=1 重生成）");
+        // generator 双侧只验格式：包版本 bump 不要求 fixture 重生成（几何内容才是基线）。
+        assertTrue(
+            GENERATOR_PATTERN.matcher(live.get("generator").getAsString()).matches()
+                && GENERATOR_PATTERN.matcher(fixture.get("generator").getAsString()).matches(),
+            "generator 应为 html2pptx@<semver> extractDeckGeometry：live="
+                + live.get("generator").getAsString() + " fixture="
+                + fixture.get("generator").getAsString());
         JsonArray ls = live.getAsJsonArray("slides");
         JsonArray fs = fixture.getAsJsonArray("slides");
         assertEquals(fs.size(), ls.size(), "slide 数与 fixture 不一致");
