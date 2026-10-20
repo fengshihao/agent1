@@ -7,6 +7,7 @@
 **Agent1** 是面向 **Android / 嵌入式 JVM 宿主** 的轻量 **编程型生产力智能体**：`java-agent-core`（约 3MB 量级）提供 ReAct、会话、工作区、JSONL 审计；主路径为 **JS 编排**（`run_js`）、**能力检索**（`find_caps`）、Skill / MCP / WebView 扩展。`android_agent` 为参考宿主；macOS / Ubuntu 上 `./agent1` 用于联调与 CI。
 
 - **推荐产品路径**：`ProductivityAgentHost` / `ProductivityCli`（`--productivity`）
+- **桌面 Web UI**：`./agent1 ui`（本机 HTTP + 浏览器，MVP 对齐 Android 聊天壳；见 [doc/规划/CLI-Web-UI-MVP.md](doc/规划/CLI-Web-UI-MVP.md)）
 - **脚本与工具环**：依赖 [微智 Weizhi](https://github.com/fengshihao/weizhi)（`./sync-weizhi.sh` → `weizhi-bridge`）；见 [doc/集成/WEIZHI.md](doc/集成/WEIZHI.md)
 - **桌面经典 CLI**（`JavaAgentCli`）仅作开发辅助，新能力以生产力路径为准
 
@@ -15,7 +16,7 @@
 | 路径 | 用途 |
 |------|------|
 | `agent_core/**` | 核心运行时、工具、会话、事件 |
-| `java_agent/**` | CLI、Gradle、Java 单测 |
+| `java_agent/**` | CLI、Gradle、Java 单测；桌面 Web UI 源码在 `java_agent/web_ui/` |
 | `android_agent/**` | Android Demo、Compose、分层包结构 |
 | `doc/**`、`docs/**` | 人类文档与 AI 契约 |
 | `scripts/**`、`.github/**`、`.cursor/**` | CI、安装、规则 |

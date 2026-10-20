@@ -13,6 +13,7 @@ import com.agent1.javaagent.cli.productivity.ProductivitySyncCommand;
 import com.agent1.javaagent.cli.productivity.ProductivityModelsCommand;
 import com.agent1.javaagent.cli.productivity.ProductivityToolCapabilities;
 import com.agent1.javaagent.cli.productivity.ProductivityToolsCommand;
+import com.agent1.javaagent.cli.ui.ProductivityUiCommand;
 import com.agent1.javaagent.script.MutableScriptToolBridge;
 import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
@@ -91,6 +92,14 @@ public final class ProductivityCli {
                 new PrintWriter(System.out, true),
                 new PrintWriter(System.err, true)
             );
+            System.exit(code);
+            return;
+        }
+
+        if (args.length > 0 && "ui".equalsIgnoreCase(args[0])) {
+            String[] rest = new String[args.length - 1];
+            System.arraycopy(args, 1, rest, 0, rest.length);
+            int code = ProductivityUiCommand.run(agentRoot, rest);
             System.exit(code);
             return;
         }
@@ -328,7 +337,7 @@ public final class ProductivityCli {
         System.out.println(colorize(ANSI_DIM, enableColor,
             "命令: /new  /list  /use <sessionId>  /delete <sessionId>  /tools  /logs …  /summarize  /stop  /quit"));
         System.out.println(colorize(ANSI_DIM, enableColor,
-            "非交互: ./agent1 tools  ./agent1 models  ./agent1 sync check  ./agent1 logs failed  ./agent1 你好"));
+            "非交互: ./agent1 ui  ./agent1 tools  ./agent1 models  ./agent1 sync check  ./agent1 logs failed  ./agent1 你好"));
     }
 
     /** 项目根：优先 {@code AGENT1_PROJECT_ROOT}，否则 {@code .agent1} 的父目录或当前目录。 */

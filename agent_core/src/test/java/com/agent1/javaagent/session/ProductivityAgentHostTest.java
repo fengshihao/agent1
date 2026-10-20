@@ -132,6 +132,29 @@ class ProductivityAgentHostTest {
     }
 
     @Test
+    void loadTranscriptSwitchesAndReturnsMessages() {
+        LlmClient fake = (request, tools, streamListener, cancellationToken) ->
+            new AssistantResponse("ok", List.of());
+
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            SessionMeta a = host.createSession();
+            host.runUserMessage("alpha");
+            SessionMeta b = host.createSession();
+            host.runUserMessage("beta");
+
+            List<AgentMessage> fromA = host.loadTranscript(a.getSessionId());
+            assertEquals(a.getSessionId(), host.getActiveSessionId());
+            assertEquals("alpha", fromA.get(0).getContent());
+            assertEquals("ok", fromA.get(1).getContent());
+
+            List<AgentMessage> fromB = host.loadTranscript(b.getSessionId());
+            assertEquals(b.getSessionId(), host.getActiveSessionId());
+            assertEquals("beta", fromB.get(0).getContent());
+        }
+    }
+
+    @Test
     void askUserEndsRunInWaitingUserState() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode params = mapper.createObjectNode();

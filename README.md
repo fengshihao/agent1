@@ -74,15 +74,18 @@ export DASHSCOPE_API_KEY="your-key"   # 或 ALIBABA_API_KEY / OPENAI_API_KEY / Q
 
 App 内即见 **生产力助手**：`ProductivityAgentHost` + 会话列表 / 流式聊天 / 模型设置（参考 `android_agent` 分层实现）。
 
-**3 · 桌面联调（macOS / Ubuntu）**
+**3 · 桌面联调（macOS / Ubuntu；Web UI 亦支持 Windows）**
 
 ```bash
 ./agent1                  # 生产力助手 · 交互
+./agent1 ui               # 本机 Web UI（浏览器，风格对齐 Android）
 ./agent1 你好             # 单次提问
 ./agent1 models           # 模型与运行时参数
 ./agent1 tools            # 当前平台工具能力摘要
 ./agent1 logs failed      # 查 events.jsonl
 ```
+
+Web UI 规划与 API：[doc/规划/CLI-Web-UI-MVP.md](doc/规划/CLI-Web-UI-MVP.md)。改前端：`cd java_agent/web_ui && npm ci && npm run build`（产物进 `cli` 资源；`AGENT1_SKIP_WEB_UI=1` 可跳过 Gradle `buildWebUi`）。
 
 **4 · 检查（与 CI 同源，PR 前必跑）**
 
@@ -276,6 +279,7 @@ Agent1 is a **compact, embeddable coding agent** for **Android and other JVM hos
 export DASHSCOPE_API_KEY="your-key"
 ./publish-java-agent-core.sh && ./build-android-agent.sh
 ./agent1 "hello"    # desktop productivity CLI for dev/CI
+./agent1 ui         # local Web UI (browser; macOS / Windows / Ubuntu)
 ./scripts/ci-local.sh fast
 ```
 

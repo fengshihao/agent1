@@ -11,7 +11,7 @@
 |------|------------------------------|--------------------|----------|
 | 运行时内核 | `java-agent-core` → `ProductivityAgentHost` | 同左（Maven / 本地发布） | **已对齐** |
 | 集成 Weizhi 后才注册的工具 | 需 classpath 含 weizhi（`../weizhi` 或 `AGENT1_WEIZHI_REPO`） | 需 `WEIZHI_INTEGRATED=true`（联编 weizhi 或 `weizhi-prebuilt`） | **条件对齐**。`grep` / `glob` / `zip` / `bash` / skill 的实现在 `agent_core`，仍只在集成成功时注册 |
-| 交互形态 | 终端 REPL + 子命令 | Jetpack Compose 会话列表 / 聊天 / 模型设置 | CLI 偏脚本化运维；Android 偏可视化 |
+| 交互形态 | 终端 REPL + 子命令；**Web UI MVP**：`./agent1 ui`（本机 HTTP + 浏览器，对齐 Android 聊天壳，见 [规划/CLI-Web-UI-MVP.md](规划/CLI-Web-UI-MVP.md)） | Jetpack Compose 会话列表 / 聊天 / 模型设置 | CLI 运维 + 可选可视化；Android 偏 App 内可视化 |
 | 数据目录 `agentRoot` | `AGENT1_AGENT_ROOT` 或默认 `$HOME/files/agent`（见 [runtime-data-layout](java_agent/doc/runtime-data-layout.md)） | `filesDir/agent1`（见 [runtime-data-layout](android_agent/doc/runtime-data-layout.md)） | **路径不同**，**布局一致** |
 | 事件 JSONL | `agentRoot/logs/events.jsonl` | 同布局 | **已对齐**；CLI 有查询子命令，App 无内置查询 UI |
 | 模型与限额配置 | 环境变量为主（`AgentRuntimeConfig.fromEnvironment()`） | App 内加密偏好 + 可选 BuildConfig 注入 | Android 多 **GUI 配置**；CLI 多 **env/CI** |
@@ -119,7 +119,7 @@
 | 工具列表 | `ProductivityAgentHost.buildTools` | 同 core |
 | Weizhi 环 | `WeizhiWorkspaceTools.java` | `WeizhiAgentTools.kt` |
 | 能力摘要 | `ProductivityToolCapabilities.java` | `ProductivityToolCapabilities.kt` |
-| Gateway / UI | — | `ProductivityAgentGateway.kt`、`ChatViewModel.kt` |
+| Gateway / UI | `DesktopUiGateway` + `UiHttpServer`（`./agent1 ui`） | `ProductivityAgentGateway.kt`、`ChatViewModel.kt` |
 | 失败提示 | 终端打印原文 | 界面用 `UserFacingError` 收成一句白话；JSONL / 诊断包仍保留原文 |
 | 日志查询 | `ProductivityLogsCommand.java` | — |
 

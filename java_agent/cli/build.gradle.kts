@@ -22,6 +22,28 @@ application {
     mainClass.set("com.agent1.javaagent.cli.JavaAgentCli")
 }
 
+val webUiDir = rootProject.projectDir.resolve("web_ui")
+val skipWebUi = System.getenv("AGENT1_SKIP_WEB_UI") == "1"
+
+/** 可选：本地改前端后刷新 classpath 资源。CI 使用已提交的 web-ui/ 产物，默认跳过。 */
+tasks.register<Exec>("buildWebUi") {
+    group = "build"
+    description = "npm build Web UI → cli/src/main/resources/web-ui（AGENT1_SKIP_WEB_UI=1 跳过）"
+    workingDir = webUiDir
+    onlyIf { !skipWebUi && webUiDir.resolve("package.json").isFile }
+    commandLine(
+        "bash",
+        "-lc",
+        """
+        set -euo pipefail
+        if [[ ! -d node_modules ]]; then
+          if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
+        fi
+        npm run build
+        """.trimIndent()
+    )
+}
+
 tasks.test {
     useJUnitPlatform()
 }

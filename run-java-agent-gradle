@@ -7,6 +7,7 @@ set -euo pipefail
 #   适合刚改完 core/cli 源码、想立刻用 Gradle classpath 跑一遍，避免等 fatJar。
 #   用法：
 #     - 未写「--args」时：所有参数视为传给 JavaAgentCli 的一段命令行（与 ./run-java-agent 传参习惯一致），
+#       例如：./run-java-agent-gradle --productivity ui
 #       例如：./run-java-agent-gradle --no-stream 你好
 #     - 需要自行控制 Gradle 传参时：显式写 --args=... 或 --args ...（将原样交给 gradlew）。
 #     - 无参数：进入交互模式。
@@ -31,11 +32,11 @@ for a in "$@"; do
 done
 
 if [[ "${has_explicit_args}" == true ]]; then
-  exec ./gradlew --no-daemon runJavaAgentCli "$@"
+  exec ./gradlew --no-daemon :cli:runJavaAgentCli "$@"
 fi
 
 if [[ "$#" -eq 0 ]]; then
-  exec ./gradlew --no-daemon runJavaAgentCli
+  exec ./gradlew --no-daemon :cli:runJavaAgentCli
 fi
 
-exec ./gradlew --no-daemon runJavaAgentCli "--args=$*"
+exec ./gradlew --no-daemon :cli:runJavaAgentCli "--args=$*"

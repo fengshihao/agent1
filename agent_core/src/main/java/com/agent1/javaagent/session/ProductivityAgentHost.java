@@ -292,6 +292,15 @@ public final class ProductivityAgentHost implements Closeable {
         refreshRuntimeForActiveSession();
     }
 
+    /**
+     * 加载会话 transcript 并切换为活动会话（与 Android Gateway {@code loadTranscript} 语义一致）。
+     * 返回 runtime 当前消息快照（含系统提示词刷新后的上下文）。
+     */
+    public List<AgentMessage> loadTranscript(String sessionId) {
+        switchSession(sessionId);
+        return List.copyOf(runtime.getStateSnapshot().getMessages());
+    }
+
     /** 宿主注入的环境摘要（如 Android 会话可访问文件列表），在 {@link #refreshRuntimeForActiveSession} 时写入系统提示词。 */
     public void setSessionEnvironmentSupplement(String supplement) {
         this.sessionEnvironmentSupplement = supplement == null ? "" : supplement.trim();

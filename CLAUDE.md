@@ -22,6 +22,7 @@ gradle -p java_agent :core:test :cli:test                        # Run tests
 gradle -p java_agent build                                       # Build all
 gradle -p java_agent :cli:fatJar                                 # Build standalone fat jar
 ./agent1 "hi"                                                    # Productivity CLI
+./agent1 ui                                                      # Local Web UI (browser)
 ./agent1 models                                                  # Qwen models / runtime
 ./run-java-agent "prompt"                                        # Classic CLI
 AGENT1_USE_GRADLE=1 ./agent1 "hi"                                # Productivity via Gradle
