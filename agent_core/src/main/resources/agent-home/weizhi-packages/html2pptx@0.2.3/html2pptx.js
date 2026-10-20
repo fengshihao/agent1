@@ -3,9 +3,10 @@
  *
  * 约定：HTML 里每个 class="slide" 的元素是一页，CSS 尺寸默认 1280×720（16:9）。
  *
- * renderHtmlDeck：每页经 webview_exec（Chromium / 系统 WebView）里的
- * html-to-image（CDN）截图成 PNG/JPG，再以全幅图片页打包为 pptx——
- * 图片即版面，版式自由度由 HTML/CSS 决定。
+ * renderHtmlDeck（截图）：webview_exec 内 html-to-image 逐页截图，优先
+ * writeFile 把每页 PNG/JPG 直接落盘（宿主 Base64→二进制），QuickJS 只读
+ * 文件组 pptx——避免「全页 b64 塞进一个 JSON」撑爆 JS 堆。无 writeFile
+ * 时回退旧的 shots JSON（含 b64）路径。
  *
  * extractDeckGeometry：同一 iframe 渲染后遍历 .slide 内可见元素，输出几何
  * JSON（矩形/字体/背景/圆角/文本 run/图片引用），落盘 *-geometry.json，
@@ -62,7 +63,7 @@ var MAX_SCALE = 3;
 var SHOT_TIMEOUT_MS = "300000";
 var MAX_ELEMENTS_PER_SLIDE = 800;
 var IMG_SRC_MAX_CHARS = 1024 * 1024;
-var PACKAGE_TAG = "html2pptx@0.2.1";
+var PACKAGE_TAG = "html2pptx@0.2.3";
 
 var LIB_URL = "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js";
 var LIB_TOKEN = "html-to-image";
@@ -115,6 +116,7 @@ async function renderScreenshotDeck(opts) {
   var scale = intIn(opts.scale == null ? 2 : opts.scale, "scale", MIN_SCALE, MAX_SCALE);
   var format = normalizeFormat(opts.format);
   var quality = jpegQuality(opts.quality);
+  var ext = format === "jpg" ? "jpg" : "png";
 
   var html = readHtml(opts);
   var title = deckTitle(opts, html);
@@ -135,13 +137,14 @@ async function renderScreenshotDeck(opts) {
     ? htmlPathRel
     : "tmp/html2pptx-input-" + stamp + ".html";
   var shotsRel = "tmp/html2pptx-shots-" + stamp + ".json";
+  var pagesDir = "tmp/html2pptx-shot-pages-" + stamp;
   if (!useOriginalFile) {
     fs.writeFileSync(inputRel, inlined);
   }
 
   try {
     var receiptText = await globalThis.$tools.webview_exec({
-      code: captureCode(width, height, scale, format, quality),
+      code: captureCode(width, height, scale, format, quality, pagesDir),
       input_path: inputRel,
       output_path: shotsRel,
       timeout_ms: SHOT_TIMEOUT_MS
@@ -151,50 +154,26 @@ async function renderScreenshotDeck(opts) {
       var err = receipt && receipt.error ? receipt.error : "webview_exec 失败";
       throw new Error(String(err));
     }
-    var shotsPath = receipt.outputPath ? String(receipt.outputPath) : shotsRel;
-    var payload;
-    try {
-      payload = JSON.parse(fs.readFileSync(shotsPath).toString().trim());
-    } catch (e) {
-      throw new Error("截图回执不是 JSON（页面可能未找到 .slide 元素）");
-    }
-    var slides = payload && payload.slides;
-    if (!slides || !slides.length) {
-      throw new Error('HTML 里没有 class="slide" 的页元素：每页应是 <section class="slide">…</section>');
-    }
-    if (slides.length > MAX_SLIDES) {
-      throw new Error("renderHtmlDeck: too many slides（上限 " + MAX_SLIDES + "）");
-    }
-    var decoded = [];
-    for (var i = 0; i < slides.length; i++) {
-      var shot = slides[i];
-      if (!shot || typeof shot.b64 !== "string" || !shot.b64) {
-        throw new Error("第 " + (i + 1) + " 页截图数据缺失");
-      }
-      var bytes = decodeBase64(shot.b64);
-      if (!isImageMagic(bytes, format)) {
-        throw new Error("第 " + (i + 1) + " 页不是有效的 " + format.toUpperCase() + "（页面资源可能加载失败）");
-      }
-      decoded.push({ bytes: bytes, ext: format === "jpg" ? "jpg" : "png" });
-    }
+    var loaded = loadScreenshotSlides(receipt, shotsRel, format, ext);
     var buildDir = "tmp/html2pptx-render-" + stamp;
-    writePptxTree(buildDir, decoded, title, width, height);
+    writePptxTree(buildDir, loaded.decoded, title, width, height);
     packDir(buildDir, output);
     var total = fs.readFileSync(output).length;
     return {
       ok: true,
       path: output,
-      slides: decoded.length,
+      slides: loaded.decoded.length,
       width: width,
       height: height,
       bytes: total,
-      overflow: normalizeOverflow(payload && payload.over)
+      overflow: loaded.overflow
     };
   } finally {
     if (!useOriginalFile) {
       unlinkQuiet(inputRel);
     }
     unlinkQuiet(shotsRel);
+    unlinkShotPages(pagesDir, MAX_SLIDES, ext);
   }
 }
 
@@ -214,6 +193,7 @@ export async function exportDeckPages(options) {
   var scale = intIn(opts.scale == null ? 2 : opts.scale, "scale", MIN_SCALE, MAX_SCALE);
   var format = normalizeFormat(opts.format);
   var quality = jpegQuality(opts.quality);
+  var ext = format === "jpg" ? "jpg" : "png";
 
   var html = readHtml(opts);
   var inlined = inlineWorkspaceImages(html);
@@ -236,8 +216,10 @@ export async function exportDeckPages(options) {
   }
 
   try {
+    // 直接 writeFile 到 outputDir/page-N.ext，materialize 后文件已在位。
+    mkdirp(outputDir);
     var receiptText = await globalThis.$tools.webview_exec({
-      code: captureCode(width, height, scale, format, quality),
+      code: captureCode(width, height, scale, format, quality, outputDir),
       input_path: inputRel,
       output_path: shotsRel,
       timeout_ms: SHOT_TIMEOUT_MS
@@ -247,37 +229,37 @@ export async function exportDeckPages(options) {
       var err = receipt && receipt.error ? receipt.error : "webview_exec 失败";
       throw new Error(String(err));
     }
-    var shotsPath = receipt.outputPath ? String(receipt.outputPath) : shotsRel;
-    var payload;
-    try {
-      payload = JSON.parse(fs.readFileSync(shotsPath).toString().trim());
-    } catch (e) {
-      throw new Error("截图回执不是 JSON（页面可能未找到 .slide 元素）");
-    }
-    var slides = payload && payload.slides;
-    if (!slides || !slides.length) {
-      throw new Error('HTML 里没有 class="slide" 的页元素：每页应是 <section class="slide">…</section>');
-    }
-    if (slides.length > MAX_SLIDES) {
-      throw new Error("exportDeckPages: too many slides（上限 " + MAX_SLIDES + "）");
-    }
-    mkdirp(outputDir);
-    var ext = format === "jpg" ? "jpg" : "png";
     var files = [];
-    for (var i = 0; i < slides.length; i++) {
-      var shot = slides[i];
-      if (!shot || typeof shot.b64 !== "string" || !shot.b64) {
+    var overflow = [];
+    var meta = screenshotMeta(receipt, shotsRel);
+    overflow = normalizeOverflow(meta.over);
+    for (var i = 0; i < meta.slides.length; i++) {
+      var shot = meta.slides[i];
+      var rel = outputDir + "/page-" + (i + 1) + "." + ext;
+      if (typeof shot.path === "string" && shot.path && fsExists(shot.path)) {
+        // writeFile 已落盘；若路径不是目标名则不应发生（capture 直接写 outputDir）
+        if (shot.path !== rel && !fsExists(rel)) {
+          writeBytes(rel, fs.readFileSync(shot.path));
+        }
+        files.push(rel);
+      } else if (typeof shot.b64 === "string" && shot.b64) {
+        var bytes = decodeBase64(shot.b64);
+        if (!isImageMagic(bytes, format)) {
+          throw new Error("第 " + (i + 1) + " 页不是有效的 " + format.toUpperCase());
+        }
+        writeBytes(rel, bytes);
+        files.push(rel);
+      } else {
         throw new Error("第 " + (i + 1) + " 页截图数据缺失");
       }
-      var bytes = decodeBase64(shot.b64);
-      if (!isImageMagic(bytes, format)) {
-        throw new Error("第 " + (i + 1) + " 页不是有效的 " + format.toUpperCase());
-      }
-      var rel = outputDir + "/page-" + (i + 1) + "." + ext;
-      writeBytes(rel, bytes);
-      files.push(rel);
     }
-    return { ok: true, dir: outputDir, pages: files.length, files: files, overflow: normalizeOverflow(payload && payload.over) };
+    return {
+      ok: true,
+      dir: outputDir,
+      pages: files.length,
+      files: files,
+      overflow: overflow
+    };
   } finally {
     if (!useOriginalFile) {
       unlinkQuiet(inputRel);
@@ -411,13 +393,20 @@ function overflowScanLines() {
   ];
 }
 
-/** 在 webview_exec 里跑的截图代码：iframe 渲染 deck HTML，逐页导出 base64，并收集每页溢出信息。 */
-function captureCode(width, height, scale, format, quality) {
+/**
+ * 在 webview_exec 里跑的截图代码：iframe 渲染 deck HTML，逐页截图。
+ * 有 writeFile 时每页落盘（path 进元数据，无 b64）；否则回退整包 b64 JSON。
+ */
+function captureCode(width, height, scale, format, quality, pagesDir) {
+  var ext = format === "jpg" ? "jpg" : "png";
+  var dirLit = JSON.stringify(String(pagesDir));
   return deckLoadCode(width, height, true).concat(overflowScanLines(), [
     "  if (broken.length) {",
     "    throw new Error('图片加载失败: ' + broken.join(', ') + '（相对路径需指向 workspace 内已有图片）');",
     "  }",
     "  var slides = [];",
+    "  var useWrite = typeof writeFile === 'function';",
+    "  var pagesDir = " + dirLit + ";",
     "  for (var i = 0; i < nodes.length; i++) {",
     "    var w = Math.round(nodes[i].offsetWidth) || " + width + ";",
     "    var h = Math.round(nodes[i].offsetHeight) || " + height + ";",
@@ -430,13 +419,100 @@ function captureCode(width, height, scale, format, quality) {
     "    } catch (e) {",
     "      throw new Error('第 ' + (i + 1) + ' 页截图失败: ' + ((e && e.message) || String(e)));",
     "    }",
-    "    slides.push({ w: w, h: h, b64: String(dataUrl).split(',')[1] });",
+    "    if (useWrite) {",
+    "      var rel = pagesDir + '/page-' + (i + 1) + '." + ext + "';",
+    "      writeFile(rel, dataUrl);",
+    "      slides.push({ w: w, h: h, path: rel });",
+    "    } else {",
+    "      slides.push({ w: w, h: h, b64: String(dataUrl).split(',')[1] });",
+    "    }",
     "  }",
     "  function merge(a, b) { var o = {}; for (var k in a) { o[k] = a[k]; } for (var k2 in b) { o[k2] = b[k2]; } return o; }",
     "  var over = scanOverflow();",
+    "  if (useWrite) { return { slides: slides, over: over }; }",
     "  return JSON.stringify({ slides: slides, over: over });",
     "})();"
   ]).join("\n");
+}
+
+/** 取出 slides/over 元数据（materialize.value 或 legacy shots JSON）。 */
+function screenshotMeta(receipt, shotsRel) {
+  var meta = null;
+  if (receipt && receipt.files && receipt.files.length && receipt.value != null) {
+    meta = receipt.value;
+    if (typeof meta === "string") {
+      try {
+        meta = JSON.parse(meta);
+      } catch (e) {
+        meta = null;
+      }
+    }
+  }
+  if (!meta || !meta.slides) {
+    var shotsPath = receipt && receipt.outputPath ? String(receipt.outputPath) : shotsRel;
+    try {
+      meta = JSON.parse(fs.readFileSync(shotsPath).toString().trim());
+    } catch (e) {
+      throw new Error("截图回执不是 JSON（页面可能未找到 .slide 元素）");
+    }
+  }
+  if (!meta.slides || !meta.slides.length) {
+    throw new Error('HTML 里没有 class="slide" 的页元素：每页应是 <section class="slide">…</section>');
+  }
+  if (meta.slides.length > MAX_SLIDES) {
+    throw new Error("renderHtmlDeck: too many slides（上限 " + MAX_SLIDES + "）");
+  }
+  return meta;
+}
+
+/**
+ * 解析截图回执并读入页图字节：优先 writeFile 落盘路径，否则 legacy b64。
+ * 组 pptx 时逐页读文件，堆上只保留解码后的 PNG（无整包 b64 JSON）。
+ */
+function loadScreenshotSlides(receipt, shotsRel, format, ext) {
+  var meta = screenshotMeta(receipt, shotsRel);
+  var slides = meta.slides;
+  var decoded = [];
+  for (var i = 0; i < slides.length; i++) {
+    var shot = slides[i];
+    if (!shot) {
+      throw new Error("第 " + (i + 1) + " 页截图数据缺失");
+    }
+    var bytes;
+    if (typeof shot.path === "string" && shot.path) {
+      try {
+        bytes = fs.readFileSync(shot.path);
+      } catch (e) {
+        throw new Error("第 " + (i + 1) + " 页截图文件读失败: " + shot.path);
+      }
+    } else if (typeof shot.b64 === "string" && shot.b64) {
+      bytes = decodeBase64(shot.b64);
+    } else {
+      throw new Error("第 " + (i + 1) + " 页截图数据缺失");
+    }
+    if (!isImageMagic(bytes, format)) {
+      throw new Error("第 " + (i + 1) + " 页不是有效的 " + format.toUpperCase() + "（页面资源可能加载失败）");
+    }
+    decoded.push({ bytes: bytes, ext: ext });
+  }
+  return { decoded: decoded, overflow: normalizeOverflow(meta.over) };
+}
+
+function fsExists(rel) {
+  try {
+    return typeof fs.existsSync === "function" ? !!fs.existsSync(rel) : false;
+  } catch (e) {
+    return false;
+  }
+}
+
+function unlinkShotPages(pagesDir, max, ext) {
+  if (!pagesDir) {
+    return;
+  }
+  for (var i = 1; i <= max; i++) {
+    unlinkQuiet(pagesDir + "/page-" + i + "." + ext);
+  }
 }
 
 /**

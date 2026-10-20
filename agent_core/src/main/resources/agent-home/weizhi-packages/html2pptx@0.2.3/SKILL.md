@@ -36,6 +36,7 @@ export default await renderHtmlDeck({
   // mode: "native",           // 需要接收方在 PowerPoint/WPS 里改字时用：
                                // 文字原生可编辑，图片/阴影/表格/渐变字走区域截图
 });
+// 截图模式：WebView 内 writeFile 逐页落 PNG，再组 pptx（避免整包 Base64 JSON 撑爆堆）。
 // 返回值 overflow 字段同 exportDeckPages；预览/图片页：
 // exportDeckPages({ htmlPath: "deck.html" }) → deck-pages/page-N.png
 ```

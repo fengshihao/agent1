@@ -1,5 +1,6 @@
 package com.agent1.javaagent.weizhi.desktop;
 
+import com.agent1.javaagent.weizhi.WebViewExecHost;
 import com.agent1.javaagent.weizhi.desktop.cdp.CdpWebViewRuntime;
 import com.google.gson.Gson;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
@@ -92,6 +93,8 @@ public final class WebViewExecSupport {
             inputB64 = Base64.getEncoder().encodeToString(bytes);
         }
 
+        // 注入 writeFile：WebView 内登记路径+Base64，宿主 materialize 解码落盘。
+        code = WebViewExecHost.rewriteCode(code);
         WebViewTask.PreparedCode prepared = WebViewTask.prepareCode(code);
         code = prepared.code;
         boolean autoAsyncWrapped = prepared.autoAsyncWrapped;
@@ -101,7 +104,8 @@ public final class WebViewExecSupport {
         if (!outcome.ok()) {
             return errJson(outcome.error());
         }
-        return renderOk(sandbox, outcome, outputRel.isEmpty() ? null : outputRel, autoAsyncWrapped);
+        String receipt = renderOk(sandbox, outcome, outputRel.isEmpty() ? null : outputRel, autoAsyncWrapped);
+        return WebViewExecHost.materialize(sandbox, receipt);
     }
 
     static String renderOk(

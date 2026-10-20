@@ -150,6 +150,8 @@ class Html2PptxScriptTest {
         String code = String.valueOf(seen.get().get("code"));
         assertTrue(code.contains(".slide"), code);
         assertTrue(code.contains("html-to-image"), code);
+        assertTrue(code.contains("writeFile"), "截图应走 writeFile 逐页落盘: " + code);
+        assertTrue(code.contains("useWrite"), code);
         // 相对路径图片应被内联为 data URI（srcdoc 无 base URL）
         String html = String.valueOf(fedHtml.get());
         assertTrue(html.contains("data:image/png;base64,"), "workspace 图片应内联");

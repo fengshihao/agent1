@@ -11,6 +11,7 @@ import com.agent1.javaagent.weizhi.WeizhiIoExecutors
 import com.agent1.javaagent.weizhi.WeizhiPackageSync
 import com.agent1.javaagent.weizhi.WeizhiScriptToolInstaller
 import com.weizhi.WeizhiEngine
+import com.weizhi.WeizhiLimits
 import com.weizhi.caps.AndroidCaps
 import com.weizhi.platform.PlatformHost
 import java.nio.file.Path
@@ -37,7 +38,9 @@ class WeizhiAndroidScriptEngineFactory(
         private val scriptToolBridge: ScriptToolBridge?,
     ) : ScriptEngine {
 
-        private val engine = WeizhiEngine(null, WeizhiIoExecutors.io(16))
+        // 与桌面 WeizhiRuntimeOptions 一致：默认 JS 堆/单次 fs IO 128MB
+        //（C 默认 32MB 撑不住 html2pptx 多页截图；AGENT1_WEIZHI_JS_HEAP_MB 可覆盖 16–1024）。
+        private val engine = WeizhiEngine(androidWeizhiLimits(), WeizhiIoExecutors.io(16))
         private val workspaceFile = workspace.toFile()
         private val packageRoot = WeizhiBundledInstall.syncBundled(appContext, agentRoot)
 
@@ -114,5 +117,19 @@ internal object WeizhiBundledInstall {
         val packageRoot = synchronized(lock) { WeizhiPackages.syncBundled(context) }
         PackageSkills.syncCapabilityCards(agentRoot)
         return packageRoot
+    }
+}
+
+/** 对齐桌面 {@code WeizhiRuntimeOptions.defaultLimits}（Android 源码集看不到该类）。 */
+private fun androidWeizhiLimits(): WeizhiLimits {
+    var mb = 128L
+    val env = System.getenv("AGENT1_WEIZHI_JS_HEAP_MB")
+    if (env != null && env.matches(Regex("\\d+"))) {
+        mb = env.toLong().coerceIn(16L, 1024L)
+    }
+    val bytes = mb * 1024L * 1024L
+    return WeizhiLimits().apply {
+        jsHeapBytes = bytes
+        fsIoBytes = bytes
     }
 }

@@ -52,8 +52,13 @@ public final class WebViewExecHost {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int MAX_WRITE_BYTES = 20 * 1024 * 1024;
-    /** Base64 比解码后大约 4/3，读信封时放宽。 */
-    private static final int MAX_ENVELOPE_BYTES = 28 * 1024 * 1024;
+    /**
+     * Base64 比解码后大约 4/3。多页 html2pptx writeFile 信封可到数十 MB，
+     * 读信封上限放宽到 96MB（Java 堆侧；QuickJS 不再吞这份 JSON）。
+     */
+    private static final int MAX_ENVELOPE_BYTES = 96 * 1024 * 1024;
+    /** writeFile 同时 return 的短元数据（页清单/overflow）允许保留的最大字符数。 */
+    static final int KEEP_VALUE_MAX_CHARS = 64 * 1024;
 
     private WebViewExecHost() {
     }
@@ -100,7 +105,8 @@ public final class WebViewExecHost {
         return copy;
     }
 
-    static String rewriteCode(String code) {
+    /** 给 webview_exec 的 code 注入 {@code writeFile}；桌面/Android 执行前调用。 */
+    public static String rewriteCode(String code) {
         String literal = MAPPER.valueToTree(code).toString();
         return """
             return (async () => {
@@ -125,14 +131,14 @@ public final class WebViewExecHost {
               }
               if (__writes.length) {
                 var __kept = value;
-                if (typeof __kept === 'string' && __kept.length > 500) {
+                if (typeof __kept === 'string' && __kept.length > %d) {
                   __kept = null;
                 }
                 return JSON.stringify({ __webviewWrites: __writes, value: __kept === undefined ? null : __kept });
               }
               return value;
             })();
-            """.formatted(literal);
+            """.formatted(literal, KEEP_VALUE_MAX_CHARS);
     }
 
     /**
@@ -169,7 +175,7 @@ public final class WebViewExecHost {
         try {
             List<WrittenFile> files = writeAll(sandbox, writes);
             deleteEnvelopeSpill(sandbox, receipt.path("outputPath").asText(""), files);
-            return successReceipt((ObjectNode) receipt, files);
+            return successReceipt((ObjectNode) receipt, files, envelope.get("value"));
         } catch (IOException | IllegalArgumentException | SecurityException e) {
             String message = e.getMessage() == null ? e.toString() : e.getMessage();
             return errorReceipt(message);
@@ -303,7 +309,8 @@ public final class WebViewExecHost {
         }
     }
 
-    private static String successReceipt(ObjectNode original, List<WrittenFile> files) throws IOException {
+    private static String successReceipt(ObjectNode original, List<WrittenFile> files, JsonNode value)
+        throws IOException {
         ObjectNode receipt = MAPPER.createObjectNode();
         receipt.put("ok", true);
         if (original.has("elapsedMs")) {
@@ -320,6 +327,9 @@ public final class WebViewExecHost {
         receipt.put("outputBytes", first.bytes);
         receipt.put("resultType", "file");
         receipt.put("resultPreview", preview(files));
+        if (value != null && !value.isNull()) {
+            receipt.set("value", value);
+        }
         if (original.has("console")) {
             receipt.set("console", original.get("console"));
         }

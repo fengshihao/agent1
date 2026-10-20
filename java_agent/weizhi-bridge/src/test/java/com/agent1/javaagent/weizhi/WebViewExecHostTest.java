@@ -76,13 +76,18 @@ class WebViewExecHostTest {
     @Test
     void materializeDecodesImageBase64IntoSandbox(@TempDir Path dir) throws Exception {
         WorkspaceSandbox sandbox = new WorkspaceSandbox(dir);
-        String envelope = envelope("maps/route.png", "data:image/png;base64," + TINY_PNG_B64);
+        String envelope = envelopeWithValue(
+            "maps/route.png",
+            "data:image/png;base64," + TINY_PNG_B64,
+            MAPPER.readTree("{\"slides\":[{\"path\":\"maps/route.png\"}],\"over\":[]}")
+        );
         String raw = receiptPreview(envelope);
         String out = WebViewExecHost.materialize(sandbox, raw);
         var parsed = MAPPER.readTree(out);
         assertTrue(parsed.path("ok").asBoolean());
         assertEquals("maps/route.png", parsed.path("outputPath").asText());
         assertEquals("已写入 maps/route.png", parsed.path("resultPreview").asText());
+        assertEquals("maps/route.png", parsed.path("value").path("slides").get(0).path("path").asText());
         assertFalse(out.contains(TINY_PNG_B64));
         byte[] png = Files.readAllBytes(dir.resolve("maps/route.png"));
         assertEquals("PNG", new String(png, 1, 3, StandardCharsets.US_ASCII));
@@ -145,11 +150,18 @@ class WebViewExecHostTest {
     }
 
     private static String envelope(String path, String data) throws Exception {
+        return envelopeWithValue(path, data, null);
+    }
+
+    private static String envelopeWithValue(String path, String data, JsonNode value) throws Exception {
         ObjectNode env = MAPPER.createObjectNode();
         var writes = env.putArray(WebViewExecHost.ENVELOPE_KEY);
         ObjectNode one = writes.addObject();
         one.put("path", path);
         one.put("data", data);
+        if (value != null) {
+            env.set("value", value);
+        }
         return MAPPER.writeValueAsString(env);
     }
 
