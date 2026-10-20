@@ -15,7 +15,7 @@
 - 清单条目 schema 加 `min_client_version`（如 `"0.3.0"`；缺省视为 `0.0.0` 兼容全部，
   存量条目零迁移）；`pack.mjs` 读包内 `manifest.json` 的同名字段写入清单。
 - 客户端 `WeizhiPackageSync.namesNeedingEnsure` 拿到清单后先比宿主版本
-  （宿主版本来源对齐 `WeizhiBundledPackages.VERSION` 一类常量），低于则**跳过下载**、
+  （宿主版本来源对齐内置包 manifest / 客户端版本常量），低于则**跳过下载**、
   保留本地已装版本（行为与「只升不降」的降级保护同轨）。
 - 云端 registry 条目可多版本并存时（目前只保留最新），低版本客户端回落取
   `<= 自身版本` 的最大版本。
@@ -39,7 +39,7 @@ zip 根就是源目录里的文件（含 `manifest.json`），不套一层父目
 
 ## 打包
 
-源目录的每个子目录必须是 `name@version`，且其中 `manifest.json` 的 `name` / `version` 与目录名一致。目录树原样打进 zip。
+源目录的每个子目录为包名 `<name>`（**不含版本**）；`manifest.json` 的 `name` 须与目录名一致，`version` 为发布版本。目录树原样打进 zip；云端对象路径仍是 `packages/<name>/<version>/…`（制品不可变）。旧式 `<name>@<version>` 目录仍兼容（须与 manifest 一致）。仓内布局与通道预留见 [doc/集成/WEIZHI_PACKAGE_REGISTRY.md §3.1](../doc/集成/WEIZHI_PACKAGE_REGISTRY.md)。
 
 ```bash
 cd artifact-cdn

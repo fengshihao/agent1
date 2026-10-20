@@ -35,6 +35,31 @@ Registry **定期更新**（ETag / If-None-Match）；Agent1 缓存建议：`{ag
 
 内置包（APK assets / classpath）仍为**离线保底**；远程仅为增量与升级。
 
+## 3.1 源码布局、版本与通道（约定）
+
+三层分开，避免「改 skill 就要复制整棵 `@x.y.z` 目录、测一下就推生产清单」：
+
+| 层 | 路径 / 形态 | 版本出现在哪 |
+|----|-------------|--------------|
+| **源码（仓内真源）** | `agent_core/.../agent-home/weizhi-packages/<name>/`（**路径不含版本**） | 仅 `manifest.json` 的 `version` |
+| **运行时安装** | `<weizhi-home>/packages/<name>@<version>/` | 安装目录名带版本（多版本可并存、只升不降） |
+| **云端制品** | `packages/<name>/<version>/<name>-<version>.zip` | 对象路径带版本；**已上传 zip 只增不改** |
+
+日常开发：在无版本源码目录里改文件并 commit（与普通代码相同）；准备发布时改 `manifest.version`（或由发布流程注入），再 `pack` → 可选上传。
+
+**通道（channel，预留）**——与源码布局正交，后续落地，现网可继续直推 stable：
+
+| 通道 | 用途 | 客户端如何指过去 |
+|------|------|------------------|
+| 本地 bundled | 桌面 classpath 真源，零上传联调 | 默认；`source` 为内置安装 |
+| `staging` | 真机 / 灰度，不进现网指针 | `AGENT1_WEIZHI_PACKAGE_REGISTRY_URL` 指向 staging 清单（已支持）；日后可加 `CHANNEL` 配置少拼 URL |
+| `stable` | 现网 | 默认 `…/packages/registry/stable.json` |
+
+目标节奏：`改源码 → 桌面 bundled 测 → pack --channel staging 真机测 → 验收后再写 stable`。  
+预发布 semver（`x.y.z-rc.N` / `-dev`）、清单文件名按 channel 拆分（`registry/<channel>.json`）、以及 `min_client_version` 见 [artifact-cdn/README.md](../../artifact-cdn/README.md) TODO——**实现通道时不要把版本重新绑回源码目录名**。
+
+`artifact-cdn/pack.mjs`：源目录名为 `<name>`，身份以 manifest 为准；仍兼容旧的 `<name>@<version>` 目录（须与 manifest 一致）。`--channel` 写入清单 JSON 的 `channel` 字段；清单文件名目前仍落 `stable.json`（按 channel 分文件属后续项）。
+
 ## 4. 统一下载流水线（Weizhi 实现）
 
 在 `com.weizhi.packages.PackageInstaller` 之上增加 **Registry 客户端**（命名示例：`PackageRegistryClient` / `OfficialArtifactSync`）：

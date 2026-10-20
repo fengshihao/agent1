@@ -63,7 +63,7 @@ var MAX_SCALE = 3;
 var SHOT_TIMEOUT_MS = "300000";
 var MAX_ELEMENTS_PER_SLIDE = 800;
 var IMG_SRC_MAX_CHARS = 1024 * 1024;
-var PACKAGE_TAG = "html2pptx@0.2.3";
+var PACKAGE_TAG = "html2pptx@0.2.5";
 
 var LIB_URL = "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js";
 var LIB_TOKEN = "html-to-image";

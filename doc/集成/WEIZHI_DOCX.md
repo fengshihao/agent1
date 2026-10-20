@@ -10,7 +10,7 @@
 
 | 项 | 位置 |
 |----|------|
-| 脚本真源 | `agent_core/.../agent-home/weizhi-packages/docx@1.0.0/`（及 `docx-raw`、`docx-build`） |
+| 脚本真源 | `agent_core/.../agent-home/weizhi-packages/docx/`（及 `docx-raw`、`docx-build`；版本在各自 manifest） |
 | Android 分发 | 云端 registry 动态安装（APK 不预装；首次 `run_js` ensure） |
 | 装进运行时 | 桌面 `WeizhiBundledPackages` 从 classpath 装到 `weizhi-home`；Android `WeizhiPackages.syncBundled` 从 assets 装 |
 | 调用 | `run_js` 里 `import { markdownToDocx } from "weizhi:docx"`。无外层 `docx_*` 工具 |

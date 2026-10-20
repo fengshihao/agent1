@@ -23,7 +23,7 @@ class WeizhiBundledPackagesSkillTest {
         WeizhiBundledPackages.syncFromClasspath(agentRoot);
 
         Path skillFile = WeizhiBundledPackages.weizhiHome(agentRoot)
-            .resolve("packages/html2pptx@" + WeizhiBundledPackages.HTML2PPTX_VERSION)
+            .resolve("packages/html2pptx@" + WeizhiBundledPackages.bundledVersion("html2pptx"))
             .resolve("SKILL.md");
         assertTrue(Files.isRegularFile(skillFile), "installed package should carry SKILL.md");
 

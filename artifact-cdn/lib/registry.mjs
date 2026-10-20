@@ -11,6 +11,8 @@ const KIND_ROOT = {
   skill: "skills",
 };
 
+const PACKAGE_NAME = /^[a-z0-9][a-z0-9._-]*$/;
+/** 旧式源码目录 `name@version`（仍兼容）；新布局仅为 `name`。 */
 const NAME_VERSION = /^([a-z0-9][a-z0-9._-]*)@([0-9A-Za-z][0-9A-Za-z._+-]*)$/;
 
 export function kindRoot(kind) {
@@ -82,17 +84,39 @@ export function parseNameVersionDir(dirName) {
   return { name: match[1], version: match[2] };
 }
 
+/**
+ * 源码目录身份：优先 `<name>`（版本只来自 manifest）；仍兼容 `<name>@<version>`。
+ */
 export function readPackageIdentity(dirName, manifest) {
-  const parsed = parseNameVersionDir(dirName);
   if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
     throw new Error(`${dirName}: manifest.json must be an object`);
   }
-  if (manifest.name !== parsed.name || manifest.version !== parsed.version) {
-    throw new Error(
-      `${dirName}: manifest name/version must match the directory name`,
-    );
+  const manifestName = manifest.name;
+  const manifestVersion = manifest.version;
+  if (typeof manifestName !== "string" || !PACKAGE_NAME.test(manifestName)) {
+    throw new Error(`${dirName}: manifest.name must be a package name`);
   }
-  return parsed;
+  if (typeof manifestVersion !== "string" || !manifestVersion.trim()) {
+    throw new Error(`${dirName}: manifest.version required`);
+  }
+
+  const legacy = NAME_VERSION.exec(dirName);
+  if (legacy) {
+    if (manifestName !== legacy[1] || manifestVersion !== legacy[2]) {
+      throw new Error(
+        `${dirName}: manifest name/version must match the directory name`,
+      );
+    }
+    return { name: legacy[1], version: legacy[2] };
+  }
+
+  if (!PACKAGE_NAME.test(dirName)) {
+    throw new Error(`package directory must be <name>: ${dirName}`);
+  }
+  if (manifestName !== dirName) {
+    throw new Error(`${dirName}: manifest.name must match the directory name`);
+  }
+  return { name: manifestName, version: manifestVersion };
 }
 
 export function loadCards(jsonl) {

@@ -1,10 +1,12 @@
 # html2pptx.js — HTML 自由版式生成 PPT（v0.2 截图 + native + 页图导出）
 
-真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx@0.2.4/html2pptx.js`（桌面 classpath 安装）；Android 从云端 registry 动态安装（APK 不预装，`https://agentone.guoyoutech.cn/packages/html2pptx/0.2.4/`，2026-10-20 已上云，sha256 `77df1640…2ecf54b4` 本地/云端一致）。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`；使用说明（skill 正文）**随包分发**：包内 `SKILL.md`（manifest 的 `skill` 字段声明），安装后由 `PackageSkills` 写入 `kind=skill` 能力卡（`source=package_skill`），`find_caps` 查 html2pptx 会同时命中包卡与 skill 卡，正文由 `AgentSkillLoader` 从已安装包加载。
+真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx/`（仓内**无版本路径**；版本见 `manifest.json`，当前 `0.2.5`）。桌面 classpath 安装到 `weizhi-home/packages/html2pptx@<version>/`；Android 从云端 registry 动态安装（APK 不预装，`https://agentone.guoyoutech.cn/packages/html2pptx/0.2.5/`，**待 pack+upload 上云**）。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`；使用说明（skill 正文）**随包分发**：包内 `SKILL.md`（manifest 的 `skill` 字段声明），安装后由 `PackageSkills` 写入 `kind=skill` 能力卡（`source=package_skill`），`find_caps` 查 html2pptx 会同时命中包卡与 skill 卡，正文由 `AgentSkillLoader` 从已安装包加载。布局约定见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
 
 **0.2.3 截图内存**：WebView 内逐页 `writeFile(page-N.png, dataUrl)`，宿主解码落盘后回执只带路径清单；QuickJS 不再 `readFileSync` 整包 Base64 JSON。Android 引擎堆默认与桌面对齐为 128MB（需新 APK；包可单独云升）。
 
 **0.2.4 产品契约**：做 PPT = 交付 `deck.html` + 预览链接；`renderHtmlDeck` 仅用户点「导出可编辑版 / 导出原样版」或明说导出时执行。系统提示与 coach（`deck.html_ready`）同步收口。
+
+**0.2.5 主题变体**：随包 `SKILL.md` 增加 5 套 CSS 变量主题（与 `weizhi:pptx` 同名：`dusk` 默认 / `briefing` / `dark` / `editorial` / `harbor`）；页型骨架不变，整份 deck 选题后用 token 铺色。
 
 **推荐工作流（「HTML 源 + 用户端导出」）**：写 deck.html → 打开即默认**演示模式**（全屏翻页、页码、双导出按钮）→ 指点改 HTML → **用户点导出**才 `renderHtmlDeck`。桌面/无宿主预览用 `exportDeckPages`。
 

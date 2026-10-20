@@ -211,7 +211,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.root || !args.kind) {
     throw new Error(
-      "usage: node pack.mjs --root <name@version 的父目录> --kind <weizhi_package|skill> --base-url <公网根> [--out dist] [--channel stable] [--cards <jsonl>]",
+      "usage: node pack.mjs --root <packages 父目录，子目录为 name> --kind <weizhi_package|skill> --base-url <公网根> [--out dist] [--channel stable] [--cards <jsonl>]",
     );
   }
   const baseUrl = args["base-url"] || process.env.ARTIFACT_CDN_BASE_URL;

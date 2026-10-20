@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { cardsForPackage, projectWeizhi, sha256Hex } from "../lib/registry.mjs";
+import { cardsForPackage, projectWeizhi, readPackageIdentity, sha256Hex } from "../lib/registry.mjs";
 
 const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -85,6 +85,21 @@ test("cards attach only to the exact package name", () => {
   assert.deepEqual(cardsForPackage("docx-build", cards).map((card) => card.id), ["docx.create"]);
 });
 
+test("readPackageIdentity prefers versionless dir + manifest.version", () => {
+  assert.deepEqual(
+    readPackageIdentity("html2pptx", { name: "html2pptx", version: "0.2.5" }),
+    { name: "html2pptx", version: "0.2.5" },
+  );
+  assert.deepEqual(
+    readPackageIdentity("demo@1.0.0", { name: "demo", version: "1.0.0" }),
+    { name: "demo", version: "1.0.0" },
+  );
+  assert.throws(
+    () => readPackageIdentity("html2pptx", { name: "other", version: "0.2.5" }),
+    /manifest.name must match/,
+  );
+});
+
 test("weizhi projection drops kind and non-package entries", () => {
   const projected = projectWeizhi({
     schema_version: 1,
@@ -137,7 +152,7 @@ test("pack weizhi packages, fetch the projection, reject a bad digest", async ()
     assert.equal(index.channel, "stable");
     assert.deepEqual(
       index.artifacts.map((item) => item.name),
-      ["docx", "docx-build", "docx-raw", "pptx", "pptx-build", "svg-raster"],
+      ["docx", "docx-build", "docx-raw", "html2pptx", "pptx", "pptx-build", "svg-raster"],
     );
     assert.ok(index.artifacts.every((item) => item.kind === "weizhi_package"));
     assert.equal(JSON.stringify(projection).includes('"kind"'), false);

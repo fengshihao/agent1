@@ -12,16 +12,13 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 /**
- * 将 classpath {@code agent-home/weizhi-packages/<name>@<version>/} 安装到
+ * 将 classpath {@code agent-home/weizhi-packages/<name>/} 安装到
  * {@code <agentRoot>/weizhi-home}，供 {@link com.weizhi.WeizhiEngine#setPackageRoot} 使用。
+ * 源码目录无版本号；版本只读各包 {@code manifest.json}，安装后目录为 {@code <name>@<version>}。
  * 包内 manifest 声明的 {@code skill} 文件（SKILL.md）一并安装，装完把随包 skill 卡
  * 写入 find_caps（见 {@link PackageSkills}）。
  */
 public final class WeizhiBundledPackages {
-
-    public static final String VERSION = "1.0.0";
-    public static final String PPTX_VERSION = "1.1.0";
-    public static final String HTML2PPTX_VERSION = "0.2.4";
 
     public static final List<String> BUNDLED_PACKAGE_NAMES =
         List.of("docx", "docx-raw", "docx-build", "pptx", "pptx-build", "svg-raster", "html2pptx");
@@ -50,7 +47,7 @@ public final class WeizhiBundledPackages {
         synchronized (INSTALL_LOCK) {
             Files.createDirectories(home);
             for (String name : BUNDLED_PACKAGE_NAMES) {
-                installBundledPackage(home, name, bundledVersion(name));
+                installBundledPackage(home, name);
             }
         }
         PackageSkills.syncCapabilityCards(agentRoot);
@@ -69,33 +66,49 @@ public final class WeizhiBundledPackages {
         return isPackageInstalled(agentRoot, "svg-raster");
     }
 
+    /**
+     * 读取 classpath 上 {@code weizhi-packages/<name>/manifest.json} 的 version。
+     */
+    public static String bundledVersion(String name) throws IOException {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("name");
+        }
+        String resourcePath = RESOURCE_ROOT + name + "/manifest.json";
+        ClassLoader loader = WeizhiBundledPackages.class.getClassLoader();
+        try (InputStream in = loader.getResourceAsStream(resourcePath)) {
+            if (in == null) {
+                throw new IOException("missing resource: " + resourcePath);
+            }
+            JsonNode node = MAPPER.readTree(in);
+            String version = node.path("version").asText("").trim();
+            if (version.isEmpty()) {
+                throw new IOException(name + ": manifest.version required");
+            }
+            String manifestName = node.path("name").asText("").trim();
+            if (!name.equals(manifestName)) {
+                throw new IOException(name + ": manifest.name must match directory (" + manifestName + ")");
+            }
+            return version;
+        }
+    }
+
     private static boolean isPackageInstalled(Path agentRoot, String name) {
         try {
             Path home = weizhiHome(agentRoot);
             Path entry = home.resolve("packages").resolve(name + "@" + bundledVersion(name));
             return Files.isRegularFile(entry.resolve("manifest.json"));
-        } catch (RuntimeException e) {
+        } catch (IOException | RuntimeException e) {
             return false;
         }
     }
 
-    private static String bundledVersion(String name) {
-        if ("pptx".equals(name)) {
-            return PPTX_VERSION;
-        }
-        if ("html2pptx".equals(name)) {
-            return HTML2PPTX_VERSION;
-        }
-        return VERSION;
-    }
-
-    private static void installBundledPackage(Path weizhiHome, String name, String version) throws IOException {
-        String bundleId = name + "@" + version;
-        String prefix = RESOURCE_ROOT + bundleId;
+    private static void installBundledPackage(Path weizhiHome, String name) throws IOException {
+        String prefix = RESOURCE_ROOT + name;
         Path temp = Files.createTempDirectory("weizhi-bundled-pkg-");
         try {
             String entryName = entryFileName(name);
             copyResourceFile(prefix + "/manifest.json", temp.resolve("manifest.json"));
+            String version = readManifestVersion(temp.resolve("manifest.json"), name);
             String skillFile = manifestSkillFile(temp.resolve("manifest.json"));
             if (skillFile != null) {
                 copyResourceFile(prefix + "/" + skillFile, temp.resolve(skillFile));
@@ -105,6 +118,19 @@ public final class WeizhiBundledPackages {
         } finally {
             deleteRecursive(temp);
         }
+    }
+
+    private static String readManifestVersion(Path manifest, String expectedName) throws IOException {
+        JsonNode node = MAPPER.readValue(manifest.toFile(), JsonNode.class);
+        String manifestName = node.path("name").asText("").trim();
+        if (!expectedName.equals(manifestName)) {
+            throw new IOException(expectedName + ": manifest.name must match directory (" + manifestName + ")");
+        }
+        String version = node.path("version").asText("").trim();
+        if (version.isEmpty()) {
+            throw new IOException(expectedName + ": manifest.version required");
+        }
+        return version;
     }
 
     /** manifest 里 {@code skill} 字段声明的随包 skill 文件名；没有声明返回 null。 */
