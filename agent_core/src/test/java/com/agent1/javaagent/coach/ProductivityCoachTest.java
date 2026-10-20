@@ -367,4 +367,38 @@ class ProductivityCoachTest {
         ToolExecutionResult out = coach.maybeAugment("bash", params, in, false);
         assertFalse(out.getText().contains("[coach] lib.hunt_missing"));
     }
+
+    @Test
+    void deckHtmlWriteCoachesNotToExport() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("path", "deck.html");
+        params.put("content", "<section class=\"slide cover\"><h1>Hi</h1></section>");
+        ToolExecutionResult in = ToolExecutionResult.text("已写入: deck.html");
+        ToolExecutionResult out = coach.maybeAugment("write_file", params, in, false);
+        assertTrue(out.getText().contains("[coach] deck.html_ready"));
+        assertTrue(out.getText().contains("不要立刻 renderHtmlDeck"));
+    }
+
+    @Test
+    void deckHtmlWriteCoachOnlyOncePerRun() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("path", "deck.html");
+        params.put("content", "<div class='slide'>a</div>");
+        ToolExecutionResult in = ToolExecutionResult.text("ok");
+        assertTrue(coach.maybeAugment("write_file", params, in, false).getText()
+            .contains("[coach] deck.html_ready"));
+        assertFalse(coach.maybeAugment("write_file", params, in, false).getText()
+            .contains("[coach]"));
+    }
+
+    @Test
+    void looksLikeDeckHtml_requiresSlideClass() {
+        assertTrue(ProductivityCoach.looksLikeDeckHtml(
+            "deck.html", "<section class=\"slide\">x</section>"));
+        assertFalse(ProductivityCoach.looksLikeDeckHtml(
+            "deck.html", "<div class=\"slideshow\">x</div>"));
+        assertFalse(ProductivityCoach.looksLikeDeckHtml("notes.md", "class=\"slide\""));
+    }
 }

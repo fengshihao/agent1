@@ -1,10 +1,12 @@
 # html2pptx.js — HTML 自由版式生成 PPT（v0.2 截图 + native + 页图导出）
 
-真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx@0.2.3/html2pptx.js`（桌面 classpath 安装）；Android 从云端 registry 动态安装（APK 不预装，`https://agentone.guoyoutech.cn/packages/html2pptx/0.2.3/`，2026-10-20 已上云，sha256 `7a316d4f…c2f5942c` 本地/云端一致）。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`；使用说明（skill 正文）**随包分发**：包内 `SKILL.md`（manifest 的 `skill` 字段声明），安装后由 `PackageSkills` 写入 `kind=skill` 能力卡（`source=package_skill`），`find_caps` 查 html2pptx 会同时命中包卡与 skill 卡，正文由 `AgentSkillLoader` 从已安装包加载。
+真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx@0.2.4/html2pptx.js`（桌面 classpath 安装）；Android 从云端 registry 动态安装（APK 不预装，`https://agentone.guoyoutech.cn/packages/html2pptx/0.2.4/`，2026-10-20 已上云，sha256 `77df1640…2ecf54b4` 本地/云端一致）。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`；使用说明（skill 正文）**随包分发**：包内 `SKILL.md`（manifest 的 `skill` 字段声明），安装后由 `PackageSkills` 写入 `kind=skill` 能力卡（`source=package_skill`），`find_caps` 查 html2pptx 会同时命中包卡与 skill 卡，正文由 `AgentSkillLoader` 从已安装包加载。
 
 **0.2.3 截图内存**：WebView 内逐页 `writeFile(page-N.png, dataUrl)`，宿主解码落盘后回执只带路径清单；QuickJS 不再 `readFileSync` 整包 Base64 JSON。Android 引擎堆默认与桌面对齐为 128MB（需新 APK；包可单独云升）。
 
-**推荐工作流（20-A T8 + 21 号 T2-T4，「HTML 源模式 + 用户端导出」）**：deck.html 是资产（workspace 根、不清理）→ Android 宿主内打开 deck.html 即**演示级预览**（deck 模式自动：全屏翻页、页码、点选审查反馈，见 21 号文档）→ 用户指点、AI 改 HTML、预览自动刷新（迭代闭环）→ **用户点预览页「导出 PPT」按钮或明说导出**才 `renderHtmlDeck`（按钮以用户消息回填，mode 由所选版本决定）。桌面/无宿主预览用 `exportDeckPages` 出每页 PNG。可编辑性的主战场在 HTML 源（AI 改 HTML 比改 PPT 容易一个数量级）；PPT 只是导出快照，native 模式服务「接收方要在 PowerPoint/WPS 手动改字」的场景。云端导出（PDF/Word/Keynote 版式化）在规划中。
+**0.2.4 产品契约**：做 PPT = 交付 `deck.html` + 预览链接；`renderHtmlDeck` 仅用户点「导出可编辑版 / 导出原样版」或明说导出时执行。系统提示与 coach（`deck.html_ready`）同步收口。
+
+**推荐工作流（「HTML 源 + 用户端导出」）**：写 deck.html → 打开即默认**演示模式**（全屏翻页、页码、双导出按钮）→ 指点改 HTML → **用户点导出**才 `renderHtmlDeck`。桌面/无宿主预览用 `exportDeckPages`。
 
 定位：`pptx.js`（[OFFICE_PPTX_API.md](OFFICE_PPTX_API.md)）负责快速结构化 deck；`html2pptx` 负责**版式自由**——整页 slide HTML 用 CSS 排版，渐变、阴影、卡片、大数字、图文混排、内嵌图表（echarts/mermaid，CDN）都可以。v0.2 起两种模式：默认 `screenshot` 每页一张全幅图片页（观感优先）；`mode:"native"` 产出**原生可编辑** pptx（文本框/圆角矩形/图片 + 区域截图补真，见 [规划 20 号文档](../规划/自进化Agent/20-Office排版升级与视觉素材管线.md)）。
 

@@ -52,7 +52,7 @@ public final class ProductivitySystemPromptBuilder {
      * 文档与可视化的路由。库 URL 和薄壳示例留在 find_caps（web_lib / docx / pptx / html2pptx），不写进提示词。
      */
     static final String RENDER_PIPELINE = """
-        文档和可视化先写结构化源（Markdown、Mermaid 或 JSON），再 find_caps 查 web_lib、docx、pptx。做 PPT：快速结构化内容用 weizhi:pptx；要版式自由、设计感时用 weizhi:html2pptx 写整页 slide HTML（每页 class="slide"、1280×720），这一条允许手写完整 HTML/CSS。web_lib 薄壳页则 script 和 link 只用结果里的稳定 URL，不要自造 CDN。写入 .html 后宿主会自动检查页面，失败按回执改。
+        文档和可视化先写结构化源（Markdown、Mermaid 或 JSON），再 find_caps 查 web_lib、docx、pptx、html2pptx。做 PPT：快速结构化内容用 weizhi:pptx 直接出 pptx；要版式自由、设计感时用 weizhi:html2pptx 写 workspace 根 deck.html（每页 class="slide"、1280×720）——这一条允许手写完整 HTML/CSS，交付物是 deck.html 本身加可打开的预览链接，不要擅自 renderHtmlDeck；等用户在预览里点导出按钮或明说「导出」再出 pptx。web_lib 薄壳页则 script 和 link 只用结果里的稳定 URL，不要自造 CDN。写入 .html 后宿主会自动检查页面，失败按回执改。
         """.trim();
 
     /** 仅 scriptHostTools（Weizhi $tools 桥）时追加到工作流程段。 */

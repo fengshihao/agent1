@@ -9,6 +9,7 @@ public final class CoachRunState {
     private boolean capabilitySearchUsed;
     private int bashHostToolProbeCoachCount;
     private int libHuntCoachCount;
+    private int deckHtmlReadyCoachCount;
 
     public void clear() {
         scriptFailureCounts.clear();
@@ -17,6 +18,7 @@ public final class CoachRunState {
         capabilitySearchUsed = false;
         bashHostToolProbeCoachCount = 0;
         libHuntCoachCount = 0;
+        deckHtmlReadyCoachCount = 0;
     }
 
     public int recordScriptFailure(String scriptKey) {
@@ -56,5 +58,11 @@ public final class CoachRunState {
     public int recordLibHuntCoach() {
         libHuntCoachCount++;
         return libHuntCoachCount;
+    }
+
+    /** @return 本 Run 内因「deck.html 已写好勿擅自导出」而追加 coach 的次数 */
+    public int recordDeckHtmlReadyCoach() {
+        deckHtmlReadyCoachCount++;
+        return deckHtmlReadyCoachCount;
     }
 }

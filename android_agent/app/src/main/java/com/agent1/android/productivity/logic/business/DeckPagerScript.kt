@@ -40,13 +40,23 @@ object DeckPagerScript {
   function fit() {
     var pager = pagerEl();
     if (!pager) return;
-    var vw = pager.clientWidth || 0, vh = pager.clientHeight || 0;
+    // 全屏切换瞬间 pager 可能尚未完成布局：回退到 window / visualViewport。
+    var vw = pager.clientWidth || window.innerWidth || 0;
+    var vh = pager.clientHeight || window.innerHeight || 0;
+    try {
+      if ((!vw || !vh) && window.visualViewport) {
+        vw = vw || window.visualViewport.width || 0;
+        vh = vh || window.visualViewport.height || 0;
+      }
+    } catch (e) {}
     var slides = pager.querySelectorAll('.slide');
     if (!slides.length || !vw || !vh) return;
     var first = slides[0];
-    var w = first.offsetWidth, h = first.offsetHeight;
+    var w = first.offsetWidth || first.scrollWidth || 0;
+    var h = first.offsetHeight || first.scrollHeight || 0;
     if (!w || !h) return;
     var scale = Math.round(Math.min(vw / w, vh / h) * 1000) / 1000;
+    if (!(scale > 0)) return;
     slides.forEach(function(slide) {
       slide.style.flex = '0 0 auto';
       slide.style.transform = 'scale(' + scale + ')';
@@ -117,10 +127,24 @@ object DeckPagerScript {
   }
   window.addEventListener('resize', scheduleFit);
   window.addEventListener('orientationchange', scheduleFit);
+  window.__agent1DeckRefit = function() { fit(); };
 
   build();
+  // 沉浸式切换后 WebView 尺寸常晚一拍：多帧 + 短延时重算，避免首屏黑/未缩放。
+  try {
+    requestAnimationFrame(function() {
+      fit();
+      requestAnimationFrame(fit);
+    });
+  } catch (e) { fit(); }
+  setTimeout(fit, 50);
+  setTimeout(fit, 200);
+  setTimeout(fit, 500);
 })();
 """
+
+    /** 演示视角下强制重算整页 fit（全屏 insets 变化后由 Kotlin 再调一次）。 */
+    const val REFIT_JS: String = "window.__agent1DeckRefit && window.__agent1DeckRefit();"
 
     /** 还原 `.slide` 到原父节点原位置并移除 pager（记录于安装时的 expando）。 */
     const val UNINSTALL_JS: String = """

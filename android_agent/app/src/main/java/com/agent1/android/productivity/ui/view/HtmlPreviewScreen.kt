@@ -28,18 +28,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -54,7 +51,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -82,9 +78,9 @@ import com.agent1.android.productivity.ui.viewmodel.HtmlPreviewViewModel
 /**
  * 会话 workspace 内 HTML 的 app 内置预览（不外跳外部浏览器）。
  *
- * deck 模式（21 号规划 T1）：检测到 html2pptx 约定的 `.slide` 页时自动进入——
- * 注入 [DeckFitScript] 缩放适配（竖屏每页等宽、横屏铺满），顶栏提供全屏演示
- * （隐藏 app chrome 与系统栏，返回键/浮动按钮退出）；非 deck HTML 行为不变。
+ * deck 模式（21 号规划）：检测到 html2pptx 约定的 `.slide` 页时**默认进演示视角**
+ * （[DeckPagerScript] 全屏翻页 + 整页 fit）；退出后为编辑视角（[DeckFitScript]
+ * 垂直滚动适配 + 双导出按钮）。非 deck HTML 行为不变。
  *
  * 审查模式（REQ-121）：开关注入 [HtmlInspectScript]，tap 元素高亮并回传结构化信息；
  * 面板内直接输入修改意见，「反馈给 AI」**立即发送**（不跳回聊天页）。
@@ -112,19 +108,40 @@ fun HtmlPreviewScreen(
     )
     val state = vm.state
     val deckMode = state.isDeck
-    var fullscreen by remember { mutableStateOf(false) }
+    // deck 默认演示视角（契约：打开即投屏级预览）；非 deck 恒 false。
+    var fullscreen by remember { mutableStateOf(deckMode) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var inspectEnabled by remember { mutableStateOf(false) }
     var selectedElement by remember { mutableStateOf<InspectedElement?>(null) }
     var opinion by remember { mutableStateOf("") }
     var deckPage by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    var showExportSheet by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var webViewHost by remember { mutableStateOf<HtmlPreviewWebViewHost?>(null) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val scope = rememberCoroutineScope()
     val chatState = chatViewModel?.state?.collectAsState()?.value
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    fun requestExport(editable: Boolean) {
+        val draft = DeckExportComposer.compose(relativePath, editable)
+        val ok = onSendFeedback(draft)
+        Toast.makeText(
+            context,
+            if (ok) {
+                "已请求导出，生成后产物会出现在对话里"
+            } else {
+                "发送失败：模型忙碌或配置有误，稍后再试"
+            },
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
+
+    fun schedulePagerRefit(view: WebView?) {
+        if (view == null) return
+        // 沉浸式 insets 到位后再 fit，避免首帧黑屏/未缩放。
+        view.postDelayed({ view.evaluateJavascript(DeckPagerScript.REFIT_JS, null) }, 120)
+        view.postDelayed({ view.evaluateJavascript(DeckPagerScript.REFIT_JS, null) }, 360)
+    }
 
     // 进入演示视角（21 号 T2）：关审查（编辑/演示互斥）→ 撤垂直适配 → 装横向翻页 pager。
     fun enterPresentation() {
@@ -137,6 +154,7 @@ fun HtmlPreviewScreen(
         selectedElement = null
         webView?.evaluateJavascript(DeckFitScript.UNINSTALL_JS, null)
         webView?.evaluateJavascript(DeckPagerScript.INSTALL_JS, null)
+        schedulePagerRefit(webView)
     }
 
     // 退回编辑视角：撤 pager → 恢复垂直滚动适配。
@@ -320,18 +338,27 @@ fun HtmlPreviewScreen(
                     }
                 }
             } else if (deckMode && !fullscreen) {
-                // deck 专属：导出决策入口在用户手里（21 号 T3）——AI 不再擅自导出。
+                // 编辑视角：双导出并排（可编辑 / 原样），决策在用户手里。
                 Column {
                     AgentHairline()
                     Surface(color = MaterialTheme.colorScheme.surface) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.Center,
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Button(onClick = { showExportSheet = true }) {
-                                Text("导出 PPT")
+                            Button(
+                                onClick = { requestExport(editable = true) },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("导出可编辑版", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Button(
+                                onClick = { requestExport(editable = false) },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("导出原样版", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -409,6 +436,7 @@ fun HtmlPreviewScreen(
                                         deckPage?.first?.let { page ->
                                             view.evaluateJavascript(DeckPagerScript.goToJs(page), null)
                                         }
+                                        schedulePagerRefit(view)
                                     } else if (deckMode) {
                                         // 编辑视角：缩放适配（.slide 包 wrapper + scale，幂等）。
                                         view.evaluateJavascript(DeckFitScript.INSTALL_JS, null)
@@ -464,20 +492,62 @@ fun HtmlPreviewScreen(
                                 ) { webView?.evaluateJavascript(DeckPagerScript.NEXT_JS, null) },
                         )
                     }
-                    deckPage?.let { (page, total) ->
-                        Surface(
-                            shape = CircleShape,
-                            color = Color.Black.copy(alpha = 0.45f),
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        deckPage?.let { (page, total) ->
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.Black.copy(alpha = 0.45f),
+                            ) {
+                                Text(
+                                    "$page/$total",
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Color.White,
+                                )
+                            }
+                        }
+                        // 演示中也可导出，不必先退出。
+                        Row(
                             modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 20.dp),
+                                .fillMaxWidth()
+                                .padding(top = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Text(
-                                "$page/$total",
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = Color.White,
-                            )
+                            Surface(
+                                shape = MaterialTheme.shapes.medium,
+                                color = Color.Black.copy(alpha = 0.5f),
+                                modifier = Modifier.weight(1f),
+                                onClick = { requestExport(editable = true) },
+                            ) {
+                                Text(
+                                    "导出可编辑版",
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Surface(
+                                shape = MaterialTheme.shapes.medium,
+                                color = Color.Black.copy(alpha = 0.5f),
+                                modifier = Modifier.weight(1f),
+                                onClick = { requestExport(editable = false) },
+                            ) {
+                                Text(
+                                    "导出原样版",
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                     Surface(
@@ -490,7 +560,7 @@ fun HtmlPreviewScreen(
                         IconButton(onClick = ::exitPresentation) {
                             Icon(
                                 imageVector = AgentIcons.FullscreenExit,
-                                contentDescription = "退出全屏",
+                                contentDescription = "退出演示",
                                 tint = Color.White,
                             )
                         }
@@ -500,96 +570,6 @@ fun HtmlPreviewScreen(
         } else {
             // resolve() 只有 error 或 file 两种结果；防御分支。
             PreviewErrorBox("无法预览：$relativePath", Modifier.fillMaxSize().padding(innerPadding))
-        }
-    }
-
-    if (showExportSheet) {
-        DeckExportSheet(
-            onDismiss = { showExportSheet = false },
-            onExport = { editable: Boolean ->
-                showExportSheet = false
-                // 用户消息回填对话：AI 收到明确指令才调 renderHtmlDeck 对应 mode。
-                val draft = DeckExportComposer.compose(relativePath, editable)
-                val ok = onSendFeedback(draft)
-                Toast.makeText(
-                    context,
-                    if (ok) {
-                        "已请求导出，生成后产物会出现在对话里"
-                    } else {
-                        "发送失败：模型忙碌或配置有误，稍后再试"
-                    },
-                    Toast.LENGTH_SHORT,
-                ).show()
-            },
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DeckExportSheet(
-    onDismiss: () -> Unit,
-    onExport: (editable: Boolean) -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 28.dp),
-        ) {
-            Text(
-                "导出 PPT",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                "基于当前 deck.html 生成，两种版本任选：",
-                modifier = Modifier.padding(top = 6.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            DeckExportOptionRow(
-                title = "可编辑版",
-                desc = "文字在 PowerPoint/WPS 里可直接修改；阴影、图表等复杂效果以图片保真",
-                modifier = Modifier.padding(top = 14.dp),
-                onClick = { onExport(true) },
-            )
-            DeckExportOptionRow(
-                title = "原样版（整页截图）",
-                desc = "观感 100% 与预览一致，不可二次编辑",
-                modifier = Modifier.padding(top = 10.dp),
-                onClick = { onExport(false) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun DeckExportOptionRow(
-    title: String,
-    desc: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-        modifier = modifier.fillMaxWidth(),
-        onClick = onClick,
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(
-                desc,
-                modifier = Modifier.padding(top = 2.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

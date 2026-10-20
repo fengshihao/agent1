@@ -47,6 +47,15 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
+    void pptPipelinePrefersDeckHtmlWithoutUnsolicitedExport() {
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), true);
+        assertTrue(prompt.contains("deck.html"));
+        assertTrue(prompt.contains("不要擅自 renderHtmlDeck"));
+        assertTrue(prompt.contains("html2pptx"));
+    }
+
+    @Test
     void referencesOnlyActuallyRegisteredToolNames() {
         // 与 ProductivityAgentHost.buildTools 注册名逐一核对：
         // AskUserTool.TOOL_NAME / CapabilitySearchTool.TOOL_NAME / ExecuteScriptTool / WebSearchTool.TOOL_NAME

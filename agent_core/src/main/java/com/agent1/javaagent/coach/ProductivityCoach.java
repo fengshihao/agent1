@@ -103,8 +103,16 @@ public final class ProductivityCoach {
             }
         } else if ("write_file".equals(toolName) && !isError && parameters != null
             && !parameters.path("path").asText("").replace('\\', '/').contains("staging/")) {
+            String path = parameters.path("path").asText("");
             String content = parameters.path("content").asText("");
-            if (content.length() >= largeWriteBytes) {
+            // deck 优先于 large_write：大 deck.html 更需要「勿擅自导出」提醒。
+            if (looksLikeDeckHtml(path, content)
+                && runState.recordDeckHtmlReadyCoach() <= 1) {
+                hookId = "deck.html_ready";
+                advice =
+                    "设计感 PPT 的交付物是 deck.html：回复给用户可打开的预览链接/路径即可，"
+                        + "不要立刻 renderHtmlDeck。等用户在预览里点导出或明说「导出」再出 pptx。";
+            } else if (content.length() >= largeWriteBytes) {
                 hookId = "file.large_write";
                 advice =
                     "单次写入较大：内容应留在 workspace 文件，回复只摘要；"
@@ -330,6 +338,23 @@ public final class ProductivityCoach {
             return false;
         }
         return BASH_WHICH_COMMAND.matcher(command.trim()).find();
+    }
+
+    /**
+     * 写入的 HTML 是否为 html2pptx deck（路径像 deck / 含独立 class slide）。
+     * 与 Android {@code DeckHtmlDetector} 对齐意图，JVM 侧轻量判定即可。
+     */
+    static boolean looksLikeDeckHtml(String path, String content) {
+        if (content == null || content.isBlank()) {
+            return false;
+        }
+        String lowerPath = path == null ? "" : path.replace('\\', '/').toLowerCase();
+        boolean htmlPath = lowerPath.endsWith(".html") || lowerPath.endsWith(".htm");
+        if (!htmlPath && !lowerPath.contains("deck")) {
+            return false;
+        }
+        // class="slide" / class='slide cover'；避开 slideshow 等粘连词。
+        return Pattern.compile("(?i)class\\s*=\\s*[\"'][^\"']*\\bslide\\b").matcher(content).find();
     }
 
     /** 在 bash/glob 里寻找脚本库文件（pptx.js、find -name xxx.js、通配 .js 等）。 */

@@ -29,6 +29,10 @@ class DeckPagerScriptTest {
         // 整页 fit（min 双轴），区别于编辑视角的按宽适配。
         assertTrue(DeckPagerScript.INSTALL_JS.contains("Math.min(vw / w, vh / h)"))
         assertFalse(DeckPagerScript.INSTALL_JS.contains("Math.min(1,"))
+        // 全屏布局晚到：visualViewport / 延时 refit 锚点。
+        assertTrue(DeckPagerScript.INSTALL_JS.contains("visualViewport"))
+        assertTrue(DeckPagerScript.INSTALL_JS.contains("__agent1DeckRefit"))
+        assertTrue(DeckPagerScript.REFIT_JS.contains("__agent1DeckRefit"))
     }
 
     @Test
