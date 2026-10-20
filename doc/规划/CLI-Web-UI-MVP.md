@@ -52,6 +52,7 @@ Browser ◄──SSE events── UiHttpServer ◄── AgentEvent ◄───
 | POST | `/api/sessions/rollover` | `{ "summarize": true }` 规则化总结后新建会话 |
 | GET | `/api/tools` | 当前 Host 已注册工具（对齐 Android 工具摘要） |
 | GET | `/api/diagnostics/export` | 诊断 zip 下载（sessions/logs，不含 API Key） |
+| GET/PUT | `/api/mcp/servers` | `mcp_servers.json` 列表与保存（保存后索引 MCP 工具） |
 | GET | `/api/artifacts` | 跨会话产物列表 |
 | GET | `/api/capabilities?q=` | `find_caps` 正文（产物库内检索） |
 | GET/POST/DELETE | `/api/sessions/{id}/attachments` | 上传到 `imports/` |
@@ -121,6 +122,8 @@ cd java_agent/web_ui && npm ci && npm run build   # 只改前端时
 | P3 | **总结并新开话题** | ✅ `POST /api/sessions/rollover` + 聊天区按钮 |
 | P3 | **Run 限额 / 模型目录** | ✅ `ui-config.json` 限额 + `GET /api/models` + 设置页 |
 | P3 | 诊断包 / Tavily / 图片预览 / 工具列表 | ✅ 抽屉导出、`webSearch` 配置、聊天气泡图、`GET /api/tools` |
+| P3 | Run Token 摘要 / MCP 设置 / 文件链接 | ✅ SSE `USAGE` 汇总行、`GET/PUT /api/mcp/servers`、气泡内 `[文件](path)` |
+| — | **待拍板** | 见 [CLI-Web-UI-Android对齐-待决.md](CLI-Web-UI-Android对齐-待决.md) |
 
 ### 切换 Session 会不会省 Token？
 

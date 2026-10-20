@@ -11,7 +11,13 @@ import {
   messagesToLines,
   ToolPart,
 } from "./state";
-import { imagePathsForBubble } from "./messageFormat";
+import { extraPlainImageHtml, formatBubbleContentHtml } from "./messageFormat";
+import {
+  accumulateRunUsage,
+  buildRunTokenSummary,
+  resetRunUsageAccumulators,
+  runTokenSummaryLine,
+} from "./runTokenSummary";
 import { inferProviderId, presetFor, PROVIDER_PRESETS } from "./providers";
 import type { SettingsDraft } from "./state";
 import { usageDetailHtml, usageFooterLine } from "./usage";
@@ -204,13 +210,18 @@ function onAgentEvent(event: api.AgentEventDto) {
   }
   switch (event.type) {
     case "AGENT_START":
+      resetRunUsageAccumulators();
       setState({
         isRunning: true,
         streamingText: "",
         streamingReasoning: "",
         tools: [],
         error: null,
+        lastRunTokenSummary: null,
       });
+      break;
+    case "USAGE":
+      accumulateRunUsage(event.payload);
       break;
     case "MESSAGE_UPDATE":
       setState({
@@ -263,11 +274,15 @@ function onAgentEvent(event: api.AgentEventDto) {
       setState({
         error: String(event.payload.message || "运行出错"),
         isRunning: false,
+        lastRunTokenSummary: buildRunTokenSummary(true),
       });
       void reloadAfterRun();
       break;
     case "AGENT_END":
-      setState({ isRunning: false });
+      setState({
+        isRunning: false,
+        lastRunTokenSummary: buildRunTokenSummary(false),
+      });
       void reloadAfterRun();
       break;
     default:
@@ -277,6 +292,7 @@ function onAgentEvent(event: api.AgentEventDto) {
 
 async function reloadAfterRun() {
   if (!state.activeSessionId) return;
+  const tokenSummary = state.lastRunTokenSummary;
   try {
     const messages = await api.fetchTranscript(state.activeSessionId);
     setState({
@@ -286,6 +302,7 @@ async function reloadAfterRun() {
       streamingReasoning: "",
       tools: [],
       isRunning: false,
+      lastRunTokenSummary: tokenSummary,
     });
     await refreshSessions();
     await refreshUsage();
@@ -313,6 +330,7 @@ async function onSend() {
     streamingText: "",
     tools: [],
     error: null,
+    lastRunTokenSummary: null,
   });
   let payload = text;
   if (state.attachments.length > 0) {
@@ -338,24 +356,16 @@ async function onSubmitAsk() {
 
 function renderBubble(line: ChatLine, sessionId: string | null): string {
   if (line.role === "tool") {
-    const images = sessionId ? imagePathsForBubble(line.content) : [];
-    const imgs = images
-      .map(
-        (p) =>
-          `<figure class="bubble-image"><img src="${api.workspaceFileUrl(sessionId!, p)}" alt="${escapeHtml(p)}" loading="lazy"/></figure>`,
-      )
-      .join("");
+    const body = sessionId
+      ? formatBubbleContentHtml(line.content, sessionId) + extraPlainImageHtml(line.content, sessionId)
+      : escapeHtml(line.content);
     return `<details class="tool-card"><summary>⚙ ${escapeHtml(line.toolName || "tool")}</summary>
-      <div class="tool-row ${line.error ? "err" : ""}">${escapeHtml(line.content)}${imgs}</div></details>`;
+      <div class="tool-row ${line.error ? "err" : ""}">${body}</div></details>`;
   }
-  const images = sessionId ? imagePathsForBubble(line.content) : [];
-  const imgs = images
-    .map(
-      (p) =>
-        `<figure class="bubble-image"><img src="${api.workspaceFileUrl(sessionId!, p)}" alt="${escapeHtml(p)}" loading="lazy"/></figure>`,
-    )
-    .join("");
-  return `<div class="bubble ${line.role}"><div class="bubble-text">${escapeHtml(line.content)}</div>${imgs}</div>`;
+  const body = sessionId
+    ? formatBubbleContentHtml(line.content, sessionId) + extraPlainImageHtml(line.content, sessionId)
+    : escapeHtml(line.content);
+  return `<div class="bubble ${line.role}"><div class="bubble-text">${body}</div></div>`;
 }
 
 function renderLiveTools(): string {
@@ -443,6 +453,42 @@ function renderPreviewPanel(): string {
         <button type="button" class="icon-btn" id="preview-close">✕</button>
       </div>
       <iframe class="preview-frame" src="${url}" title="preview"></iframe>
+    </div>
+  </div>`;
+}
+
+function renderMcpPanel(): string {
+  if (!state.showMcp) return "";
+  const rows = state.mcpServers
+    .map((s, i) => {
+      const headers = JSON.stringify(s.headers || {});
+      return `<div class="mcp-card" data-mcp-index="${i}">
+        <div class="field-row">
+          <div class="field"><label>名称</label><input class="settings-control mcp-name" value="${escapeHtml(s.name)}" /></div>
+          <label class="mcp-enable"><input type="checkbox" class="mcp-enabled" ${s.enabled ? "checked" : ""}/> 启用</label>
+        </div>
+        <div class="field"><label>URL</label><input class="settings-control mcp-url" value="${escapeHtml(s.url)}" /></div>
+        <div class="field"><label>Headers (JSON)</label><input class="settings-control mcp-headers" value="${escapeHtml(headers)}" /></div>
+        <p class="settings-hint">${s.toolCount ? `${s.toolCount} 个工具` : "保存后尝试索引工具"}</p>
+        <button type="button" class="link-btn mcp-remove" data-mcp-index="${i}">删除</button>
+      </div>`;
+    })
+    .join("");
+  return `<div class="overlay settings-overlay" id="mcp-overlay">
+    <div class="overlay-panel settings-panel">
+      <header class="settings-header">
+        <h2>MCP 服务器</h2>
+        <button type="button" class="icon-btn" id="mcp-close" title="关闭">✕</button>
+      </header>
+      <div class="settings-body">
+        <p class="muted">配置写入 agentRoot/mcp_servers.json；脚本内通过 $mcp 调用。保存后会刷新 find_caps 索引。</p>
+        ${state.mcpStatus ? `<p class="settings-hint">${escapeHtml(state.mcpStatus)}</p>` : ""}
+        <div id="mcp-list">${rows}</div>
+        <button type="button" class="link-btn" id="mcp-add">添加服务器</button>
+      </div>
+      <footer class="settings-footer">
+        <button type="button" class="primary-btn" id="mcp-save">保存并索引</button>
+      </footer>
     </div>
   </div>`;
 }
@@ -572,7 +618,8 @@ function renderSettings(): string {
         </section>
       </div>
       <footer class="settings-footer">
-        <button type="button" class="link-btn" id="cfg-show-tools">查看已注册工具</button>
+        <button type="button" class="link-btn" id="cfg-open-mcp">MCP 服务器</button>
+        <button type="button" class="link-btn" id="cfg-show-tools">已注册工具</button>
         <button type="button" class="primary-btn settings-save" id="cfg-save">保存并生效</button>
       </footer>
     </div>
@@ -607,10 +654,14 @@ function render() {
   const summarizeBtn = canSummarizeRollover
     ? `<button type="button" class="new-topic-btn secondary" id="btn-summarize-new">总结并新开话题</button>`
     : "";
+  const runTokenRow =
+    state.lastRunTokenSummary && !state.isRunning
+      ? `<div class="run-token-summary ${state.lastRunTokenSummary.failed ? "failed" : ""}">${escapeHtml(runTokenSummaryLine(state.lastRunTokenSummary))}</div>`
+      : "";
   const chatBody =
     state.lines.length === 0 && !state.streamingText && !state.isRunning
       ? `<div class="landing"><h2>Agent1</h2><p>生产力助手 · 与 Android 端同款纸本风格。左侧管理会话，下方输入开始对话。</p></div>`
-      : chatLinesHtml + newTopicBtn + summarizeBtn + renderLiveTools() + renderAskPanel();
+      : chatLinesHtml + runTokenRow + newTopicBtn + summarizeBtn + renderLiveTools() + renderAskPanel();
 
   const usageFoot = usageFooterLine(state.usage);
 
@@ -681,6 +732,7 @@ function render() {
       </div>
     </section>
     ${renderSettings()}
+    ${renderMcpPanel()}
     ${renderToolsPanel()}
     ${renderUsagePanel()}
     ${renderArtifactsPanel()}
@@ -882,6 +934,81 @@ function bindEvents() {
   });
   document.getElementById("cfg-tool-calls")?.addEventListener("change", (ev) => {
     syncDraftField({ maxToolCallsPerRun: parseInt((ev.target as HTMLInputElement).value, 10) || 0 });
+  });
+  async function openMcpPanel() {
+    try {
+      const { servers } = await api.fetchMcpServers();
+      setState({ showMcp: true, mcpServers: servers, mcpStatus: null, showSettings: false });
+    } catch (e) {
+      setState({ error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  document.getElementById("cfg-open-mcp")?.addEventListener("click", () => void openMcpPanel());
+  document.getElementById("mcp-close")?.addEventListener("click", () => setState({ showMcp: false }));
+  document.getElementById("mcp-overlay")?.addEventListener("click", (ev) => {
+    if (ev.target === ev.currentTarget) setState({ showMcp: false });
+  });
+  document.getElementById("mcp-add")?.addEventListener("click", () => {
+    setState({
+      mcpServers: [
+        ...state.mcpServers,
+        { name: "server", url: "https://", enabled: true, headers: {} },
+      ],
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>(".mcp-remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.mcpIndex);
+      setState({ mcpServers: state.mcpServers.filter((_, i) => i !== idx) });
+    });
+  });
+  document.getElementById("mcp-save")?.addEventListener("click", async () => {
+    const cards = document.querySelectorAll<HTMLElement>(".mcp-card");
+    const servers: api.McpServerDto[] = [];
+    cards.forEach((card, i) => {
+      const existing = state.mcpServers[i];
+      const name = card.querySelector<HTMLInputElement>(".mcp-name")?.value.trim() || "";
+      const url = card.querySelector<HTMLInputElement>(".mcp-url")?.value.trim() || "";
+      const enabled = card.querySelector<HTMLInputElement>(".mcp-enabled")?.checked ?? true;
+      let headers: Record<string, string> = {};
+      try {
+        headers = JSON.parse(card.querySelector<HTMLInputElement>(".mcp-headers")?.value || "{}");
+      } catch {
+        // keep {}
+      }
+      servers.push({
+        name,
+        url,
+        enabled,
+        headers,
+        toolCount: existing?.toolCount,
+        lastListedAt: existing?.lastListedAt,
+      });
+    });
+    try {
+      const result = await api.saveMcpServers(servers);
+      const { servers: reloaded } = await api.fetchMcpServers();
+      const warn = result.warnings.length ? ` · ${result.warnings.join("; ")}` : "";
+      setState({
+        mcpServers: reloaded,
+        mcpStatus: `已索引 ${result.toolCount} 个 MCP 工具${warn}`,
+      });
+      showToast("MCP 已保存");
+    } catch (e) {
+      setState({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+  document.querySelectorAll<HTMLButtonElement>(".file-link").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const path = btn.dataset.filePath;
+      const sid = state.activeSessionId;
+      if (!path || !sid) return;
+      if (isPreviewablePath(path)) {
+        setState({ preview: { sessionId: sid, path } });
+      } else {
+        showToast(path);
+      }
+    });
   });
   document.getElementById("cfg-show-tools")?.addEventListener("click", async () => {
     try {

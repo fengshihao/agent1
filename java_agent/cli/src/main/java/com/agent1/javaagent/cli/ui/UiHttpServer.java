@@ -1,8 +1,11 @@
 package com.agent1.javaagent.cli.ui;
 
 import com.agent1.javaagent.config.AgentRuntimeConfig;
+import com.agent1.javaagent.mcp.McpServerRecord;
 import com.agent1.javaagent.modelcatalog.ModelProviderIds;
 import com.agent1.javaagent.modelcatalog.RemoteModelOption;
+import java.util.HashMap;
+import java.util.Map;
 import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.session.SessionMeta;
@@ -63,6 +66,7 @@ public final class UiHttpServer implements AutoCloseable {
         server.createContext("/api/models", this::handleModels);
         server.createContext("/api/tools", this::handleTools);
         server.createContext("/api/diagnostics/export", this::handleDiagnosticExport);
+        server.createContext("/api/mcp/servers", this::handleMcpServers);
         server.createContext("/api/usage", this::handleUsage);
         server.createContext("/api/artifacts", this::handleArtifacts);
         server.createContext("/api/capabilities", this::handleCapabilities);
@@ -261,6 +265,91 @@ public final class UiHttpServer implements AutoCloseable {
         } finally {
             Files.deleteIfExists(zip);
         }
+    }
+
+    private void handleMcpServers(HttpExchange exchange) throws IOException {
+        String method = exchange.getRequestMethod();
+        if ("GET".equalsIgnoreCase(method)) {
+            ArrayNode arr = MAPPER.createArrayNode();
+            for (McpServerRecord server : gateway.listMcpServers()) {
+                arr.add(encodeMcpServer(server));
+            }
+            sendJson(exchange, 200, MAPPER.createObjectNode().set("servers", arr));
+            return;
+        }
+        if ("PUT".equalsIgnoreCase(method)) {
+            JsonNode req = readJson(exchange);
+            JsonNode serversNode = req.path("servers");
+            if (!serversNode.isArray()) {
+                sendError(exchange, 400, "servers array required");
+                return;
+            }
+            List<McpServerRecord> servers = new java.util.ArrayList<>();
+            for (JsonNode node : serversNode) {
+                McpServerRecord record = decodeMcpServer(node);
+                if (record != null) {
+                    servers.add(record);
+                }
+            }
+            try {
+                DesktopMcpService.SaveResult result = gateway.saveMcpServers(servers);
+                ObjectNode body = MAPPER.createObjectNode();
+                body.put("toolCount", result.toolCount());
+                ArrayNode warnings = body.putArray("warnings");
+                for (String warning : result.warnings()) {
+                    warnings.add(warning);
+                }
+                sendJson(exchange, 200, body);
+            } catch (Exception e) {
+                sendError(exchange, 400, e.getMessage());
+            }
+            return;
+        }
+        sendMethodNotAllowed(exchange);
+    }
+
+    private static ObjectNode encodeMcpServer(McpServerRecord server) {
+        ObjectNode node = MAPPER.createObjectNode();
+        node.put("name", server.name());
+        node.put("url", server.url());
+        node.put("enabled", server.enabled());
+        node.put("description", server.description());
+        node.put("toolCount", server.toolCount());
+        node.put("lastListedAt", server.lastListedAt());
+        ObjectNode headers = node.putObject("headers");
+        for (Map.Entry<String, String> entry : server.headers().entrySet()) {
+            headers.put(entry.getKey(), entry.getValue());
+        }
+        return node;
+    }
+
+    private static McpServerRecord decodeMcpServer(JsonNode node) {
+        if (node == null || !node.isObject()) {
+            return null;
+        }
+        String name = node.path("name").asText("").trim();
+        String url = node.path("url").asText("").trim();
+        if (name.isEmpty() || url.isEmpty()) {
+            return null;
+        }
+        Map<String, String> headers = new HashMap<>();
+        JsonNode headersNode = node.path("headers");
+        if (headersNode.isObject()) {
+            headersNode.fields().forEachRemaining(entry -> {
+                if (!entry.getValue().isNull()) {
+                    headers.put(entry.getKey(), entry.getValue().asText(""));
+                }
+            });
+        }
+        return new McpServerRecord(
+            name,
+            url,
+            headers,
+            node.path("enabled").asBoolean(true),
+            node.path("description").asText(""),
+            node.path("toolCount").asInt(0),
+            node.path("lastListedAt").asText("")
+        );
     }
 
     private ObjectNode encodeConfig(UiConfigStore.UiConfigSnapshot snap) {

@@ -687,6 +687,48 @@ button {
   margin-bottom: 0.2rem;
 }
 
+.run-token-summary {
+  margin: 0.75rem 0 0;
+  padding: 0.45rem 0.65rem;
+  border-radius: 10px;
+  background: var(--paper-deep);
+  font-size: 11px;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.run-token-summary.failed {
+  color: var(--danger);
+}
+
+.file-link {
+  display: inline;
+  padding: 0;
+  margin: 0 0.15rem;
+  border: none;
+  background: none;
+  color: var(--accent-deep);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.mcp-card {
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 0.65rem;
+  margin-bottom: 0.65rem;
+  background: #fff;
+}
+
+.mcp-enable {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .new-topic-btn {
   display: block;
   margin: 0 0 0.75rem;

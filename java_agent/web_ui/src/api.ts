@@ -117,6 +117,33 @@ export async function fetchModels(
   return parseJson(await fetch(`/api/models?${q}`));
 }
 
+export type McpServerDto = {
+  name: string;
+  url: string;
+  enabled: boolean;
+  description?: string;
+  toolCount?: number;
+  lastListedAt?: string;
+  headers?: Record<string, string>;
+};
+
+export async function fetchMcpServers(): Promise<{ servers: McpServerDto[] }> {
+  return parseJson(await fetch("/api/mcp/servers"));
+}
+
+export async function saveMcpServers(servers: McpServerDto[]): Promise<{
+  toolCount: number;
+  warnings: string[];
+}> {
+  return parseJson(
+    await fetch("/api/mcp/servers", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ servers }),
+    }),
+  );
+}
+
 export async function fetchTools(): Promise<{ tools: Array<{ name: string; description: string }> }> {
   return parseJson(await fetch("/api/tools"));
 }

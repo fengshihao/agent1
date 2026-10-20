@@ -11,6 +11,7 @@ import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
 import com.agent1.javaagent.capability.CapabilitySearchView;
 import com.agent1.javaagent.session.FileSessionStore;
+import com.agent1.javaagent.mcp.McpServerRecord;
 import com.agent1.javaagent.modelcatalog.ModelCatalogService;
 import com.agent1.javaagent.modelcatalog.ModelProviderIds;
 import com.agent1.javaagent.modelcatalog.RemoteModelOption;
@@ -191,6 +192,14 @@ public final class DesktopUiGateway implements Closeable {
 
     public Path exportDiagnosticZip() throws IOException {
         return DesktopDiagnosticExport.exportZip(agentRoot, configuration());
+    }
+
+    public List<McpServerRecord> listMcpServers() {
+        return DesktopMcpService.load(agentRoot);
+    }
+
+    public DesktopMcpService.SaveResult saveMcpServers(List<McpServerRecord> servers) {
+        return DesktopMcpService.save(agentRoot, servers);
     }
 
     public void switchSession(String sessionId) {

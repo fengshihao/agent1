@@ -3,11 +3,13 @@ import type {
   AttachmentDto,
   ArtifactDto,
   ConfigDto,
+  McpServerDto,
   MessageDto,
   ModelOptionDto,
   SessionMeta,
   UsageDto,
 } from "./api";
+import type { RunTokenSummary } from "./runTokenSummary";
 
 export type ChatLine = {
   id: string;
@@ -57,6 +59,10 @@ export type AppState = {
   modelsStatus: string | null;
   showTools: boolean;
   toolsList: Array<{ name: string; description: string }>;
+  lastRunTokenSummary: RunTokenSummary | null;
+  showMcp: boolean;
+  mcpServers: McpServerDto[];
+  mcpStatus: string | null;
 };
 
 export type SettingsDraft = {
@@ -101,6 +107,10 @@ export function createInitialState(): AppState {
     modelsStatus: null,
     showTools: false,
     toolsList: [],
+    lastRunTokenSummary: null,
+    showMcp: false,
+    mcpServers: [],
+    mcpStatus: null,
   };
 }
 
