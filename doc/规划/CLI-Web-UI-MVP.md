@@ -48,6 +48,8 @@ Browser ◄──SSE events── UiHttpServer ◄── AgentEvent ◄───
 | POST | `/api/run/abort` | 停止 |
 | GET | `/api/events` | SSE：`{ type, timestampMs, sessionId, runId, payload }` |
 | GET | `/api/usage` | 全库 events.jsonl 累计 token（`UsageOverview`） |
+| GET | `/api/models?provider=&refresh=1` | models.dev 模型列表（失败退回内置表） |
+| POST | `/api/sessions/rollover` | `{ "summarize": true }` 规则化总结后新建会话 |
 | GET | `/api/artifacts` | 跨会话产物列表 |
 | GET | `/api/capabilities?q=` | `find_caps` 正文（产物库内检索） |
 | GET/POST/DELETE | `/api/sessions/{id}/attachments` | 上传到 `imports/` |
@@ -92,6 +94,7 @@ Browser ◄──SSE events── UiHttpServer ◄── AgentEvent ◄───
 | 2026-10-21 | 联调修复：`run-java-agent-gradle` 改为 `:cli:runJavaAgentCli`，修复 `AGENT1_USE_GRADLE=1 ./agent1 ui` 报 `Unknown command-line option '--args'`；端口占用时提示 `--port` / `AGENT1_UI_PORT` |
 | 2026-10-21 | P1/P2：新话题按钮、用量摘要 API/UI、core `UsageLogSummary`、系统墨夜主题 |
 | 2026-10-21 | P2：core `ArtifactLibrary`、附件/产物库/HTML 预览/能力检索 API 与 Web UI |
+| 2026-10-21 | P3：总结并新开话题、models.dev 模型目录、设置页 Run 限额（对齐 Android 设置能力） |
 
 ### 如何启动（备忘）
 
@@ -113,6 +116,8 @@ cd java_agent/web_ui && npm ci && npm run build   # 只改前端时
 | P1 | **抽屉用量摘要** | ✅ `GET /api/usage` + core `UsageLogSummary`；抽屉底栏可点开详情 |
 | P2 | 附件 / 产物库 / HTML 预览 | ✅ 附件上传、产物库、HTML iframe 预览、`find_caps` 检索 |
 | P2 | 墨夜主题 | ✅ `prefers-color-scheme: dark` CSS 变量 |
+| P3 | **总结并新开话题** | ✅ `POST /api/sessions/rollover` + 聊天区按钮 |
+| P3 | **Run 限额 / 模型目录** | ✅ `ui-config.json` 限额 + `GET /api/models` + 设置页 |
 
 ### 切换 Session 会不会省 Token？
 

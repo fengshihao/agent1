@@ -1,5 +1,13 @@
 import type { AskRequest } from "./askUser";
-import type { AttachmentDto, ArtifactDto, ConfigDto, MessageDto, SessionMeta, UsageDto } from "./api";
+import type {
+  AttachmentDto,
+  ArtifactDto,
+  ConfigDto,
+  MessageDto,
+  ModelOptionDto,
+  SessionMeta,
+  UsageDto,
+} from "./api";
 
 export type ChatLine = {
   id: string;
@@ -43,6 +51,7 @@ export type AppState = {
   preview: { sessionId: string; path: string } | null;
   capQuery: string;
   capResult: string;
+  modelOptions: ModelOptionDto[];
 };
 
 export function createInitialState(): AppState {
@@ -70,6 +79,7 @@ export function createInitialState(): AppState {
     preview: null,
     capQuery: "",
     capResult: "",
+    modelOptions: [],
   };
 }
 

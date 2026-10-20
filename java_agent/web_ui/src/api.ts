@@ -44,6 +44,17 @@ export type ConfigDto = {
   hasApiKey: boolean;
   apiKeyHint?: string;
   configurationError?: string;
+  providerId?: string;
+  maxContextTurns?: number;
+  maxContextMessages?: number;
+  maxTurnsPerRun?: number;
+  maxToolCallsPerRun?: number;
+};
+
+export type ModelOptionDto = {
+  modelId: string;
+  title: string;
+  subtitle: string;
 };
 
 export type AgentEventDto = {
@@ -74,6 +85,11 @@ export async function saveConfig(body: {
   apiKey?: string;
   baseUrl?: string;
   model?: string;
+  providerId?: string;
+  maxContextTurns?: number;
+  maxContextMessages?: number;
+  maxTurnsPerRun?: number;
+  maxToolCallsPerRun?: number;
 }): Promise<ConfigDto> {
   return parseJson(
     await fetch("/api/config", {
@@ -86,6 +102,29 @@ export async function saveConfig(body: {
 
 export async function fetchUsage(): Promise<UsageDto> {
   return parseJson(await fetch("/api/usage"));
+}
+
+export async function fetchModels(
+  provider: string,
+  refresh = false,
+): Promise<{ models: ModelOptionDto[]; source: string }> {
+  const q = new URLSearchParams({ provider });
+  if (refresh) q.set("refresh", "1");
+  return parseJson(await fetch(`/api/models?${q}`));
+}
+
+export async function rolloverSession(summarize = true): Promise<{
+  session: SessionMeta;
+  previousSessionId?: string;
+  summaryPath?: string;
+}> {
+  return parseJson(
+    await fetch("/api/sessions/rollover", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ summarize }),
+    }),
+  );
 }
 
 export type AttachmentDto = {

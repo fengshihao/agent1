@@ -11,13 +11,19 @@ import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
 import com.agent1.javaagent.capability.CapabilitySearchView;
 import com.agent1.javaagent.session.FileSessionStore;
+import com.agent1.javaagent.modelcatalog.ModelCatalogService;
+import com.agent1.javaagent.modelcatalog.ModelProviderIds;
+import com.agent1.javaagent.modelcatalog.RemoteModelOption;
 import com.agent1.javaagent.session.ProductivityAgentHost;
 import com.agent1.javaagent.session.SessionMeta;
+import com.agent1.javaagent.session.SessionSummaryService;
 import com.agent1.javaagent.workspace.ArtifactLibrary;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -52,6 +58,7 @@ public final class DesktopUiGateway implements Closeable {
     private final AtomicReference<String> activeRunSessionId = new AtomicReference<>();
 
     private volatile ProductivityAgentHost host;
+    private final ModelCatalogService modelCatalogService = new ModelCatalogService();
 
     public DesktopUiGateway(Path agentRoot, HostFactory hostFactory, AgentRuntimeConfig initialConfig) {
         this.agentRoot = agentRoot;
@@ -129,6 +136,53 @@ public final class DesktopUiGateway implements Closeable {
 
     public SessionMeta createSession() {
         return execute(() -> ensureHost().createSession());
+    }
+
+    /**
+     * 规则化总结当前会话后新建会话；新会话系统提示词附带上一会话摘要（对齐 Web「总结并新开话题」）。
+     */
+    public SessionRolloverResult rolloverSession(boolean summarize) throws IOException {
+        return execute(() -> {
+            ProductivityAgentHost agentHost = ensureHost();
+            if (agentHost.isRunInProgress()) {
+                throw new IllegalStateException("请先停止当前 Run");
+            }
+            String previousSessionId = agentHost.getActiveSessionId();
+            Path summaryPath = null;
+            if (summarize && previousSessionId != null && sessionHasConversation(agentHost, previousSessionId)) {
+                summaryPath = agentHost.writeSessionSummary();
+            }
+            SessionMeta created = agentHost.createSession();
+            if (summaryPath != null && previousSessionId != null) {
+                String markdown = Files.readString(summaryPath, StandardCharsets.UTF_8);
+                String supplement = buildCarryoverSupplement(previousSessionId, markdown);
+                agentHost.setSessionEnvironmentSupplement(supplement);
+                agentHost.switchSession(created.getSessionId());
+            }
+            return new SessionRolloverResult(
+                previousSessionId,
+                summaryPath == null ? null : summaryPath.toString(),
+                created
+            );
+        });
+    }
+
+    public List<RemoteModelOption> listModels(String providerId, boolean refreshRemote) {
+        String provider = providerId == null || providerId.isBlank()
+            ? ModelProviderIds.inferProviderId(configuration().getBaseUrl())
+            : providerId.trim();
+        if (refreshRemote) {
+            try {
+                return modelCatalogService.fetchPublicModelOptions(provider);
+            } catch (IOException ignored) {
+                // fall through
+            }
+        }
+        return modelCatalogService.fallbackForProvider(provider);
+    }
+
+    public UiConfigStore.UiConfigSnapshot configSnapshot() {
+        return UiConfigStore.snapshotFor(agentRoot, configuration());
     }
 
     public void switchSession(String sessionId) {
@@ -254,22 +308,29 @@ public final class DesktopUiGateway implements Closeable {
     }
 
     /** 保存 UI 配置并重建 Host（进行中的 Run 会先 abort）。 */
-    public AgentRuntimeConfig updateConfig(String apiKey, String baseUrl, String model) throws IOException {
+    public AgentRuntimeConfig updateConfig(
+        String apiKey,
+        String baseUrl,
+        String model,
+        String providerId,
+        int maxContextTurns,
+        int maxContextMessages,
+        int maxTurnsPerRun,
+        int maxToolCallsPerRun
+    ) throws IOException {
         abortActiveRun();
-        UiConfigStore.save(agentRoot, apiKey, baseUrl, model);
-        AgentRuntimeConfig merged = UiConfigStore.mergeWithEnvironment(agentRoot);
-        // 若本次显式传了字段，确保覆盖合并结果（含清空后的 env 回退）
-        AgentRuntimeConfig.Builder builder = AgentRuntimeConfig.builder()
-            .apiKey(apiKey != null && !apiKey.isBlank() ? apiKey.trim() : merged.getApiKey())
-            .baseUrl(baseUrl != null && !baseUrl.isBlank() ? baseUrl.trim() : merged.getBaseUrl())
-            .model(model != null && !model.isBlank() ? model.trim() : merged.getModel())
-            .maxContextTurns(merged.getMaxContextTurns())
-            .maxContextMessages(merged.getMaxContextMessages())
-            .maxTurnsPerRun(merged.getMaxTurnsPerRun())
-            .maxToolCallsPerRun(merged.getMaxToolCallsPerRun())
-            .webSearchApiKey(merged.getWebSearchApiKey())
-            .webSearchBaseUrl(merged.getWebSearchBaseUrl());
-        AgentRuntimeConfig next = builder.build();
+        UiConfigStore.save(
+            agentRoot,
+            apiKey,
+            baseUrl,
+            model,
+            providerId,
+            maxContextTurns,
+            maxContextMessages,
+            maxTurnsPerRun,
+            maxToolCallsPerRun
+        );
+        AgentRuntimeConfig next = UiConfigStore.mergeWithEnvironment(agentRoot);
         execute(() -> {
             closeHostLocked();
             config.set(next);
@@ -277,6 +338,46 @@ public final class DesktopUiGateway implements Closeable {
             return null;
         });
         return next;
+    }
+
+    /** 保存 UI 配置并重建 Host（进行中的 Run 会先 abort）。 */
+    public AgentRuntimeConfig updateConfig(String apiKey, String baseUrl, String model) throws IOException {
+        UiConfigStore.UiConfigSnapshot snap = UiConfigStore.readSnapshot(agentRoot);
+        return updateConfig(
+            apiKey,
+            baseUrl,
+            model,
+            snap.providerId(),
+            snap.storedMaxContextTurns(),
+            snap.storedMaxContextMessages(),
+            snap.storedMaxTurnsPerRun(),
+            snap.storedMaxToolCallsPerRun()
+        );
+    }
+
+    public record SessionRolloverResult(String previousSessionId, String summaryPath, SessionMeta session) {
+    }
+
+    private static boolean sessionHasConversation(ProductivityAgentHost host, String sessionId) {
+        for (AgentMessage message : host.loadTranscript(sessionId)) {
+            String role = message.getRole();
+            if (!AgentMessage.ROLE_USER.equals(role) && !AgentMessage.ROLE_ASSISTANT.equals(role)) {
+                continue;
+            }
+            String content = message.getContent();
+            if (content != null && !content.isBlank()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String buildCarryoverSupplement(String previousSessionId, String markdown) {
+        String clipped = markdown.length() > 3_500 ? markdown.substring(0, 3_500) + "\n…" : markdown;
+        return "上一会话（`" + previousSessionId + "`）规则化总结（"
+            + SessionSummaryService.SUMMARY_FILE_NAME
+            + "），供延续上下文：\n\n"
+            + clipped;
     }
 
     private ProductivityAgentHost ensureHost() {

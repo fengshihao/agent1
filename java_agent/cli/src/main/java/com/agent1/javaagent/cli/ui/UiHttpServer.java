@@ -1,6 +1,8 @@
 package com.agent1.javaagent.cli.ui;
 
 import com.agent1.javaagent.config.AgentRuntimeConfig;
+import com.agent1.javaagent.modelcatalog.ModelProviderIds;
+import com.agent1.javaagent.modelcatalog.RemoteModelOption;
 import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.session.SessionMeta;
@@ -58,6 +60,7 @@ public final class UiHttpServer implements AutoCloseable {
 
         server.createContext("/api/health", this::handleHealth);
         server.createContext("/api/config", this::handleConfig);
+        server.createContext("/api/models", this::handleModels);
         server.createContext("/api/usage", this::handleUsage);
         server.createContext("/api/artifacts", this::handleArtifacts);
         server.createContext("/api/capabilities", this::handleCapabilities);
@@ -152,17 +155,7 @@ public final class UiHttpServer implements AutoCloseable {
     private void handleConfig(HttpExchange exchange) throws IOException {
         String method = exchange.getRequestMethod();
         if ("GET".equalsIgnoreCase(method)) {
-            AgentRuntimeConfig cfg = gateway.configuration();
-            ObjectNode body = MAPPER.createObjectNode();
-            body.put("model", cfg.getModel());
-            body.put("baseUrl", cfg.getBaseUrl());
-            body.put("hasApiKey", cfg.isModelConfigured());
-            body.put("apiKeyHint", maskKey(cfg.getApiKey()));
-            String err = cfg.configurationError();
-            if (err != null) {
-                body.put("configurationError", err);
-            }
-            sendJson(exchange, 200, body);
+            sendJson(exchange, 200, encodeConfig(gateway.configSnapshot()));
             return;
         }
         if ("PUT".equalsIgnoreCase(method)) {
@@ -170,20 +163,84 @@ public final class UiHttpServer implements AutoCloseable {
             String apiKey = textField(req, "apiKey");
             String baseUrl = textField(req, "baseUrl");
             String model = textField(req, "model");
+            String providerId = textField(req, "providerId");
+            int maxContextTurns = intField(req, "maxContextTurns");
+            int maxContextMessages = intField(req, "maxContextMessages");
+            int maxTurnsPerRun = intField(req, "maxTurnsPerRun");
+            int maxToolCallsPerRun = intField(req, "maxToolCallsPerRun");
             try {
-                AgentRuntimeConfig next = gateway.updateConfig(apiKey, baseUrl, model);
-                ObjectNode body = MAPPER.createObjectNode();
-                body.put("model", next.getModel());
-                body.put("baseUrl", next.getBaseUrl());
-                body.put("hasApiKey", next.isModelConfigured());
-                body.put("apiKeyHint", maskKey(next.getApiKey()));
-                sendJson(exchange, 200, body);
+                AgentRuntimeConfig next = gateway.updateConfig(
+                    apiKey,
+                    baseUrl,
+                    model,
+                    providerId,
+                    maxContextTurns,
+                    maxContextMessages,
+                    maxTurnsPerRun,
+                    maxToolCallsPerRun
+                );
+                sendJson(exchange, 200, encodeConfig(gateway.configSnapshot()));
             } catch (Exception e) {
                 sendError(exchange, 400, e.getMessage());
             }
             return;
         }
         sendMethodNotAllowed(exchange);
+    }
+
+    private void handleModels(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        String query = exchange.getRequestURI().getQuery();
+        String providerId = "";
+        boolean refresh = false;
+        if (query != null) {
+            for (String part : query.split("&")) {
+                String[] kv = part.split("=", 2);
+                if (kv.length != 2) {
+                    continue;
+                }
+                String key = urlDecode(kv[0]);
+                String value = urlDecode(kv[1]);
+                if ("provider".equals(key)) {
+                    providerId = value;
+                } else if ("refresh".equals(key) && "1".equals(value)) {
+                    refresh = true;
+                }
+            }
+        }
+        List<RemoteModelOption> models = gateway.listModels(providerId, refresh);
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("source", refresh ? "remote_or_fallback" : "fallback");
+        ArrayNode arr = body.putArray("models");
+        for (RemoteModelOption option : models) {
+            ObjectNode node = arr.addObject();
+            node.put("modelId", option.modelId());
+            node.put("title", option.title());
+            node.put("subtitle", option.subtitle());
+        }
+        sendJson(exchange, 200, body);
+    }
+
+    private ObjectNode encodeConfig(UiConfigStore.UiConfigSnapshot snap) {
+        AgentRuntimeConfig cfg = snap.effective();
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("model", cfg.getModel());
+        body.put("baseUrl", cfg.getBaseUrl());
+        body.put("hasApiKey", cfg.isModelConfigured());
+        body.put("apiKeyHint", maskKey(cfg.getApiKey()));
+        body.put("providerId", snap.providerId());
+        body.put("maxContextTurns", snap.displayMaxContextTurns());
+        body.put("maxContextMessages", cfg.getMaxContextMessages());
+        body.put("maxTurnsPerRun", snap.displayMaxTurnsPerRun());
+        body.put("maxToolCallsPerRun", snap.displayMaxToolCallsPerRun());
+        String err = cfg.configurationError();
+        if (err != null) {
+            body.put("configurationError", err);
+        }
+        return body;
     }
 
     private void handleSessions(HttpExchange exchange) throws IOException {
@@ -223,6 +280,26 @@ public final class UiHttpServer implements AutoCloseable {
             return;
         }
         String sessionId = urlDecode(parts[0]);
+
+        if (parts.length == 1 && "rollover".equals(sessionId) && "POST".equalsIgnoreCase(method)) {
+            JsonNode req = readJsonOptional(exchange);
+            boolean summarize = req == null || req.path("summarize").asBoolean(true);
+            try {
+                DesktopUiGateway.SessionRolloverResult result = gateway.rolloverSession(summarize);
+                ObjectNode body = MAPPER.createObjectNode();
+                body.set("session", sessionNode(result.session()));
+                if (result.previousSessionId() != null) {
+                    body.put("previousSessionId", result.previousSessionId());
+                }
+                if (result.summaryPath() != null) {
+                    body.put("summaryPath", result.summaryPath());
+                }
+                sendJson(exchange, 200, body);
+            } catch (Exception e) {
+                sendError(exchange, 400, e.getMessage());
+            }
+            return;
+        }
 
         if (parts.length == 1 && "DELETE".equalsIgnoreCase(method)) {
             gateway.deleteSession(sessionId);
@@ -553,6 +630,17 @@ public final class UiHttpServer implements AutoCloseable {
             return null;
         }
         return node.get(field).asText(null);
+    }
+
+    private static int intField(JsonNode node, String field) {
+        if (node == null || !node.has(field) || node.get(field).isNull()) {
+            return 0;
+        }
+        return node.get(field).asInt(0);
+    }
+
+    private static JsonNode readJsonOptional(HttpExchange exchange) throws IOException {
+        return readJson(exchange);
     }
 
     private static byte[] readRawBody(HttpExchange exchange, long maxBytes) throws IOException {

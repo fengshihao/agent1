@@ -34,4 +34,13 @@ class UiConfigStoreTest {
         assertEquals("https://x/v1", merged.getBaseUrl());
         assertEquals("m2", merged.getModel());
     }
+
+    @Test
+    void limitsInFileOverrideEnvironment() throws Exception {
+        UiConfigStore.save(temp, "k", "https://example.com/v1", "m", "dashscope", 12, 0, 30, 40);
+        AgentRuntimeConfig merged = UiConfigStore.mergeWithEnvironment(temp);
+        assertEquals(12, merged.getMaxContextTurns());
+        assertEquals(30, merged.getMaxTurnsPerRun());
+        assertEquals(40, merged.getMaxToolCallsPerRun());
+    }
 }

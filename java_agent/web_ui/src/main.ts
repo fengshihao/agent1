@@ -75,6 +75,46 @@ async function startNewChat() {
   setState({ drawerOpen: false });
 }
 
+async function summarizeAndNewChat() {
+  if (state.isRunning) {
+    setState({ error: "请先停止当前 Run" });
+    return;
+  }
+  if (state.activeSessionId && isFreshSession(state)) {
+    showToast("已是新会话");
+    return;
+  }
+  const result = await api.rolloverSession(true);
+  await refreshSessions();
+  await loadActiveTranscript(result.session.sessionId);
+  await refreshUsage();
+  setState({ drawerOpen: false });
+  showToast(result.summaryPath ? "已总结并新建会话" : "已新建会话");
+}
+
+async function loadModelOptions(refresh = false) {
+  const provider =
+    (document.getElementById("cfg-provider") as HTMLSelectElement | null)?.value ||
+    state.config?.providerId ||
+    "dashscope";
+  try {
+    const { models } = await api.fetchModels(provider, refresh);
+    setState({ modelOptions: models });
+  } catch {
+    // 非阻塞
+  }
+}
+
+async function openSettings() {
+  const provider = state.config?.providerId || "dashscope";
+  try {
+    const { models } = await api.fetchModels(provider, false);
+    setState({ showSettings: true, modelOptions: models });
+  } catch {
+    setState({ showSettings: true });
+  }
+}
+
 async function refreshAttachments(sessionId: string) {
   try {
     const attachments = await api.fetchAttachments(sessionId);
@@ -371,16 +411,44 @@ function renderUsagePanel(): string {
 function renderSettings(): string {
   if (!state.showSettings) return "";
   const cfg = state.config;
+  const provider = cfg?.providerId || "dashscope";
+  const modelOptions = state.modelOptions
+    .map(
+      (m) =>
+        `<option value="${escapeHtml(m.modelId)}">${escapeHtml(m.title)} — ${escapeHtml(m.subtitle)}</option>`,
+    )
+    .join("");
   return `<div class="overlay" id="settings-overlay">
-    <div class="overlay-panel">
+    <div class="overlay-panel settings-panel">
       <h2>模型设置</h2>
-      <p class="muted">保存到 agentRoot/ui-config.json；非空字段覆盖环境变量。</p>
+      <p class="muted">保存到 agentRoot/ui-config.json；对齐 Android 模型与 Run 限额。</p>
+      <div class="field"><label>服务商</label>
+        <select id="cfg-provider">
+          <option value="dashscope" ${provider === "dashscope" ? "selected" : ""}>DashScope / 通义</option>
+          <option value="deepseek" ${provider === "deepseek" ? "selected" : ""}>DeepSeek</option>
+          <option value="zhipu_coding" ${provider === "zhipu_coding" ? "selected" : ""}>智谱 Coding Plan</option>
+        </select></div>
       <div class="field"><label>API Key</label>
         <input id="cfg-key" type="password" placeholder="${escapeHtml(cfg?.apiKeyHint || "sk-…")}" /></div>
       <div class="field"><label>Base URL</label>
         <input id="cfg-base" value="${escapeHtml(cfg?.baseUrl || "")}" /></div>
       <div class="field"><label>Model</label>
-        <input id="cfg-model" value="${escapeHtml(cfg?.model || "")}" /></div>
+        <input id="cfg-model" list="cfg-model-list" value="${escapeHtml(cfg?.model || "")}" />
+        <datalist id="cfg-model-list">${modelOptions}</datalist>
+        <button type="button" class="text-btn" id="cfg-refresh-models">从网络刷新模型列表</button></div>
+      <div class="field-row">
+        <div class="field"><label>上下文轮次</label>
+          <input id="cfg-ctx-turns" type="number" min="0" value="${cfg?.maxContextTurns ?? 6}" /></div>
+        <div class="field"><label>消息条数上限</label>
+          <input id="cfg-ctx-msgs" type="number" min="0" value="${cfg?.maxContextMessages ?? 0}" /></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>单 Run 轮次</label>
+          <input id="cfg-run-turns" type="number" min="0" value="${cfg?.maxTurnsPerRun ?? 24}" /></div>
+        <div class="field"><label>工具调用上限</label>
+          <input id="cfg-tool-calls" type="number" min="0" value="${cfg?.maxToolCallsPerRun ?? 48}" /></div>
+      </div>
+      <p class="muted">限额填 0 表示沿用环境变量或 core 默认。</p>
       <div class="overlay-actions">
         <button type="button" class="primary-btn" id="cfg-save">保存</button>
         <button type="button" class="icon-btn" id="cfg-close">关闭</button>
@@ -409,13 +477,18 @@ function render() {
     !!state.pendingAsk,
   );
   const chatLinesHtml = state.lines.map(renderBubble).join("");
+  const canSummarizeRollover =
+    !state.isRunning && !state.pendingAsk && state.lines.length > 0 && !isFreshSession(state);
   const newTopicBtn = offerNewTopic
     ? `<button type="button" class="new-topic-btn" id="btn-new-topic">开始新话题</button>`
+    : "";
+  const summarizeBtn = canSummarizeRollover
+    ? `<button type="button" class="new-topic-btn secondary" id="btn-summarize-new">总结并新开话题</button>`
     : "";
   const chatBody =
     state.lines.length === 0 && !state.streamingText && !state.isRunning
       ? `<div class="landing"><h2>Agent1</h2><p>生产力助手 · 与 Android 端同款纸本风格。左侧管理会话，下方输入开始对话。</p></div>`
-      : chatLinesHtml + newTopicBtn + renderLiveTools() + renderAskPanel();
+      : chatLinesHtml + newTopicBtn + summarizeBtn + renderLiveTools() + renderAskPanel();
 
   const usageFoot = usageFooterLine(state.usage);
 
@@ -498,6 +571,7 @@ function render() {
 function bindEvents() {
   document.getElementById("btn-new")?.addEventListener("click", () => void startNewChat());
   document.getElementById("btn-new-topic")?.addEventListener("click", () => void startNewChat());
+  document.getElementById("btn-summarize-new")?.addEventListener("click", () => void summarizeAndNewChat());
   document.getElementById("btn-drawer")?.addEventListener("click", () => {
     const next = !state.drawerOpen;
     setState({ drawerOpen: next });
@@ -510,11 +584,10 @@ function bindEvents() {
   document.getElementById("usage-overlay")?.addEventListener("click", (ev) => {
     if (ev.target === ev.currentTarget) setState({ usagePanelOpen: false });
   });
-  const openSettings = () => setState({ showSettings: true });
-  document.getElementById("btn-settings")?.addEventListener("click", openSettings);
-  document.getElementById("btn-settings-2")?.addEventListener("click", openSettings);
-  document.getElementById("btn-setup")?.addEventListener("click", openSettings);
-  document.getElementById("btn-model")?.addEventListener("click", openSettings);
+  document.getElementById("btn-settings")?.addEventListener("click", () => void openSettings());
+  document.getElementById("btn-settings-2")?.addEventListener("click", () => void openSettings());
+  document.getElementById("btn-setup")?.addEventListener("click", () => void openSettings());
+  document.getElementById("btn-model")?.addEventListener("click", () => void openSettings());
   document.getElementById("btn-artifacts")?.addEventListener("click", async () => {
     const artifacts = await api.fetchArtifacts();
     setState({ artifacts, showArtifacts: true, capQuery: "", capResult: "" });
@@ -651,15 +724,39 @@ function bindEvents() {
   document.getElementById("settings-overlay")?.addEventListener("click", (ev) => {
     if (ev.target === ev.currentTarget) setState({ showSettings: false });
   });
+  document.getElementById("cfg-provider")?.addEventListener("change", () => void loadModelOptions(false));
+  document.getElementById("cfg-refresh-models")?.addEventListener("click", () => void loadModelOptions(true));
   document.getElementById("cfg-save")?.addEventListener("click", async () => {
     const apiKey = (document.getElementById("cfg-key") as HTMLInputElement).value;
     const baseUrl = (document.getElementById("cfg-base") as HTMLInputElement).value;
     const model = (document.getElementById("cfg-model") as HTMLInputElement).value;
+    const providerId = (document.getElementById("cfg-provider") as HTMLSelectElement).value;
+    const maxContextTurns = parseInt(
+      (document.getElementById("cfg-ctx-turns") as HTMLInputElement).value,
+      10,
+    );
+    const maxContextMessages = parseInt(
+      (document.getElementById("cfg-ctx-msgs") as HTMLInputElement).value,
+      10,
+    );
+    const maxTurnsPerRun = parseInt(
+      (document.getElementById("cfg-run-turns") as HTMLInputElement).value,
+      10,
+    );
+    const maxToolCallsPerRun = parseInt(
+      (document.getElementById("cfg-tool-calls") as HTMLInputElement).value,
+      10,
+    );
     try {
       const config = await api.saveConfig({
         apiKey: apiKey || undefined,
         baseUrl: baseUrl || undefined,
         model: model || undefined,
+        providerId,
+        maxContextTurns: Number.isFinite(maxContextTurns) ? maxContextTurns : 0,
+        maxContextMessages: Number.isFinite(maxContextMessages) ? maxContextMessages : 0,
+        maxTurnsPerRun: Number.isFinite(maxTurnsPerRun) ? maxTurnsPerRun : 0,
+        maxToolCallsPerRun: Number.isFinite(maxToolCallsPerRun) ? maxToolCallsPerRun : 0,
       });
       setState({ config, showSettings: false, error: null });
     } catch (e) {
