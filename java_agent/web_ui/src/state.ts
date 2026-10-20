@@ -52,6 +52,19 @@ export type AppState = {
   capQuery: string;
   capResult: string;
   modelOptions: ModelOptionDto[];
+  settingsDraft: SettingsDraft | null;
+  modelsLoading: boolean;
+  modelsStatus: string | null;
+};
+
+export type SettingsDraft = {
+  providerId: string;
+  baseUrl: string;
+  model: string;
+  maxContextTurns: number;
+  maxContextMessages: number;
+  maxTurnsPerRun: number;
+  maxToolCallsPerRun: number;
 };
 
 export function createInitialState(): AppState {
@@ -80,6 +93,9 @@ export function createInitialState(): AppState {
     capQuery: "",
     capResult: "",
     modelOptions: [],
+    settingsDraft: null,
+    modelsLoading: false,
+    modelsStatus: null,
   };
 }
 

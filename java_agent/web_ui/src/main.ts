@@ -11,6 +11,8 @@ import {
   messagesToLines,
   ToolPart,
 } from "./state";
+import { inferProviderId, presetFor, PROVIDER_PRESETS } from "./providers";
+import type { SettingsDraft } from "./state";
 import { usageDetailHtml, usageFooterLine } from "./usage";
 
 const root = document.getElementById("app");
@@ -92,27 +94,62 @@ async function summarizeAndNewChat() {
   showToast(result.summaryPath ? "已总结并新建会话" : "已新建会话");
 }
 
-async function loadModelOptions(refresh = false) {
-  const provider =
-    (document.getElementById("cfg-provider") as HTMLSelectElement | null)?.value ||
-    state.config?.providerId ||
-    "dashscope";
+function settingsDraftFromConfig(): SettingsDraft {
+  const cfg = state.config;
+  const baseUrl = cfg?.baseUrl || "";
+  const providerId = cfg?.providerId || inferProviderId(baseUrl);
+  return {
+    providerId,
+    baseUrl,
+    model: cfg?.model || presetFor(providerId).defaultModel,
+    maxContextTurns: cfg?.maxContextTurns ?? 6,
+    maxContextMessages: cfg?.maxContextMessages ?? 0,
+    maxTurnsPerRun: cfg?.maxTurnsPerRun ?? 24,
+    maxToolCallsPerRun: cfg?.maxToolCallsPerRun ?? 48,
+  };
+}
+
+async function fetchModelsForDraft(draft: SettingsDraft, refresh: boolean) {
+  setState({ modelsLoading: true });
   try {
-    const { models } = await api.fetchModels(provider, refresh);
-    setState({ modelOptions: models });
-  } catch {
-    // 非阻塞
+    const { models, source } = await api.fetchModels(draft.providerId, refresh);
+    let model = draft.model;
+    if (!models.some((m) => m.modelId === model)) {
+      const preset = presetFor(draft.providerId);
+      model = models.find((m) => m.modelId === preset.defaultModel)?.modelId
+        ?? models[0]?.modelId
+        ?? model;
+    }
+    setState({
+      modelOptions: models,
+      modelsLoading: false,
+      settingsDraft: { ...draft, model },
+      modelsStatus: refresh ? `已从网络更新 · ${models.length} 个模型` : `共 ${models.length} 个模型`,
+    });
+  } catch (e) {
+    setState({
+      modelsLoading: false,
+      error: e instanceof Error ? e.message : "模型列表加载失败",
+    });
   }
 }
 
+function onSettingsProviderChange(providerId: string) {
+  const preset = presetFor(providerId);
+  const draft: SettingsDraft = {
+    ...(state.settingsDraft ?? settingsDraftFromConfig()),
+    providerId,
+    baseUrl: preset.baseUrl,
+    model: preset.defaultModel,
+  };
+  setState({ settingsDraft: draft, error: null });
+  void fetchModelsForDraft(draft, false);
+}
+
 async function openSettings() {
-  const provider = state.config?.providerId || "dashscope";
-  try {
-    const { models } = await api.fetchModels(provider, false);
-    setState({ showSettings: true, modelOptions: models });
-  } catch {
-    setState({ showSettings: true });
-  }
+  const draft = settingsDraftFromConfig();
+  setState({ showSettings: true, settingsDraft: draft, modelOptions: [], error: null });
+  await fetchModelsForDraft(draft, false);
 }
 
 async function refreshAttachments(sessionId: string) {
@@ -409,50 +446,87 @@ function renderUsagePanel(): string {
 }
 
 function renderSettings(): string {
-  if (!state.showSettings) return "";
+  if (!state.showSettings || !state.settingsDraft) return "";
+  const draft = state.settingsDraft;
   const cfg = state.config;
-  const provider = cfg?.providerId || "dashscope";
-  const modelOptions = state.modelOptions
-    .map(
-      (m) =>
-        `<option value="${escapeHtml(m.modelId)}">${escapeHtml(m.title)} — ${escapeHtml(m.subtitle)}</option>`,
-    )
+  const providerChips = PROVIDER_PRESETS
+    .map((p) => {
+      const active = p.id === draft.providerId ? "active" : "";
+      return `<button type="button" class="provider-chip ${active}" data-provider="${p.id}">${escapeHtml(p.label)}</button>`;
+    })
     .join("");
-  return `<div class="overlay" id="settings-overlay">
+  const modelOptions = state.modelOptions
+    .map((m) => {
+      const selected = m.modelId === draft.model ? "selected" : "";
+      return `<option value="${escapeHtml(m.modelId)}" ${selected}>${escapeHtml(m.title)} · ${escapeHtml(m.subtitle)}</option>`;
+    })
+    .join("");
+  const customModel =
+    draft.model && !state.modelOptions.some((m) => m.modelId === draft.model)
+      ? `<option value="${escapeHtml(draft.model)}" selected>${escapeHtml(draft.model)}（当前）</option>`
+      : "";
+  const modelsStatus = state.modelsLoading
+    ? "正在加载模型列表…"
+    : state.modelsStatus || (state.modelOptions.length ? `共 ${state.modelOptions.length} 个模型` : "");
+  return `<div class="overlay settings-overlay" id="settings-overlay">
     <div class="overlay-panel settings-panel">
-      <h2>模型设置</h2>
-      <p class="muted">保存到 agentRoot/ui-config.json；对齐 Android 模型与 Run 限额。</p>
-      <div class="field"><label>服务商</label>
-        <select id="cfg-provider">
-          <option value="dashscope" ${provider === "dashscope" ? "selected" : ""}>DashScope / 通义</option>
-          <option value="deepseek" ${provider === "deepseek" ? "selected" : ""}>DeepSeek</option>
-          <option value="zhipu_coding" ${provider === "zhipu_coding" ? "selected" : ""}>智谱 Coding Plan</option>
-        </select></div>
-      <div class="field"><label>API Key</label>
-        <input id="cfg-key" type="password" placeholder="${escapeHtml(cfg?.apiKeyHint || "sk-…")}" /></div>
-      <div class="field"><label>Base URL</label>
-        <input id="cfg-base" value="${escapeHtml(cfg?.baseUrl || "")}" /></div>
-      <div class="field"><label>Model</label>
-        <input id="cfg-model" list="cfg-model-list" value="${escapeHtml(cfg?.model || "")}" />
-        <datalist id="cfg-model-list">${modelOptions}</datalist>
-        <button type="button" class="text-btn" id="cfg-refresh-models">从网络刷新模型列表</button></div>
-      <div class="field-row">
-        <div class="field"><label>上下文轮次</label>
-          <input id="cfg-ctx-turns" type="number" min="0" value="${cfg?.maxContextTurns ?? 6}" /></div>
-        <div class="field"><label>消息条数上限</label>
-          <input id="cfg-ctx-msgs" type="number" min="0" value="${cfg?.maxContextMessages ?? 0}" /></div>
+      <header class="settings-header">
+        <h2>模型与限额</h2>
+        <button type="button" class="icon-btn" id="cfg-close" title="关闭">✕</button>
+      </header>
+      <div class="settings-body">
+        <section class="settings-section">
+          <h3>服务商</h3>
+          <div class="provider-row">${providerChips}</div>
+        </section>
+        <section class="settings-section">
+          <h3>连接</h3>
+          <div class="field">
+            <label for="cfg-key">API Key</label>
+            <input id="cfg-key" class="settings-control" type="password" autocomplete="off"
+              placeholder="${escapeHtml(cfg?.hasApiKey ? `已配置 ${cfg.apiKeyHint || ""}` : "粘贴 Key，留空则不修改")}" />
+          </div>
+          <div class="field">
+            <label for="cfg-base">Base URL</label>
+            <input id="cfg-base" class="settings-control" value="${escapeHtml(draft.baseUrl)}" />
+          </div>
+          <div class="field">
+            <div class="field-label-row">
+              <label for="cfg-model">模型</label>
+              <button type="button" class="link-btn" id="cfg-refresh-models" ${state.modelsLoading ? "disabled" : ""}>从网络刷新</button>
+            </div>
+            <select id="cfg-model" class="settings-control settings-select">${customModel}${modelOptions}</select>
+            <p class="settings-hint">${escapeHtml(modelsStatus)}</p>
+          </div>
+        </section>
+        <section class="settings-section">
+          <h3>Run 限额</h3>
+          <div class="field-row">
+            <div class="field">
+              <label for="cfg-ctx-turns">上下文轮次</label>
+              <input id="cfg-ctx-turns" class="settings-control" type="number" min="0" value="${draft.maxContextTurns}" />
+            </div>
+            <div class="field">
+              <label for="cfg-ctx-msgs">消息条数</label>
+              <input id="cfg-ctx-msgs" class="settings-control" type="number" min="0" value="${draft.maxContextMessages}" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="cfg-run-turns">单 Run 轮次</label>
+              <input id="cfg-run-turns" class="settings-control" type="number" min="0" value="${draft.maxTurnsPerRun}" />
+            </div>
+            <div class="field">
+              <label for="cfg-tool-calls">工具调用</label>
+              <input id="cfg-tool-calls" class="settings-control" type="number" min="0" value="${draft.maxToolCallsPerRun}" />
+            </div>
+          </div>
+          <p class="settings-hint">填 0 表示沿用环境变量或 core 默认；保存写入 ui-config.json。</p>
+        </section>
       </div>
-      <div class="field-row">
-        <div class="field"><label>单 Run 轮次</label>
-          <input id="cfg-run-turns" type="number" min="0" value="${cfg?.maxTurnsPerRun ?? 24}" /></div>
-        <div class="field"><label>工具调用上限</label>
-          <input id="cfg-tool-calls" type="number" min="0" value="${cfg?.maxToolCallsPerRun ?? 48}" /></div>
-      </div>
-      <p class="muted">限额填 0 表示沿用环境变量或 core 默认。</p>
-      <div class="overlay-actions">
-        <button type="button" class="primary-btn" id="cfg-save">保存</button>
-        <button type="button" class="icon-btn" id="cfg-close">关闭</button>
-      </div>
+      <footer class="settings-footer">
+        <button type="button" class="primary-btn settings-save" id="cfg-save">保存并生效</button>
+      </footer>
     </div>
   </div>`;
 }
@@ -720,45 +794,70 @@ function bindEvents() {
   });
   document.getElementById("ask-submit")?.addEventListener("click", () => void onSubmitAsk());
 
-  document.getElementById("cfg-close")?.addEventListener("click", () => setState({ showSettings: false }));
+  const closeSettings = () =>
+    setState({ showSettings: false, settingsDraft: null, modelsStatus: null, modelsLoading: false });
+  document.getElementById("cfg-close")?.addEventListener("click", closeSettings);
   document.getElementById("settings-overlay")?.addEventListener("click", (ev) => {
-    if (ev.target === ev.currentTarget) setState({ showSettings: false });
+    if (ev.target === ev.currentTarget) closeSettings();
   });
-  document.getElementById("cfg-provider")?.addEventListener("change", () => void loadModelOptions(false));
-  document.getElementById("cfg-refresh-models")?.addEventListener("click", () => void loadModelOptions(true));
+  document.querySelectorAll<HTMLButtonElement>("[data-provider]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.provider;
+      if (id && id !== state.settingsDraft?.providerId) onSettingsProviderChange(id);
+    });
+  });
+  const syncDraftField = (patch: Partial<SettingsDraft>) => {
+    if (!state.settingsDraft) return;
+    setState({ settingsDraft: { ...state.settingsDraft, ...patch } });
+  };
+  document.getElementById("cfg-model")?.addEventListener("change", (ev) => {
+    syncDraftField({ model: (ev.target as HTMLSelectElement).value });
+  });
+  document.getElementById("cfg-ctx-turns")?.addEventListener("change", (ev) => {
+    syncDraftField({ maxContextTurns: parseInt((ev.target as HTMLInputElement).value, 10) || 0 });
+  });
+  document.getElementById("cfg-ctx-msgs")?.addEventListener("change", (ev) => {
+    syncDraftField({ maxContextMessages: parseInt((ev.target as HTMLInputElement).value, 10) || 0 });
+  });
+  document.getElementById("cfg-run-turns")?.addEventListener("change", (ev) => {
+    syncDraftField({ maxTurnsPerRun: parseInt((ev.target as HTMLInputElement).value, 10) || 0 });
+  });
+  document.getElementById("cfg-tool-calls")?.addEventListener("change", (ev) => {
+    syncDraftField({ maxToolCallsPerRun: parseInt((ev.target as HTMLInputElement).value, 10) || 0 });
+  });
+  document.getElementById("cfg-refresh-models")?.addEventListener("click", () => {
+    const draft = state.settingsDraft;
+    if (draft) void fetchModelsForDraft(draft, true);
+  });
   document.getElementById("cfg-save")?.addEventListener("click", async () => {
+    const draft = state.settingsDraft;
+    if (!draft) return;
     const apiKey = (document.getElementById("cfg-key") as HTMLInputElement).value;
     const baseUrl = (document.getElementById("cfg-base") as HTMLInputElement).value;
-    const model = (document.getElementById("cfg-model") as HTMLInputElement).value;
-    const providerId = (document.getElementById("cfg-provider") as HTMLSelectElement).value;
-    const maxContextTurns = parseInt(
-      (document.getElementById("cfg-ctx-turns") as HTMLInputElement).value,
-      10,
-    );
-    const maxContextMessages = parseInt(
-      (document.getElementById("cfg-ctx-msgs") as HTMLInputElement).value,
-      10,
-    );
-    const maxTurnsPerRun = parseInt(
-      (document.getElementById("cfg-run-turns") as HTMLInputElement).value,
-      10,
-    );
-    const maxToolCallsPerRun = parseInt(
-      (document.getElementById("cfg-tool-calls") as HTMLInputElement).value,
-      10,
-    );
+    const model = (document.getElementById("cfg-model") as HTMLSelectElement).value;
+    const maxContextTurns = parseInt((document.getElementById("cfg-ctx-turns") as HTMLInputElement).value, 10);
+    const maxContextMessages = parseInt((document.getElementById("cfg-ctx-msgs") as HTMLInputElement).value, 10);
+    const maxTurnsPerRun = parseInt((document.getElementById("cfg-run-turns") as HTMLInputElement).value, 10);
+    const maxToolCallsPerRun = parseInt((document.getElementById("cfg-tool-calls") as HTMLInputElement).value, 10);
     try {
       const config = await api.saveConfig({
         apiKey: apiKey || undefined,
         baseUrl: baseUrl || undefined,
         model: model || undefined,
-        providerId,
+        providerId: draft.providerId,
         maxContextTurns: Number.isFinite(maxContextTurns) ? maxContextTurns : 0,
         maxContextMessages: Number.isFinite(maxContextMessages) ? maxContextMessages : 0,
         maxTurnsPerRun: Number.isFinite(maxTurnsPerRun) ? maxTurnsPerRun : 0,
         maxToolCallsPerRun: Number.isFinite(maxToolCallsPerRun) ? maxToolCallsPerRun : 0,
       });
-      setState({ config, showSettings: false, error: null });
+      setState({
+        config,
+        showSettings: false,
+        settingsDraft: null,
+        modelsStatus: null,
+        error: null,
+      });
+      showToast("设置已保存");
     } catch (e) {
       setState({ error: e instanceof Error ? e.message : String(e) });
     }
