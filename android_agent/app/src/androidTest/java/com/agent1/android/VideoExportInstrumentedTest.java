@@ -22,23 +22,23 @@ import org.junit.runner.RunWith;
  * 插件 SO（video/transcode）由 {@link WeizhiVideo#install} 注册。
  *
  * 链路覆盖：APK assets 装包 → beforeEval 对 registry 无 video 条目不挡本地解析
- * （issue 边界项）→ import weizhi:video → exportVideo remux 掐头去尾 → 插件 probe
- * 元数据。注意 video@0.3.0 的 JS 包只导出 buildJob/exportVideo（无 probe 导出），
- * 元数据探测走插件 API。
+ * （issue 边界项）→ import weizhi:video → 包层 probe（video@0.3.1 起，weizhi#39）
+ * → exportVideo remux 掐头去尾 → 输出再 probe。
  */
 @RunWith(AndroidJUnit4.class)
 public final class VideoExportInstrumentedTest {
 
     @Test
     public void exportVideoTrimsViaRemux() throws Exception {
-        String src = "const { exportVideo } = await import('weizhi:video');\n"
+        // weizhi#39 落地（video@0.3.1）：包层 probe 导出，元数据探测不再降级插件 API。
+        String src = "const { exportVideo, probe } = await import('weizhi:video');\n"
+                + "const inMeta = await probe('in.mp4');\n"
                 + "const r = await exportVideo({"
                 + "  clips: [{ path: 'in.mp4', startMs: 200, endMs: 800 }],"
                 + "  output: 'out.mp4'});\n"
-                + "const v = await host.ensureNative('video');\n"
-                + "const meta = JSON.parse(v.probe('out.mp4'));\n"
+                + "const meta = await probe('out.mp4');\n"
                 + "({ ok: r.ok, rDur: r.durationMs, outDur: meta.durationMs,"
-                + "  tracks: meta.tracks.length, w: meta.tracks[0].width })\n";
+                + "  tracks: meta.tracks.length, w: meta.tracks[0].width, inDur: inMeta.durationMs })\n";
         Setup setup = prepare(src);
         File in = AvcFixtures.encode(setup.workspace, "in.mp4", AvcFixtures.DEFAULT_MS, 40);
         assertTrue(in.length() > 0);
@@ -53,6 +53,9 @@ public final class VideoExportInstrumentedTest {
             assertTrue("outDur=" + outDur, outDur > 400 && outDur < 900);
             assertEquals(1, jsonInt(out, "tracks"));
             assertEquals(AvcFixtures.WIDTH, jsonInt(out, "w"));
+            // 输入探测：1000ms fixture（探测面与插件层一致）。
+            int inDur = jsonInt(out, "inDur");
+            assertTrue("inDur=" + inDur, inDur > 800 && inDur < 1300);
         }
         byte[] head = java.nio.file.Files.readAllBytes(new File(setup.workspace, "out.mp4").toPath());
         assertTrue(head.length > 12);
@@ -68,8 +71,8 @@ public final class VideoExportInstrumentedTest {
         AgentHomeBootstrap.ensure(agentRoot);
         String packageRoot = WeizhiPackages.syncBundled(context());
         WeizhiPackageSync.beforeEval(src, packageRoot, agentRoot);
-        assertTrue("syncBundled 应从 APK assets 安装 video@0.3.0",
-            new File(packageRoot, "packages/video@0.3.0/index.js").isFile());
+        assertTrue("syncBundled 应从 APK assets 安装 video@0.3.1",
+            new File(packageRoot, "packages/video@0.3.1/index.js").isFile());
         File dir = new File(context().getCacheDir(), "video-ws-" + System.nanoTime());
         assertTrue(dir.mkdirs());
         return new Setup(packageRoot, dir);
