@@ -679,6 +679,7 @@ function render() {
         <div class="brand">Agent1</div>
         <div class="drawer-actions">
           <button type="button" class="icon-btn" id="btn-new" title="新会话">＋</button>
+          <button type="button" class="icon-btn" id="btn-brief" title="复制会话简报">📋</button>
           <button type="button" class="icon-btn" id="btn-diag" title="导出诊断包">🩺</button>
           <button type="button" class="icon-btn" id="btn-settings" title="设置">⚙</button>
         </div>
@@ -746,6 +747,17 @@ function render() {
 
 function bindEvents() {
   document.getElementById("btn-new")?.addEventListener("click", () => void startNewChat());
+  document.getElementById("btn-brief")?.addEventListener("click", async () => {
+    const sid = state.activeSessionId;
+    if (!sid) return;
+    try {
+      const { text } = await api.fetchBrief(sid);
+      await navigator.clipboard.writeText(text);
+      showToast("简报已复制到剪贴板");
+    } catch (e) {
+      setState({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
   document.getElementById("btn-diag")?.addEventListener("click", async () => {
     try {
       await api.downloadDiagnostics();

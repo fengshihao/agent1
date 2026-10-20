@@ -202,6 +202,13 @@ public final class DesktopUiGateway implements Closeable {
         return DesktopMcpService.save(agentRoot, servers);
     }
 
+    public String briefTranscript(String sessionId) {
+        return execute(() -> {
+            List<AgentMessage> messages = ensureHost().loadTranscript(sessionId);
+            return DesktopBriefExport.format(messages, sessionId, configuration().getModel());
+        });
+    }
+
     public void switchSession(String sessionId) {
         execute(() -> {
             ensureHost().switchSession(sessionId);
