@@ -7,6 +7,7 @@ import {
   ChatLine,
   createInitialState,
   isFreshSession,
+  isPreviewablePath,
   messagesToLines,
   ToolPart,
 } from "./state";
@@ -74,6 +75,15 @@ async function startNewChat() {
   setState({ drawerOpen: false });
 }
 
+async function refreshAttachments(sessionId: string) {
+  try {
+    const attachments = await api.fetchAttachments(sessionId);
+    setState({ attachments });
+  } catch {
+    setState({ attachments: [] });
+  }
+}
+
 async function loadActiveTranscript(sessionId: string) {
   const messages = await api.fetchTranscript(sessionId);
   const pendingAsk = detectPendingAsk(messages);
@@ -87,6 +97,7 @@ async function loadActiveTranscript(sessionId: string) {
     tools: [],
     error: null,
   });
+  await refreshAttachments(sessionId);
 }
 
 async function bootstrap() {
@@ -224,8 +235,13 @@ async function onSend() {
     tools: [],
     error: null,
   });
+  let payload = text;
+  if (state.attachments.length > 0) {
+    const lines = state.attachments.map((a) => `- ${a.workspaceRelativePath}`);
+    payload += `\n\n[用户附件]\n${lines.join("\n")}`;
+  }
   try {
-    await api.sendMessage(state.activeSessionId, text);
+    await api.sendMessage(state.activeSessionId, payload);
   } catch (e) {
     setState({
       isRunning: false,
@@ -289,6 +305,53 @@ function renderAskPanel(): string {
     .join("");
   return `<div class="ask-panel"><h3>请回答后继续</h3>${qs}
     <button type="button" class="primary-btn" id="ask-submit">提交回答</button></div>`;
+}
+
+function renderArtifactsPanel(): string {
+  if (!state.showArtifacts) return "";
+  const rows = state.artifacts
+    .map((a) => {
+      const canPreview = isPreviewablePath(a.workspaceRelativePath);
+      const previewBtn = canPreview
+        ? `<button type="button" class="link-btn" data-art-preview="1" data-art-session="${escapeHtml(a.sessionId)}" data-art-path="${escapeHtml(a.workspaceRelativePath)}">预览</button>`
+        : "";
+      const insertBtn = state.activeSessionId
+        ? `<button type="button" class="link-btn" data-art-insert="1" data-art-session="${escapeHtml(a.sessionId)}" data-art-path="${escapeHtml(a.workspaceRelativePath)}">插入当前会话</button>`
+        : "";
+      return `<li><strong>${escapeHtml(a.fileName)}</strong>
+        <span class="muted"> · ${escapeHtml(a.sessionId.slice(0, 8))} · ${Math.round(a.sizeBytes / 1024)}KB</span>
+        <div class="artifact-actions">${previewBtn} ${insertBtn}</div></li>`;
+    })
+    .join("");
+  return `<div class="overlay" id="artifacts-overlay">
+    <div class="overlay-panel wide-panel">
+      <h2>产物库</h2>
+      <p class="muted">workspace 内 AI 产出（不含 imports/、tmp/）</p>
+      <div class="cap-search">
+        <input id="cap-query" placeholder="find_caps 检索…" value="${escapeHtml(state.capQuery)}" />
+        <button type="button" class="primary-btn" id="cap-search-btn">检索</button>
+      </div>
+      ${state.capResult ? `<pre class="cap-result">${escapeHtml(state.capResult)}</pre>` : ""}
+      <ul class="artifact-list">${rows || "<li class='muted'>暂无产物</li>"}</ul>
+      <div class="overlay-actions">
+        <button type="button" class="primary-btn" id="artifacts-close">关闭</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderPreviewPanel(): string {
+  if (!state.preview) return "";
+  const url = api.workspaceFileUrl(state.preview.sessionId, state.preview.path);
+  return `<div class="overlay preview-overlay" id="preview-overlay">
+    <div class="preview-panel">
+      <div class="preview-toolbar">
+        <span>${escapeHtml(state.preview.path)}</span>
+        <button type="button" class="icon-btn" id="preview-close">✕</button>
+      </div>
+      <iframe class="preview-frame" src="${url}" title="preview"></iframe>
+    </div>
+  </div>`;
 }
 
 function renderUsagePanel(): string {
@@ -383,7 +446,10 @@ function render() {
       <div class="topbar">
         <button type="button" class="icon-btn" id="btn-drawer" title="会话">☰</button>
         <h1>对话</h1>
-        <button type="button" class="icon-btn" id="btn-settings-2" title="设置">⚙</button>
+        <div class="topbar-actions">
+          <button type="button" class="icon-btn" id="btn-artifacts" title="产物库">📁</button>
+          <button type="button" class="icon-btn" id="btn-settings-2" title="设置">⚙</button>
+        </div>
       </div>
       ${state.toast ? `<div class="toast-banner">${escapeHtml(state.toast)}</div>` : ""}
       ${state.error ? `<div class="error-banner">${escapeHtml(state.error)}</div>` : ""}
@@ -394,7 +460,19 @@ function render() {
             ? `<div class="inline-setup">尚未配置 API Key。<button type="button" id="btn-setup">打开设置</button></div>`
             : ""
         }
+        ${
+          state.attachments.length
+            ? `<div class="attachment-chips">${state.attachments
+                .map(
+                  (a) =>
+                    `<span class="chip">${escapeHtml(a.fileName)} <button type="button" data-rm-attach="${escapeHtml(a.workspaceRelativePath)}">×</button></span>`,
+                )
+                .join("")}</div>`
+            : ""
+        }
         <div class="composer">
+          <input type="file" id="file-input" class="hidden-file" multiple />
+          <button type="button" class="icon-btn" id="btn-attach" title="添加附件" ${composerDisabled ? "disabled" : ""}>📎</button>
           <textarea id="composer" ${composerDisabled ? "disabled" : ""} placeholder="${placeholder}">${escapeHtml(state.composer)}</textarea>
           ${
             state.isRunning
@@ -408,6 +486,8 @@ function render() {
     </section>
     ${renderSettings()}
     ${renderUsagePanel()}
+    ${renderArtifactsPanel()}
+    ${renderPreviewPanel()}
   </div>`;
 
   bindEvents();
@@ -435,6 +515,75 @@ function bindEvents() {
   document.getElementById("btn-settings-2")?.addEventListener("click", openSettings);
   document.getElementById("btn-setup")?.addEventListener("click", openSettings);
   document.getElementById("btn-model")?.addEventListener("click", openSettings);
+  document.getElementById("btn-artifacts")?.addEventListener("click", async () => {
+    const artifacts = await api.fetchArtifacts();
+    setState({ artifacts, showArtifacts: true, capQuery: "", capResult: "" });
+  });
+  document.getElementById("artifacts-close")?.addEventListener("click", () => setState({ showArtifacts: false }));
+  document.getElementById("artifacts-overlay")?.addEventListener("click", (ev) => {
+    if (ev.target === ev.currentTarget) setState({ showArtifacts: false });
+  });
+  document.getElementById("cap-search-btn")?.addEventListener("click", async () => {
+    const input = document.getElementById("cap-query") as HTMLInputElement;
+    const q = input?.value?.trim() || "";
+    state = { ...state, capQuery: q };
+    try {
+      const text = await api.searchCapabilities(q);
+      setState({ capResult: text });
+    } catch (e) {
+      setState({ capResult: e instanceof Error ? e.message : String(e) });
+    }
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-art-preview]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const sessionId = btn.dataset.artSession;
+      const path = btn.dataset.artPath;
+      if (sessionId && path) setState({ preview: { sessionId, path }, showArtifacts: false });
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-art-insert]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const sourceSessionId = btn.dataset.artSession;
+      const workspaceRelativePath = btn.dataset.artPath;
+      const sid = state.activeSessionId;
+      if (!sid || !sourceSessionId || !workspaceRelativePath) return;
+      try {
+        await api.importArtifactToSession(sid, sourceSessionId, workspaceRelativePath);
+        await refreshAttachments(sid);
+        showToast("已复制到 imports/");
+      } catch (e) {
+        setState({ error: e instanceof Error ? e.message : String(e) });
+      }
+    });
+  });
+  document.getElementById("preview-close")?.addEventListener("click", () => setState({ preview: null }));
+  document.getElementById("preview-overlay")?.addEventListener("click", (ev) => {
+    if (ev.target === ev.currentTarget) setState({ preview: null });
+  });
+  const fileInput = document.getElementById("file-input") as HTMLInputElement | null;
+  document.getElementById("btn-attach")?.addEventListener("click", () => fileInput?.click());
+  fileInput?.addEventListener("change", async () => {
+    const sid = state.activeSessionId;
+    if (!sid || !fileInput.files?.length) return;
+    try {
+      for (const file of Array.from(fileInput.files)) {
+        await api.uploadAttachment(sid, file);
+      }
+      await refreshAttachments(sid);
+      fileInput.value = "";
+    } catch (e) {
+      setState({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-rm-attach]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const sid = state.activeSessionId;
+      const path = btn.dataset.rmAttach;
+      if (!sid || !path) return;
+      await api.deleteAttachment(sid, path);
+      await refreshAttachments(sid);
+    });
+  });
 
   document.querySelectorAll<HTMLButtonElement>("[data-use]").forEach((btn) => {
     btn.addEventListener("click", async () => {

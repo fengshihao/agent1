@@ -9,8 +9,12 @@ import com.agent1.javaagent.event.AgentEventListener;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.script.ScriptToolBridge;
+import com.agent1.javaagent.capability.CapabilitySearchView;
+import com.agent1.javaagent.session.FileSessionStore;
 import com.agent1.javaagent.session.ProductivityAgentHost;
 import com.agent1.javaagent.session.SessionMeta;
+import com.agent1.javaagent.workspace.ArtifactLibrary;
+import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import java.io.Closeable;
 import java.io.IOException;
@@ -148,6 +152,57 @@ public final class DesktopUiGateway implements Closeable {
     /** 全 agentRoot 累计用量（events.jsonl）。 */
     public UsageOverview usageOverview() {
         return UsageLogSummary.summarize(AgentDataPaths.eventsJsonl(agentRoot));
+    }
+
+    public java.util.List<ArtifactLibrary.ArtifactEntry> listArtifacts() {
+        return ArtifactLibrary.listArtifacts(new FileSessionStore(agentRoot).sessionsRoot());
+    }
+
+    public java.util.List<DesktopAttachments.ListedFile> listAttachments(String sessionId) {
+        return execute(() -> DesktopAttachments.listImports(agentRoot, sessionId));
+    }
+
+    public DesktopAttachments.ListedFile importAttachment(String sessionId, String filename, byte[] data) {
+        return execute(() -> DesktopAttachments.importBytes(agentRoot, sessionId, filename, data));
+    }
+
+    public void deleteAttachment(String sessionId, String workspaceRelativePath) {
+        execute(() -> {
+            DesktopAttachments.deleteImport(agentRoot, sessionId, workspaceRelativePath);
+            return null;
+        });
+    }
+
+    public DesktopAttachments.ListedFile importArtifactIntoSession(
+        String targetSessionId,
+        String sourceSessionId,
+        String workspaceRelativePath
+    ) {
+        return execute(() -> {
+            Path sessions = new FileSessionStore(agentRoot).sessionsRoot();
+            Path src = ArtifactLibrary.resolveWorkspaceFile(sessions, sourceSessionId, workspaceRelativePath);
+            if (src == null) {
+                throw new IllegalArgumentException("产物不存在");
+            }
+            byte[] bytes = java.nio.file.Files.readAllBytes(src);
+            return DesktopAttachments.importBytes(agentRoot, targetSessionId, src.getFileName().toString(), bytes);
+        });
+    }
+
+    public java.nio.file.Path resolveWorkspaceFile(String sessionId, String workspaceRelativePath) {
+        return execute(() -> {
+            Path workspace = new FileSessionStore(agentRoot).workspaceDir(sessionId);
+            WorkspaceSandbox sandbox = new WorkspaceSandbox(workspace, agentRoot);
+            Path file = sandbox.resolveRead(workspaceRelativePath);
+            if (!java.nio.file.Files.isRegularFile(file)) {
+                throw new IllegalArgumentException("file not found");
+            }
+            return file;
+        });
+    }
+
+    public CapabilitySearchView.Result searchCapabilities(String query, int limit) {
+        return execute(() -> ensureHost().searchCapabilities(query, java.util.List.of(), limit));
     }
 
     /**

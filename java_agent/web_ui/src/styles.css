@@ -529,6 +529,105 @@ button {
   font-size: 12px;
 }
 
+.topbar-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.hidden-file {
+  display: none;
+}
+
+.attachment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+
+.attachment-chips .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.wide-panel {
+  width: min(520px, 100%);
+}
+
+.artifact-list {
+  flex: 1;
+  overflow: auto;
+  font-size: 12px;
+  padding-left: 1.1rem;
+  margin: 0.5rem 0;
+}
+
+.artifact-actions {
+  margin-top: 0.25rem;
+}
+
+.link-btn {
+  font-size: 11px;
+  color: var(--accent-deep);
+  margin-right: 0.5rem;
+}
+
+.cap-search {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.cap-search input {
+  flex: 1;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  background: #fff;
+}
+
+.cap-result {
+  max-height: 120px;
+  overflow: auto;
+  font-size: 11px;
+  background: var(--paper-deep);
+  padding: 0.5rem;
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
+
+.preview-overlay {
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.preview-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper-lift);
+  margin: 1rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+}
+
+.preview-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  font-size: 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.preview-frame {
+  flex: 1;
+  border: none;
+  width: 100%;
+  background: #fff;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --ink: #e8e2d6;

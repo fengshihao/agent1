@@ -7,7 +7,7 @@
 - **入口**：`./agent1 ui` → 绑定 `127.0.0.1`，打开系统浏览器
 - **平台**：Mac / Windows（浏览器方案）；Ubuntu 同路径可用。CLI REPL 仍以 macOS / Ubuntu 为主
 - **内核**：`ProductivityAgentHost` + `AgentRuntime.observeEvents()` / `subscribe`
-- **非目标（延后）**：附件、产物库、HTML 预览、MCP/能力检索页、诊断导出、Compose Desktop、Electron/Tauri、把 CDP `webview_exec` 当聊天壳
+- **非目标（仍不做）**：MCP 设置页、诊断 zip 导出、Compose Desktop、Electron/Tauri、把 CDP `webview_exec` 当聊天壳
 
 ## 架构
 
@@ -48,6 +48,11 @@ Browser ◄──SSE events── UiHttpServer ◄── AgentEvent ◄───
 | POST | `/api/run/abort` | 停止 |
 | GET | `/api/events` | SSE：`{ type, timestampMs, sessionId, runId, payload }` |
 | GET | `/api/usage` | 全库 events.jsonl 累计 token（`UsageOverview`） |
+| GET | `/api/artifacts` | 跨会话产物列表 |
+| GET | `/api/capabilities?q=` | `find_caps` 正文（产物库内检索） |
+| GET/POST/DELETE | `/api/sessions/{id}/attachments` | 上传到 `imports/` |
+| POST | `/api/sessions/{id}/artifacts/import` | 产物复制到当前会话 imports |
+| GET | `/api/sessions/{id}/files/{path}` | workspace 文件（HTML 预览 iframe） |
 
 ## 前端契约
 
@@ -86,6 +91,7 @@ Browser ◄──SSE events── UiHttpServer ◄── AgentEvent ◄───
 | 2026-10-21 | MVP 实现：`./agent1 ui`、`DesktopUiGateway`、`UiHttpServer`（REST/SSE）、`web_ui` 打包进 `cli` resources、`ProductivityAgentHost.loadTranscript`、单测 `UiHttpServerTest` / `UiConfigStoreTest` |
 | 2026-10-21 | 联调修复：`run-java-agent-gradle` 改为 `:cli:runJavaAgentCli`，修复 `AGENT1_USE_GRADLE=1 ./agent1 ui` 报 `Unknown command-line option '--args'`；端口占用时提示 `--port` / `AGENT1_UI_PORT` |
 | 2026-10-21 | P1/P2：新话题按钮、用量摘要 API/UI、core `UsageLogSummary`、系统墨夜主题 |
+| 2026-10-21 | P2：core `ArtifactLibrary`、附件/产物库/HTML 预览/能力检索 API 与 Web UI |
 
 ### 如何启动（备忘）
 
@@ -105,7 +111,7 @@ cd java_agent/web_ui && npm ci && npm run build   # 只改前端时
 |:------:|-----|------|
 | P1 | **「新话题」/ Fresh session** | ✅ Web：`开始新话题` + 抽屉「＋」新建会话；空会话 Toast「已是新会话」 |
 | P1 | **抽屉用量摘要** | ✅ `GET /api/usage` + core `UsageLogSummary`；抽屉底栏可点开详情 |
-| P2 | 附件 / 产物库 / HTML 预览 | 仍延后 |
+| P2 | 附件 / 产物库 / HTML 预览 | ✅ 附件上传、产物库、HTML iframe 预览、`find_caps` 检索 |
 | P2 | 墨夜主题 | ✅ `prefers-color-scheme: dark` CSS 变量 |
 
 ### 切换 Session 会不会省 Token？

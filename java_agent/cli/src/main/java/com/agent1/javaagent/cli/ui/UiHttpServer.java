@@ -4,8 +4,14 @@ import com.agent1.javaagent.config.AgentRuntimeConfig;
 import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.session.SessionMeta;
+import com.agent1.javaagent.capability.CapabilitySearchView;
 import com.agent1.javaagent.usage.ModelUsageSlice;
 import com.agent1.javaagent.usage.UsageOverview;
+import com.agent1.javaagent.workspace.ArtifactLibrary;
+import com.agent1.javaagent.workspace.SessionAttachmentLimits;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -53,6 +59,8 @@ public final class UiHttpServer implements AutoCloseable {
         server.createContext("/api/health", this::handleHealth);
         server.createContext("/api/config", this::handleConfig);
         server.createContext("/api/usage", this::handleUsage);
+        server.createContext("/api/artifacts", this::handleArtifacts);
+        server.createContext("/api/capabilities", this::handleCapabilities);
         server.createContext("/api/sessions", this::handleSessions);
         server.createContext("/api/run/abort", this::handleAbort);
         server.createContext("/api/events", this::handleEvents);
@@ -89,6 +97,46 @@ public final class UiHttpServer implements AutoCloseable {
         ObjectNode body = MAPPER.createObjectNode();
         body.put("ok", true);
         body.put("runInProgress", gateway.isRunInProgress());
+        sendJson(exchange, 200, body);
+    }
+
+    private void handleArtifacts(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        ArrayNode items = MAPPER.createArrayNode();
+        for (ArtifactLibrary.ArtifactEntry entry : gateway.listArtifacts()) {
+            ObjectNode node = items.addObject();
+            node.put("sessionId", entry.sessionId());
+            node.put("workspaceRelativePath", entry.workspaceRelativePath());
+            node.put("fileName", entry.fileName());
+            node.put("sizeBytes", entry.sizeBytes());
+            node.put("lastModifiedMillis", entry.lastModifiedMillis());
+        }
+        ObjectNode body = MAPPER.createObjectNode();
+        body.set("artifacts", items);
+        sendJson(exchange, 200, body);
+    }
+
+    private void handleCapabilities(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        String query = exchange.getRequestURI().getQuery();
+        String q = "";
+        if (query != null) {
+            for (String pair : query.split("&")) {
+                String[] kv = pair.split("=", 2);
+                if (kv.length == 2 && "q".equals(kv[0])) {
+                    q = urlDecode(kv[1]);
+                }
+            }
+        }
+        CapabilitySearchView.Result result = gateway.searchCapabilities(q, 20);
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("text", result.modelText());
         sendJson(exchange, 200, body);
     }
 
@@ -195,6 +243,106 @@ public final class UiHttpServer implements AutoCloseable {
                 arr.add(UiEventCodec.encodeMessage(message));
             }
             sendJson(exchange, 200, body);
+            return;
+        }
+        if (parts.length == 2 && "attachments".equals(parts[1]) && "GET".equalsIgnoreCase(method)) {
+            ArrayNode arr = MAPPER.createArrayNode();
+            for (DesktopAttachments.ListedFile file : gateway.listAttachments(sessionId)) {
+                ObjectNode node = arr.addObject();
+                node.put("workspaceRelativePath", file.workspaceRelativePath());
+                node.put("fileName", file.fileName());
+                node.put("sizeBytes", file.sizeBytes());
+            }
+            sendJson(exchange, 200, MAPPER.createObjectNode().set("files", arr));
+            return;
+        }
+        if (parts.length == 2 && "attachments".equals(parts[1]) && "POST".equalsIgnoreCase(method)) {
+            String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+            byte[] raw = readRawBody(exchange, SessionAttachmentLimits.MAX_FILE_BYTES + 1024);
+            var partsMp = UiMultipart.parse(raw, contentType);
+            UiMultipart.Part filePart = partsMp.stream()
+                .filter(p -> "file".equals(p.name()) && p.body().length > 0)
+                .findFirst()
+                .orElse(null);
+            if (filePart == null) {
+                sendError(exchange, 400, "multipart field 'file' required");
+                return;
+            }
+            try {
+                DesktopAttachments.ListedFile saved = gateway.importAttachment(
+                    sessionId,
+                    filePart.filename(),
+                    filePart.body()
+                );
+                ObjectNode node = MAPPER.createObjectNode();
+                node.put("workspaceRelativePath", saved.workspaceRelativePath());
+                node.put("fileName", saved.fileName());
+                node.put("sizeBytes", saved.sizeBytes());
+                sendJson(exchange, 200, node);
+            } catch (Exception e) {
+                sendError(exchange, 400, e.getMessage());
+            }
+            return;
+        }
+        if (parts.length == 3 && "attachments".equals(parts[1]) && "DELETE".equalsIgnoreCase(method)) {
+            String rel = urlDecode(parts[2]);
+            gateway.deleteAttachment(sessionId, rel);
+            sendJson(exchange, 200, MAPPER.createObjectNode().put("ok", true));
+            return;
+        }
+        if (parts.length == 3 && "artifacts".equals(parts[1]) && "import".equals(parts[2])
+            && "POST".equalsIgnoreCase(method)) {
+            JsonNode req = readJson(exchange);
+            String sourceSession = textField(req, "sourceSessionId");
+            String workspacePath = textField(req, "workspaceRelativePath");
+            if (sourceSession == null || workspacePath == null) {
+                sendError(exchange, 400, "sourceSessionId and workspaceRelativePath required");
+                return;
+            }
+            try {
+                DesktopAttachments.ListedFile saved = gateway.importArtifactIntoSession(
+                    sessionId,
+                    sourceSession,
+                    workspacePath
+                );
+                ObjectNode node = MAPPER.createObjectNode();
+                node.put("workspaceRelativePath", saved.workspaceRelativePath());
+                sendJson(exchange, 200, node);
+            } catch (Exception e) {
+                sendError(exchange, 400, e.getMessage());
+            }
+            return;
+        }
+        if (parts.length >= 3 && "files".equals(parts[1]) && "GET".equalsIgnoreCase(method)) {
+            String relPath = urlDecode(String.join("/", Arrays.copyOfRange(parts, 2, parts.length)));
+            try {
+                Path file = gateway.resolveWorkspaceFile(sessionId, relPath);
+                byte[] bytes = Files.readAllBytes(file);
+                String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
+                String ct = "application/octet-stream";
+                if (name.endsWith(".html") || name.endsWith(".htm")) {
+                    ct = "text/html; charset=utf-8";
+                } else if (name.endsWith(".css")) {
+                    ct = "text/css; charset=utf-8";
+                } else if (name.endsWith(".js")) {
+                    ct = "application/javascript; charset=utf-8";
+                } else if (name.endsWith(".svg")) {
+                    ct = "image/svg+xml";
+                } else if (name.endsWith(".png")) {
+                    ct = "image/png";
+                } else if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+                    ct = "image/jpeg";
+                }
+                Headers headers = exchange.getResponseHeaders();
+                headers.set("Content-Type", ct);
+                headers.set("Cache-Control", "no-cache");
+                exchange.sendResponseHeaders(200, bytes.length);
+                try (OutputStream out = exchange.getResponseBody()) {
+                    out.write(bytes);
+                }
+            } catch (Exception e) {
+                sendError(exchange, 404, e.getMessage());
+            }
             return;
         }
         if (parts.length == 2 && "messages".equals(parts[1]) && "POST".equalsIgnoreCase(method)) {
@@ -405,6 +553,23 @@ public final class UiHttpServer implements AutoCloseable {
             return null;
         }
         return node.get(field).asText(null);
+    }
+
+    private static byte[] readRawBody(HttpExchange exchange, long maxBytes) throws IOException {
+        try (InputStream in = exchange.getRequestBody()) {
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            byte[] chunk = new byte[8192];
+            int read;
+            long total = 0;
+            while ((read = in.read(chunk)) >= 0) {
+                total += read;
+                if (total > maxBytes) {
+                    throw new IllegalArgumentException("request body too large");
+                }
+                buf.write(chunk, 0, read);
+            }
+            return buf.toByteArray();
+        }
     }
 
     private static JsonNode readJson(HttpExchange exchange) throws IOException {

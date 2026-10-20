@@ -1,5 +1,5 @@
 import type { AskRequest } from "./askUser";
-import type { ConfigDto, MessageDto, SessionMeta, UsageDto } from "./api";
+import type { AttachmentDto, ArtifactDto, ConfigDto, MessageDto, SessionMeta, UsageDto } from "./api";
 
 export type ChatLine = {
   id: string;
@@ -37,6 +37,12 @@ export type AppState = {
   usage: UsageDto | null;
   usagePanelOpen: boolean;
   toast: string | null;
+  attachments: AttachmentDto[];
+  artifacts: ArtifactDto[];
+  showArtifacts: boolean;
+  preview: { sessionId: string; path: string } | null;
+  capQuery: string;
+  capResult: string;
 };
 
 export function createInitialState(): AppState {
@@ -58,7 +64,18 @@ export function createInitialState(): AppState {
     usage: null,
     usagePanelOpen: false,
     toast: null,
+    attachments: [],
+    artifacts: [],
+    showArtifacts: false,
+    preview: null,
+    capQuery: "",
+    capResult: "",
   };
+}
+
+export function isPreviewablePath(relativePath: string): boolean {
+  const lower = relativePath.toLowerCase();
+  return lower.endsWith(".html") || lower.endsWith(".htm");
 }
 
 /** 当前会话尚无可见对话（对齐 Android isFreshSession）。 */
