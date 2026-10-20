@@ -55,6 +55,8 @@ export type AppState = {
   settingsDraft: SettingsDraft | null;
   modelsLoading: boolean;
   modelsStatus: string | null;
+  showTools: boolean;
+  toolsList: Array<{ name: string; description: string }>;
 };
 
 export type SettingsDraft = {
@@ -65,6 +67,7 @@ export type SettingsDraft = {
   maxContextMessages: number;
   maxTurnsPerRun: number;
   maxToolCallsPerRun: number;
+  webSearchBaseUrl: string;
 };
 
 export function createInitialState(): AppState {
@@ -96,6 +99,8 @@ export function createInitialState(): AppState {
     settingsDraft: null,
     modelsLoading: false,
     modelsStatus: null,
+    showTools: false,
+    toolsList: [],
   };
 }
 

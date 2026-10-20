@@ -11,6 +11,7 @@ import {
   messagesToLines,
   ToolPart,
 } from "./state";
+import { imagePathsForBubble } from "./messageFormat";
 import { inferProviderId, presetFor, PROVIDER_PRESETS } from "./providers";
 import type { SettingsDraft } from "./state";
 import { usageDetailHtml, usageFooterLine } from "./usage";
@@ -106,6 +107,7 @@ function settingsDraftFromConfig(): SettingsDraft {
     maxContextMessages: cfg?.maxContextMessages ?? 0,
     maxTurnsPerRun: cfg?.maxTurnsPerRun ?? 24,
     maxToolCallsPerRun: cfg?.maxToolCallsPerRun ?? 48,
+    webSearchBaseUrl: cfg?.webSearchBaseUrl || "https://api.tavily.com",
   };
 }
 
@@ -334,12 +336,26 @@ async function onSubmitAsk() {
   await onSend();
 }
 
-function renderBubble(line: ChatLine): string {
+function renderBubble(line: ChatLine, sessionId: string | null): string {
   if (line.role === "tool") {
+    const images = sessionId ? imagePathsForBubble(line.content) : [];
+    const imgs = images
+      .map(
+        (p) =>
+          `<figure class="bubble-image"><img src="${api.workspaceFileUrl(sessionId!, p)}" alt="${escapeHtml(p)}" loading="lazy"/></figure>`,
+      )
+      .join("");
     return `<details class="tool-card"><summary>⚙ ${escapeHtml(line.toolName || "tool")}</summary>
-      <div class="tool-row ${line.error ? "err" : ""}">${escapeHtml(line.content)}</div></details>`;
+      <div class="tool-row ${line.error ? "err" : ""}">${escapeHtml(line.content)}${imgs}</div></details>`;
   }
-  return `<div class="bubble ${line.role}">${escapeHtml(line.content)}</div>`;
+  const images = sessionId ? imagePathsForBubble(line.content) : [];
+  const imgs = images
+    .map(
+      (p) =>
+        `<figure class="bubble-image"><img src="${api.workspaceFileUrl(sessionId!, p)}" alt="${escapeHtml(p)}" loading="lazy"/></figure>`,
+    )
+    .join("");
+  return `<div class="bubble ${line.role}"><div class="bubble-text">${escapeHtml(line.content)}</div>${imgs}</div>`;
 }
 
 function renderLiveTools(): string {
@@ -431,6 +447,25 @@ function renderPreviewPanel(): string {
   </div>`;
 }
 
+function renderToolsPanel(): string {
+  if (!state.showTools) return "";
+  const rows = state.toolsList
+    .map(
+      (t) =>
+        `<li><strong>${escapeHtml(t.name)}</strong><span class="muted">${escapeHtml(t.description)}</span></li>`,
+    )
+    .join("");
+  return `<div class="overlay" id="tools-overlay">
+    <div class="overlay-panel usage-panel">
+      <h2>Agent 工具</h2>
+      <ul class="tools-list">${rows || "<li class='muted'>无</li>"}</ul>
+      <div class="overlay-actions">
+        <button type="button" class="primary-btn" id="tools-close">关闭</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderUsagePanel(): string {
   if (!state.usagePanelOpen || !state.usage) return "";
   return `<div class="overlay" id="usage-overlay">
@@ -500,6 +535,18 @@ function renderSettings(): string {
           </div>
         </section>
         <section class="settings-section">
+          <h3>联网搜索（Tavily）</h3>
+          <div class="field">
+            <label for="cfg-web-key">Web Search API Key</label>
+            <input id="cfg-web-key" class="settings-control" type="password" autocomplete="off"
+              placeholder="${cfg?.hasWebSearch ? "已配置，留空不修改" : "tvly-…"}" />
+          </div>
+          <div class="field">
+            <label for="cfg-web-base">Tavily Base URL</label>
+            <input id="cfg-web-base" class="settings-control" value="${escapeHtml(draft.webSearchBaseUrl)}" />
+          </div>
+        </section>
+        <section class="settings-section">
           <h3>Run 限额</h3>
           <div class="field-row">
             <div class="field">
@@ -525,6 +572,7 @@ function renderSettings(): string {
         </section>
       </div>
       <footer class="settings-footer">
+        <button type="button" class="link-btn" id="cfg-show-tools">查看已注册工具</button>
         <button type="button" class="primary-btn settings-save" id="cfg-save">保存并生效</button>
       </footer>
     </div>
@@ -550,7 +598,7 @@ function render() {
     state.streamingReasoning,
     !!state.pendingAsk,
   );
-  const chatLinesHtml = state.lines.map(renderBubble).join("");
+  const chatLinesHtml = state.lines.map((l) => renderBubble(l, state.activeSessionId)).join("");
   const canSummarizeRollover =
     !state.isRunning && !state.pendingAsk && state.lines.length > 0 && !isFreshSession(state);
   const newTopicBtn = offerNewTopic
@@ -580,6 +628,7 @@ function render() {
         <div class="brand">Agent1</div>
         <div class="drawer-actions">
           <button type="button" class="icon-btn" id="btn-new" title="新会话">＋</button>
+          <button type="button" class="icon-btn" id="btn-diag" title="导出诊断包">🩺</button>
           <button type="button" class="icon-btn" id="btn-settings" title="设置">⚙</button>
         </div>
       </div>
@@ -632,6 +681,7 @@ function render() {
       </div>
     </section>
     ${renderSettings()}
+    ${renderToolsPanel()}
     ${renderUsagePanel()}
     ${renderArtifactsPanel()}
     ${renderPreviewPanel()}
@@ -644,6 +694,14 @@ function render() {
 
 function bindEvents() {
   document.getElementById("btn-new")?.addEventListener("click", () => void startNewChat());
+  document.getElementById("btn-diag")?.addEventListener("click", async () => {
+    try {
+      await api.downloadDiagnostics();
+      showToast("诊断包已下载");
+    } catch (e) {
+      setState({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
   document.getElementById("btn-new-topic")?.addEventListener("click", () => void startNewChat());
   document.getElementById("btn-summarize-new")?.addEventListener("click", () => void summarizeAndNewChat());
   document.getElementById("btn-drawer")?.addEventListener("click", () => {
@@ -825,6 +883,18 @@ function bindEvents() {
   document.getElementById("cfg-tool-calls")?.addEventListener("change", (ev) => {
     syncDraftField({ maxToolCallsPerRun: parseInt((ev.target as HTMLInputElement).value, 10) || 0 });
   });
+  document.getElementById("cfg-show-tools")?.addEventListener("click", async () => {
+    try {
+      const { tools } = await api.fetchTools();
+      setState({ showTools: true, toolsList: tools });
+    } catch (e) {
+      setState({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+  document.getElementById("tools-close")?.addEventListener("click", () => setState({ showTools: false }));
+  document.getElementById("tools-overlay")?.addEventListener("click", (ev) => {
+    if (ev.target === ev.currentTarget) setState({ showTools: false });
+  });
   document.getElementById("cfg-refresh-models")?.addEventListener("click", () => {
     const draft = state.settingsDraft;
     if (draft) void fetchModelsForDraft(draft, true);
@@ -839,6 +909,8 @@ function bindEvents() {
     const maxContextMessages = parseInt((document.getElementById("cfg-ctx-msgs") as HTMLInputElement).value, 10);
     const maxTurnsPerRun = parseInt((document.getElementById("cfg-run-turns") as HTMLInputElement).value, 10);
     const maxToolCallsPerRun = parseInt((document.getElementById("cfg-tool-calls") as HTMLInputElement).value, 10);
+    const webSearchApiKey = (document.getElementById("cfg-web-key") as HTMLInputElement).value;
+    const webSearchBaseUrl = (document.getElementById("cfg-web-base") as HTMLInputElement).value;
     try {
       const config = await api.saveConfig({
         apiKey: apiKey || undefined,
@@ -849,6 +921,8 @@ function bindEvents() {
         maxContextMessages: Number.isFinite(maxContextMessages) ? maxContextMessages : 0,
         maxTurnsPerRun: Number.isFinite(maxTurnsPerRun) ? maxTurnsPerRun : 0,
         maxToolCallsPerRun: Number.isFinite(maxToolCallsPerRun) ? maxToolCallsPerRun : 0,
+        webSearchApiKey: webSearchApiKey || undefined,
+        webSearchBaseUrl: webSearchBaseUrl || undefined,
       });
       setState({
         config,

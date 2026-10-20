@@ -185,6 +185,14 @@ public final class DesktopUiGateway implements Closeable {
         return UiConfigStore.snapshotFor(agentRoot, configuration());
     }
 
+    public java.util.List<ProductivityAgentHost.RegisteredToolBrief> registeredTools() {
+        return execute(() -> ensureHost().registeredTools());
+    }
+
+    public Path exportDiagnosticZip() throws IOException {
+        return DesktopDiagnosticExport.exportZip(agentRoot, configuration());
+    }
+
     public void switchSession(String sessionId) {
         execute(() -> {
             ensureHost().switchSession(sessionId);
@@ -316,7 +324,9 @@ public final class DesktopUiGateway implements Closeable {
         int maxContextTurns,
         int maxContextMessages,
         int maxTurnsPerRun,
-        int maxToolCallsPerRun
+        int maxToolCallsPerRun,
+        String webSearchApiKey,
+        String webSearchBaseUrl
     ) throws IOException {
         abortActiveRun();
         UiConfigStore.save(
@@ -328,7 +338,9 @@ public final class DesktopUiGateway implements Closeable {
             maxContextTurns,
             maxContextMessages,
             maxTurnsPerRun,
-            maxToolCallsPerRun
+            maxToolCallsPerRun,
+            webSearchApiKey,
+            webSearchBaseUrl
         );
         AgentRuntimeConfig next = UiConfigStore.mergeWithEnvironment(agentRoot);
         execute(() -> {
@@ -351,7 +363,9 @@ public final class DesktopUiGateway implements Closeable {
             snap.storedMaxContextTurns(),
             snap.storedMaxContextMessages(),
             snap.storedMaxTurnsPerRun(),
-            snap.storedMaxToolCallsPerRun()
+            snap.storedMaxToolCallsPerRun(),
+            null,
+            null
         );
     }
 

@@ -61,6 +61,8 @@ public final class UiHttpServer implements AutoCloseable {
         server.createContext("/api/health", this::handleHealth);
         server.createContext("/api/config", this::handleConfig);
         server.createContext("/api/models", this::handleModels);
+        server.createContext("/api/tools", this::handleTools);
+        server.createContext("/api/diagnostics/export", this::handleDiagnosticExport);
         server.createContext("/api/usage", this::handleUsage);
         server.createContext("/api/artifacts", this::handleArtifacts);
         server.createContext("/api/capabilities", this::handleCapabilities);
@@ -168,8 +170,10 @@ public final class UiHttpServer implements AutoCloseable {
             int maxContextMessages = intField(req, "maxContextMessages");
             int maxTurnsPerRun = intField(req, "maxTurnsPerRun");
             int maxToolCallsPerRun = intField(req, "maxToolCallsPerRun");
+            String webSearchApiKey = textField(req, "webSearchApiKey");
+            String webSearchBaseUrl = textField(req, "webSearchBaseUrl");
             try {
-                AgentRuntimeConfig next = gateway.updateConfig(
+                gateway.updateConfig(
                     apiKey,
                     baseUrl,
                     model,
@@ -177,7 +181,9 @@ public final class UiHttpServer implements AutoCloseable {
                     maxContextTurns,
                     maxContextMessages,
                     maxTurnsPerRun,
-                    maxToolCallsPerRun
+                    maxToolCallsPerRun,
+                    webSearchApiKey,
+                    webSearchBaseUrl
                 );
                 sendJson(exchange, 200, encodeConfig(gateway.configSnapshot()));
             } catch (Exception e) {
@@ -224,6 +230,39 @@ public final class UiHttpServer implements AutoCloseable {
         sendJson(exchange, 200, body);
     }
 
+    private void handleTools(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        ArrayNode arr = MAPPER.createArrayNode();
+        for (var tool : gateway.registeredTools()) {
+            ObjectNode node = arr.addObject();
+            node.put("name", tool.name());
+            node.put("description", tool.description());
+        }
+        sendJson(exchange, 200, MAPPER.createObjectNode().set("tools", arr));
+    }
+
+    private void handleDiagnosticExport(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        Path zip = gateway.exportDiagnosticZip();
+        byte[] bytes = Files.readAllBytes(zip);
+        String fileName = zip.getFileName().toString();
+        Headers headers = exchange.getResponseHeaders();
+        headers.set("Content-Type", "application/zip");
+        headers.set("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+        exchange.sendResponseHeaders(200, bytes.length);
+        try (OutputStream out = exchange.getResponseBody()) {
+            out.write(bytes);
+        } finally {
+            Files.deleteIfExists(zip);
+        }
+    }
+
     private ObjectNode encodeConfig(UiConfigStore.UiConfigSnapshot snap) {
         AgentRuntimeConfig cfg = snap.effective();
         ObjectNode body = MAPPER.createObjectNode();
@@ -236,6 +275,8 @@ public final class UiHttpServer implements AutoCloseable {
         body.put("maxContextMessages", cfg.getMaxContextMessages());
         body.put("maxTurnsPerRun", snap.displayMaxTurnsPerRun());
         body.put("maxToolCallsPerRun", snap.displayMaxToolCallsPerRun());
+        body.put("hasWebSearch", cfg.isWebSearchConfigured());
+        body.put("webSearchBaseUrl", cfg.getWebSearchBaseUrl());
         String err = cfg.configurationError();
         if (err != null) {
             body.put("configurationError", err);

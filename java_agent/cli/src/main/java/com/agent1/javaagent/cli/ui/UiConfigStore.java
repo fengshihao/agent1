@@ -79,7 +79,9 @@ public final class UiConfigStore {
         int maxContextTurns,
         int maxContextMessages,
         int maxTurnsPerRun,
-        int maxToolCallsPerRun
+        int maxToolCallsPerRun,
+        String webSearchApiKey,
+        String webSearchBaseUrl
     ) throws IOException {
         Files.createDirectories(agentRoot);
         ObjectNode node = MAPPER.createObjectNode();
@@ -103,7 +105,28 @@ public final class UiConfigStore {
         putLimit(node, "maxContextMessages", maxContextMessages);
         putLimit(node, "maxTurnsPerRun", maxTurnsPerRun);
         putLimit(node, "maxToolCallsPerRun", maxToolCallsPerRun);
+        if (webSearchApiKey != null && !webSearchApiKey.isBlank()) {
+            node.put("webSearchApiKey", webSearchApiKey.trim());
+        }
+        if (webSearchBaseUrl != null && !webSearchBaseUrl.isBlank()) {
+            node.put("webSearchBaseUrl", webSearchBaseUrl.trim());
+        }
         MAPPER.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), node);
+    }
+
+    public static void save(
+        Path agentRoot,
+        String apiKey,
+        String baseUrl,
+        String model,
+        String providerId,
+        int maxContextTurns,
+        int maxContextMessages,
+        int maxTurnsPerRun,
+        int maxToolCallsPerRun
+    ) throws IOException {
+        save(agentRoot, apiKey, baseUrl, model, providerId, maxContextTurns, maxContextMessages, maxTurnsPerRun,
+            maxToolCallsPerRun, null, null);
     }
 
     /** 兼容旧调用：仅 Key / URL / model。 */
@@ -123,9 +146,14 @@ public final class UiConfigStore {
             .maxContextMessages(mergeLimit(root, "maxContextMessages", env.getMaxContextMessages()))
             .maxTurnsPerRun(mergeLimit(root, "maxTurnsPerRun", env.getMaxTurnsPerRun()))
             .maxToolCallsPerRun(mergeLimit(root, "maxToolCallsPerRun", env.getMaxToolCallsPerRun()))
-            .webSearchApiKey(env.getWebSearchApiKey())
-            .webSearchBaseUrl(env.getWebSearchBaseUrl())
+            .webSearchApiKey(mergeText(root, "webSearchApiKey", env.getWebSearchApiKey()))
+            .webSearchBaseUrl(mergeText(root, "webSearchBaseUrl", env.getWebSearchBaseUrl()))
             .build();
+    }
+
+    private static String mergeText(JsonNode root, String field, String envValue) {
+        String stored = textOrEmpty(root, field);
+        return stored.isEmpty() ? envValue : stored;
     }
 
     private static int mergeLimit(JsonNode root, String field, int envValue) {

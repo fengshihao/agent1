@@ -49,6 +49,8 @@ export type ConfigDto = {
   maxContextMessages?: number;
   maxTurnsPerRun?: number;
   maxToolCallsPerRun?: number;
+  hasWebSearch?: boolean;
+  webSearchBaseUrl?: string;
 };
 
 export type ModelOptionDto = {
@@ -90,6 +92,8 @@ export async function saveConfig(body: {
   maxContextMessages?: number;
   maxTurnsPerRun?: number;
   maxToolCallsPerRun?: number;
+  webSearchApiKey?: string;
+  webSearchBaseUrl?: string;
 }): Promise<ConfigDto> {
   return parseJson(
     await fetch("/api/config", {
@@ -111,6 +115,27 @@ export async function fetchModels(
   const q = new URLSearchParams({ provider });
   if (refresh) q.set("refresh", "1");
   return parseJson(await fetch(`/api/models?${q}`));
+}
+
+export async function fetchTools(): Promise<{ tools: Array<{ name: string; description: string }> }> {
+  return parseJson(await fetch("/api/tools"));
+}
+
+export async function downloadDiagnostics(): Promise<void> {
+  const res = await fetch("/api/diagnostics/export");
+  if (!res.ok) {
+    throw new Error("诊断包导出失败");
+  }
+  const blob = await res.blob();
+  const name =
+    res.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1] ??
+    `agent1-diag-${Date.now()}.zip`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export async function rolloverSession(summarize = true): Promise<{

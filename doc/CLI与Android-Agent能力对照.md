@@ -80,8 +80,8 @@
 | 工具能力说明 | ✅ `./agent1 tools`、REPL `/tools` | ✅ 模型设置 / 聊天详情摘要 | 文案 intentionally 对齐 |
 | 模型目录与运行时摘要 | ✅ `./agent1 models`（内置 Qwen 表 + 当前 env） | ✅ 设置页「从网络拉取模型」+ 内置表 + 智谱 Coding 回退 | Android **更强**（远程 list models） |
 | 事件日志查询 | ✅ `./agent1 logs failed\|children\|summarize` | ❌ 无 App 内查询；可 adb 拉 `agent1/logs/events.jsonl` | **CLI 独有** |
-| 诊断包导出 | ❌ 无一键 zip | ✅ `DiagnosticExport`（agent1 树 + crash + logcat） | **Android 独有** |
-| 工作区图片 Markdown 预览 | ❌ 终端无内联渲染 | ✅ `WorkspaceImagePreview` / `ChatTranscriptFormatting` | **Android 独有** |
+| 诊断包导出 | ✅ Web UI `GET /api/diagnostics/export`、抽屉 🩺 | ✅ `DiagnosticExport`（含 logcat） | 桌面无 logcat；**不含 API Key** |
+| 工作区图片 Markdown 预览 | ✅ Web UI 气泡内联图（`/files/{path}`） | ✅ `WorkspaceImagePreview` / `ChatTranscriptFormatting` | Web 为简化版路径识别 |
 | WebView 绘图 E2E 文档 | ✅ `java_agent/doc/desktop-webview-cdp.md` | ✅ `android_agent/doc/webview-draw-e2e.md` | 各平台文档 |
 
 ## 4. 配置与环境

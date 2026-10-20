@@ -652,6 +652,41 @@ button {
   border: 1px solid var(--hairline-strong);
 }
 
+.bubble-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubble-image {
+  margin: 0.5rem 0 0;
+}
+
+.bubble-image img {
+  max-width: min(100%, 320px);
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  display: block;
+}
+
+.tools-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow: auto;
+  flex: 1;
+}
+
+.tools-list li {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 13px;
+}
+
+.tools-list li strong {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
 .new-topic-btn {
   display: block;
   margin: 0 0 0.75rem;
