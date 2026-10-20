@@ -280,6 +280,10 @@ export async function deleteSession(sessionId: string): Promise<void> {
   );
 }
 
+export async function fetchBrief(sessionId: string): Promise<{ sessionId: string; text: string }> {
+  return parseJson(await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/brief`));
+}
+
 export async function fetchTranscript(sessionId: string): Promise<MessageDto[]> {
   const data = await parseJson<{ messages: MessageDto[] }>(
     await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/transcript`),
