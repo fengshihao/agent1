@@ -1,5 +1,5 @@
 import type { AskRequest } from "./askUser";
-import type { ConfigDto, MessageDto, SessionMeta } from "./api";
+import type { ConfigDto, MessageDto, SessionMeta, UsageDto } from "./api";
 
 export type ChatLine = {
   id: string;
@@ -34,6 +34,9 @@ export type AppState = {
   showSettings: boolean;
   drawerOpen: boolean;
   composer: string;
+  usage: UsageDto | null;
+  usagePanelOpen: boolean;
+  toast: string | null;
 };
 
 export function createInitialState(): AppState {
@@ -52,7 +55,25 @@ export function createInitialState(): AppState {
     showSettings: false,
     drawerOpen: true,
     composer: "",
+    usage: null,
+    usagePanelOpen: false,
+    toast: null,
   };
+}
+
+/** 当前会话尚无可见对话（对齐 Android isFreshSession）。 */
+export function isFreshSession(state: {
+  lines: ChatLine[];
+  isRunning: boolean;
+  streamingText: string;
+  streamingReasoning: string;
+  tools: unknown[];
+  pendingAsk: AskRequest | null;
+}): boolean {
+  if (state.isRunning) return false;
+  if (state.streamingText.trim() || state.streamingReasoning.trim()) return false;
+  if (state.tools.length > 0 || state.pendingAsk) return false;
+  return !state.lines.some((l) => l.role === "user" || l.role === "assistant");
 }
 
 export function messagesToLines(messages: MessageDto[]): ChatLine[] {

@@ -1,13 +1,16 @@
 import "./styles.css";
 import * as api from "./api";
 import { detectPendingAsk, formatAskReply } from "./askUser";
+import { shouldOfferNewTopic } from "./newTopic";
 import {
   AppState,
   ChatLine,
   createInitialState,
+  isFreshSession,
   messagesToLines,
   ToolPart,
 } from "./state";
+import { usageDetailHtml, usageFooterLine } from "./usage";
 
 const root = document.getElementById("app");
 if (!root) {
@@ -37,6 +40,38 @@ async function refreshSessions() {
     activeSessionId: data.activeSessionId ?? state.activeSessionId,
     isRunning: data.runInProgress,
   });
+}
+
+async function refreshUsage() {
+  try {
+    const usage = await api.fetchUsage();
+    setState({ usage });
+  } catch {
+    // 非阻塞
+  }
+}
+
+function showToast(message: string) {
+  setState({ toast: message });
+  window.setTimeout(() => {
+    if (state.toast === message) setState({ toast: null });
+  }, 2200);
+}
+
+async function startNewChat() {
+  if (state.isRunning) {
+    setState({ error: "请先停止当前 Run" });
+    return;
+  }
+  if (state.activeSessionId && isFreshSession(state)) {
+    showToast("已是新会话");
+    return;
+  }
+  const created = await api.createSession();
+  await refreshSessions();
+  await loadActiveTranscript(created.sessionId);
+  await refreshUsage();
+  setState({ drawerOpen: false });
 }
 
 async function loadActiveTranscript(sessionId: string) {
@@ -69,6 +104,7 @@ async function bootstrap() {
     }
   }
   await loadActiveTranscript(sessionId!);
+  await refreshUsage();
   disconnectEvents = api.connectEvents(onAgentEvent);
 }
 
@@ -162,6 +198,7 @@ async function reloadAfterRun() {
       isRunning: false,
     });
     await refreshSessions();
+    await refreshUsage();
   } catch (e) {
     setState({ error: e instanceof Error ? e.message : String(e) });
   }
@@ -254,6 +291,20 @@ function renderAskPanel(): string {
     <button type="button" class="primary-btn" id="ask-submit">提交回答</button></div>`;
 }
 
+function renderUsagePanel(): string {
+  if (!state.usagePanelOpen || !state.usage) return "";
+  return `<div class="overlay" id="usage-overlay">
+    <div class="overlay-panel usage-panel">
+      <h2>累计用量</h2>
+      <div class="usage-detail">${usageDetailHtml(state.usage)}</div>
+      <p class="muted">来自 agentRoot/logs/events.jsonl</p>
+      <div class="overlay-actions">
+        <button type="button" class="primary-btn" id="usage-close">关闭</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderSettings(): string {
   if (!state.showSettings) return "";
   const cfg = state.config;
@@ -287,10 +338,23 @@ function render() {
     })
     .join("");
 
+  const offerNewTopic = shouldOfferNewTopic(
+    state.lines,
+    state.isRunning,
+    state.streamingText,
+    state.streamingReasoning,
+    !!state.pendingAsk,
+  );
+  const chatLinesHtml = state.lines.map(renderBubble).join("");
+  const newTopicBtn = offerNewTopic
+    ? `<button type="button" class="new-topic-btn" id="btn-new-topic">开始新话题</button>`
+    : "";
   const chatBody =
     state.lines.length === 0 && !state.streamingText && !state.isRunning
       ? `<div class="landing"><h2>Agent1</h2><p>生产力助手 · 与 Android 端同款纸本风格。左侧管理会话，下方输入开始对话。</p></div>`
-      : state.lines.map(renderBubble).join("") + renderLiveTools() + renderAskPanel();
+      : chatLinesHtml + newTopicBtn + renderLiveTools() + renderAskPanel();
+
+  const usageFoot = usageFooterLine(state.usage);
 
   const composerDisabled = state.isRunning || !!state.pendingAsk;
   const placeholder = state.pendingAsk
@@ -310,6 +374,10 @@ function render() {
         </div>
       </div>
       <div class="session-list">${sessions}</div>
+      <button type="button" class="usage-footer" id="usage-footer">
+        <span class="usage-headline">${escapeHtml(usageFoot.headline)}</span>
+        <span class="usage-detail-line">${escapeHtml(usageFoot.detail)}</span>
+      </button>
     </aside>
     <section class="main">
       <div class="topbar">
@@ -317,6 +385,7 @@ function render() {
         <h1>对话</h1>
         <button type="button" class="icon-btn" id="btn-settings-2" title="设置">⚙</button>
       </div>
+      ${state.toast ? `<div class="toast-banner">${escapeHtml(state.toast)}</div>` : ""}
       ${state.error ? `<div class="error-banner">${escapeHtml(state.error)}</div>` : ""}
       <div class="chat-scroll" id="chat-scroll">${chatBody}</div>
       <div class="composer-wrap">
@@ -338,6 +407,7 @@ function render() {
       </div>
     </section>
     ${renderSettings()}
+    ${renderUsagePanel()}
   </div>`;
 
   bindEvents();
@@ -346,13 +416,19 @@ function render() {
 }
 
 function bindEvents() {
-  document.getElementById("btn-new")?.addEventListener("click", async () => {
-    const created = await api.createSession();
-    await refreshSessions();
-    await loadActiveTranscript(created.sessionId);
-  });
+  document.getElementById("btn-new")?.addEventListener("click", () => void startNewChat());
+  document.getElementById("btn-new-topic")?.addEventListener("click", () => void startNewChat());
   document.getElementById("btn-drawer")?.addEventListener("click", () => {
-    setState({ drawerOpen: !state.drawerOpen });
+    const next = !state.drawerOpen;
+    setState({ drawerOpen: next });
+    if (next) void refreshUsage();
+  });
+  document.getElementById("usage-footer")?.addEventListener("click", () => {
+    void refreshUsage().then(() => setState({ usagePanelOpen: true }));
+  });
+  document.getElementById("usage-close")?.addEventListener("click", () => setState({ usagePanelOpen: false }));
+  document.getElementById("usage-overlay")?.addEventListener("click", (ev) => {
+    if (ev.target === ev.currentTarget) setState({ usagePanelOpen: false });
   });
   const openSettings = () => setState({ showSettings: true });
   document.getElementById("btn-settings")?.addEventListener("click", openSettings);

@@ -4,6 +4,8 @@ import com.agent1.javaagent.config.AgentRuntimeConfig;
 import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.session.SessionMeta;
+import com.agent1.javaagent.usage.ModelUsageSlice;
+import com.agent1.javaagent.usage.UsageOverview;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -50,6 +52,7 @@ public final class UiHttpServer implements AutoCloseable {
 
         server.createContext("/api/health", this::handleHealth);
         server.createContext("/api/config", this::handleConfig);
+        server.createContext("/api/usage", this::handleUsage);
         server.createContext("/api/sessions", this::handleSessions);
         server.createContext("/api/run/abort", this::handleAbort);
         server.createContext("/api/events", this::handleEvents);
@@ -87,6 +90,15 @@ public final class UiHttpServer implements AutoCloseable {
         body.put("ok", true);
         body.put("runInProgress", gateway.isRunInProgress());
         sendJson(exchange, 200, body);
+    }
+
+    private void handleUsage(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        UsageOverview usage = gateway.usageOverview();
+        sendJson(exchange, 200, encodeUsage(usage));
     }
 
     private void handleConfig(HttpExchange exchange) throws IOException {
@@ -344,6 +356,29 @@ public final class UiHttpServer implements AutoCloseable {
             return "font/woff2";
         }
         return "application/octet-stream";
+    }
+
+    private static ObjectNode encodeUsage(UsageOverview usage) {
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("inputTokens", usage.inputTokens());
+        body.put("outputTokens", usage.outputTokens());
+        body.put("cachedTokens", usage.cachedTokens());
+        body.put("usageEvents", usage.usageEvents());
+        body.put("totalTokens", usage.totalTokens());
+        body.put("hasUsage", usage.hasUsage());
+        Integer hit = usage.cacheHitPercent();
+        if (hit != null) {
+            body.put("cacheHitPercent", hit);
+        }
+        ArrayNode models = body.putArray("byModel");
+        for (ModelUsageSlice slice : usage.byModel()) {
+            ObjectNode node = models.addObject();
+            node.put("modelId", slice.modelId());
+            node.put("inputTokens", slice.inputTokens());
+            node.put("outputTokens", slice.outputTokens());
+            node.put("cachedTokens", slice.cachedTokens());
+        }
+        return body;
     }
 
     private static ObjectNode sessionNode(SessionMeta meta) {

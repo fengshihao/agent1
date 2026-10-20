@@ -468,6 +468,100 @@ button {
   }
 }
 
+.usage-footer {
+  margin-top: auto;
+  padding: 0.65rem 0.85rem 1rem;
+  border-top: 1px solid var(--hairline);
+  text-align: left;
+  background: var(--paper-deep);
+  border-radius: 0;
+}
+
+.usage-footer:hover {
+  background: var(--accent-wash);
+}
+
+.usage-headline {
+  display: block;
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--accent-deep);
+}
+
+.usage-detail-line {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-top: 0.15rem;
+}
+
+.new-topic-btn {
+  display: block;
+  margin: 0 0 0.75rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--accent-deep);
+}
+
+.new-topic-btn:hover {
+  text-decoration: underline;
+}
+
+.toast-banner {
+  margin: 0.5rem 1.25rem 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  background: var(--paper-deep);
+  border: 1px solid var(--hairline);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.usage-panel .usage-detail {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.usage-panel ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8e2d6;
+    --ink-soft: #c4bdb0;
+    --ink-muted: #8d867a;
+    --paper: #161410;
+    --paper-deep: #1e1a15;
+    --paper-lift: #221e18;
+    --accent: #e0a054;
+    --accent-deep: #f0c48a;
+    --on-accent: #1a140c;
+    --accent-wash: #3a2a18;
+    --moss: #7a9e80;
+    --danger: #e07a6a;
+    --hairline: rgba(232, 226, 214, 0.1);
+    --hairline-strong: rgba(232, 226, 214, 0.16);
+  }
+
+  .bubble.assistant {
+    background: var(--paper-lift);
+  }
+
+  .tool-card {
+    background: var(--paper-lift);
+  }
+
+  .ask-q input,
+  .composer textarea,
+  .settings input {
+    background: var(--paper-lift);
+  }
+}
+
 @media (max-width: 720px) {
   .drawer {
     position: absolute;

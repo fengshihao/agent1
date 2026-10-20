@@ -1,6 +1,9 @@
 package com.agent1.javaagent.cli.ui;
 
 import com.agent1.javaagent.config.AgentRuntimeConfig;
+import com.agent1.javaagent.log.AgentDataPaths;
+import com.agent1.javaagent.usage.UsageLogSummary;
+import com.agent1.javaagent.usage.UsageOverview;
 import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.event.AgentEventListener;
 import com.agent1.javaagent.model.AgentMessage;
@@ -140,6 +143,11 @@ public final class DesktopUiGateway implements Closeable {
 
     public List<AgentMessage> loadTranscript(String sessionId) {
         return execute(() -> ensureHost().loadTranscript(sessionId));
+    }
+
+    /** 全 agentRoot 累计用量（events.jsonl）。 */
+    public UsageOverview usageOverview() {
+        return UsageLogSummary.summarize(AgentDataPaths.eventsJsonl(agentRoot));
     }
 
     /**

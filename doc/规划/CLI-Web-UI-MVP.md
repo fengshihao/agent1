@@ -47,6 +47,7 @@ Browser ◄──SSE events── UiHttpServer ◄── AgentEvent ◄───
 | POST | `/api/sessions/{id}/messages` | `{ "text": "..." }` 异步启动 Run |
 | POST | `/api/run/abort` | 停止 |
 | GET | `/api/events` | SSE：`{ type, timestampMs, sessionId, runId, payload }` |
+| GET | `/api/usage` | 全库 events.jsonl 累计 token（`UsageOverview`） |
 
 ## 前端契约
 
@@ -84,6 +85,7 @@ Browser ◄──SSE events── UiHttpServer ◄── AgentEvent ◄───
 |------|------|
 | 2026-10-21 | MVP 实现：`./agent1 ui`、`DesktopUiGateway`、`UiHttpServer`（REST/SSE）、`web_ui` 打包进 `cli` resources、`ProductivityAgentHost.loadTranscript`、单测 `UiHttpServerTest` / `UiConfigStoreTest` |
 | 2026-10-21 | 联调修复：`run-java-agent-gradle` 改为 `:cli:runJavaAgentCli`，修复 `AGENT1_USE_GRADLE=1 ./agent1 ui` 报 `Unknown command-line option '--args'`；端口占用时提示 `--port` / `AGENT1_UI_PORT` |
+| 2026-10-21 | P1/P2：新话题按钮、用量摘要 API/UI、core `UsageLogSummary`、系统墨夜主题 |
 
 ### 如何启动（备忘）
 
@@ -101,10 +103,10 @@ cd java_agent/web_ui && npm ci && npm run build   # 只改前端时
 
 | 优先级 | 项 | 说明 |
 |:------:|-----|------|
-| P1 | **「新话题」/ Fresh session** | 对齐 Android `NewTopicAfterReplyButton` / `isFreshSession`：在当前会话**开新 Run 上下文**或引导**新建会话**，避免同一 transcript 无限变长 |
-| P1 | **抽屉用量摘要** | 读 `events.jsonl`（`UsageLogSummary`），Android 抽屉底部已有；Web 可复用同一套聚合 |
-| P2 | 附件 / 产物库 / HTML 预览 | 见上文「非目标」 |
-| P2 | 墨夜主题 | `ProductivityTheme` DarkColors |
+| P1 | **「新话题」/ Fresh session** | ✅ Web：`开始新话题` + 抽屉「＋」新建会话；空会话 Toast「已是新会话」 |
+| P1 | **抽屉用量摘要** | ✅ `GET /api/usage` + core `UsageLogSummary`；抽屉底栏可点开详情 |
+| P2 | 附件 / 产物库 / HTML 预览 | 仍延后 |
+| P2 | 墨夜主题 | ✅ `prefers-color-scheme: dark` CSS 变量 |
 
 ### 切换 Session 会不会省 Token？
 

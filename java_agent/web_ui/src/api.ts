@@ -22,6 +22,22 @@ export type MessageDto = {
   toolCalls?: ToolCallDto[];
 };
 
+export type UsageDto = {
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens: number;
+  usageEvents: number;
+  totalTokens: number;
+  hasUsage: boolean;
+  cacheHitPercent?: number;
+  byModel: Array<{
+    modelId: string;
+    inputTokens: number;
+    outputTokens: number;
+    cachedTokens: number;
+  }>;
+};
+
 export type ConfigDto = {
   model: string;
   baseUrl: string;
@@ -66,6 +82,10 @@ export async function saveConfig(body: {
       body: JSON.stringify(body),
     }),
   );
+}
+
+export async function fetchUsage(): Promise<UsageDto> {
+  return parseJson(await fetch("/api/usage"));
 }
 
 export async function fetchSessions(): Promise<{
