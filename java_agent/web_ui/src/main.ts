@@ -587,6 +587,7 @@ function renderMoreMenu(): string {
     <button type="button" class="more-menu-item" data-more-action="system-prompt">系统提示词</button>
     <button type="button" class="more-menu-item" data-more-action="brief">会话简报</button>
     <button type="button" class="more-menu-item" data-more-action="diagnostics">诊断包</button>
+    <button type="button" class="more-menu-item" data-more-action="failed">失败工具调用</button>
     <button type="button" class="more-menu-item" data-more-action="about">关于</button>
   </div>`;
 }
@@ -786,10 +787,6 @@ function render() {
         <div class="brand">Agent1</div>
         <div class="drawer-actions">
           <button type="button" class="icon-btn" id="btn-new" title="新会话">＋</button>
-          <button type="button" class="icon-btn" id="btn-brief" title="复制会话简报">📋</button>
-          <button type="button" class="icon-btn" id="btn-diag" title="导出诊断包">🩺</button>
-          <button type="button" class="icon-btn" id="btn-failed" title="失败工具调用">⚠</button>
-          <button type="button" class="icon-btn" id="btn-settings" title="设置">⚙</button>
         </div>
       </div>
       <div class="session-list">${sessions}</div>
@@ -860,26 +857,6 @@ function render() {
 
 function bindEvents() {
   document.getElementById("btn-new")?.addEventListener("click", () => void startNewChat());
-  document.getElementById("btn-brief")?.addEventListener("click", async () => {
-    const sid = state.activeSessionId;
-    if (!sid) return;
-    try {
-      const { text } = await api.fetchBrief(sid);
-      await navigator.clipboard.writeText(text);
-      showToast("简报已复制到剪贴板");
-    } catch (e) {
-      setState({ error: e instanceof Error ? e.message : String(e) });
-    }
-  });
-  document.getElementById("btn-diag")?.addEventListener("click", async () => {
-    try {
-      await api.downloadDiagnostics();
-      showToast("诊断包已下载");
-    } catch (e) {
-      setState({ error: e instanceof Error ? e.message : String(e) });
-    }
-  });
-  document.getElementById("btn-failed")?.addEventListener("click", () => void openFailedLogsPanel());
   document.getElementById("btn-new-topic")?.addEventListener("click", () => void startNewChat());
   document.getElementById("btn-summarize-new")?.addEventListener("click", () => void summarizeAndNewChat());
   document.getElementById("btn-drawer")?.addEventListener("click", () => {
@@ -904,7 +881,6 @@ function bindEvents() {
   document.getElementById("failed-logs-overlay")?.addEventListener("click", (ev) => {
     if (ev.target === ev.currentTarget) setState({ showFailedLogs: false });
   });
-  document.getElementById("btn-settings")?.addEventListener("click", () => void openSettings());
   document.getElementById("btn-more")?.addEventListener("click", (ev) => {
     ev.stopPropagation();
     setState({ moreMenuOpen: !state.moreMenuOpen });
@@ -936,6 +912,9 @@ function bindEvents() {
           void api.downloadDiagnostics()
             .then(() => showToast("诊断包已下载"))
             .catch((e) => setState({ error: e instanceof Error ? e.message : String(e) }));
+          break;
+        case "failed":
+          void openFailedLogsPanel();
           break;
         case "about":
           setState({ showAbout: true });
