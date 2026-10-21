@@ -1,7 +1,8 @@
 # 桌面 WebView 壳与原生桥 — 长期计划（仅文档）
 
-> **状态**：规划稿 · **本议题先不实现**  
-> **分支**：`cursor/desktop-webview-shell-plan-927a`（仅收录本文与交叉引用）  
+> **状态**：规划稿 · **实现未开始**（Mac 分步见下）  
+> **Mac 实施**：[桌面WebView壳-Mac实施计划.md](./桌面WebView壳-Mac实施计划.md)（里程碑 M1～M8、环境说明、PR 顺序）  
+> **文档分支**：`cursor/desktop-webview-shell-plan-927a`  
 > **关联**：[CLI-Web-UI-MVP.md](./CLI-Web-UI-MVP.md)、[桌面UI发行包.md](./桌面UI发行包.md)、[18-内置HTML预览与点选审查.md](./自进化Agent/18-内置HTML预览与点选审查.md)、[CLI与Android-Agent能力对照.md](../CLI与Android-Agent能力对照.md)
 
 ## 1. 背景与目标
@@ -205,3 +206,4 @@ doc/规划/
 | 日期 | 说明 |
 |------|------|
 | 2026-10-21 | 初稿：长期计划分支，明确保留 HTTP + 原生桥；不做实现 |
+| 2026-10-21 | 增补 [桌面WebView壳-Mac实施计划.md](./桌面WebView壳-Mac实施计划.md) |
