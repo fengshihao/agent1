@@ -22,6 +22,14 @@ export type MessageDto = {
   toolCalls?: ToolCallDto[];
 };
 
+export type FailedToolDto = {
+  sessionId: string;
+  runId: string;
+  toolCallId: string;
+  toolName: string;
+  errorMessage: string;
+};
+
 export type UsageDto = {
   inputTokens: number;
   outputTokens: number;
@@ -282,6 +290,12 @@ export async function deleteSession(sessionId: string): Promise<void> {
 
 export async function fetchBrief(sessionId: string): Promise<{ sessionId: string; text: string }> {
   return parseJson(await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/brief`));
+}
+
+export async function fetchFailedToolCalls(sessionId?: string | null): Promise<FailedToolDto[]> {
+  const q = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : "";
+  const data = await parseJson<{ items: FailedToolDto[] }>(await fetch(`/api/logs/failed${q}`));
+  return data.items;
 }
 
 export async function fetchTranscript(sessionId: string): Promise<MessageDto[]> {

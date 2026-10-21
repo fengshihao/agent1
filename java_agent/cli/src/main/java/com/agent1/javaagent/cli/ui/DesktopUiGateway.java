@@ -1,7 +1,11 @@
 package com.agent1.javaagent.cli.ui;
 
+import com.agent1.javaagent.brief.BriefChatExport;
 import com.agent1.javaagent.config.AgentRuntimeConfig;
 import com.agent1.javaagent.log.AgentDataPaths;
+import com.agent1.javaagent.log.query.EventLogFilter;
+import com.agent1.javaagent.log.query.EventLogQueryService;
+import com.agent1.javaagent.log.query.FailedToolCall;
 import com.agent1.javaagent.usage.UsageLogSummary;
 import com.agent1.javaagent.usage.UsageOverview;
 import com.agent1.javaagent.event.AgentEvent;
@@ -204,8 +208,41 @@ public final class DesktopUiGateway implements Closeable {
 
     public String briefTranscript(String sessionId) {
         return execute(() -> {
-            List<AgentMessage> messages = ensureHost().loadTranscript(sessionId);
-            return DesktopBriefExport.format(messages, sessionId, configuration().getModel());
+            ProductivityAgentHost agentHost = ensureHost();
+            List<AgentMessage> messages = agentHost.loadTranscript(sessionId);
+            String title = agentHost.listSessions().stream()
+                .filter(s -> s.getSessionId().equals(sessionId))
+                .map(SessionMeta::getTitle)
+                .findFirst()
+                .orElse("");
+            AgentRuntimeConfig cfg = configuration();
+            String limits = "contextTurns=" + cfg.getMaxContextTurns()
+                + " maxTurnsPerRun=" + cfg.getMaxTurnsPerRun()
+                + " maxToolCallsPerRun=" + cfg.getMaxToolCallsPerRun();
+            String configError = cfg.getApiKey() == null || cfg.getApiKey().isBlank() ? "api key not configured" : "";
+            BriefChatExport.Context context = new BriefChatExport.Context(
+                sessionId,
+                cfg.getModel(),
+                "desktop-web-ui",
+                System.getProperty("os.name", ""),
+                limits,
+                configError
+            );
+            return BriefChatExport.format(messages, title, context);
+        });
+    }
+
+    public List<FailedToolCall> listFailedToolCalls(String sessionIdFilter) {
+        return execute(() -> {
+            Path eventsFile = AgentDataPaths.eventsJsonl(agentRoot);
+            if (!Files.isRegularFile(eventsFile)) {
+                return List.of();
+            }
+            EventLogFilter.Builder builder = EventLogFilter.builder();
+            if (sessionIdFilter != null && !sessionIdFilter.isBlank()) {
+                builder.sessionId(sessionIdFilter.trim());
+            }
+            return new EventLogQueryService().listFailedToolCalls(eventsFile, builder.build());
         });
     }
 

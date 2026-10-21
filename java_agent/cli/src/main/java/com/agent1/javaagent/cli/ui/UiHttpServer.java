@@ -10,6 +10,7 @@ import com.agent1.javaagent.event.AgentEvent;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.session.SessionMeta;
 import com.agent1.javaagent.capability.CapabilitySearchView;
+import com.agent1.javaagent.log.query.FailedToolCall;
 import com.agent1.javaagent.usage.ModelUsageSlice;
 import com.agent1.javaagent.usage.UsageOverview;
 import com.agent1.javaagent.workspace.ArtifactLibrary;
@@ -68,6 +69,7 @@ public final class UiHttpServer implements AutoCloseable {
         server.createContext("/api/diagnostics/export", this::handleDiagnosticExport);
         server.createContext("/api/mcp/servers", this::handleMcpServers);
         server.createContext("/api/usage", this::handleUsage);
+        server.createContext("/api/logs/failed", this::handleLogsFailed);
         server.createContext("/api/artifacts", this::handleArtifacts);
         server.createContext("/api/capabilities", this::handleCapabilities);
         server.createContext("/api/sessions", this::handleSessions);
@@ -156,6 +158,35 @@ public final class UiHttpServer implements AutoCloseable {
         }
         UsageOverview usage = gateway.usageOverview();
         sendJson(exchange, 200, encodeUsage(usage));
+    }
+
+    private void handleLogsFailed(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        String query = exchange.getRequestURI().getRawQuery();
+        String sessionId = null;
+        if (query != null) {
+            for (String part : query.split("&")) {
+                String[] kv = part.split("=", 2);
+                if (kv.length == 2 && "sessionId".equals(kv[0])) {
+                    sessionId = URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
+                }
+            }
+        }
+        ArrayNode items = MAPPER.createArrayNode();
+        for (FailedToolCall item : gateway.listFailedToolCalls(sessionId)) {
+            ObjectNode node = items.addObject();
+            node.put("sessionId", item.sessionId());
+            node.put("runId", item.runId());
+            node.put("toolCallId", item.toolCallId());
+            node.put("toolName", item.toolName());
+            node.put("errorMessage", item.errorMessage());
+        }
+        ObjectNode body = MAPPER.createObjectNode();
+        body.set("items", items);
+        sendJson(exchange, 200, body);
     }
 
     private void handleConfig(HttpExchange exchange) throws IOException {

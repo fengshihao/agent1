@@ -23,15 +23,45 @@ function normalizeWorkspacePath(path: string): string {
   return path.replace(/^\.\//, "").replace(/^workspace\//, "");
 }
 
-/** 将正文转为安全 HTML：转义 + Markdown 图片/工作区文件链接。 */
+type ContentSegment = { kind: "text"; text: string } | { kind: "code"; text: string };
+
+function splitCodeFences(content: string): ContentSegment[] {
+  const parts: ContentSegment[] = [];
+  const re = /```[\w-]*\n?([\s\S]*?)```/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(content)) !== null) {
+    if (match.index > last) {
+      parts.push({ kind: "text", text: content.slice(last, match.index) });
+    }
+    parts.push({ kind: "code", text: match[1] ?? "" });
+    last = match.index + match[0].length;
+  }
+  if (last < content.length) {
+    parts.push({ kind: "text", text: content.slice(last) });
+  }
+  return parts.length ? parts : [{ kind: "text", text: content }];
+}
+
+/** 将正文转为安全 HTML：代码块、行内代码、Markdown 图片/工作区文件链接。 */
 export function formatBubbleContentHtml(content: string, sessionId: string | null): string {
   if (!content) return "";
+  return splitCodeFences(content)
+    .map((seg) =>
+      seg.kind === "code"
+        ? `<pre class="bubble-code"><code>${escapeHtml(seg.text.trimEnd())}</code></pre>`
+        : formatBubbleTextSegment(seg.text, sessionId),
+    )
+    .join("");
+}
+
+function formatBubbleTextSegment(content: string, sessionId: string | null): string {
   const pattern = /!?\[([^\]]*)]\(([^)]+)\)/g;
   let html = "";
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(content)) !== null) {
-    html += escapeHtml(content.slice(last, match.index));
+    html += formatPlainWithInlineCode(content.slice(last, match.index));
     const alt = match[1];
     const dest = match[2].trim();
     const isImage = match[0].startsWith("!");
@@ -49,7 +79,20 @@ export function formatBubbleContentHtml(content: string, sessionId: string | nul
     }
     last = match.index + match[0].length;
   }
-  html += escapeHtml(content.slice(last));
+  html += formatPlainWithInlineCode(content.slice(last));
+  return html;
+}
+
+function formatPlainWithInlineCode(text: string): string {
+  const parts = text.split(/`([^`\n]+)`/);
+  let html = "";
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 0) {
+      html += escapeHtml(parts[i]);
+    } else {
+      html += `<code class="bubble-inline-code">${escapeHtml(parts[i])}</code>`;
+    }
+  }
   return html;
 }
 

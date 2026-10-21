@@ -61,6 +61,22 @@ async function refreshUsage() {
   }
 }
 
+async function refreshFailedLogs() {
+  const sessionId =
+    state.failedLogsScopeSession && state.activeSessionId ? state.activeSessionId : null;
+  const items = await api.fetchFailedToolCalls(sessionId);
+  setState({ failedLogs: items });
+}
+
+async function openFailedLogsPanel() {
+  setState({ showFailedLogs: true });
+  try {
+    await refreshFailedLogs();
+  } catch (e) {
+    setState({ error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
 function showToast(message: string) {
   setState({ toast: message });
   window.setTimeout(() => {
@@ -156,8 +172,44 @@ function onSettingsProviderChange(providerId: string) {
 
 async function openSettings() {
   const draft = settingsDraftFromConfig();
-  setState({ showSettings: true, settingsDraft: draft, modelOptions: [], error: null });
+  setState({
+    showSettings: true,
+    settingsDraft: draft,
+    modelOptions: [],
+    error: null,
+    moreMenuOpen: false,
+  });
   await fetchModelsForDraft(draft, false);
+}
+
+async function openMcpPanel() {
+  try {
+    const { servers } = await api.fetchMcpServers();
+    setState({ showMcp: true, mcpServers: servers, mcpStatus: null, showSettings: false, moreMenuOpen: false });
+  } catch (e) {
+    setState({ error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+async function openCapabilitySearch() {
+  try {
+    const artifacts = await api.fetchArtifacts();
+    setState({ artifacts, showArtifacts: true, capQuery: "", capResult: "", moreMenuOpen: false });
+  } catch (e) {
+    setState({ error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+async function copySessionBrief() {
+  const sid = state.activeSessionId;
+  if (!sid) return;
+  const { text } = await api.fetchBrief(sid);
+  await navigator.clipboard.writeText(text);
+  showToast("简报已复制到剪贴板");
+}
+
+function closeMoreMenu() {
+  setState({ moreMenuOpen: false });
 }
 
 async function refreshAttachments(sessionId: string) {
@@ -512,6 +564,61 @@ function renderToolsPanel(): string {
   </div>`;
 }
 
+function renderAboutPanel(): string {
+  if (!state.showAbout) return "";
+  return `<div class="overlay" id="about-overlay">
+    <div class="overlay-panel usage-panel">
+      <h2>关于 Agent1</h2>
+      <p>桌面 Web UI（<code>./agent1 ui</code>）— 对齐 Android 生产力聊天壳。</p>
+      <p class="muted">本机 HTTP · 仅 127.0.0.1</p>
+      <div class="overlay-actions">
+        <button type="button" class="primary-btn" id="about-close">关闭</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderMoreMenu(): string {
+  if (!state.moreMenuOpen) return "";
+  return `<div class="more-menu" role="menu" id="more-menu">
+    <button type="button" class="more-menu-item" data-more-action="settings">模型设置</button>
+    <button type="button" class="more-menu-item" data-more-action="mcp">MCP 与联网搜索</button>
+    <button type="button" class="more-menu-item" data-more-action="capabilities">能力检索</button>
+    <button type="button" class="more-menu-item" data-more-action="system-prompt">系统提示词</button>
+    <button type="button" class="more-menu-item" data-more-action="brief">会话简报</button>
+    <button type="button" class="more-menu-item" data-more-action="diagnostics">诊断包</button>
+    <button type="button" class="more-menu-item" data-more-action="about">关于</button>
+  </div>`;
+}
+
+function renderFailedLogsPanel(): string {
+  if (!state.showFailedLogs) return "";
+  const scopeLabel = state.failedLogsScopeSession ? "当前会话" : "全部会话";
+  const rows = state.failedLogs
+    .map(
+      (item) =>
+        `<li class="failed-log-item">
+          <div><strong>${escapeHtml(item.toolName || "tool")}</strong>
+            <span class="muted"> · ${escapeHtml(item.toolCallId)}</span></div>
+          <div class="muted small">run ${escapeHtml(item.runId)} · session ${escapeHtml(item.sessionId)}</div>
+          <div>${escapeHtml(item.errorMessage || "—")}</div>
+        </li>`,
+    )
+    .join("");
+  return `<div class="overlay" id="failed-logs-overlay">
+    <div class="overlay-panel usage-panel wide-panel">
+      <h2>失败工具调用</h2>
+      <p class="muted">范围：${escapeHtml(scopeLabel)} · 对齐 <code>./agent1 logs failed</code></p>
+      <ul class="failed-log-list">${rows || "<li class='muted'>（无失败记录）</li>"}</ul>
+      <div class="overlay-actions">
+        <label class="checkbox-row"><input type="checkbox" id="failed-scope-session" ${state.failedLogsScopeSession ? "checked" : ""}/> 仅当前会话</label>
+        <button type="button" id="failed-refresh">刷新</button>
+        <button type="button" class="primary-btn" id="failed-close">关闭</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderUsagePanel(): string {
   if (!state.usagePanelOpen || !state.usage) return "";
   return `<div class="overlay" id="usage-overlay">
@@ -681,6 +788,7 @@ function render() {
           <button type="button" class="icon-btn" id="btn-new" title="新会话">＋</button>
           <button type="button" class="icon-btn" id="btn-brief" title="复制会话简报">📋</button>
           <button type="button" class="icon-btn" id="btn-diag" title="导出诊断包">🩺</button>
+          <button type="button" class="icon-btn" id="btn-failed" title="失败工具调用">⚠</button>
           <button type="button" class="icon-btn" id="btn-settings" title="设置">⚙</button>
         </div>
       </div>
@@ -696,7 +804,10 @@ function render() {
         <h1>对话</h1>
         <div class="topbar-actions">
           <button type="button" class="icon-btn" id="btn-artifacts" title="产物库">📁</button>
-          <button type="button" class="icon-btn" id="btn-settings-2" title="设置">⚙</button>
+          <div class="more-menu-anchor">
+            <button type="button" class="icon-btn" id="btn-more" title="更多" aria-haspopup="menu" aria-expanded="${state.moreMenuOpen}">⋮</button>
+            ${renderMoreMenu()}
+          </div>
         </div>
       </div>
       ${state.toast ? `<div class="toast-banner">${escapeHtml(state.toast)}</div>` : ""}
@@ -736,6 +847,8 @@ function render() {
     ${renderMcpPanel()}
     ${renderToolsPanel()}
     ${renderUsagePanel()}
+    ${renderFailedLogsPanel()}
+    ${renderAboutPanel()}
     ${renderArtifactsPanel()}
     ${renderPreviewPanel()}
   </div>`;
@@ -766,6 +879,7 @@ function bindEvents() {
       setState({ error: e instanceof Error ? e.message : String(e) });
     }
   });
+  document.getElementById("btn-failed")?.addEventListener("click", () => void openFailedLogsPanel());
   document.getElementById("btn-new-topic")?.addEventListener("click", () => void startNewChat());
   document.getElementById("btn-summarize-new")?.addEventListener("click", () => void summarizeAndNewChat());
   document.getElementById("btn-drawer")?.addEventListener("click", () => {
@@ -780,8 +894,70 @@ function bindEvents() {
   document.getElementById("usage-overlay")?.addEventListener("click", (ev) => {
     if (ev.target === ev.currentTarget) setState({ usagePanelOpen: false });
   });
+  document.getElementById("failed-close")?.addEventListener("click", () => setState({ showFailedLogs: false }));
+  document.getElementById("failed-refresh")?.addEventListener("click", () => void refreshFailedLogs());
+  document.getElementById("failed-scope-session")?.addEventListener("change", (ev) => {
+    const checked = (ev.target as HTMLInputElement).checked;
+    setState({ failedLogsScopeSession: checked });
+    void refreshFailedLogs();
+  });
+  document.getElementById("failed-logs-overlay")?.addEventListener("click", (ev) => {
+    if (ev.target === ev.currentTarget) setState({ showFailedLogs: false });
+  });
   document.getElementById("btn-settings")?.addEventListener("click", () => void openSettings());
-  document.getElementById("btn-settings-2")?.addEventListener("click", () => void openSettings());
+  document.getElementById("btn-more")?.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    setState({ moreMenuOpen: !state.moreMenuOpen });
+  });
+  document.getElementById("more-menu")?.addEventListener("click", (ev) => ev.stopPropagation());
+  document.querySelectorAll<HTMLButtonElement>("[data-more-action]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const action = btn.dataset.moreAction;
+      closeMoreMenu();
+      switch (action) {
+        case "settings":
+          void openSettings();
+          break;
+        case "mcp":
+          void openMcpPanel();
+          break;
+        case "capabilities":
+          void openCapabilitySearch();
+          break;
+        case "system-prompt":
+          showToast("系统提示词页暂未在 Web UI 提供");
+          break;
+        case "brief":
+          void copySessionBrief().catch((e) =>
+            setState({ error: e instanceof Error ? e.message : String(e) }),
+          );
+          break;
+        case "diagnostics":
+          void api.downloadDiagnostics()
+            .then(() => showToast("诊断包已下载"))
+            .catch((e) => setState({ error: e instanceof Error ? e.message : String(e) }));
+          break;
+        case "about":
+          setState({ showAbout: true });
+          break;
+        default:
+          break;
+      }
+    });
+  });
+  if (state.moreMenuOpen) {
+    window.setTimeout(() => {
+      const onDocClick = () => {
+        closeMoreMenu();
+        document.removeEventListener("click", onDocClick);
+      };
+      document.addEventListener("click", onDocClick);
+    }, 0);
+  }
+  document.getElementById("about-close")?.addEventListener("click", () => setState({ showAbout: false }));
+  document.getElementById("about-overlay")?.addEventListener("click", (ev) => {
+    if (ev.target === ev.currentTarget) setState({ showAbout: false });
+  });
   document.getElementById("btn-setup")?.addEventListener("click", () => void openSettings());
   document.getElementById("btn-model")?.addEventListener("click", () => void openSettings());
   document.getElementById("btn-artifacts")?.addEventListener("click", async () => {
@@ -947,14 +1123,6 @@ function bindEvents() {
   document.getElementById("cfg-tool-calls")?.addEventListener("change", (ev) => {
     syncDraftField({ maxToolCallsPerRun: parseInt((ev.target as HTMLInputElement).value, 10) || 0 });
   });
-  async function openMcpPanel() {
-    try {
-      const { servers } = await api.fetchMcpServers();
-      setState({ showMcp: true, mcpServers: servers, mcpStatus: null, showSettings: false });
-    } catch (e) {
-      setState({ error: e instanceof Error ? e.message : String(e) });
-    }
-  }
   document.getElementById("cfg-open-mcp")?.addEventListener("click", () => void openMcpPanel());
   document.getElementById("mcp-close")?.addEventListener("click", () => setState({ showMcp: false }));
   document.getElementById("mcp-overlay")?.addEventListener("click", (ev) => {

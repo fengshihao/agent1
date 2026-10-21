@@ -668,6 +668,83 @@ button {
   display: block;
 }
 
+.bubble-code {
+  margin: 0.5rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: var(--surface-elevated, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--hairline);
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.bubble-inline-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: var(--surface-elevated, rgba(0, 0, 0, 0.06));
+}
+
+.failed-log-list {
+  list-style: none;
+  margin: 0.75rem 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.failed-log-item {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.failed-log-item .small {
+  font-size: 0.8rem;
+}
+
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: auto;
+  font-size: 0.9rem;
+}
+
+.more-menu-anchor {
+  position: relative;
+}
+
+.more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 40;
+  min-width: 11.5rem;
+  padding: 0.35rem 0;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: var(--surface, #fff);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.more-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.85rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.more-menu-item:hover {
+  background: var(--surface-elevated, rgba(0, 0, 0, 0.05));
+}
+
 .tools-list {
   list-style: none;
   padding: 0;

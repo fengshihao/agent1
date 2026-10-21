@@ -3,6 +3,7 @@ import type {
   AttachmentDto,
   ArtifactDto,
   ConfigDto,
+  FailedToolDto,
   McpServerDto,
   MessageDto,
   ModelOptionDto,
@@ -63,6 +64,11 @@ export type AppState = {
   showMcp: boolean;
   mcpServers: McpServerDto[];
   mcpStatus: string | null;
+  showFailedLogs: boolean;
+  failedLogs: FailedToolDto[];
+  failedLogsScopeSession: boolean;
+  moreMenuOpen: boolean;
+  showAbout: boolean;
 };
 
 export type SettingsDraft = {
@@ -111,6 +117,11 @@ export function createInitialState(): AppState {
     showMcp: false,
     mcpServers: [],
     mcpStatus: null,
+    showFailedLogs: false,
+    failedLogs: [],
+    failedLogsScopeSession: true,
+    moreMenuOpen: false,
+    showAbout: false,
   };
 }
 
