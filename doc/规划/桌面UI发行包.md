@@ -1,5 +1,7 @@
 # 桌面 Web UI 发行包（仅 UI · 尽量小）
 
+> 嵌入式系统 WebView 薄壳与原生桥：**长期计划**见 [桌面WebView壳与原生桥-计划.md](./桌面WebView壳与原生桥-计划.md)（当前未实现）。
+
 ## 目标
 
 - **一个 zip 解压即用**（不捆绑 JRE），面向 macOS / Windows / Ubuntu x64（及常见 arm64）。
