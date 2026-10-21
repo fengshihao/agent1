@@ -49,6 +49,50 @@ node -v         # 仅改 web_ui 时需要
 desktop_shell/target/release/agent1-shell http://127.0.0.1:17831
 ```
 
+开发树可用 **`AGENT1_SHELL_BIN`** 覆盖壳可执行文件路径（见 M3 `agent1-ui-window`）。
+
+### 0.3 老旧 Mac：能否开发 / 验收？
+
+先在本机执行（约 30 秒），把结果留给后续 Agent 或自己对照：
+
+```bash
+sw_vers
+uname -m                   # arm64 = Apple 芯片；x86_64 = Intel
+java -version 2>&1 | head -1
+sysctl -n hw.memsize | awk '{print $1/1024/1024/1024 " GB RAM"}'
+xcode-select -p 2>/dev/null || echo "未安装 Xcode CLI"
+```
+
+| 能力 | 一般要求 | 老 Mac 说明 |
+|------|----------|-------------|
+| **`./agent1 ui`（系统浏览器）** | Java **17+** + 可用 Safari/Chrome | 能跑现代浏览器即可，**与机器新旧关系不大** |
+| **仅 Java：`--no-browser` + REST/SSE** | Java 17+ | **不依赖 WKWebView**；老 Mac、Linux、Cloud 均可 |
+| **本地编/跑 `agent1-shell`（wry + WKWebView）** | 通常 **macOS 10.15+**（以 `desktop_shell` README / wry 版本为准）；**Xcode 命令行工具** + **Rust** | **10.14 及以下** 常无法装新工具链，**不宜本地编壳** |
+| **联调 JVM + 壳 + 聊天** | 建议 **≥ 8 GB RAM**（16 GB 更舒适） | 4 GB 易卡；可只用浏览器模式减轻负担 |
+
+**机型粗分（非硬性，以 `cargo build` 为准）**
+
+- **Intel 老机（约 2015～2019）**：若最高系统为 **macOS 12 Monterey** 或 **13 Ventura**，多数可完成 M1～M4 本机开发与验收。
+- **最高仅 Catalina（10.15）**：优先试 `rustup` + `cargo build`；失败则 **不要强升硬件**，改用 CI 产物。
+- **10.13 及更早**：建议 **不本地编壳**；本机用 **`./agent1 ui` 浏览器** + 从 GitHub Actions 下载 **darwin zip** 试 `bin/agent1-ui-window`（仍需 Java 17+）。
+
+**老 Mac 推荐分工**
+
+1. **本机**：Java / `web_ui` / `./agent1 ui`（浏览器）——与壳内 WebView 加载同一 URL，功能对齐。
+2. **壳二进制**：由 **GitHub Actions `macos-latest`** 构建（M4）；本机只解压验收窗口。
+3. **实现 PR**：Cloud Agent 或任意 OS 可写 Java、脚本、文档；**合并前**需 Mac 或 CI artifact 做一次壳冒烟。
+
+**快速试探能否本地编壳**（`desktop_shell` 落地后）：
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+cd desktop_shell && cargo build --release
+```
+
+成功 → 可走全文 Mac 路线图；失败且报 OS/SDK 过旧 → 采用 **浏览器 + CI 壳** 组合。
+
+本地 Agent 开工说明与复制用提示词见：[docs/ai/桌面WebView壳-本地Agent开工.md](../../docs/ai/桌面WebView壳-本地Agent开工.md)。
+
 ---
 
 ## 1. 里程碑总览（Mac 优先）
