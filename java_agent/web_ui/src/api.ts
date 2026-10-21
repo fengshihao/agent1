@@ -22,6 +22,24 @@ export type MessageDto = {
   toolCalls?: ToolCallDto[];
 };
 
+export type AboutDto = {
+  title: string;
+  appName: string;
+  versionName: string;
+  versionCode: number;
+  authorLabel: string;
+  authorValue: string;
+  websiteLabel: string;
+  websiteUrl: string;
+  sourceLabel: string;
+  sourceUrl: string;
+  licenseLabel: string;
+  licenseValue: string;
+  depsTitle: string;
+  depsNotice: string;
+  dependencies: Array<{ name: string; license: string }>;
+};
+
 export type FailedToolDto = {
   sessionId: string;
   runId: string;
@@ -271,11 +289,41 @@ export function workspaceFileUrl(sessionId: string, workspaceRelativePath: strin
   return `/api/sessions/${encodeURIComponent(sessionId)}/files/${path}`;
 }
 
-export async function searchCapabilities(query: string): Promise<string> {
-  const data = await parseJson<{ text: string }>(
-    await fetch(`/api/capabilities?q=${encodeURIComponent(query)}`),
-  );
-  return data.text;
+export type CapabilityHitDto = {
+  id: string;
+  kind: string;
+  title: string;
+  summary: string;
+  entry: string;
+  docPath: string;
+  platforms: string;
+  source: string;
+  loaded: boolean;
+  score: number;
+  availability: string;
+};
+
+export type CapabilitySearchResultDto = {
+  modelText: string;
+  hostPlatform: string;
+  limit: number;
+  visible: CapabilityHitDto[];
+  hiddenByPlatform: CapabilityHitDto[];
+  disabledMcp: Array<{ name: string; url: string; description: string }>;
+};
+
+export async function searchCapabilities(
+  query: string,
+  kinds: string[],
+  limit: number,
+): Promise<CapabilitySearchResultDto> {
+  const params = new URLSearchParams();
+  params.set("q", query);
+  params.set("limit", String(limit));
+  if (kinds.length) {
+    params.set("kinds", kinds.join(","));
+  }
+  return parseJson(await fetch(`/api/capabilities?${params.toString()}`));
 }
 
 export async function fetchSessions(): Promise<{
@@ -302,6 +350,10 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await parseJson(
     await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" }),
   );
+}
+
+export async function fetchAbout(): Promise<AboutDto> {
+  return parseJson(await fetch("/api/about"));
 }
 
 export async function fetchBrief(sessionId: string): Promise<{ sessionId: string; text: string }> {

@@ -341,8 +341,8 @@ public final class DesktopUiGateway implements Closeable {
         });
     }
 
-    public CapabilitySearchView.Result searchCapabilities(String query, int limit) {
-        return execute(() -> ensureHost().searchCapabilities(query, java.util.List.of(), limit));
+    public CapabilitySearchView.Result searchCapabilities(String query, java.util.List<String> kinds, int limit) {
+        return execute(() -> ensureHost().searchCapabilities(query, kinds, limit));
     }
 
     /**

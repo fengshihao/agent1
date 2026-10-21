@@ -21,6 +21,7 @@ import {
 import { inferProviderId, presetFor, PROVIDER_PRESETS } from "./providers";
 import type { SettingsDraft } from "./state";
 import { usageDetailHtml, usageFooterLine } from "./usage";
+import { availabilityLabel, CAP_KIND_CHOICES, CAP_MAX_LIMIT } from "./capabilitySearch";
 
 const root = document.getElementById("app");
 if (!root) {
@@ -29,6 +30,8 @@ if (!root) {
 
 let state: AppState = createInitialState();
 let disconnectEvents: (() => void) | null = null;
+let mcpAutoSaveTimer: ReturnType<typeof setTimeout> | undefined;
+let webSearchAutoSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 function setState(patch: Partial<AppState>) {
   state = { ...state, ...patch };
@@ -98,23 +101,6 @@ async function startNewChat() {
   await loadActiveTranscript(created.sessionId);
   await refreshUsage();
   setState({ drawerOpen: false });
-}
-
-async function summarizeAndNewChat() {
-  if (state.isRunning) {
-    setState({ error: "请先停止当前 Run" });
-    return;
-  }
-  if (state.activeSessionId && isFreshSession(state)) {
-    showToast("已是新会话");
-    return;
-  }
-  const result = await api.rolloverSession(true);
-  await refreshSessions();
-  await loadActiveTranscript(result.session.sessionId);
-  await refreshUsage();
-  setState({ drawerOpen: false });
-  showToast(result.summaryPath ? "已总结并新建会话" : "已新建会话");
 }
 
 function settingsDraftFromConfig(): SettingsDraft {
@@ -243,6 +229,60 @@ async function openSystemPrompt() {
   }
 }
 
+function collectMcpServersFromDom(): api.McpServerDto[] {
+  const cards = document.querySelectorAll<HTMLElement>(".mcp-card");
+  const servers: api.McpServerDto[] = [];
+  cards.forEach((card, i) => {
+    const existing = state.mcpServers[i];
+    const name = card.querySelector<HTMLInputElement>(".mcp-name")?.value.trim() || "";
+    const url = card.querySelector<HTMLInputElement>(".mcp-url")?.value.trim() || "";
+    const enabled = card.querySelector<HTMLInputElement>(".mcp-enabled")?.checked ?? true;
+    let headers: Record<string, string> = {};
+    try {
+      headers = JSON.parse(card.querySelector<HTMLInputElement>(".mcp-headers")?.value || "{}");
+    } catch {
+      // keep {}
+    }
+    servers.push({
+      name,
+      url,
+      enabled,
+      headers,
+      toolCount: existing?.toolCount,
+      lastListedAt: existing?.lastListedAt,
+    });
+  });
+  return servers;
+}
+
+function scheduleMcpAutoSave() {
+  if (!state.showMcp) return;
+  if (mcpAutoSaveTimer) clearTimeout(mcpAutoSaveTimer);
+  mcpAutoSaveTimer = setTimeout(() => void saveMcpFromDom(), 700);
+}
+
+function scheduleWebSearchAutoSave() {
+  if (!state.showMcp) return;
+  if (webSearchAutoSaveTimer) clearTimeout(webSearchAutoSaveTimer);
+  webSearchAutoSaveTimer = setTimeout(() => void saveWebSearchFromMcp(), 700);
+}
+
+async function saveMcpFromDom() {
+  if (!state.showMcp) return;
+  const servers = collectMcpServersFromDom();
+  try {
+    const result = await api.saveMcpServers(servers);
+    const { servers: reloaded } = await api.fetchMcpServers();
+    const warn = result.warnings.length ? ` · ${result.warnings.join("; ")}` : "";
+    setState({
+      mcpServers: reloaded,
+      mcpStatus: `已自动保存 · 索引 ${result.toolCount} 个 MCP 工具${warn}`,
+    });
+  } catch (e) {
+    setState({ error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
 async function saveWebSearchFromMcp() {
   const keyEl = document.getElementById("mcp-web-key") as HTMLInputElement | null;
   const baseEl = document.getElementById("mcp-web-base") as HTMLInputElement | null;
@@ -252,22 +292,48 @@ async function saveWebSearchFromMcp() {
     const config = await api.saveConfig({ webSearchApiKey, webSearchBaseUrl });
     setState({
       config,
-      mcpWebSearchApiKey: "",
+      mcpWebSearchApiKey: keyEl?.value ?? "",
       mcpWebSearchBaseUrl: config.webSearchBaseUrl || webSearchBaseUrl || "https://api.tavily.com",
-      mcpStatus: config.hasWebSearch ? "联网搜索已保存" : "已保存 Base URL（尚未配置 Key，web_search 不会注册）",
+      mcpStatus: config.hasWebSearch
+        ? "已自动保存 · 联网搜索已配置"
+        : "已自动保存 · 尚未配置 Key（web_search 不会注册）",
     });
-    showToast("联网搜索已保存");
   } catch (e) {
     setState({ error: e instanceof Error ? e.message : String(e) });
   }
 }
 
-async function openCapabilitySearch() {
+function openCapabilitySearch() {
+  setState({
+    showCapabilities: true,
+    showArtifacts: false,
+    moreMenuOpen: false,
+    capError: null,
+  });
+}
+
+async function runCapabilitySearch() {
+  const input = document.getElementById("cap-query") as HTMLInputElement | null;
+  const q = (input?.value ?? state.capQuery).trim();
+  if (!q || state.capBusy) return;
+  setState({ capQuery: q, capBusy: true, capError: null });
   try {
-    const artifacts = await api.fetchArtifacts();
-    setState({ artifacts, showArtifacts: true, capQuery: "", capResult: "", moreMenuOpen: false });
+    const result = await api.searchCapabilities(q, state.capSelectedKinds, state.capLimit);
+    setState({
+      capBusy: false,
+      capSearched: true,
+      capModelText: result.modelText,
+      capHostPlatform: result.hostPlatform,
+      capLimit: result.limit,
+      capHiddenHits: result.hiddenByPlatform,
+      capDisabledMcp: result.disabledMcp,
+    });
   } catch (e) {
-    setState({ error: e instanceof Error ? e.message : String(e) });
+    setState({
+      capBusy: false,
+      capSearched: true,
+      capError: e instanceof Error ? e.message : String(e),
+    });
   }
 }
 
@@ -533,6 +599,73 @@ function renderAskPanel(): string {
     <button type="button" class="primary-btn" id="ask-submit">提交回答</button></div>`;
 }
 
+function renderCapabilityHit(hit: api.CapabilityHitDto): string {
+  const title = hit.title || hit.id;
+  return `<div class="cap-hit-card">
+    <div class="cap-hit-title">[${escapeHtml(hit.kind)}] ${escapeHtml(title)}</div>
+    <div class="muted small">${escapeHtml(availabilityLabel(hit.availability))}</div>
+    ${hit.summary ? `<div>${escapeHtml(hit.summary)}</div>` : ""}
+  </div>`;
+}
+
+function renderCapabilitiesPanel(): string {
+  if (!state.showCapabilities) return "";
+  const kindChips = CAP_KIND_CHOICES
+    .map(({ id, label }) => {
+      const active = state.capSelectedKinds.includes(id) ? "active" : "";
+      return `<button type="button" class="provider-chip cap-kind-chip ${active}" data-cap-kind="${id}">${escapeHtml(label)}</button>`;
+    })
+    .join("");
+  const platformNote = state.capHostPlatform
+    ? `（平台 ${escapeHtml(state.capHostPlatform)}）`
+    : "";
+  const body = state.capSearched
+    ? [
+        state.capError ? `<p class="error-inline">${escapeHtml(state.capError)}</p>` : "",
+        !state.capError
+          ? `<h3 class="cap-section-title">模型看到的正文${platformNote}</h3>
+            <pre class="cap-result">${escapeHtml(state.capModelText || "（空）")}</pre>`
+          : "",
+        state.capHiddenHits.length
+          ? `<h3 class="cap-section-title">当前平台搜不到</h3>
+            <p class="muted">索引里有这些条目，但宿主平台过滤后不会出现在上面的正文里。</p>
+            ${state.capHiddenHits.map(renderCapabilityHit).join("")}`
+          : "",
+        state.capDisabledMcp.length
+          ? `<h3 class="cap-section-title">未启用的 MCP</h3>
+            <p class="muted">未启用的服务器不会写入能力索引，模型的 find_caps 也找不到。</p>
+            ${state.capDisabledMcp
+              .map(
+                (s) =>
+                  `<div class="cap-hit-card"><strong>${escapeHtml(s.name)}</strong><div class="muted small">${escapeHtml(s.url)}</div><div>${escapeHtml(s.description)}</div></div>`,
+              )
+              .join("")}`
+          : "",
+      ].join("")
+    : "";
+  return `<div class="overlay settings-overlay" id="capabilities-overlay">
+    <div class="overlay-panel settings-panel wide-panel">
+      <header class="settings-header">
+        <h2>能力检索</h2>
+        <button type="button" class="icon-btn" id="capabilities-close" title="关闭">✕</button>
+      </header>
+      <div class="settings-body">
+        <div class="cap-search">
+          <input id="cap-query" placeholder="搜索" value="${escapeHtml(state.capQuery)}" />
+          <button type="button" class="primary-btn" id="cap-search-btn" ${state.capBusy ? "disabled" : ""}>${state.capBusy ? "…" : "搜索"}</button>
+        </div>
+        <div class="cap-kind-row">${kindChips}</div>
+        <div class="cap-limit-row">
+          <button type="button" class="icon-btn" id="cap-limit-down" ${state.capLimit <= 1 || state.capBusy ? "disabled" : ""}>−</button>
+          <span>${state.capLimit}</span>
+          <button type="button" class="icon-btn" id="cap-limit-up" ${state.capLimit >= CAP_MAX_LIMIT || state.capBusy ? "disabled" : ""}>+</button>
+        </div>
+        ${body}
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderArtifactsPanel(): string {
   if (!state.showArtifacts) return "";
   const rows = state.artifacts
@@ -549,18 +682,15 @@ function renderArtifactsPanel(): string {
         <div class="artifact-actions">${previewBtn} ${insertBtn}</div></li>`;
     })
     .join("");
-  return `<div class="overlay" id="artifacts-overlay">
-    <div class="overlay-panel wide-panel">
-      <h2>产物库</h2>
-      <p class="muted">workspace 内 AI 产出（不含 imports/、tmp/）</p>
-      <div class="cap-search">
-        <input id="cap-query" placeholder="find_caps 检索…" value="${escapeHtml(state.capQuery)}" />
-        <button type="button" class="primary-btn" id="cap-search-btn">检索</button>
-      </div>
-      ${state.capResult ? `<pre class="cap-result">${escapeHtml(state.capResult)}</pre>` : ""}
-      <ul class="artifact-list">${rows || "<li class='muted'>暂无产物</li>"}</ul>
-      <div class="overlay-actions">
-        <button type="button" class="primary-btn" id="artifacts-close">关闭</button>
+  return `<div class="overlay settings-overlay" id="artifacts-overlay">
+    <div class="overlay-panel settings-panel wide-panel">
+      <header class="settings-header">
+        <h2>产物库</h2>
+        <button type="button" class="icon-btn" id="artifacts-close" title="关闭">✕</button>
+      </header>
+      <div class="settings-body">
+        <p class="muted">workspace 内 AI 产出（不含 imports/、tmp/）</p>
+        <ul class="artifact-list">${rows || "<li class='muted'>暂无产物</li>"}</ul>
       </div>
     </div>
   </div>`;
@@ -605,7 +735,7 @@ function renderMcpPanel(): string {
         <button type="button" class="icon-btn" id="mcp-close" title="关闭">✕</button>
       </header>
       <div class="settings-body">
-        <p class="muted">添加服务器后，助手用 find_caps 查找接口，再在脚本里调用 $mcp.名称.工具。保存后会刷新索引。</p>
+        <p class="muted">添加服务器后，助手用 find_caps 查找接口，再在脚本里调用 $mcp.名称.工具。修改后将自动保存并刷新索引。</p>
         ${state.mcpStatus ? `<p class="settings-hint">${escapeHtml(state.mcpStatus)}</p>` : ""}
         <div id="mcp-list">${rows}</div>
         <button type="button" class="link-btn" id="mcp-add">添加服务器</button>
@@ -621,12 +751,8 @@ function renderMcpPanel(): string {
             <label for="mcp-web-base">Tavily Base URL</label>
             <input id="mcp-web-base" class="settings-control" value="${escapeHtml(state.mcpWebSearchBaseUrl)}" />
           </div>
-          <button type="button" class="link-btn" id="mcp-save-search">保存搜索配置</button>
         </section>
       </div>
-      <footer class="settings-footer">
-        <button type="button" class="primary-btn" id="mcp-save">保存 MCP 并索引</button>
-      </footer>
     </div>
   </div>`;
 }
@@ -695,16 +821,62 @@ function renderToolsPanel(): string {
 
 function renderAboutPanel(): string {
   if (!state.showAbout) return "";
-  return `<div class="overlay" id="about-overlay">
-    <div class="overlay-panel usage-panel">
-      <h2>关于 Agent1</h2>
-      <p>桌面 Web UI（<code>./agent1 ui</code>）— 对齐 Android 生产力聊天壳。</p>
-      <p class="muted">本机 HTTP · 仅 127.0.0.1</p>
-      <div class="overlay-actions">
-        <button type="button" class="primary-btn" id="about-close">关闭</button>
-      </div>
+  const info = state.aboutInfo;
+  const body = state.aboutLoading || !info
+    ? `<p class="muted">加载中…</p>`
+    : (() => {
+        const versionLine =
+          info.versionCode > 0
+            ? `版本 ${escapeHtml(info.versionName)}（${info.versionCode}）`
+            : `版本 ${escapeHtml(info.versionName)}`;
+        const deps = info.dependencies
+          .map(
+            (d) =>
+              `<div class="about-row"><div class="about-label">${escapeHtml(d.name)}</div><div class="about-value">${escapeHtml(d.license)}</div></div>`,
+          )
+          .join("");
+        return `<div class="about-brand">${escapeHtml(info.appName)}</div>
+          <div class="about-version">${versionLine}</div>
+          <div class="about-row"><div class="about-label">${escapeHtml(info.authorLabel)}</div><div class="about-value">${escapeHtml(info.authorValue)}</div></div>
+          <div class="about-row"><div class="about-label">${escapeHtml(info.websiteLabel)}</div><a class="about-link" href="${escapeAttr(info.websiteUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(info.websiteUrl)}</a></div>
+          <div class="about-row"><div class="about-label">${escapeHtml(info.sourceLabel)}</div><a class="about-link" href="${escapeAttr(info.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(info.sourceUrl)}</a></div>
+          <div class="about-row"><div class="about-label">${escapeHtml(info.licenseLabel)}</div><div class="about-value">${escapeHtml(info.licenseValue)}</div></div>
+          <h3 class="about-deps-title">${escapeHtml(info.depsTitle)}</h3>
+          <p class="muted about-deps-notice">${escapeHtml(info.depsNotice)}</p>
+          ${deps}`;
+      })();
+  return `<div class="overlay settings-overlay" id="about-overlay">
+    <div class="overlay-panel settings-panel">
+      <header class="settings-header">
+        <h2>${escapeHtml(info?.title ?? "关于")}</h2>
+        <button type="button" class="icon-btn" id="about-close" title="关闭">✕</button>
+      </header>
+      <div class="settings-body about-scroll">${body}</div>
     </div>
   </div>`;
+}
+
+function escapeAttr(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+async function openAboutPanel() {
+  setState({ showAbout: true, aboutLoading: true, aboutInfo: null, moreMenuOpen: false });
+  try {
+    const aboutInfo = await api.fetchAbout();
+    setState({ aboutInfo, aboutLoading: false });
+  } catch (e) {
+    setState({
+      showAbout: false,
+      aboutLoading: false,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 function renderMoreMenu(): string {
@@ -871,13 +1043,8 @@ function render() {
     !!state.pendingAsk,
   );
   const chatLinesHtml = state.lines.map((l) => renderBubble(l, state.activeSessionId)).join("");
-  const canSummarizeRollover =
-    !state.isRunning && !state.pendingAsk && state.lines.length > 0 && !isFreshSession(state);
   const newTopicBtn = offerNewTopic
     ? `<button type="button" class="new-topic-btn" id="btn-new-topic">开始新话题</button>`
-    : "";
-  const summarizeBtn = canSummarizeRollover
-    ? `<button type="button" class="new-topic-btn secondary" id="btn-summarize-new">总结并新开话题</button>`
     : "";
   const runTokenRow =
     state.lastRunTokenSummary && !state.isRunning
@@ -886,7 +1053,7 @@ function render() {
   const chatBody =
     state.lines.length === 0 && !state.streamingText && !state.isRunning
       ? `<div class="landing"><h2>Agent1</h2><p>生产力助手 · 与 Android 端同款纸本风格。左侧管理会话，下方输入开始对话。</p></div>`
-      : chatLinesHtml + runTokenRow + newTopicBtn + summarizeBtn + renderLiveTools() + renderAskPanel();
+      : chatLinesHtml + runTokenRow + newTopicBtn + renderLiveTools() + renderAskPanel();
 
   const usageFoot = usageFooterLine(state.usage);
 
@@ -912,7 +1079,7 @@ function render() {
         <span class="usage-detail-line">${escapeHtml(usageFoot.detail)}</span>
       </button>
     </aside>
-    <section class="main">
+    <section class="main" id="app-main">
       <div class="topbar">
         <button type="button" class="icon-btn" id="btn-drawer" title="会话">☰</button>
         <h1>对话</h1>
@@ -964,6 +1131,7 @@ function render() {
     ${renderUsagePanel()}
     ${renderFailedLogsPanel()}
     ${renderAboutPanel()}
+    ${renderCapabilitiesPanel()}
     ${renderArtifactsPanel()}
     ${renderPreviewPanel()}
   </div>`;
@@ -976,11 +1144,16 @@ function render() {
 function bindEvents() {
   document.getElementById("btn-new")?.addEventListener("click", () => void startNewChat());
   document.getElementById("btn-new-topic")?.addEventListener("click", () => void startNewChat());
-  document.getElementById("btn-summarize-new")?.addEventListener("click", () => void summarizeAndNewChat());
-  document.getElementById("btn-drawer")?.addEventListener("click", () => {
+  document.getElementById("btn-drawer")?.addEventListener("click", (ev) => {
+    ev.stopPropagation();
     const next = !state.drawerOpen;
     setState({ drawerOpen: next });
     if (next) void refreshUsage();
+  });
+  document.getElementById("app-main")?.addEventListener("click", () => {
+    if (state.drawerOpen) {
+      setState({ drawerOpen: false });
+    }
   });
   document.getElementById("usage-footer")?.addEventListener("click", () => {
     void refreshUsage().then(() => setState({ usagePanelOpen: true }));
@@ -1035,7 +1208,7 @@ function bindEvents() {
           void openFailedLogsPanel();
           break;
         case "about":
-          setState({ showAbout: true });
+          void openAboutPanel();
           break;
         default:
           break;
@@ -1051,30 +1224,40 @@ function bindEvents() {
       document.addEventListener("click", onDocClick);
     }, 0);
   }
-  document.getElementById("about-close")?.addEventListener("click", () => setState({ showAbout: false }));
+  document.getElementById("about-close")?.addEventListener("click", () =>
+    setState({ showAbout: false, aboutInfo: null, aboutLoading: false }),
+  );
   document.getElementById("about-overlay")?.addEventListener("click", (ev) => {
-    if (ev.target === ev.currentTarget) setState({ showAbout: false });
+    if (ev.target === ev.currentTarget) {
+      setState({ showAbout: false, aboutInfo: null, aboutLoading: false });
+    }
   });
   document.getElementById("btn-setup")?.addEventListener("click", () => void openSettings());
   document.getElementById("btn-model")?.addEventListener("click", () => void openSettings());
   document.getElementById("btn-artifacts")?.addEventListener("click", async () => {
     const artifacts = await api.fetchArtifacts();
-    setState({ artifacts, showArtifacts: true, capQuery: "", capResult: "" });
+    setState({ artifacts, showArtifacts: true });
   });
   document.getElementById("artifacts-close")?.addEventListener("click", () => setState({ showArtifacts: false }));
-  document.getElementById("artifacts-overlay")?.addEventListener("click", (ev) => {
-    if (ev.target === ev.currentTarget) setState({ showArtifacts: false });
+  document.getElementById("capabilities-close")?.addEventListener("click", () =>
+    setState({ showCapabilities: false }),
+  );
+  document.getElementById("cap-search-btn")?.addEventListener("click", () => void runCapabilitySearch());
+  document.querySelectorAll<HTMLButtonElement>(".cap-kind-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const kind = btn.dataset.capKind;
+      if (!kind) return;
+      const selected = new Set(state.capSelectedKinds);
+      if (selected.has(kind)) selected.delete(kind);
+      else selected.add(kind);
+      setState({ capSelectedKinds: [...selected] });
+    });
   });
-  document.getElementById("cap-search-btn")?.addEventListener("click", async () => {
-    const input = document.getElementById("cap-query") as HTMLInputElement;
-    const q = input?.value?.trim() || "";
-    state = { ...state, capQuery: q };
-    try {
-      const text = await api.searchCapabilities(q);
-      setState({ capResult: text });
-    } catch (e) {
-      setState({ capResult: e instanceof Error ? e.message : String(e) });
-    }
+  document.getElementById("cap-limit-down")?.addEventListener("click", () => {
+    if (state.capLimit > 1) setState({ capLimit: state.capLimit - 1 });
+  });
+  document.getElementById("cap-limit-up")?.addEventListener("click", () => {
+    if (state.capLimit < CAP_MAX_LIMIT) setState({ capLimit: state.capLimit + 1 });
   });
   document.querySelectorAll<HTMLButtonElement>("[data-art-preview]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1222,16 +1405,10 @@ function bindEvents() {
   });
   document.getElementById("cfg-open-mcp")?.addEventListener("click", () => void openMcpPanel());
   document.getElementById("mcp-close")?.addEventListener("click", () => setState({ showMcp: false }));
-  document.getElementById("mcp-overlay")?.addEventListener("click", (ev) => {
-    if (ev.target === ev.currentTarget) setState({ showMcp: false });
-  });
-  document.getElementById("mcp-web-key")?.addEventListener("input", (ev) => {
-    state = { ...state, mcpWebSearchApiKey: (ev.target as HTMLInputElement).value };
-  });
-  document.getElementById("mcp-web-base")?.addEventListener("input", (ev) => {
-    state = { ...state, mcpWebSearchBaseUrl: (ev.target as HTMLInputElement).value };
-  });
-  document.getElementById("mcp-save-search")?.addEventListener("click", () => void saveWebSearchFromMcp());
+  document.getElementById("mcp-web-key")?.addEventListener("input", () => scheduleWebSearchAutoSave());
+  document.getElementById("mcp-web-base")?.addEventListener("input", () => scheduleWebSearchAutoSave());
+  document.getElementById("mcp-list")?.addEventListener("input", () => scheduleMcpAutoSave());
+  document.getElementById("mcp-list")?.addEventListener("change", () => scheduleMcpAutoSave());
   document.getElementById("system-prompt-close")?.addEventListener("click", () =>
     setState({ showSystemPrompt: false, systemPromptError: null }),
   );
@@ -1254,48 +1431,14 @@ function bindEvents() {
         { name: "server", url: "https://", enabled: true, headers: {} },
       ],
     });
+    scheduleMcpAutoSave();
   });
   document.querySelectorAll<HTMLButtonElement>(".mcp-remove").forEach((btn) => {
     btn.addEventListener("click", () => {
       const idx = Number(btn.dataset.mcpIndex);
       setState({ mcpServers: state.mcpServers.filter((_, i) => i !== idx) });
+      scheduleMcpAutoSave();
     });
-  });
-  document.getElementById("mcp-save")?.addEventListener("click", async () => {
-    const cards = document.querySelectorAll<HTMLElement>(".mcp-card");
-    const servers: api.McpServerDto[] = [];
-    cards.forEach((card, i) => {
-      const existing = state.mcpServers[i];
-      const name = card.querySelector<HTMLInputElement>(".mcp-name")?.value.trim() || "";
-      const url = card.querySelector<HTMLInputElement>(".mcp-url")?.value.trim() || "";
-      const enabled = card.querySelector<HTMLInputElement>(".mcp-enabled")?.checked ?? true;
-      let headers: Record<string, string> = {};
-      try {
-        headers = JSON.parse(card.querySelector<HTMLInputElement>(".mcp-headers")?.value || "{}");
-      } catch {
-        // keep {}
-      }
-      servers.push({
-        name,
-        url,
-        enabled,
-        headers,
-        toolCount: existing?.toolCount,
-        lastListedAt: existing?.lastListedAt,
-      });
-    });
-    try {
-      const result = await api.saveMcpServers(servers);
-      const { servers: reloaded } = await api.fetchMcpServers();
-      const warn = result.warnings.length ? ` · ${result.warnings.join("; ")}` : "";
-      setState({
-        mcpServers: reloaded,
-        mcpStatus: `已索引 ${result.toolCount} 个 MCP 工具${warn}`,
-      });
-      showToast("MCP 已保存");
-    } catch (e) {
-      setState({ error: e instanceof Error ? e.message : String(e) });
-    }
   });
   document.querySelectorAll<HTMLButtonElement>(".file-link").forEach((btn) => {
     btn.addEventListener("click", () => {

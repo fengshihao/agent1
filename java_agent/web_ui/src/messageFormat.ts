@@ -43,7 +43,7 @@ function splitCodeFences(content: string): ContentSegment[] {
   return parts.length ? parts : [{ kind: "text", text: content }];
 }
 
-/** 将正文转为安全 HTML：代码块、行内代码、Markdown 图片/工作区文件链接。 */
+/** 将正文转为安全 HTML：代码块、行内代码、粗体/列表、Markdown 图片/工作区文件链接。 */
 export function formatBubbleContentHtml(content: string, sessionId: string | null): string {
   if (!content) return "";
   return splitCodeFences(content)
@@ -61,7 +61,7 @@ function formatBubbleTextSegment(content: string, sessionId: string | null): str
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(content)) !== null) {
-    html += formatPlainWithInlineCode(content.slice(last, match.index));
+    html += formatBlockMarkdown(content.slice(last, match.index));
     const alt = match[1];
     const dest = match[2].trim();
     const isImage = match[0].startsWith("!");
@@ -79,20 +79,66 @@ function formatBubbleTextSegment(content: string, sessionId: string | null): str
     }
     last = match.index + match[0].length;
   }
-  html += formatPlainWithInlineCode(content.slice(last));
+  html += formatBlockMarkdown(content.slice(last));
   return html;
 }
 
-function formatPlainWithInlineCode(text: string): string {
+function formatBlockMarkdown(text: string): string {
+  if (!text) return "";
+  const lines = text.split("\n");
+  let html = "";
+  let inList = false;
+  for (const line of lines) {
+    const trimmed = line.trimEnd();
+    const listMatch = trimmed.match(/^[-—]\s+(.*)$/);
+    if (listMatch) {
+      if (!inList) {
+        html += '<ul class="bubble-list">';
+        inList = true;
+      }
+      html += `<li>${formatInlineMarkdown(listMatch[1])}</li>`;
+      continue;
+    }
+    if (inList) {
+      html += "</ul>";
+      inList = false;
+    }
+    if (trimmed === "") {
+      html += '<div class="bubble-gap"></div>';
+    } else {
+      html += `<p class="bubble-p">${formatInlineMarkdown(trimmed)}</p>`;
+    }
+  }
+  if (inList) {
+    html += "</ul>";
+  }
+  return html;
+}
+
+function formatInlineMarkdown(text: string): string {
   const parts = text.split(/`([^`\n]+)`/);
   let html = "";
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
-      html += escapeHtml(parts[i]);
+      html += formatBoldInText(parts[i]);
     } else {
       html += `<code class="bubble-inline-code">${escapeHtml(parts[i])}</code>`;
     }
   }
+  return html;
+}
+
+function formatBoldInText(text: string): string {
+  const re = /\*\*(.+?)\*\*/g;
+  let html = "";
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    html += escapeHtml(text.slice(last, match.index));
+    html += `<strong>${escapeHtml(match[1])}</strong>`;
+    last = match.index + match[0].length;
+  }
+  html += escapeHtml(text.slice(last));
   return html;
 }
 

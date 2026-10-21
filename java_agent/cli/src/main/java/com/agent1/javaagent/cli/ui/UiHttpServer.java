@@ -18,6 +18,7 @@ import com.agent1.javaagent.workspace.SessionAttachmentLimits;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -70,6 +71,7 @@ public final class UiHttpServer implements AutoCloseable {
         server.createContext("/api/mcp/servers", this::handleMcpServers);
         server.createContext("/api/usage", this::handleUsage);
         server.createContext("/api/logs/failed", this::handleLogsFailed);
+        server.createContext("/api/about", this::handleAbout);
         server.createContext("/api/artifacts", this::handleArtifacts);
         server.createContext("/api/capabilities", this::handleCapabilities);
         server.createContext("/api/sessions", this::handleSessions);
@@ -135,20 +137,73 @@ public final class UiHttpServer implements AutoCloseable {
             sendMethodNotAllowed(exchange);
             return;
         }
-        String query = exchange.getRequestURI().getQuery();
+        String queryString = exchange.getRequestURI().getQuery();
         String q = "";
-        if (query != null) {
-            for (String pair : query.split("&")) {
+        List<String> kinds = List.of();
+        int limit = CapabilitySearchView.DEFAULT_LIMIT;
+        if (queryString != null) {
+            for (String pair : queryString.split("&")) {
                 String[] kv = pair.split("=", 2);
-                if (kv.length == 2 && "q".equals(kv[0])) {
-                    q = urlDecode(kv[1]);
+                if (kv.length != 2) {
+                    continue;
+                }
+                String key = kv[0];
+                String value = urlDecode(kv[1]);
+                if ("q".equals(key)) {
+                    q = value;
+                } else if ("kinds".equals(key) && !value.isBlank()) {
+                    kinds = Arrays.stream(value.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .toList();
+                } else if ("limit".equals(key)) {
+                    try {
+                        limit = Integer.parseInt(value.trim());
+                    } catch (NumberFormatException ignored) {
+                        // keep default
+                    }
                 }
             }
         }
-        CapabilitySearchView.Result result = gateway.searchCapabilities(q, 20);
+        CapabilitySearchView.Result result = gateway.searchCapabilities(q, kinds, limit);
+        sendJson(exchange, 200, encodeCapabilityResult(result));
+    }
+
+    private ObjectNode encodeCapabilityResult(CapabilitySearchView.Result result) {
         ObjectNode body = MAPPER.createObjectNode();
-        body.put("text", result.modelText());
-        sendJson(exchange, 200, body);
+        body.put("modelText", result.modelText());
+        body.put("hostPlatform", result.hostPlatform());
+        body.put("limit", result.limit());
+        body.set("visible", encodeCapabilityHits(result.visible()));
+        body.set("hiddenByPlatform", encodeCapabilityHits(result.hiddenByPlatform()));
+        ArrayNode disabled = MAPPER.createArrayNode();
+        for (CapabilitySearchView.DisabledMcp server : result.disabledMcp()) {
+            ObjectNode node = disabled.addObject();
+            node.put("name", server.name());
+            node.put("url", server.url());
+            node.put("description", server.description());
+        }
+        body.set("disabledMcp", disabled);
+        return body;
+    }
+
+    private ArrayNode encodeCapabilityHits(List<CapabilitySearchView.HitView> hits) {
+        ArrayNode array = MAPPER.createArrayNode();
+        for (CapabilitySearchView.HitView hit : hits) {
+            ObjectNode node = array.addObject();
+            node.put("id", hit.id());
+            node.put("kind", hit.kind());
+            node.put("title", hit.title());
+            node.put("summary", hit.summary());
+            node.put("entry", hit.entry());
+            node.put("docPath", hit.docPath());
+            node.put("platforms", hit.platforms());
+            node.put("source", hit.source());
+            node.put("loaded", hit.loaded());
+            node.put("score", hit.score());
+            node.put("availability", hit.availability());
+        }
+        return array;
     }
 
     private void handleUsage(HttpExchange exchange) throws IOException {
@@ -158,6 +213,14 @@ public final class UiHttpServer implements AutoCloseable {
         }
         UsageOverview usage = gateway.usageOverview();
         sendJson(exchange, 200, encodeUsage(usage));
+    }
+
+    private void handleAbout(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        sendJson(exchange, 200, DesktopAboutInfo.toJson(MAPPER));
     }
 
     private void handleLogsFailed(HttpExchange exchange) throws IOException {

@@ -1,11 +1,13 @@
 import type { AskRequest } from "./askUser";
 import type {
+  AboutDto,
   AttachmentDto,
   ArtifactDto,
   ConfigDto,
   FailedToolDto,
   McpServerDto,
   MessageDto,
+  CapabilityHitDto,
   ModelOptionDto,
   RegisteredToolDto,
   SessionMeta,
@@ -53,8 +55,17 @@ export type AppState = {
   artifacts: ArtifactDto[];
   showArtifacts: boolean;
   preview: { sessionId: string; path: string } | null;
+  showCapabilities: boolean;
   capQuery: string;
-  capResult: string;
+  capSelectedKinds: string[];
+  capLimit: number;
+  capBusy: boolean;
+  capError: string | null;
+  capSearched: boolean;
+  capModelText: string;
+  capHostPlatform: string;
+  capHiddenHits: CapabilityHitDto[];
+  capDisabledMcp: Array<{ name: string; url: string; description: string }>;
   modelOptions: ModelOptionDto[];
   settingsDraft: SettingsDraft | null;
   modelsLoading: boolean;
@@ -70,6 +81,8 @@ export type AppState = {
   failedLogsScopeSession: boolean;
   moreMenuOpen: boolean;
   showAbout: boolean;
+  aboutLoading: boolean;
+  aboutInfo: AboutDto | null;
   showSystemPrompt: boolean;
   systemPromptBusy: boolean;
   systemPromptError: string | null;
@@ -112,8 +125,17 @@ export function createInitialState(): AppState {
     artifacts: [],
     showArtifacts: false,
     preview: null,
+    showCapabilities: false,
     capQuery: "",
-    capResult: "",
+    capSelectedKinds: [],
+    capLimit: 8,
+    capBusy: false,
+    capError: null,
+    capSearched: false,
+    capModelText: "",
+    capHostPlatform: "",
+    capHiddenHits: [],
+    capDisabledMcp: [],
     modelOptions: [],
     settingsDraft: null,
     modelsLoading: false,
@@ -129,6 +151,8 @@ export function createInitialState(): AppState {
     failedLogsScopeSession: true,
     moreMenuOpen: false,
     showAbout: false,
+    aboutLoading: false,
+    aboutInfo: null,
     showSystemPrompt: false,
     systemPromptBusy: false,
     systemPromptError: null,

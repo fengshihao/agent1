@@ -124,7 +124,7 @@ cd java_agent/web_ui && npm ci && npm run build   # 只改前端时
 | P1 | **抽屉用量摘要** | ✅ `GET /api/usage` + core `UsageLogSummary`；抽屉底栏可点开详情 |
 | P2 | 附件 / 产物库 / HTML 预览 | ✅ 附件上传、产物库、HTML iframe 预览、`find_caps` 检索 |
 | P2 | 墨夜主题 | ✅ `prefers-color-scheme: dark` CSS 变量 |
-| P3 | **总结并新开话题** | ✅ `POST /api/sessions/rollover` + 聊天区按钮 |
+| P3 | **总结并新开话题** | ✅ `POST /api/sessions/rollover`（API/CLI；聊天区按钮已移除，对齐 Android） |
 | P3 | **Run 限额 / 模型目录** | ✅ `ui-config.json` 限额 + `GET /api/models` + 设置页 |
 | P3 | 诊断包 / Tavily / 图片预览 / 工具列表 | ✅ 抽屉导出、`webSearch` 配置、聊天气泡图、`GET /api/tools` |
 | P3 | Run Token 摘要 / MCP 设置 / 文件链接 | ✅ SSE `USAGE` 汇总行、`GET/PUT /api/mcp/servers`、气泡内 `[文件](path)` |
