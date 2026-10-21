@@ -20,6 +20,7 @@ import java.net.HttpURLConnection;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -189,6 +190,48 @@ class UiHttpServerTest {
     @Test
     void resolvePortReadsFlag() {
         assertEquals(9999, ProductivityUiCommand.resolvePort(new String[]{"--port", "9999"}));
+    }
+
+    @Test
+    void servesStaticFromConfiguredWebUiRoot(@TempDir Path webUi) throws Exception {
+        Files.writeString(webUi.resolve("index.html"), "<html>disk-ui</html>", StandardCharsets.UTF_8);
+        LlmClient fake = new LlmClient() {
+            @Override
+            public AssistantResponse streamChat(
+                ChatRequest request,
+                List<AgentTool> tools,
+                LlmStreamListener streamListener,
+                CancellationToken cancellationToken
+            ) {
+                return new AssistantResponse("", List.of());
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").model("test-model").build();
+        DesktopUiGateway gateway = new DesktopUiGateway(
+            temp,
+            cfg -> new ProductivityAgentHost(temp, cfg, fake),
+            config
+        );
+        int port = freePort();
+        try (gateway; UiHttpServer server = new UiHttpServer(gateway, port, webUi)) {
+            assertTrue(server.servesWebUiFromDisk());
+            server.start();
+            HttpURLConnection conn = (HttpURLConnection) URI.create("http://127.0.0.1:" + port + "/").toURL()
+                .openConnection();
+            conn.setConnectTimeout(3_000);
+            conn.setReadTimeout(5_000);
+            String html;
+            try (var in = conn.getInputStream()) {
+                html = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            } finally {
+                conn.disconnect();
+            }
+            assertTrue(html.contains("disk-ui"));
+        }
     }
 
     private static int freePort() throws Exception {

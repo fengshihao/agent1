@@ -66,6 +66,13 @@ public final class ProductivityUiCommand {
             String url = http.baseUrl();
             System.out.println("Agent1 Web UI: " + url);
             System.out.println("数据目录: " + agentRoot);
+            if (http.servesWebUiFromDisk()) {
+                System.out.println(
+                    "前端: 从仓库 web-ui 目录提供（npm run build 后刷新浏览器即可；设 AGENT1_WEB_UI_DEV=0 改用 jar 内资源）");
+            } else {
+                System.out.println(
+                    "前端: jar/classpath 内资源（改前端需 npm run build 并重启 ui；或设 AGENT1_WEB_UI_ROOT 指向 web-ui 目录）");
+            }
             if (!config.isModelConfigured()) {
                 System.out.println("提示: 未检测到 API Key，请在浏览器设置页填写（将写入 " + UiConfigStore.configPath(agentRoot) + "）");
             }

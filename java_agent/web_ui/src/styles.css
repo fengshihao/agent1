@@ -13,6 +13,8 @@
   --danger: #c45c4a;
   --hairline: rgba(28, 25, 20, 0.08);
   --hairline-strong: rgba(28, 25, 20, 0.12);
+  --field-bg: #fff;
+  --field-fg: var(--ink);
   --radius: 12px;
   --radius-lg: 22px;
   --drawer-width: 252px;
@@ -405,6 +407,9 @@ button {
   background: rgba(28, 25, 20, 0.28);
   display: flex;
   justify-content: flex-end;
+}
+
+.overlay:not(.overlay-no-enter) {
   animation: fade 0.2s ease;
 }
 
@@ -417,6 +422,9 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.overlay:not(.overlay-no-enter) .overlay-panel {
   animation: slide 0.22s ease;
 }
 
@@ -559,7 +567,7 @@ button {
   padding: 0.45rem 0.85rem;
   border-radius: 999px;
   border: 1px solid var(--hairline-strong);
-  background: #fff;
+  background: var(--field-bg);
   font-size: 13px;
   color: var(--ink-soft);
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -582,8 +590,15 @@ button {
   border: 1px solid var(--hairline-strong);
   border-radius: 10px;
   padding: 0.55rem 0.7rem;
-  background: #fff;
+  background: var(--field-bg);
+  color: var(--field-fg);
   font-size: 13px;
+}
+
+.settings-control::placeholder,
+.cap-search input::placeholder {
+  color: var(--ink-muted);
+  opacity: 1;
 }
 
 .settings-control:focus {
@@ -1041,38 +1056,95 @@ button {
   border: 1px solid var(--hairline-strong);
   border-radius: 10px;
   padding: 0.45rem 0.6rem;
-  background: #fff;
+  background: var(--field-bg);
+  color: var(--field-fg);
+  font-size: 13px;
+}
+
+.cap-search input:focus {
+  outline: 2px solid var(--accent-wash);
+  border-color: var(--accent);
+}
+
+.cap-limit-row span {
+  color: var(--ink);
+  font-weight: 550;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.cap-panel-body {
+  min-height: 0;
+  overflow: hidden;
+  gap: 0.65rem;
+}
+
+.cap-panel-toolbar {
+  flex-shrink: 0;
+}
+
+.cap-results {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  overflow: hidden;
+}
+
+.cap-model-block {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .cap-result {
-  max-height: 240px;
+  flex: 1;
+  min-height: 0;
+  margin: 0;
   overflow: auto;
   font-size: 11px;
+  line-height: 1.45;
   background: var(--paper-deep);
-  padding: 0.5rem;
+  padding: 0.55rem 0.65rem;
   border-radius: 8px;
+  border: 1px solid var(--hairline);
   white-space: pre-wrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--ink);
+}
+
+.cap-results-tail {
+  flex-shrink: 0;
+  max-height: min(28vh, 220px);
+  overflow: auto;
+  padding-right: 0.15rem;
 }
 
 .cap-kind-row {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin: 0.75rem 0;
+  margin: 0.75rem 0 0;
 }
 
 .cap-limit-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin: 0.65rem 0 0;
 }
 
 .cap-section-title {
-  margin: 1rem 0 0.35rem;
+  margin: 0 0 0.35rem;
   font-size: 14px;
   font-weight: 550;
+  flex-shrink: 0;
+}
+
+.cap-model-block .cap-section-title {
+  margin-top: 0;
 }
 
 .cap-hit-card {
@@ -1135,6 +1207,8 @@ button {
     --danger: #e07a6a;
     --hairline: rgba(232, 226, 214, 0.1);
     --hairline-strong: rgba(232, 226, 214, 0.16);
+    --field-bg: var(--paper-deep);
+    --field-fg: var(--ink);
   }
 
   .bubble.assistant {
@@ -1147,10 +1221,9 @@ button {
 
   .ask-q input,
   .composer textarea,
-  .settings input,
-  .settings-control,
-  .provider-chip {
+  .settings input {
     background: var(--paper-lift);
+    color: var(--ink);
   }
 
   .provider-chip.active {

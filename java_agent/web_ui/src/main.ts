@@ -32,6 +32,44 @@ let state: AppState = createInitialState();
 let disconnectEvents: (() => void) | null = null;
 let mcpAutoSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let webSearchAutoSaveTimer: ReturnType<typeof setTimeout> | undefined;
+const overlayWasOpen: Record<string, boolean> = {};
+
+/** 侧栏已打开时再次 render 不加 fade/slide，避免整页重绘时闪一下 */
+function overlayEnterClass(key: string, open: boolean): string {
+  const wasOpen = overlayWasOpen[key] ?? false;
+  overlayWasOpen[key] = open;
+  if (!open) return "";
+  return wasOpen ? " overlay-no-enter" : "";
+}
+
+function anySideOverlayOpen(): boolean {
+  return (
+    state.showCapabilities ||
+    state.showSettings ||
+    state.showMcp ||
+    state.showArtifacts ||
+    state.showSystemPrompt ||
+    state.showAbout ||
+    state.showTools ||
+    state.usagePanelOpen ||
+    state.showFailedLogs
+  );
+}
+
+function setCapabilitySearchBusy(busy: boolean) {
+  const btn = document.getElementById("cap-search-btn") as HTMLButtonElement | null;
+  if (btn) {
+    btn.disabled = busy;
+    btn.textContent = busy ? "…" : "搜索";
+  }
+  const down = document.getElementById("cap-limit-down") as HTMLButtonElement | null;
+  const up = document.getElementById("cap-limit-up") as HTMLButtonElement | null;
+  if (down) down.disabled = busy || state.capLimit <= 1;
+  if (up) up.disabled = busy || state.capLimit >= CAP_MAX_LIMIT;
+  document.querySelectorAll<HTMLButtonElement>(".cap-kind-chip").forEach((chip) => {
+    chip.disabled = busy;
+  });
+}
 
 function setState(patch: Partial<AppState>) {
   state = { ...state, ...patch };
@@ -312,16 +350,76 @@ function openCapabilitySearch() {
   });
 }
 
+function renderCapabilityResultsHtml(): string {
+  if (!state.capSearched) return "";
+  const platformNote = state.capHostPlatform
+    ? `（平台 ${escapeHtml(state.capHostPlatform)}）`
+    : "";
+  const tail = [
+    state.capHiddenHits.length
+      ? `<div class="cap-results-tail">
+            <h3 class="cap-section-title">当前平台搜不到</h3>
+            <p class="muted">索引里有这些条目，但宿主平台过滤后不会出现在上面的正文里。</p>
+            ${state.capHiddenHits.map(renderCapabilityHit).join("")}
+          </div>`
+      : "",
+    state.capDisabledMcp.length
+      ? `<div class="cap-results-tail">
+            <h3 class="cap-section-title">未启用的 MCP</h3>
+            <p class="muted">未启用的服务器不会写入能力索引，模型的 find_caps 也找不到。</p>
+            ${state.capDisabledMcp
+              .map(
+                (s) =>
+                  `<div class="cap-hit-card"><strong>${escapeHtml(s.name)}</strong><div class="muted small">${escapeHtml(s.url)}</div><div>${escapeHtml(s.description)}</div></div>`,
+              )
+              .join("")}
+          </div>`
+      : "",
+  ].join("");
+  return `<div class="cap-results">
+        ${state.capError ? `<p class="error-inline">${escapeHtml(state.capError)}</p>` : ""}
+        ${
+          !state.capError
+            ? `<div class="cap-model-block">
+            <h3 class="cap-section-title">模型看到的正文${platformNote}</h3>
+            <pre class="cap-result">${escapeHtml(state.capModelText || "（空）")}</pre>
+          </div>`
+            : ""
+        }
+        ${tail}
+      </div>`;
+}
+
+function syncCapabilityResultsDom() {
+  const body = document.querySelector("#capabilities-overlay .cap-panel-body");
+  if (!body) return;
+  body.querySelector(".cap-results")?.remove();
+  const html = renderCapabilityResultsHtml();
+  if (!html) return;
+  const toolbar = body.querySelector(".cap-panel-toolbar");
+  if (toolbar) toolbar.insertAdjacentHTML("afterend", html);
+  else body.insertAdjacentHTML("beforeend", html);
+}
+
+function applyCapabilitySearchResult(patch: Partial<AppState>) {
+  state = { ...state, ...patch, capBusy: false };
+  setCapabilitySearchBusy(false);
+  const limitSpan = document.querySelector("#capabilities-overlay .cap-limit-row span");
+  if (limitSpan) limitSpan.textContent = String(state.capLimit);
+  syncCapabilityResultsDom();
+}
+
 async function runCapabilitySearch() {
   const input = document.getElementById("cap-query") as HTMLInputElement | null;
   const q = (input?.value ?? state.capQuery).trim();
   if (!q || state.capBusy) return;
-  setState({ capQuery: q, capBusy: true, capError: null });
+  state = { ...state, capQuery: q, capBusy: true, capError: null };
+  setCapabilitySearchBusy(true);
   try {
     const result = await api.searchCapabilities(q, state.capSelectedKinds, state.capLimit);
-    setState({
-      capBusy: false,
+    applyCapabilitySearchResult({
       capSearched: true,
+      capError: null,
       capModelText: result.modelText,
       capHostPlatform: result.hostPlatform,
       capLimit: result.limit,
@@ -329,10 +427,13 @@ async function runCapabilitySearch() {
       capDisabledMcp: result.disabledMcp,
     });
   } catch (e) {
-    setState({
-      capBusy: false,
+    applyCapabilitySearchResult({
       capSearched: true,
       capError: e instanceof Error ? e.message : String(e),
+      capModelText: "",
+      capHostPlatform: "",
+      capHiddenHits: [],
+      capDisabledMcp: [],
     });
   }
 }
@@ -346,6 +447,7 @@ async function copySessionBrief() {
 }
 
 function closeMoreMenu() {
+  if (!state.moreMenuOpen) return;
   setState({ moreMenuOpen: false });
 }
 
@@ -609,58 +711,38 @@ function renderCapabilityHit(hit: api.CapabilityHitDto): string {
 }
 
 function renderCapabilitiesPanel(): string {
-  if (!state.showCapabilities) return "";
+  if (!state.showCapabilities) {
+    overlayEnterClass("capabilities", false);
+    return "";
+  }
+  const overlayEnter = overlayEnterClass("capabilities", true);
   const kindChips = CAP_KIND_CHOICES
     .map(({ id, label }) => {
       const active = state.capSelectedKinds.includes(id) ? "active" : "";
       return `<button type="button" class="provider-chip cap-kind-chip ${active}" data-cap-kind="${id}">${escapeHtml(label)}</button>`;
     })
     .join("");
-  const platformNote = state.capHostPlatform
-    ? `（平台 ${escapeHtml(state.capHostPlatform)}）`
-    : "";
-  const body = state.capSearched
-    ? [
-        state.capError ? `<p class="error-inline">${escapeHtml(state.capError)}</p>` : "",
-        !state.capError
-          ? `<h3 class="cap-section-title">模型看到的正文${platformNote}</h3>
-            <pre class="cap-result">${escapeHtml(state.capModelText || "（空）")}</pre>`
-          : "",
-        state.capHiddenHits.length
-          ? `<h3 class="cap-section-title">当前平台搜不到</h3>
-            <p class="muted">索引里有这些条目，但宿主平台过滤后不会出现在上面的正文里。</p>
-            ${state.capHiddenHits.map(renderCapabilityHit).join("")}`
-          : "",
-        state.capDisabledMcp.length
-          ? `<h3 class="cap-section-title">未启用的 MCP</h3>
-            <p class="muted">未启用的服务器不会写入能力索引，模型的 find_caps 也找不到。</p>
-            ${state.capDisabledMcp
-              .map(
-                (s) =>
-                  `<div class="cap-hit-card"><strong>${escapeHtml(s.name)}</strong><div class="muted small">${escapeHtml(s.url)}</div><div>${escapeHtml(s.description)}</div></div>`,
-              )
-              .join("")}`
-          : "",
-      ].join("")
-    : "";
-  return `<div class="overlay settings-overlay" id="capabilities-overlay">
+  const results = renderCapabilityResultsHtml();
+  return `<div class="overlay settings-overlay${overlayEnter}" id="capabilities-overlay">
     <div class="overlay-panel settings-panel wide-panel">
       <header class="settings-header">
         <h2>能力检索</h2>
         <button type="button" class="icon-btn" id="capabilities-close" title="关闭">✕</button>
       </header>
-      <div class="settings-body">
-        <div class="cap-search">
-          <input id="cap-query" placeholder="搜索" value="${escapeHtml(state.capQuery)}" />
-          <button type="button" class="primary-btn" id="cap-search-btn" ${state.capBusy ? "disabled" : ""}>${state.capBusy ? "…" : "搜索"}</button>
+      <div class="settings-body cap-panel-body">
+        <div class="cap-panel-toolbar">
+          <div class="cap-search">
+            <input id="cap-query" class="settings-control" placeholder="搜索" value="${escapeHtml(state.capQuery)}" />
+            <button type="button" class="primary-btn" id="cap-search-btn" ${state.capBusy ? "disabled" : ""}>${state.capBusy ? "…" : "搜索"}</button>
+          </div>
+          <div class="cap-kind-row">${kindChips}</div>
+          <div class="cap-limit-row">
+            <button type="button" class="icon-btn" id="cap-limit-down" ${state.capLimit <= 1 || state.capBusy ? "disabled" : ""}>−</button>
+            <span>${state.capLimit}</span>
+            <button type="button" class="icon-btn" id="cap-limit-up" ${state.capLimit >= CAP_MAX_LIMIT || state.capBusy ? "disabled" : ""}>+</button>
+          </div>
         </div>
-        <div class="cap-kind-row">${kindChips}</div>
-        <div class="cap-limit-row">
-          <button type="button" class="icon-btn" id="cap-limit-down" ${state.capLimit <= 1 || state.capBusy ? "disabled" : ""}>−</button>
-          <span>${state.capLimit}</span>
-          <button type="button" class="icon-btn" id="cap-limit-up" ${state.capLimit >= CAP_MAX_LIMIT || state.capBusy ? "disabled" : ""}>+</button>
-        </div>
-        ${body}
+        ${results}
       </div>
     </div>
   </div>`;
@@ -1138,7 +1220,7 @@ function render() {
 
   bindEvents();
   const scroll = document.getElementById("chat-scroll");
-  if (scroll) scroll.scrollTop = scroll.scrollHeight;
+  if (scroll && !anySideOverlayOpen()) scroll.scrollTop = scroll.scrollHeight;
 }
 
 function bindEvents() {
@@ -1217,13 +1299,18 @@ function bindEvents() {
   });
   if (state.moreMenuOpen) {
     window.setTimeout(() => {
+      if (!state.moreMenuOpen) return;
       const onDocClick = () => {
-        closeMoreMenu();
         document.removeEventListener("click", onDocClick);
+        closeMoreMenu();
       };
       document.addEventListener("click", onDocClick);
     }, 0);
   }
+  document.getElementById("capabilities-overlay")?.addEventListener("click", (ev) => {
+    const panel = (ev.currentTarget as HTMLElement).querySelector(".overlay-panel");
+    if (panel && panel.contains(ev.target as Node)) ev.stopPropagation();
+  });
   document.getElementById("about-close")?.addEventListener("click", () =>
     setState({ showAbout: false, aboutInfo: null, aboutLoading: false }),
   );
@@ -1242,7 +1329,17 @@ function bindEvents() {
   document.getElementById("capabilities-close")?.addEventListener("click", () =>
     setState({ showCapabilities: false }),
   );
-  document.getElementById("cap-search-btn")?.addEventListener("click", () => void runCapabilitySearch());
+  document.getElementById("cap-search-btn")?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    void runCapabilitySearch();
+  });
+  document.getElementById("cap-query")?.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      void runCapabilitySearch();
+    }
+  });
   document.querySelectorAll<HTMLButtonElement>(".cap-kind-chip").forEach((btn) => {
     btn.addEventListener("click", () => {
       const kind = btn.dataset.capKind;

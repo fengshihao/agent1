@@ -48,12 +48,18 @@ public final class UiHttpServer implements AutoCloseable {
     private final DesktopUiGateway gateway;
     private final HttpServer server;
     private final int port;
+    private final Path webUiRoot;
     private final CopyOnWriteArrayList<SseClient> sseClients = new CopyOnWriteArrayList<>();
     private final Consumer<AgentEvent> eventFanOut;
 
     public UiHttpServer(DesktopUiGateway gateway, int port) throws IOException {
+        this(gateway, port, resolveWebUiStaticRoot());
+    }
+
+    UiHttpServer(DesktopUiGateway gateway, int port, Path webUiRoot) throws IOException {
         this.gateway = gateway;
         this.port = port;
+        this.webUiRoot = webUiRoot;
         this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
         this.server.setExecutor(Executors.newCachedThreadPool(r -> {
             Thread t = new Thread(r, "desktop-ui-http");
@@ -752,9 +758,9 @@ public final class UiHttpServer implements AutoCloseable {
             return;
         }
         String resource = resolveStaticResource(path);
-        byte[] bytes = readClasspath(STATIC_PREFIX + resource);
+        byte[] bytes = readStaticAsset(resource);
         if (bytes == null && !"index.html".equals(resource)) {
-            bytes = readClasspath(STATIC_PREFIX + "index.html");
+            bytes = readStaticAsset("index.html");
             resource = "index.html";
         }
         if (bytes == null) {
@@ -763,7 +769,11 @@ public final class UiHttpServer implements AutoCloseable {
         }
         Headers headers = exchange.getResponseHeaders();
         headers.set("Content-Type", contentType(resource));
-        headers.set("Cache-Control", resource.endsWith(".html") ? "no-cache" : "public, max-age=3600");
+        boolean devStatic = webUiRoot != null;
+        String cacheControl = devStatic || resource.endsWith(".html")
+            ? "no-cache"
+            : "public, max-age=3600";
+        headers.set("Cache-Control", cacheControl);
         if ("HEAD".equalsIgnoreCase(exchange.getRequestMethod())) {
             exchange.sendResponseHeaders(200, -1);
             exchange.close();
@@ -799,6 +809,56 @@ public final class UiHttpServer implements AutoCloseable {
             return "index.html";
         }
         return cleaned;
+    }
+
+    /**
+     * 开发时优先从磁盘读 {@code web-ui/}（每次请求读文件），避免改前端后必须重启 JVM / 重打 fat-jar。
+     * {@code AGENT1_WEB_UI_ROOT} 显式指定目录；{@code AGENT1_WEB_UI_DEV=0} 强制只用 classpath。
+     */
+    static Path resolveWebUiStaticRoot() {
+        if ("0".equals(System.getenv("AGENT1_WEB_UI_DEV"))) {
+            return null;
+        }
+        String env = System.getenv("AGENT1_WEB_UI_ROOT");
+        if (env != null && !env.isBlank()) {
+            Path configured = Path.of(env.trim()).toAbsolutePath().normalize();
+            if (isWebUiDir(configured)) {
+                return configured;
+            }
+        }
+        Path cwd = Path.of("").toAbsolutePath().normalize();
+        for (Path base : List.of(cwd, cwd.getParent())) {
+            if (base == null) {
+                continue;
+            }
+            Path candidate = base.resolve("java_agent/cli/src/main/resources/web-ui").normalize();
+            if (isWebUiDir(candidate)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isWebUiDir(Path dir) {
+        return dir != null && Files.isRegularFile(dir.resolve("index.html"));
+    }
+
+    private byte[] readStaticAsset(String resource) throws IOException {
+        if (webUiRoot != null) {
+            Path file = webUiRoot.resolve(resource).normalize();
+            if (!file.startsWith(webUiRoot)) {
+                return null;
+            }
+            if (Files.isRegularFile(file)) {
+                return Files.readAllBytes(file);
+            }
+            return null;
+        }
+        return readClasspath(STATIC_PREFIX + resource);
+    }
+
+    boolean servesWebUiFromDisk() {
+        return webUiRoot != null;
     }
 
     private static byte[] readClasspath(String name) throws IOException {
