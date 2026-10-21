@@ -1,4 +1,4 @@
-const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "webp", "gif"]);
+const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "webp", "gif", "svg"]);
 
 export function isImagePath(path: string): boolean {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";

@@ -181,4 +181,5 @@ assets/logic.business 常量  inspect.js（审查模式注入脚本，非 Androi
 |------|------|
 | 实施者 | 本文 Phase A–C |
 | REQ 登记 | 合并到 [15-可验证需求.md](./15-可验证需求.md) 时追加 REQ-120～124 |
-| E2E | 桌面对照见 [java_agent/doc/desktop-webview-cdp.md](../../java_agent/doc/desktop-webview-cdp.md) |
+| 桌面 Web UI | [CLI-Web-UI-HTML预览与审查对齐.md](../CLI-Web-UI-HTML预览与审查对齐.md)（纯浏览器，对齐 REQ-120～123） |
+| 工具环 CDP | [java_agent/doc/desktop-webview-cdp.md](../../java_agent/doc/desktop-webview-cdp.md)（`webview_exec`，非预览壳） |

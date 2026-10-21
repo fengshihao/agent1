@@ -7,6 +7,7 @@ import {
   ChatLine,
   createInitialState,
   isFreshSession,
+  isHtmlPreviewPath,
   isPreviewablePath,
   messagesToLines,
   ToolPart,
@@ -22,6 +23,7 @@ import { inferProviderId, presetFor, PROVIDER_PRESETS } from "./providers";
 import type { SettingsDraft } from "./state";
 import { usageDetailHtml, usageFooterLine } from "./usage";
 import { availabilityLabel, CAP_KIND_CHOICES, CAP_MAX_LIMIT } from "./capabilitySearch";
+import { INSPECT_MESSAGE_TYPE, postInspectCmd } from "./previewInspect";
 
 const root = document.getElementById("app");
 if (!root) {
@@ -32,7 +34,87 @@ let state: AppState = createInitialState();
 let disconnectEvents: (() => void) | null = null;
 let mcpAutoSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let webSearchAutoSaveTimer: ReturnType<typeof setTimeout> | undefined;
+let previewReloadTimer: ReturnType<typeof setTimeout> | undefined;
 const overlayWasOpen: Record<string, boolean> = {};
+
+function inspectElementTag(elementJson: string | null): string {
+  if (!elementJson) return "";
+  try {
+    const parsed = JSON.parse(elementJson) as { tag?: string };
+    return parsed.tag || "element";
+  } catch {
+    return "element";
+  }
+}
+
+function openHtmlPreview(sessionId: string, path: string, extra?: Partial<AppState>) {
+  setState({
+    preview: { sessionId, path },
+    previewReloadKey: 0,
+    previewIsDeck: false,
+    previewInspectEnabled: false,
+    previewSelectedElementJson: null,
+    previewOpinion: "",
+    showArtifacts: false,
+    ...extra,
+  });
+  if (!isHtmlPreviewPath(path)) return;
+  void api.fetchPreviewMeta(sessionId, path).then(
+    (meta) => {
+      if (state.preview?.sessionId === sessionId && state.preview?.path === path) {
+        setState({ previewIsDeck: meta.isDeck });
+      }
+    },
+    () => {
+      /* ignore */
+    },
+  );
+}
+
+function closeHtmlPreview() {
+  const iframe = document.getElementById("preview-frame") as HTMLIFrameElement | null;
+  if (state.previewInspectEnabled) {
+    postInspectCmd(iframe, "disable");
+  }
+  setState({
+    preview: null,
+    previewInspectEnabled: false,
+    previewSelectedElementJson: null,
+    previewOpinion: "",
+    previewIsDeck: false,
+  });
+}
+
+function schedulePreviewReload() {
+  if (!state.preview) return;
+  if (previewReloadTimer) clearTimeout(previewReloadTimer);
+  previewReloadTimer = setTimeout(() => {
+    previewReloadTimer = undefined;
+    if (!state.preview) return;
+    const iframe = document.getElementById("preview-frame") as HTMLIFrameElement | null;
+    const reEnable = state.previewInspectEnabled;
+    setState({
+      previewReloadKey: state.previewReloadKey + 1,
+      previewSelectedElementJson: null,
+      previewOpinion: "",
+    });
+    window.setTimeout(() => {
+      postInspectCmd(iframe, "install");
+      if (reEnable) postInspectCmd(iframe, "enable");
+    }, 50);
+  }, 300);
+}
+
+function wirePreviewIframe() {
+  const iframe = document.getElementById("preview-frame") as HTMLIFrameElement | null;
+  if (!iframe) return;
+  iframe.addEventListener("load", () => {
+    postInspectCmd(iframe, "install");
+    if (state.previewInspectEnabled) {
+      postInspectCmd(iframe, "enable");
+    }
+  });
+}
 
 /** 侧栏已打开时再次 render 不加 fade/slide，避免整页重绘时闪一下 */
 function overlayEnterClass(key: string, open: boolean): string {
@@ -126,6 +208,7 @@ function showToast(message: string) {
 }
 
 async function startNewChat() {
+  if (state.pendingDeleteSessionId) setState({ pendingDeleteSessionId: null });
   if (state.isRunning) {
     setState({ error: "请先停止当前 Run" });
     return;
@@ -138,7 +221,29 @@ async function startNewChat() {
   await refreshSessions();
   await loadActiveTranscript(created.sessionId);
   await refreshUsage();
-  setState({ drawerOpen: false });
+  setState({ drawerOpen: false, pendingDeleteSessionId: null });
+}
+
+async function confirmPendingDelete() {
+  const id = state.pendingDeleteSessionId;
+  if (!id) return;
+  const wasActive = state.activeSessionId === id;
+  setState({ pendingDeleteSessionId: null });
+  try {
+    await api.deleteSession(id);
+    await refreshSessions();
+    if (!wasActive) return;
+    if (state.sessions[0]) {
+      await api.useSession(state.sessions[0].sessionId);
+      await loadActiveTranscript(state.sessions[0].sessionId);
+    } else {
+      const created = await api.createSession();
+      await refreshSessions();
+      await loadActiveTranscript(created.sessionId);
+    }
+  } catch (e) {
+    setState({ error: e instanceof Error ? e.message : String(e) });
+  }
 }
 
 function settingsDraftFromConfig(): SettingsDraft {
@@ -497,7 +602,10 @@ async function bootstrap() {
 
 function onAgentEvent(event: api.AgentEventDto) {
   if (event.sessionId && state.activeSessionId && event.sessionId !== state.activeSessionId) {
-    return;
+    const previewSid = state.preview?.sessionId;
+    if (!previewSid || event.sessionId !== previewSid) {
+      return;
+    }
   }
   switch (event.type) {
     case "AGENT_START":
@@ -547,6 +655,7 @@ function onAgentEvent(event: api.AgentEventDto) {
     }
     case "TOOL_EXECUTION_END": {
       const toolCallId = String(event.payload.toolCallId || "");
+      const ended = state.tools.find((t) => t.toolCallId === toolCallId);
       const tools = state.tools.map((t) =>
         t.toolCallId === toolCallId
           ? {
@@ -559,6 +668,13 @@ function onAgentEvent(event: api.AgentEventDto) {
       );
       const waiting = !!event.payload.stopRunWaitingUser;
       setState({ tools, isRunning: !waiting && state.isRunning });
+      if (
+        state.preview &&
+        ended &&
+        (ended.toolName === "write_file" || ended.toolName === "edit_file")
+      ) {
+        schedulePreviewReload();
+      }
       break;
     }
     case "AGENT_ERROR":
@@ -780,14 +896,42 @@ function renderArtifactsPanel(): string {
 
 function renderPreviewPanel(): string {
   if (!state.preview) return "";
-  const url = api.workspaceFileUrl(state.preview.sessionId, state.preview.path);
+  const htmlPreview = isHtmlPreviewPath(state.preview.path);
+  const url = htmlPreview
+    ? `${api.workspacePreviewUrl(state.preview.sessionId, state.preview.path)}?v=${state.previewReloadKey}`
+    : `${api.workspaceFileUrl(state.preview.sessionId, state.preview.path)}?v=${state.previewReloadKey}`;
+  const deckBadge = state.previewIsDeck ? `<span class="preview-deck-badge">Deck</span>` : "";
+  const inspectLabel = state.previewInspectEnabled ? "关闭审查" : "审查模式";
+  const selectedJson = state.previewSelectedElementJson;
+  const bottom =
+    htmlPreview && selectedJson
+      ? `<div class="preview-inspect-bar">
+        <p class="preview-inspect-summary">已选中 &lt;${escapeHtml(inspectElementTag(selectedJson))}&gt;</p>
+        <textarea id="preview-opinion" class="preview-opinion" rows="2" placeholder="描述要修改的问题…">${escapeHtml(state.previewOpinion)}</textarea>
+        <div class="preview-inspect-actions">
+          <button type="button" class="link-btn" id="preview-inspect-cancel">取消</button>
+          <button type="button" class="link-btn" id="preview-fill-composer">填入输入框</button>
+          <button type="button" class="primary-btn" id="preview-send-ai">反馈给 AI</button>
+        </div>
+      </div>`
+      : "";
+  const inspectBtn = htmlPreview
+    ? `<button type="button" class="link-btn" id="preview-inspect-toggle">${inspectLabel}</button>`
+    : "";
+  const body = htmlPreview
+    ? `<iframe class="preview-frame" id="preview-frame" src="${url}" title="preview"></iframe>`
+    : `<div class="preview-media"><img src="${url}" alt="${escapeHtml(state.preview.path)}" /></div>`;
   return `<div class="overlay preview-overlay" id="preview-overlay">
     <div class="preview-panel">
       <div class="preview-toolbar">
-        <span>${escapeHtml(state.preview.path)}</span>
-        <button type="button" class="icon-btn" id="preview-close">✕</button>
+        <span class="preview-path">${deckBadge}${escapeHtml(state.preview.path)}</span>
+        <div class="preview-toolbar-actions">
+          ${inspectBtn}
+          <button type="button" class="icon-btn" id="preview-close" title="关闭">✕</button>
+        </div>
       </div>
-      <iframe class="preview-frame" src="${url}" title="preview"></iframe>
+      ${body}
+      ${bottom}
     </div>
   </div>`;
 }
@@ -1110,9 +1254,18 @@ function render() {
     .map((s) => {
       const active = s.sessionId === state.activeSessionId ? "active" : "";
       const title = s.title || s.sessionId.slice(0, 8);
+      if (s.sessionId === state.pendingDeleteSessionId) {
+        return `<div class="session-item ${active} session-item-confirm">
+          <span class="session-confirm-text">删除此对话？</span>
+          <button type="button" class="session-confirm-cancel" id="delete-session-cancel">取消</button>
+          <button type="button" class="session-confirm-ok" id="delete-session-confirm">删除</button>
+        </div>`;
+      }
       return `<div class="session-item ${active}">
-        <button type="button" class="session-title" data-use="${s.sessionId}">${escapeHtml(title)}</button>
-        <button type="button" class="session-delete" data-del="${s.sessionId}" title="删除">✕</button>
+        <button type="button" class="session-open" data-use="${s.sessionId}">
+          <span class="session-title">${escapeHtml(title)}</span>
+        </button>
+        <button type="button" class="session-delete" data-del="${s.sessionId}" title="删除" aria-label="删除">✕</button>
       </div>`;
     })
     .join("");
@@ -1232,10 +1385,11 @@ function bindEvents() {
     setState({ drawerOpen: next });
     if (next) void refreshUsage();
   });
-  document.getElementById("app-main")?.addEventListener("click", () => {
-    if (state.drawerOpen) {
-      setState({ drawerOpen: false });
-    }
+  document.getElementById("app-main")?.addEventListener("click", (ev) => {
+    if (!state.drawerOpen) return;
+    const t = ev.target as HTMLElement | null;
+    if (t?.closest("button, a, input, textarea, select, label")) return;
+    setState({ drawerOpen: false });
   });
   document.getElementById("usage-footer")?.addEventListener("click", () => {
     void refreshUsage().then(() => setState({ usagePanelOpen: true }));
@@ -1360,7 +1514,7 @@ function bindEvents() {
     btn.addEventListener("click", () => {
       const sessionId = btn.dataset.artSession;
       const path = btn.dataset.artPath;
-      if (sessionId && path) setState({ preview: { sessionId, path }, showArtifacts: false });
+      if (sessionId && path) openHtmlPreview(sessionId, path);
     });
   });
   document.querySelectorAll<HTMLButtonElement>("[data-art-insert]").forEach((btn) => {
@@ -1378,9 +1532,75 @@ function bindEvents() {
       }
     });
   });
-  document.getElementById("preview-close")?.addEventListener("click", () => setState({ preview: null }));
+  wirePreviewIframe();
+  document.getElementById("preview-close")?.addEventListener("click", () => closeHtmlPreview());
   document.getElementById("preview-overlay")?.addEventListener("click", (ev) => {
-    if (ev.target === ev.currentTarget) setState({ preview: null });
+    if (ev.target === ev.currentTarget) closeHtmlPreview();
+  });
+  document.getElementById("preview-inspect-toggle")?.addEventListener("click", () => {
+    const iframe = document.getElementById("preview-frame") as HTMLIFrameElement | null;
+    const enable = !state.previewInspectEnabled;
+    setState({
+      previewInspectEnabled: enable,
+      previewSelectedElementJson: null,
+      previewOpinion: "",
+    });
+    postInspectCmd(iframe, enable ? "enable" : "disable");
+  });
+  document.getElementById("preview-inspect-cancel")?.addEventListener("click", () => {
+    const iframe = document.getElementById("preview-frame") as HTMLIFrameElement | null;
+    postInspectCmd(iframe, "clear");
+    setState({ previewSelectedElementJson: null, previewOpinion: "" });
+  });
+  document.getElementById("preview-fill-composer")?.addEventListener("click", async () => {
+    const sel = state.preview;
+    const elementJson = state.previewSelectedElementJson;
+    if (!sel || !elementJson) return;
+    const opinion = (document.getElementById("preview-opinion") as HTMLTextAreaElement | null)?.value
+      ?? state.previewOpinion;
+    try {
+      const draft = await api.composeInspectFeedback(sel.path, elementJson, opinion);
+      setState({ composer: draft });
+      closeHtmlPreview();
+      showToast("已填入输入框");
+    } catch (e) {
+      setState({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+  document.getElementById("preview-send-ai")?.addEventListener("click", async () => {
+    const sel = state.preview;
+    const elementJson = state.previewSelectedElementJson;
+    const sid = sel.sessionId;
+    if (!elementJson) return;
+    if (state.isRunning) {
+      setState({ error: "请先停止当前 Run" });
+      return;
+    }
+    const opinion = (document.getElementById("preview-opinion") as HTMLTextAreaElement | null)?.value
+      ?? state.previewOpinion;
+    if (!opinion.trim()) {
+      showToast("请先描述问题");
+      return;
+    }
+    try {
+      const text = await api.composeInspectFeedback(sel.path, elementJson, opinion);
+      await api.sendMessage(sid, text);
+      const iframe = document.getElementById("preview-frame") as HTMLIFrameElement | null;
+      postInspectCmd(iframe, "clear");
+      setState({
+        previewSelectedElementJson: null,
+        previewOpinion: "",
+        isRunning: true,
+        streamingText: "",
+        tools: [],
+      });
+      showToast("已发送给 AI，修改后页面将自动刷新");
+    } catch (e) {
+      setState({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+  document.getElementById("preview-opinion")?.addEventListener("input", (ev) => {
+    setState({ previewOpinion: (ev.target as HTMLTextAreaElement).value });
   });
   const fileInput = document.getElementById("file-input") as HTMLInputElement | null;
   document.getElementById("btn-attach")?.addEventListener("click", () => fileInput?.click());
@@ -1410,6 +1630,8 @@ function bindEvents() {
   document.querySelectorAll<HTMLButtonElement>("[data-use]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const id = btn.dataset.use!;
+      if (state.pendingDeleteSessionId) setState({ pendingDeleteSessionId: null });
+      if (id === state.activeSessionId) return;
       if (state.isRunning) {
         setState({ error: "请先停止当前 Run 再切换会话" });
         return;
@@ -1420,23 +1642,20 @@ function bindEvents() {
     });
   });
   document.querySelectorAll<HTMLButtonElement>("[data-del]").forEach((btn) => {
-    btn.addEventListener("click", async (ev) => {
+    btn.addEventListener("click", (ev) => {
       ev.stopPropagation();
-      const id = btn.dataset.del!;
-      if (!confirm("删除该会话？")) return;
-      await api.deleteSession(id);
-      await refreshSessions();
-      if (state.activeSessionId === id) {
-        if (state.sessions[0]) {
-          await api.useSession(state.sessions[0].sessionId);
-          await loadActiveTranscript(state.sessions[0].sessionId);
-        } else {
-          const created = await api.createSession();
-          await refreshSessions();
-          await loadActiveTranscript(created.sessionId);
-        }
-      }
+      const id = btn.dataset.del;
+      if (!id) return;
+      setState({ pendingDeleteSessionId: id });
     });
+  });
+  document.getElementById("delete-session-cancel")?.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    setState({ pendingDeleteSessionId: null });
+  });
+  document.getElementById("delete-session-confirm")?.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    void confirmPendingDelete();
   });
 
   const composer = document.getElementById("composer") as HTMLTextAreaElement | null;
@@ -1538,12 +1757,16 @@ function bindEvents() {
     });
   });
   document.querySelectorAll<HTMLButtonElement>(".file-link").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
       const path = btn.dataset.filePath;
       const sid = state.activeSessionId;
-      if (!path || !sid) return;
+      if (!path || !sid) {
+        showToast("无法打开文件");
+        return;
+      }
       if (isPreviewablePath(path)) {
-        setState({ preview: { sessionId: sid, path } });
+        openHtmlPreview(sid, path);
       } else {
         showToast(path);
       }
@@ -1599,6 +1822,15 @@ function bindEvents() {
     }
   });
 }
+
+window.addEventListener("message", (ev) => {
+  if (ev.origin !== window.location.origin) return;
+  if (!ev.data || ev.data.type !== INSPECT_MESSAGE_TYPE) return;
+  if (!state.preview || !state.previewInspectEnabled) return;
+  const payload = typeof ev.data.payload === "string" ? ev.data.payload : null;
+  if (!payload) return;
+  setState({ previewSelectedElementJson: payload, previewOpinion: "" });
+});
 
 render();
 bootstrap().catch((e) => {

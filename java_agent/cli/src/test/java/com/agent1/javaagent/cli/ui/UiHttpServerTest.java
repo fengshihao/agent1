@@ -10,6 +10,7 @@ import com.agent1.javaagent.llm.LlmStreamListener;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.AssistantResponse;
 import com.agent1.javaagent.model.ChatRequest;
+import com.agent1.javaagent.session.FileSessionStore;
 import com.agent1.javaagent.session.ProductivityAgentHost;
 import com.agent1.javaagent.tool.AgentTool;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -184,6 +185,77 @@ class UiHttpServerTest {
             assertTrue(first.path("name").asText().length() > 0);
             assertTrue(first.has("description"));
             assertTrue(first.has("parametersSchema"));
+        }
+    }
+
+    @Test
+    void htmlPreviewShellAndMeta() throws Exception {
+        LlmClient fake = new LlmClient() {
+            @Override
+            public AssistantResponse streamChat(
+                ChatRequest request,
+                List<AgentTool> tools,
+                LlmStreamListener streamListener,
+                CancellationToken cancellationToken
+            ) {
+                return new AssistantResponse("", List.of());
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").model("test-model").build();
+        DesktopUiGateway gateway = new DesktopUiGateway(
+            temp,
+            cfg -> new ProductivityAgentHost(temp, cfg, fake),
+            config
+        );
+        int port = freePort();
+        try (gateway; UiHttpServer server = new UiHttpServer(gateway, port)) {
+            server.start();
+            String base = "http://127.0.0.1:" + port;
+            JsonNode created = postJson(base + "/api/sessions", "{}");
+            String sessionId = created.path("sessionId").asText();
+            Path workspace = new FileSessionStore(temp).workspaceDir(sessionId);
+            Files.createDirectories(workspace.resolve("out"));
+            Files.writeString(
+                workspace.resolve("out/deck.html"),
+                "<html><section class=\"slide\"></section>",
+                StandardCharsets.UTF_8
+            );
+
+            JsonNode meta = getJson(base + "/api/sessions/" + sessionId + "/preview-meta?path=out%2Fdeck.html");
+            assertTrue(meta.path("isDeck").asBoolean());
+
+            HttpURLConnection conn = (HttpURLConnection) URI.create(
+                base + "/api/sessions/" + sessionId + "/preview/out/deck.html"
+            ).toURL().openConnection();
+            conn.setRequestMethod("GET");
+            String html;
+            try (var in = conn.getInputStream()) {
+                html = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            } finally {
+                conn.disconnect();
+            }
+            assertTrue(html.contains("preview-target"));
+            assertTrue(html.contains("agent1-inspect"));
+
+            Files.writeString(
+                workspace.resolve("cat.svg"),
+                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"/>",
+                StandardCharsets.UTF_8
+            );
+            HttpURLConnection svgConn = (HttpURLConnection) URI.create(
+                base + "/api/sessions/" + sessionId + "/files/cat.svg"
+            ).toURL().openConnection();
+            svgConn.setRequestMethod("GET");
+            try (var in = svgConn.getInputStream()) {
+                assertEquals("image/svg+xml", svgConn.getContentType());
+                assertTrue(new String(in.readAllBytes(), StandardCharsets.UTF_8).contains("<svg"));
+            } finally {
+                svgConn.disconnect();
+            }
         }
     }
 

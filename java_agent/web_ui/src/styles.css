@@ -109,14 +109,11 @@ button {
 
 .session-item {
   width: 100%;
-  text-align: left;
-  padding: 0.65rem 0.7rem;
   border-radius: var(--radius);
   margin-bottom: 0.25rem;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.4rem;
+  align-items: center;
+  min-height: 40px;
 }
 
 .session-item:hover {
@@ -125,6 +122,14 @@ button {
 
 .session-item.active {
   background: var(--accent-wash);
+}
+
+.session-open {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  text-align: left;
+  padding: 0.55rem 0.45rem 0.55rem 0.7rem;
 }
 
 .session-title {
@@ -137,13 +142,57 @@ button {
 }
 
 .session-delete {
-  opacity: 0.35;
-  font-size: 12px;
+  width: 32px;
+  height: 32px;
+  margin-right: 0.2rem;
   flex-shrink: 0;
+  border-radius: 10px;
+  opacity: 0.55;
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-delete:hover {
+  background: var(--paper);
+  color: var(--danger);
+  opacity: 1;
 }
 
 .session-item:hover .session-delete {
-  opacity: 0.85;
+  opacity: 0.9;
+}
+
+.session-item-confirm {
+  gap: 0.3rem;
+  padding: 0.2rem 0.4rem 0.2rem 0.7rem;
+}
+
+.session-confirm-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.session-confirm-cancel,
+.session-confirm-ok {
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 0.28rem 0.5rem;
+  border-radius: 8px;
+}
+
+.session-confirm-cancel:hover {
+  background: var(--paper);
+}
+
+.session-confirm-ok {
+  background: var(--danger);
+  color: #fff;
+  font-weight: 550;
 }
 
 .main {
@@ -1189,6 +1238,84 @@ button {
   border: none;
   width: 100%;
   background: #fff;
+  min-height: 0;
+}
+
+.preview-media {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  background: var(--paper);
+  padding: 1rem;
+}
+
+.preview-media img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.preview-path {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.preview-deck-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-wash);
+  color: var(--accent-deep);
+}
+
+.preview-inspect-bar {
+  border-top: 1px solid var(--hairline);
+  padding: 0.5rem 0.75rem 0.65rem;
+  background: var(--paper-lift);
+}
+
+.preview-inspect-summary {
+  margin: 0 0 0.35rem;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.preview-opinion {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 13px;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: var(--field-bg);
+  color: var(--field-fg);
+  resize: vertical;
+}
+
+.preview-inspect-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
 }
 
 @media (prefers-color-scheme: dark) {

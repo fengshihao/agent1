@@ -55,6 +55,11 @@ export type AppState = {
   artifacts: ArtifactDto[];
   showArtifacts: boolean;
   preview: { sessionId: string; path: string } | null;
+  previewReloadKey: number;
+  previewIsDeck: boolean;
+  previewInspectEnabled: boolean;
+  previewSelectedElementJson: string | null;
+  previewOpinion: string;
   showCapabilities: boolean;
   capQuery: string;
   capSelectedKinds: string[];
@@ -90,6 +95,7 @@ export type AppState = {
   systemPromptTools: RegisteredToolDto[];
   mcpWebSearchBaseUrl: string;
   mcpWebSearchApiKey: string;
+  pendingDeleteSessionId: string | null;
 };
 
 export type SettingsDraft = {
@@ -125,6 +131,11 @@ export function createInitialState(): AppState {
     artifacts: [],
     showArtifacts: false,
     preview: null,
+    previewReloadKey: 0,
+    previewIsDeck: false,
+    previewInspectEnabled: false,
+    previewSelectedElementJson: null,
+    previewOpinion: "",
     showCapabilities: false,
     capQuery: "",
     capSelectedKinds: [],
@@ -160,12 +171,26 @@ export function createInitialState(): AppState {
     systemPromptTools: [],
     mcpWebSearchBaseUrl: "https://api.tavily.com",
     mcpWebSearchApiKey: "",
+    pendingDeleteSessionId: null,
   };
 }
 
+function fileExt(relativePath: string): string {
+  const name = relativePath.split("/").pop() ?? relativePath;
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
+}
+
+/** HTML 走审查预览壳；图片/SVG 用文件直出即可在浏览器里显示。 */
+export function isHtmlPreviewPath(relativePath: string): boolean {
+  const ext = fileExt(relativePath);
+  return ext === "html" || ext === "htm";
+}
+
+const PREVIEWABLE_EXT = new Set(["html", "htm", "svg", "png", "jpg", "jpeg", "gif", "webp"]);
+
 export function isPreviewablePath(relativePath: string): boolean {
-  const lower = relativePath.toLowerCase();
-  return lower.endsWith(".html") || lower.endsWith(".htm");
+  return PREVIEWABLE_EXT.has(fileExt(relativePath));
 }
 
 /** 当前会话尚无可见对话（对齐 Android isFreshSession）。 */

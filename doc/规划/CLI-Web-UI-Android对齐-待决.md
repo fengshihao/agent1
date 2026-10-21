@@ -9,3 +9,4 @@
 | 3 | **MCP 保存后索引** | 保存即 `McpCapabilitySync.ensureIndexed`（可能访问远端 MCP） | 离线环境是否改为「仅保存、手动刷新索引」 |
 | 4 | **Brief 聊天导出** | ✅ core `BriefChatExport` + 抽屉 📋 复制 | Android Kotlin 与 Java 双份实现，后续可考虑抽到单模块 |
 | 5 | **设置页拆分** | ✅ 模型设置与「MCP 与联网搜索」分页；Tavily 在 MCP 页 | — |
+| 6 | **HTML 预览与点选审查** | ✅ **纯浏览器方案 A**；不要求用户装 Chromium；实施见 [CLI-Web-UI-HTML预览与审查对齐.md](./CLI-Web-UI-HTML预览与审查对齐.md) | — |

@@ -60,7 +60,10 @@ Browser ◄──SSE events── UiHttpServer ◄── AgentEvent ◄───
 | GET | `/api/capabilities?q=` | `find_caps` 正文（产物库内检索） |
 | GET/POST/DELETE | `/api/sessions/{id}/attachments` | 上传到 `imports/` |
 | POST | `/api/sessions/{id}/artifacts/import` | 产物复制到当前会话 imports |
-| GET | `/api/sessions/{id}/files/{path}` | workspace 文件（HTML 预览 iframe） |
+| GET | `/api/sessions/{id}/files/{path}` | workspace 文件直出 |
+| GET | `/api/sessions/{id}/preview/{path}` | HTML 预览壳（注入审查脚本） |
+| GET | `/api/sessions/{id}/preview-meta?path=` | 预览元数据（`isDeck`） |
+| POST | `/api/html-inspect/compose` | 审查反馈文案（`elementJson` + `problem`） |
 
 ## 前端契约
 
@@ -128,7 +131,8 @@ cd java_agent/web_ui && npm ci && npm run build   # 只改前端时
 | P3 | **Run 限额 / 模型目录** | ✅ `ui-config.json` 限额 + `GET /api/models` + 设置页 |
 | P3 | 诊断包 / Tavily / 图片预览 / 工具列表 | ✅ 抽屉导出、`webSearch` 配置、聊天气泡图、`GET /api/tools` |
 | P3 | Run Token 摘要 / MCP 设置 / 文件链接 | ✅ SSE `USAGE` 汇总行、`GET/PUT /api/mcp/servers`、气泡内 `[文件](path)` |
-| — | **待拍板** | 见 [CLI-Web-UI-Android对齐-待决.md](CLI-Web-UI-Android对齐-待决.md) |
+| P4 | **HTML 点选审查** | ✅ 纯浏览器 A：`preview` 壳 + 审查模式 + 自动刷新 + Deck 标记（见 [CLI-Web-UI-HTML预览与审查对齐.md](CLI-Web-UI-HTML预览与审查对齐.md)） |
+| — | **待拍板** | 见 [CLI-Web-UI-Android对齐-待决.md](CLI-Web-UI-Android对齐-待决.md)（#1～#3 等） |
 
 ### 切换 Session 会不会省 Token？
 

@@ -63,11 +63,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.agent1.android.productivity.logic.business.DeckExportComposer
 import com.agent1.android.productivity.logic.business.DeckFitScript
 import com.agent1.android.productivity.logic.business.DeckPagerScript
-import com.agent1.android.productivity.logic.business.ElementSelectorBuilder
-import com.agent1.android.productivity.logic.business.HtmlInspectParser
-import com.agent1.android.productivity.logic.business.HtmlInspectScript
-import com.agent1.android.productivity.logic.business.InspectFeedbackComposer
-import com.agent1.android.productivity.logic.business.InspectedElement
+import com.agent1.javaagent.html.inspect.ElementSelectorBuilder
+import com.agent1.javaagent.html.inspect.HtmlInspectParser
+import com.agent1.javaagent.html.inspect.HtmlInspectScript
+import com.agent1.javaagent.html.inspect.InspectFeedbackComposer
+import com.agent1.javaagent.html.inspect.InspectedElement
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.WorkspaceFileWatcher
 import com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem

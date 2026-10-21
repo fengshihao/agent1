@@ -3,7 +3,7 @@ package com.agent1.android.productivity.ui.view
 import android.view.ViewGroup
 import android.webkit.WebView
 import com.agent1.android.productivity.logic.business.DeckPagerScript
-import com.agent1.android.productivity.logic.business.HtmlInspectScript
+import com.agent1.javaagent.html.inspect.HtmlInspectScript
 
 /**
  * 内置 HTML 预览 WebView 的媒体与释放顺序。

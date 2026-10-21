@@ -13,6 +13,10 @@ import com.agent1.javaagent.capability.CapabilitySearchView;
 import com.agent1.javaagent.log.query.FailedToolCall;
 import com.agent1.javaagent.usage.ModelUsageSlice;
 import com.agent1.javaagent.usage.UsageOverview;
+import com.agent1.javaagent.html.inspect.DeckHtmlDetector;
+import com.agent1.javaagent.html.inspect.HtmlInspectParser;
+import com.agent1.javaagent.html.inspect.InspectFeedbackComposer;
+import com.agent1.javaagent.html.inspect.InspectedElement;
 import com.agent1.javaagent.workspace.ArtifactLibrary;
 import com.agent1.javaagent.workspace.SessionAttachmentLimits;
 import java.nio.file.Files;
@@ -83,6 +87,7 @@ public final class UiHttpServer implements AutoCloseable {
         server.createContext("/api/sessions", this::handleSessions);
         server.createContext("/api/run/abort", this::handleAbort);
         server.createContext("/api/events", this::handleEvents);
+        server.createContext("/api/html-inspect", this::handleHtmlInspect);
         server.createContext("/", this::handleStatic);
     }
 
@@ -647,6 +652,46 @@ public final class UiHttpServer implements AutoCloseable {
             }
             return;
         }
+        if (parts.length == 2 && "preview-meta".equals(parts[1]) && "GET".equalsIgnoreCase(method)) {
+            String relPath = queryParam(exchange.getRequestURI().getRawQuery(), "path");
+            if (relPath == null || relPath.isBlank() || !isPreviewableHtml(relPath)) {
+                sendError(exchange, 400, "path required (.html)");
+                return;
+            }
+            try {
+                Path file = gateway.resolveWorkspaceFile(sessionId, relPath);
+                ObjectNode body = MAPPER.createObjectNode();
+                body.put("sessionId", sessionId);
+                body.put("path", relPath);
+                body.put("isDeck", DeckHtmlDetector.scanFile(file));
+                sendJson(exchange, 200, body);
+            } catch (Exception e) {
+                sendError(exchange, 404, e.getMessage());
+            }
+            return;
+        }
+        if (parts.length >= 3 && "preview".equals(parts[1]) && "GET".equalsIgnoreCase(method)) {
+            String relPath = urlDecode(String.join("/", Arrays.copyOfRange(parts, 2, parts.length)));
+            if (!isPreviewableHtml(relPath)) {
+                sendError(exchange, 400, "unsupported preview type");
+                return;
+            }
+            try {
+                gateway.resolveWorkspaceFile(sessionId, relPath);
+                String html = HtmlPreviewShell.render(sessionId, relPath);
+                Headers headers = exchange.getResponseHeaders();
+                headers.set("Content-Type", "text/html; charset=utf-8");
+                headers.set("Cache-Control", "no-cache");
+                byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, bytes.length);
+                try (OutputStream out = exchange.getResponseBody()) {
+                    out.write(bytes);
+                }
+            } catch (Exception e) {
+                sendError(exchange, 404, e.getMessage());
+            }
+            return;
+        }
         if (parts.length >= 3 && "files".equals(parts[1]) && "GET".equalsIgnoreCase(method)) {
             String relPath = urlDecode(String.join("/", Arrays.copyOfRange(parts, 2, parts.length)));
             try {
@@ -666,6 +711,10 @@ public final class UiHttpServer implements AutoCloseable {
                     ct = "image/png";
                 } else if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
                     ct = "image/jpeg";
+                } else if (name.endsWith(".gif")) {
+                    ct = "image/gif";
+                } else if (name.endsWith(".webp")) {
+                    ct = "image/webp";
                 }
                 Headers headers = exchange.getResponseHeaders();
                 headers.set("Content-Type", ct);
@@ -711,6 +760,35 @@ public final class UiHttpServer implements AutoCloseable {
         }
         gateway.abortActiveRun();
         sendJson(exchange, 200, MAPPER.createObjectNode().put("ok", true));
+    }
+
+    private void handleHtmlInspect(HttpExchange exchange) throws IOException {
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendMethodNotAllowed(exchange);
+            return;
+        }
+        String path = exchange.getRequestURI().getPath();
+        if (!"/api/html-inspect/compose".equals(path)) {
+            sendError(exchange, 404, "not found");
+            return;
+        }
+        JsonNode req = readJson(exchange);
+        String relativePath = textField(req, "relativePath");
+        String problem = textField(req, "problem");
+        String elementJson = textField(req, "elementJson");
+        if (relativePath == null || relativePath.isBlank() || elementJson == null || elementJson.isBlank()) {
+            sendError(exchange, 400, "relativePath and elementJson required");
+            return;
+        }
+        InspectedElement element = HtmlInspectParser.parse(elementJson);
+        if (element == null) {
+            sendError(exchange, 400, "invalid elementJson");
+            return;
+        }
+        String text = InspectFeedbackComposer.compose(relativePath, element, problem == null ? "" : problem);
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("text", text);
+        sendJson(exchange, 200, body);
     }
 
     private void handleEvents(HttpExchange exchange) throws IOException {
@@ -985,6 +1063,24 @@ public final class UiHttpServer implements AutoCloseable {
 
     private static String urlDecode(String value) {
         return URLDecoder.decode(value, StandardCharsets.UTF_8);
+    }
+
+    private static String queryParam(String rawQuery, String key) {
+        if (rawQuery == null || rawQuery.isBlank()) {
+            return null;
+        }
+        for (String part : rawQuery.split("&")) {
+            String[] kv = part.split("=", 2);
+            if (kv.length == 2 && key.equals(urlDecode(kv[0]))) {
+                return urlDecode(kv[1]);
+            }
+        }
+        return null;
+    }
+
+    private static boolean isPreviewableHtml(String relativePath) {
+        String lower = relativePath.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".html") || lower.endsWith(".htm");
     }
 
     private static void sendJson(HttpExchange exchange, int status, ObjectNode body) throws IOException {

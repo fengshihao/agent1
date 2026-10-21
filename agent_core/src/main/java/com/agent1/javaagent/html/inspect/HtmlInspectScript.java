@@ -1,19 +1,16 @@
-package com.agent1.android.productivity.logic.business
+package com.agent1.javaagent.html.inspect;
 
 /**
  * 审查模式注入脚本（18 号规划 Phase B / REQ-121）。
  *
- * 常量字符串而非 assets：便于 JVM 单测与 Kotlin/JS 两侧共同引用，避免资产读取 IO。
- * 注入后暴露 window.__agent1Inspect* 接口：
- * - [ENABLE_JS]/[DISABLE_JS]/[CLEAR_JS]：开关与清除高亮（由 Kotlin 侧 evaluateJavascript 调用）
- * - 回传：tap 元素 → `Agent1Inspect.onElementPicked(JSON)`（Android 注入的桥）
- *
- * 只采集元素描述（tag/id/class/文本/截断 outerHTML/祖先链），不做任何 eval/网络/存储。
+ * <p>常量字符串而非 assets：便于 JVM 单测与 Kotlin/JS 两侧共同引用。
+ * 注入后暴露 window.__agent1Inspect* 接口；回传 tap 元素 →
+ * {@code Agent1Inspect.onElementPicked(JSON)}（Android 桥）或桌面 postMessage（见 Web UI 计划）。
  */
-object HtmlInspectScript {
+public final class HtmlInspectScript {
 
     /** 安装即注入主体；幂等（window.__agent1InspectInstalled 防重复）。 */
-    const val INSTALL_JS: String = """
+    public static final String INSTALL_JS = """
 (function() {
   if (window.__agent1InspectInstalled) return;
   window.__agent1InspectInstalled = true;
@@ -46,10 +43,8 @@ object HtmlInspectScript {
       tag: el.tagName.toLowerCase(),
       id: el.id || '',
       classes: Array.prototype.slice.call(el.classList || []),
-      textPreview: (el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+      textPreview: (el.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 80),
       outerHtml: (el.outerHTML || '').slice(0, 400),
-      // 渲染快照：AI 拿到实际 computed style/尺寸即可定位“颜色深/字号小”类问题，
-      // 省去先跑一轮 webview 诊断。
       render: (function() {
         try {
           var cs = getComputedStyle(el);
@@ -102,6 +97,11 @@ object HtmlInspectScript {
     if (window.Agent1Inspect && window.Agent1Inspect.onElementPicked) {
       window.Agent1Inspect.onElementPicked(payload);
     }
+    if (window.parent && window.parent !== window) {
+      try {
+        window.parent.postMessage({ type: 'agent1-inspect', payload: payload }, window.location.origin);
+      } catch (e) { /* ignore */ }
+    }
   }
 
   document.addEventListener('click', onPick, true);
@@ -113,12 +113,23 @@ object HtmlInspectScript {
   };
   window.__agent1InspectClear = function() { clearOutline(); };
 })();
-"""
+""";
 
-    const val ENABLE_JS: String = "window.__agent1InspectEnable && window.__agent1InspectEnable();"
-    const val DISABLE_JS: String = "window.__agent1InspectDisable && window.__agent1InspectDisable();"
-    const val CLEAR_JS: String = "window.__agent1InspectClear && window.__agent1InspectClear();"
+    public static final String ENABLE_JS =
+        "window.__agent1InspectEnable && window.__agent1InspectEnable();";
+
+    public static final String DISABLE_JS =
+        "window.__agent1InspectDisable && window.__agent1InspectDisable();";
+
+    public static final String CLEAR_JS =
+        "window.__agent1InspectClear && window.__agent1InspectClear();";
 
     /** Android 注入的桥对象名（addJavascriptInterface）。 */
-    const val BRIDGE_NAME: String = "Agent1Inspect"
+    public static final String BRIDGE_NAME = "Agent1Inspect";
+
+    /** 桌面 Web UI postMessage 的 type 字段。 */
+    public static final String POST_MESSAGE_TYPE = "agent1-inspect";
+
+    private HtmlInspectScript() {
+    }
 }

@@ -289,6 +289,42 @@ export function workspaceFileUrl(sessionId: string, workspaceRelativePath: strin
   return `/api/sessions/${encodeURIComponent(sessionId)}/files/${path}`;
 }
 
+export function workspacePreviewUrl(sessionId: string, workspaceRelativePath: string): string {
+  const path = workspaceRelativePath
+    .split("/")
+    .map((p) => encodeURIComponent(p))
+    .join("/");
+  return `/api/sessions/${encodeURIComponent(sessionId)}/preview/${path}`;
+}
+
+export type PreviewMetaDto = {
+  sessionId: string;
+  path: string;
+  isDeck: boolean;
+};
+
+export async function fetchPreviewMeta(sessionId: string, workspaceRelativePath: string): Promise<PreviewMetaDto> {
+  const q = new URLSearchParams({ path: workspaceRelativePath });
+  return parseJson(
+    await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/preview-meta?${q}`),
+  ) as PreviewMetaDto;
+}
+
+export async function composeInspectFeedback(
+  relativePath: string,
+  elementJson: string,
+  problem: string,
+): Promise<string> {
+  const body = await parseJson(
+    await fetch("/api/html-inspect/compose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ relativePath, elementJson, problem }),
+    }),
+  ) as { text?: string };
+  return body.text || "";
+}
+
 export type CapabilityHitDto = {
   id: string;
   kind: string;
