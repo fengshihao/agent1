@@ -129,7 +129,6 @@ function settingsDraftFromConfig(): SettingsDraft {
     maxContextMessages: cfg?.maxContextMessages ?? 0,
     maxTurnsPerRun: cfg?.maxTurnsPerRun ?? 24,
     maxToolCallsPerRun: cfg?.maxToolCallsPerRun ?? 48,
-    webSearchBaseUrl: cfg?.webSearchBaseUrl || "https://api.tavily.com",
   };
 }
 
@@ -178,14 +177,86 @@ async function openSettings() {
     modelOptions: [],
     error: null,
     moreMenuOpen: false,
+    showMcp: false,
+    showSystemPrompt: false,
   });
   await fetchModelsForDraft(draft, false);
 }
 
 async function openMcpPanel() {
   try {
-    const { servers } = await api.fetchMcpServers();
-    setState({ showMcp: true, mcpServers: servers, mcpStatus: null, showSettings: false, moreMenuOpen: false });
+    const [{ servers }, config] = await Promise.all([api.fetchMcpServers(), api.fetchConfig()]);
+    setState({
+      config,
+      showMcp: true,
+      mcpServers: servers,
+      mcpStatus: null,
+      showSettings: false,
+      showSystemPrompt: false,
+      moreMenuOpen: false,
+      mcpWebSearchBaseUrl: config.webSearchBaseUrl || "https://api.tavily.com",
+      mcpWebSearchApiKey: "",
+    });
+  } catch (e) {
+    setState({ error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+async function openSystemPrompt() {
+  const sessionId = state.activeSessionId;
+  if (!sessionId) {
+    setState({
+      showSystemPrompt: true,
+      showSettings: false,
+      showMcp: false,
+      systemPromptBusy: false,
+      systemPromptError: "先打开或新建一个会话，再查看发给模型的系统提示词。",
+      systemPromptText: "",
+      systemPromptTools: [],
+      moreMenuOpen: false,
+    });
+    return;
+  }
+  setState({
+    showSystemPrompt: true,
+    showSettings: false,
+    showMcp: false,
+    systemPromptBusy: true,
+    systemPromptError: null,
+    moreMenuOpen: false,
+  });
+  try {
+    const snap = await api.fetchSystemPrompt(sessionId);
+    setState({
+      showSystemPrompt: true,
+      systemPromptBusy: false,
+      systemPromptError: null,
+      systemPromptText: snap.prompt || "",
+      systemPromptTools: snap.tools || [],
+    });
+  } catch (e) {
+    setState({
+      showSystemPrompt: true,
+      systemPromptBusy: false,
+      systemPromptError: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
+async function saveWebSearchFromMcp() {
+  const keyEl = document.getElementById("mcp-web-key") as HTMLInputElement | null;
+  const baseEl = document.getElementById("mcp-web-base") as HTMLInputElement | null;
+  const webSearchApiKey = keyEl?.value?.trim() || undefined;
+  const webSearchBaseUrl = baseEl?.value?.trim() || undefined;
+  try {
+    const config = await api.saveConfig({ webSearchApiKey, webSearchBaseUrl });
+    setState({
+      config,
+      mcpWebSearchApiKey: "",
+      mcpWebSearchBaseUrl: config.webSearchBaseUrl || webSearchBaseUrl || "https://api.tavily.com",
+      mcpStatus: config.hasWebSearch ? "联网搜索已保存" : "已保存 Base URL（尚未配置 Key，web_search 不会注册）",
+    });
+    showToast("联网搜索已保存");
   } catch (e) {
     setState({ error: e instanceof Error ? e.message : String(e) });
   }
@@ -526,21 +597,79 @@ function renderMcpPanel(): string {
       </div>`;
     })
     .join("");
+  const cfg = state.config;
   return `<div class="overlay settings-overlay" id="mcp-overlay">
     <div class="overlay-panel settings-panel">
       <header class="settings-header">
-        <h2>MCP 服务器</h2>
+        <h2>MCP 与联网搜索</h2>
         <button type="button" class="icon-btn" id="mcp-close" title="关闭">✕</button>
       </header>
       <div class="settings-body">
-        <p class="muted">配置写入 agentRoot/mcp_servers.json；脚本内通过 $mcp 调用。保存后会刷新 find_caps 索引。</p>
+        <p class="muted">添加服务器后，助手用 find_caps 查找接口，再在脚本里调用 $mcp.名称.工具。保存后会刷新索引。</p>
         ${state.mcpStatus ? `<p class="settings-hint">${escapeHtml(state.mcpStatus)}</p>` : ""}
         <div id="mcp-list">${rows}</div>
         <button type="button" class="link-btn" id="mcp-add">添加服务器</button>
+        <section class="settings-section">
+          <h3>联网搜索（Tavily）</h3>
+          <div class="field">
+            <label for="mcp-web-key">Web Search API Key</label>
+            <input id="mcp-web-key" class="settings-control" type="password" autocomplete="off"
+              value="${escapeHtml(state.mcpWebSearchApiKey)}"
+              placeholder="${cfg?.hasWebSearch ? "已配置，留空不修改" : "tvly-…"}" />
+          </div>
+          <div class="field">
+            <label for="mcp-web-base">Tavily Base URL</label>
+            <input id="mcp-web-base" class="settings-control" value="${escapeHtml(state.mcpWebSearchBaseUrl)}" />
+          </div>
+          <button type="button" class="link-btn" id="mcp-save-search">保存搜索配置</button>
+        </section>
       </div>
       <footer class="settings-footer">
-        <button type="button" class="primary-btn" id="mcp-save">保存并索引</button>
+        <button type="button" class="primary-btn" id="mcp-save">保存 MCP 并索引</button>
       </footer>
+    </div>
+  </div>`;
+}
+
+function renderSystemPromptPanel(): string {
+  if (!state.showSystemPrompt) return "";
+  const tools = state.systemPromptTools
+    .map((t) => {
+      const desc = t.description ? `<p class="muted">${escapeHtml(t.description)}</p>` : "";
+      const schema = t.parametersSchema
+        ? `<pre class="prompt-schema">${escapeHtml(t.parametersSchema)}</pre>`
+        : "";
+      return `<details class="prompt-tool">
+        <summary>${escapeHtml(t.name)}</summary>
+        ${desc}${schema}
+      </details>`;
+    })
+    .join("");
+  const body = state.systemPromptBusy
+    ? `<p class="muted">正在读取系统提示词…</p>`
+    : [
+        state.systemPromptError
+          ? `<p class="error-inline">${escapeHtml(state.systemPromptError)}</p>`
+          : "",
+        state.systemPromptText
+          ? `<div class="prompt-body">${formatBubbleContentHtml(state.systemPromptText, null)}</div>`
+          : state.systemPromptError
+            ? ""
+            : `<p class="muted">当前会话尚未装入系统提示词。</p>`,
+        state.systemPromptTools.length
+          ? `<h3 class="prompt-tools-title">工具 ${state.systemPromptTools.length}</h3>${tools}`
+          : "",
+      ].join("");
+  return `<div class="overlay settings-overlay" id="system-prompt-overlay">
+    <div class="overlay-panel settings-panel wide-panel">
+      <header class="settings-header">
+        <h2>系统提示词</h2>
+        <div class="settings-header-actions">
+          <button type="button" class="link-btn" id="system-prompt-copy" ${state.systemPromptText ? "" : "disabled"}>复制</button>
+          <button type="button" class="icon-btn" id="system-prompt-close" title="关闭">✕</button>
+        </div>
+      </header>
+      <div class="settings-body prompt-scroll">${body}</div>
     </div>
   </div>`;
 }
@@ -689,18 +818,6 @@ function renderSettings(): string {
           </div>
         </section>
         <section class="settings-section">
-          <h3>联网搜索（Tavily）</h3>
-          <div class="field">
-            <label for="cfg-web-key">Web Search API Key</label>
-            <input id="cfg-web-key" class="settings-control" type="password" autocomplete="off"
-              placeholder="${cfg?.hasWebSearch ? "已配置，留空不修改" : "tvly-…"}" />
-          </div>
-          <div class="field">
-            <label for="cfg-web-base">Tavily Base URL</label>
-            <input id="cfg-web-base" class="settings-control" value="${escapeHtml(draft.webSearchBaseUrl)}" />
-          </div>
-        </section>
-        <section class="settings-section">
           <h3>Run 限额</h3>
           <div class="field-row">
             <div class="field">
@@ -726,7 +843,7 @@ function renderSettings(): string {
         </section>
       </div>
       <footer class="settings-footer">
-        <button type="button" class="link-btn" id="cfg-open-mcp">MCP 服务器</button>
+        <button type="button" class="link-btn" id="cfg-open-mcp">MCP 与联网搜索</button>
         <button type="button" class="link-btn" id="cfg-show-tools">已注册工具</button>
         <button type="button" class="primary-btn settings-save" id="cfg-save">保存并生效</button>
       </footer>
@@ -842,6 +959,7 @@ function render() {
     </section>
     ${renderSettings()}
     ${renderMcpPanel()}
+    ${renderSystemPromptPanel()}
     ${renderToolsPanel()}
     ${renderUsagePanel()}
     ${renderFailedLogsPanel()}
@@ -901,7 +1019,7 @@ function bindEvents() {
           void openCapabilitySearch();
           break;
         case "system-prompt":
-          showToast("系统提示词页暂未在 Web UI 提供");
+          void openSystemPrompt();
           break;
         case "brief":
           void copySessionBrief().catch((e) =>
@@ -1107,6 +1225,28 @@ function bindEvents() {
   document.getElementById("mcp-overlay")?.addEventListener("click", (ev) => {
     if (ev.target === ev.currentTarget) setState({ showMcp: false });
   });
+  document.getElementById("mcp-web-key")?.addEventListener("input", (ev) => {
+    state = { ...state, mcpWebSearchApiKey: (ev.target as HTMLInputElement).value };
+  });
+  document.getElementById("mcp-web-base")?.addEventListener("input", (ev) => {
+    state = { ...state, mcpWebSearchBaseUrl: (ev.target as HTMLInputElement).value };
+  });
+  document.getElementById("mcp-save-search")?.addEventListener("click", () => void saveWebSearchFromMcp());
+  document.getElementById("system-prompt-close")?.addEventListener("click", () =>
+    setState({ showSystemPrompt: false, systemPromptError: null }),
+  );
+  document.getElementById("system-prompt-overlay")?.addEventListener("click", (ev) => {
+    if (ev.target === ev.currentTarget) setState({ showSystemPrompt: false, systemPromptError: null });
+  });
+  document.getElementById("system-prompt-copy")?.addEventListener("click", async () => {
+    if (!state.systemPromptText) return;
+    try {
+      await navigator.clipboard.writeText(state.systemPromptText);
+      showToast("已复制系统提示词");
+    } catch (e) {
+      setState({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
   document.getElementById("mcp-add")?.addEventListener("click", () => {
     setState({
       mcpServers: [
@@ -1195,8 +1335,6 @@ function bindEvents() {
     const maxContextMessages = parseInt((document.getElementById("cfg-ctx-msgs") as HTMLInputElement).value, 10);
     const maxTurnsPerRun = parseInt((document.getElementById("cfg-run-turns") as HTMLInputElement).value, 10);
     const maxToolCallsPerRun = parseInt((document.getElementById("cfg-tool-calls") as HTMLInputElement).value, 10);
-    const webSearchApiKey = (document.getElementById("cfg-web-key") as HTMLInputElement).value;
-    const webSearchBaseUrl = (document.getElementById("cfg-web-base") as HTMLInputElement).value;
     try {
       const config = await api.saveConfig({
         apiKey: apiKey || undefined,
@@ -1207,8 +1345,6 @@ function bindEvents() {
         maxContextMessages: Number.isFinite(maxContextMessages) ? maxContextMessages : 0,
         maxTurnsPerRun: Number.isFinite(maxTurnsPerRun) ? maxTurnsPerRun : 0,
         maxToolCallsPerRun: Number.isFinite(maxToolCallsPerRun) ? maxToolCallsPerRun : 0,
-        webSearchApiKey: webSearchApiKey || undefined,
-        webSearchBaseUrl: webSearchBaseUrl || undefined,
       });
       setState({
         config,

@@ -55,6 +55,7 @@ Browser ◄──SSE events── UiHttpServer ◄── AgentEvent ◄───
 | GET/PUT | `/api/mcp/servers` | `mcp_servers.json` 列表与保存（保存后索引 MCP 工具） |
 | GET | `/api/logs/failed?sessionId=` | 失败工具调用（对齐 `./agent1 logs failed`） |
 | GET | `/api/sessions/{id}/brief` | 会话简报（`BriefChatExport`，对齐 Android） |
+| GET | `/api/sessions/{id}/system-prompt` | 当前会话系统提示词 + 已注册工具（对齐 Android 系统提示词页） |
 | GET | `/api/artifacts` | 跨会话产物列表 |
 | GET | `/api/capabilities?q=` | `find_caps` 正文（产物库内检索） |
 | GET/POST/DELETE | `/api/sessions/{id}/attachments` | 上传到 `imports/` |
@@ -101,6 +102,7 @@ Browser ◄──SSE events── UiHttpServer ◄── AgentEvent ◄───
 | 2026-10-21 | P2：core `ArtifactLibrary`、附件/产物库/HTML 预览/能力检索 API 与 Web UI |
 | 2026-10-21 | P3：总结并新开话题、models.dev 模型目录、设置页 Run 限额（对齐 Android 设置能力） |
 | 2026-10-21 | 对齐补强：core `BriefChatExport`、抽屉 ⚠ 失败工具查询、气泡代码块/行内代码 Markdown |
+| 2026-10-21 | Tavily 迁到「MCP 与联网搜索」页；系统提示词页（`GET /api/sessions/{id}/system-prompt`） |
 
 ### 如何启动（备忘）
 

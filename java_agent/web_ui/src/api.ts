@@ -156,6 +156,22 @@ export async function fetchTools(): Promise<{ tools: Array<{ name: string; descr
   return parseJson(await fetch("/api/tools"));
 }
 
+export type RegisteredToolDto = {
+  name: string;
+  description: string;
+  parametersSchema: string;
+};
+
+export type SystemPromptDto = {
+  sessionId: string;
+  prompt: string;
+  tools: RegisteredToolDto[];
+};
+
+export async function fetchSystemPrompt(sessionId: string): Promise<SystemPromptDto> {
+  return parseJson(await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/system-prompt`));
+}
+
 export async function downloadDiagnostics(): Promise<void> {
   const res = await fetch("/api/diagnostics/export");
   if (!res.ok) {

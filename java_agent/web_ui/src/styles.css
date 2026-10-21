@@ -521,6 +521,12 @@ button {
   font-weight: 600;
 }
 
+.settings-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .settings-body {
   flex: 1;
   overflow: auto;
@@ -804,7 +810,61 @@ button {
   border-radius: 12px;
   padding: 0.65rem;
   margin-bottom: 0.65rem;
-  background: #fff;
+  background: var(--paper-deep);
+}
+
+.prompt-scroll {
+  gap: 0.85rem;
+}
+
+.prompt-body {
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.prompt-tools-title {
+  margin: 0.4rem 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.prompt-tool {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0.35rem 0.65rem;
+  background: var(--paper-deep);
+}
+
+.prompt-tool summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 550;
+  padding: 0.2rem 0;
+}
+
+.prompt-tool p {
+  margin: 0.35rem 0 0;
+}
+
+.prompt-schema {
+  margin: 0.35rem 0 0.2rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  overflow-x: auto;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error-inline {
+  color: var(--danger);
+  font-size: 12px;
+  margin: 0;
 }
 
 .mcp-enable {

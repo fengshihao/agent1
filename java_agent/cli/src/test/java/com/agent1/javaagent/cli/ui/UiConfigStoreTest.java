@@ -43,4 +43,16 @@ class UiConfigStoreTest {
         assertEquals(30, merged.getMaxTurnsPerRun());
         assertEquals(40, merged.getMaxToolCallsPerRun());
     }
+
+    @Test
+    void webSearchOnlySaveKeepsModel() throws Exception {
+        UiConfigStore.save(temp, "keep-me", "https://example.com/v1", "ui-model", "dashscope", 12, 0, 30, 40);
+        UiConfigStore.save(temp, null, null, null, null, 0, 0, 0, 0, "tvly-from-ui", "https://api.tavily.com");
+        AgentRuntimeConfig merged = UiConfigStore.mergeWithEnvironment(temp);
+        assertEquals("keep-me", merged.getApiKey());
+        assertEquals("ui-model", merged.getModel());
+        assertEquals(12, merged.getMaxContextTurns());
+        assertEquals("tvly-from-ui", merged.getWebSearchApiKey());
+        assertEquals("https://api.tavily.com", merged.getWebSearchBaseUrl());
+    }
 }

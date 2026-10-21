@@ -145,6 +145,48 @@ class UiHttpServerTest {
     }
 
     @Test
+    void systemPromptSnapshotIncludesPromptAndTools() throws Exception {
+        LlmClient fake = new LlmClient() {
+            @Override
+            public AssistantResponse streamChat(
+                ChatRequest request,
+                List<AgentTool> tools,
+                LlmStreamListener streamListener,
+                CancellationToken cancellationToken
+            ) {
+                return new AssistantResponse("", List.of());
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").model("test-model").build();
+        DesktopUiGateway gateway = new DesktopUiGateway(
+            temp,
+            cfg -> new ProductivityAgentHost(temp, cfg, fake),
+            config
+        );
+        int port = freePort();
+        try (gateway; UiHttpServer server = new UiHttpServer(gateway, port)) {
+            server.start();
+            String base = "http://127.0.0.1:" + port;
+            JsonNode created = postJson(base + "/api/sessions", "{}");
+            String sessionId = created.path("sessionId").asText();
+
+            JsonNode body = getJson(base + "/api/sessions/" + sessionId + "/system-prompt");
+            assertEquals(sessionId, body.path("sessionId").asText());
+            assertTrue(body.path("prompt").asText().length() > 20, "expected system prompt text");
+            assertTrue(body.path("tools").isArray());
+            assertTrue(body.path("tools").size() > 0, "expected registered tools");
+            JsonNode first = body.path("tools").get(0);
+            assertTrue(first.path("name").asText().length() > 0);
+            assertTrue(first.has("description"));
+            assertTrue(first.has("parametersSchema"));
+        }
+    }
+
+    @Test
     void resolvePortReadsFlag() {
         assertEquals(9999, ProductivityUiCommand.resolvePort(new String[]{"--port", "9999"}));
     }

@@ -7,6 +7,7 @@ import type {
   McpServerDto,
   MessageDto,
   ModelOptionDto,
+  RegisteredToolDto,
   SessionMeta,
   UsageDto,
 } from "./api";
@@ -69,6 +70,13 @@ export type AppState = {
   failedLogsScopeSession: boolean;
   moreMenuOpen: boolean;
   showAbout: boolean;
+  showSystemPrompt: boolean;
+  systemPromptBusy: boolean;
+  systemPromptError: string | null;
+  systemPromptText: string;
+  systemPromptTools: RegisteredToolDto[];
+  mcpWebSearchBaseUrl: string;
+  mcpWebSearchApiKey: string;
 };
 
 export type SettingsDraft = {
@@ -79,7 +87,6 @@ export type SettingsDraft = {
   maxContextMessages: number;
   maxTurnsPerRun: number;
   maxToolCallsPerRun: number;
-  webSearchBaseUrl: string;
 };
 
 export function createInitialState(): AppState {
@@ -122,6 +129,13 @@ export function createInitialState(): AppState {
     failedLogsScopeSession: true,
     moreMenuOpen: false,
     showAbout: false,
+    showSystemPrompt: false,
+    systemPromptBusy: false,
+    systemPromptError: null,
+    systemPromptText: "",
+    systemPromptTools: [],
+    mcpWebSearchBaseUrl: "https://api.tavily.com",
+    mcpWebSearchApiKey: "",
   };
 }
 

@@ -491,6 +491,25 @@ public final class UiHttpServer implements AutoCloseable {
             sendJson(exchange, 200, body);
             return;
         }
+        if (parts.length == 2 && "system-prompt".equals(parts[1]) && "GET".equalsIgnoreCase(method)) {
+            try {
+                DesktopUiGateway.SystemPromptSnapshot snap = gateway.systemPromptSnapshot(sessionId);
+                ObjectNode body = MAPPER.createObjectNode();
+                body.put("sessionId", sessionId);
+                body.put("prompt", snap.prompt() == null ? "" : snap.prompt());
+                ArrayNode tools = body.putArray("tools");
+                for (var tool : snap.tools()) {
+                    ObjectNode node = tools.addObject();
+                    node.put("name", tool.name());
+                    node.put("description", tool.description());
+                    node.put("parametersSchema", tool.parametersSchema());
+                }
+                sendJson(exchange, 200, body);
+            } catch (Exception e) {
+                sendError(exchange, 400, e.getMessage());
+            }
+            return;
+        }
         if (parts.length == 2 && "attachments".equals(parts[1]) && "GET".equalsIgnoreCase(method)) {
             ArrayNode arr = MAPPER.createArrayNode();
             for (DesktopAttachments.ListedFile file : gateway.listAttachments(sessionId)) {

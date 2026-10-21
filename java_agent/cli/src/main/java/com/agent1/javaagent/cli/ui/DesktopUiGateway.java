@@ -194,6 +194,31 @@ public final class DesktopUiGateway implements Closeable {
         return execute(() -> ensureHost().registeredTools());
     }
 
+    /**
+     * 当前会话下一次 Run 会使用的系统提示词，以及已注册工具说明（对齐 Android
+     * {@code ProductivityAgentGateway#systemPromptSnapshot}）。
+     */
+    public SystemPromptSnapshot systemPromptSnapshot(String sessionId) {
+        return execute(() -> {
+            if (sessionId == null || sessionId.isBlank()) {
+                throw new IllegalArgumentException("先打开或新建一个会话，再查看发给模型的系统提示词。");
+            }
+            ProductivityAgentHost agentHost = ensureHost();
+            if (agentHost.isRunInProgress()) {
+                String active = agentHost.getActiveSessionId();
+                if (active == null || !active.equals(sessionId)) {
+                    throw new IllegalStateException("当前有进行中的对话，结束后再查看系统提示词");
+                }
+            } else {
+                agentHost.switchSession(sessionId);
+            }
+            return new SystemPromptSnapshot(agentHost.activeSystemPrompt(), agentHost.registeredTools());
+        });
+    }
+
+    public record SystemPromptSnapshot(String prompt, List<ProductivityAgentHost.RegisteredToolBrief> tools) {
+    }
+
     public Path exportDiagnosticZip() throws IOException {
         return DesktopDiagnosticExport.exportZip(agentRoot, configuration());
     }
