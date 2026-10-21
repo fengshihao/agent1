@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# shellcheck source=java-install-hint.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/java-install-hint.sh"
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+JAR="$(ls "${ROOT}"/lib/cli-*-ui*.jar 2>/dev/null | head -1)"
+
+if [[ -z "${JAR}" || ! -f "${JAR}" ]]; then
+  echo "错误: 未找到 lib/cli-*-ui*.jar" >&2
+  exit 1
+fi
+
+JAVA_BIN="$(find_java_bin || true)"
+if [[ -z "${JAVA_BIN}" ]]; then
+  java_install_hint
+  exit 1
+fi
+
+JAVA_MAJOR="$(java_major_version "${JAVA_BIN}")"
+if [[ "${JAVA_MAJOR}" -lt "${AGENT1_MIN_JAVA_MAJOR}" ]]; then
+  echo "当前 Java 版本过低（需要 ${AGENT1_MIN_JAVA_MAJOR}+，检测到 ${JAVA_MAJOR}）：" >&2
+  "${JAVA_BIN}" -version 2>&1 | head -1 >&2 || true
+  java_install_hint
+  exit 1
+fi
+
+exec "${JAVA_BIN}" -jar "${JAR}" "$@"
