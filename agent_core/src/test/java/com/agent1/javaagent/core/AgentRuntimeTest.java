@@ -471,4 +471,44 @@ class AgentRuntimeTest {
             .anyMatch(m -> "继续ok".equals(m.getContent())));
         runtime.close();
     }
+
+    @Test
+    void missingToolResultInHistory_isRepairedBeforeNextRequest() {
+        List<ChatRequest> requests = new CopyOnWriteArrayList<>();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            requests.add(request);
+            streamListener.onTextDelta("继续ok");
+            return new AssistantResponse("继续ok", List.of());
+        };
+        AgentRuntime runtime = new AgentRuntime(AgentOptions.builder("test-model").build(), fake);
+        runtime.replaceMessages(List.of(
+            AgentMessage.assistant("", List.of(new ToolCall("orphan", "edit_file", "{}"))),
+            AgentMessage.assistant("错误: 工具调用次数超过上限（48），已停止本轮以避免循环重试", List.of())
+        ));
+        runtime.prompt("继续").join();
+        runtime.waitForIdle();
+
+        List<AgentMessage> sent = requests.get(0).getMessages();
+        int assistantIdx = -1;
+        int resultIdx = -1;
+        int errorIdx = -1;
+        for (int i = 0; i < sent.size(); i++) {
+            AgentMessage message = sent.get(i);
+            if (message.getToolCalls().stream().anyMatch(call -> "orphan".equals(call.getId()))) {
+                assistantIdx = i;
+            }
+            if ("orphan".equals(message.getToolCallId())) {
+                resultIdx = i;
+            }
+            if (message.getContent() != null && message.getContent().contains("工具调用次数超过上限")) {
+                errorIdx = i;
+            }
+        }
+        assertTrue(assistantIdx >= 0);
+        assertTrue(resultIdx > assistantIdx, "缺失回执必须插在 tool_calls 后面");
+        assertTrue(errorIdx > resultIdx, "回执必须排在后续助手消息之前");
+        assertTrue(runtime.getStateSnapshot().getMessages().stream()
+            .anyMatch(m -> "继续ok".equals(m.getContent())));
+        runtime.close();
+    }
 }

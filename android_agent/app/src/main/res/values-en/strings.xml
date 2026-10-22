@@ -12,6 +12,8 @@
     <string name="chat_new_topic_after_reply">New topic</string>
     <string name="chat_new_topic_after_reply_cd">Start a new chat from here</string>
     <string name="chat_input_hint">Message…</string>
+    <string name="chat_continue">Continue</string>
+    <string name="chat_continue_hint">This round hit its limit. Tap Continue to finish.</string>
     <string name="chat_send_attachment_changes_only">(Attachments updated)</string>
     <string name="chat_input_answer_card">Answer in the card above and submit</string>
     <string name="chat_opening">Opening chat…</string>

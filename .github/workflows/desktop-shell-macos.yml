@@ -1,0 +1,53 @@
+# M1：在 macOS runner 上编译 desktop_shell，供无本机 Rust 工具链的开发者下载验收。
+name: desktop-shell-macos
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "desktop_shell/**"
+      - ".github/workflows/desktop-shell-macos.yml"
+  pull_request:
+    paths:
+      - "desktop_shell/**"
+      - ".github/workflows/desktop-shell-macos.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-13
+            arch: x86_64
+          - runner: macos-14
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cargo build --release
+        working-directory: desktop_shell
+        run: cargo build --release
+
+      - name: Package binary
+        working-directory: desktop_shell
+        run: |
+          mkdir -p dist
+          cp "target/release/agent1-ui-window" dist/
+          chmod +x dist/agent1-ui-window
+          zip -r "agent1-ui-window-darwin-${{ matrix.arch }}.zip" dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent1-ui-window-darwin-${{ matrix.arch }}
+          path: desktop_shell/agent1-ui-window-darwin-${{ matrix.arch }}.zip
+          retention-days: 14

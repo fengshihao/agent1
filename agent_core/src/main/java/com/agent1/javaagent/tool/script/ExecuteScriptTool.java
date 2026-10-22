@@ -25,6 +25,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class ExecuteScriptTool implements AgentTool {
 
+    /** 未指定 {@code timeout_ms} 时宿主默认脚本预算（2 分钟）。 */
+    public static final long DEFAULT_TIMEOUT_MS = 120_000L;
+    /** {@code timeout_ms} 与 {@code AGENT1_SCRIPT_TIMEOUT_MS} 可请求的上限（10 分钟）。 */
+    public static final long MAX_TIMEOUT_MS = 600_000L;
+    public static final long MIN_TIMEOUT_MS = 1_000L;
+
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final WorkspaceSandbox sandbox;
@@ -48,7 +54,7 @@ public final class ExecuteScriptTool implements AgentTool {
     ) {
         this.sandbox = sandbox;
         this.engineFactory = engineFactory;
-        this.defaultTimeoutMs = defaultTimeoutMs > 0 ? defaultTimeoutMs : 600_000L;
+        this.defaultTimeoutMs = defaultTimeoutMs > 0 ? defaultTimeoutMs : DEFAULT_TIMEOUT_MS;
         this.agentRoot = agentRoot == null ? null : agentRoot.toAbsolutePath().normalize();
     }
 
@@ -65,7 +71,39 @@ public final class ExecuteScriptTool implements AgentTool {
             可以顶层 await。返回值是最后一条表达式，不要写顶层 return。
             MCP：await $mcp.服务器.工具({...})，名字来自 find_caps 的 entry。
             外层工具：await $tools.工具名({...})。已注册时可用 $tools.webview_exec 进入浏览器环境（与外层同名工具相同）。不能再调 run_js。
+            批量搜图/下载：同一段 run_js 里 await $tools.images_download({ items:[{url}], dir, name_prefix })，不要 bash cp 整理。
+            可选 timeout_ms（毫秒，1000–600000）：未指定则用宿主默认（约 2 分钟）；长批量可显式加大，上限 10 分钟。
             """.trim();
+    }
+
+    @Override
+    public long suggestedTimeoutMs(JsonNode parameters, long fallbackMs) {
+        return resolveTimeoutMs(parameters, defaultTimeoutMs > 0 ? defaultTimeoutMs : fallbackMs);
+    }
+
+    /**
+     * 解析本次脚本超时：参数 {@code timeout_ms} 优先，否则宿主 {@code defaultTimeoutMs}，封顶 {@link #MAX_TIMEOUT_MS}。
+     */
+    static long resolveTimeoutMs(JsonNode parameters, long configuredDefault) {
+        long base = configuredDefault > 0 ? configuredDefault : DEFAULT_TIMEOUT_MS;
+        if (parameters == null || parameters.isMissingNode() || !parameters.has("timeout_ms")) {
+            return Math.min(base, MAX_TIMEOUT_MS);
+        }
+        JsonNode node = parameters.get("timeout_ms");
+        long requested = -1;
+        if (node != null && node.canConvertToLong()) {
+            requested = node.asLong();
+        } else if (node != null && node.isTextual()) {
+            try {
+                requested = Long.parseLong(node.asText("").trim());
+            } catch (NumberFormatException ignored) {
+                requested = -1;
+            }
+        }
+        if (requested <= 0) {
+            return Math.min(base, MAX_TIMEOUT_MS);
+        }
+        return Math.min(Math.max(requested, MIN_TIMEOUT_MS), MAX_TIMEOUT_MS);
     }
 
     @Override
@@ -90,6 +128,15 @@ public final class ExecuteScriptTool implements AgentTool {
             MAPPER.createObjectNode()
                 .put("type", "array")
                 .put("description", "Optional JSON array passed to the script as globalThis.__agentArgs.")
+        );
+        properties.set(
+            "timeout_ms",
+            MAPPER.createObjectNode()
+                .put("type", "integer")
+                .put(
+                    "description",
+                    "Optional script timeout in ms (1000–600000). Default is host budget (~2 min); raise for batch $tools.images_download."
+                )
         );
         schema.set("properties", properties);
         return schema;
@@ -153,6 +200,7 @@ public final class ExecuteScriptTool implements AgentTool {
         final String boundFile = hasFile ? file : spilledFile;
 
         String prelude = buildArgsPrelude(parameters.get("args"));
+        long timeoutMs = resolveTimeoutMs(parameters, defaultTimeoutMs);
         ScriptEvalFrame.SourceKind kind = boundFile == null
             ? ScriptEvalFrame.SourceKind.INLINE
             : ScriptEvalFrame.SourceKind.FILE;
@@ -176,7 +224,7 @@ public final class ExecuteScriptTool implements AgentTool {
                     String json = engine.evalForAgent(
                         source,
                         prelude,
-                        defaultTimeoutMs,
+                        timeoutMs,
                         cancellationToken,
                         boundFile
                     );

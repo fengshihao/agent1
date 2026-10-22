@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.config.AgentRuntimeConfig;
 import com.agent1.javaagent.core.CancellationToken;
+import com.agent1.javaagent.core.RunOutcome;
 import com.agent1.javaagent.llm.LlmClient;
 import com.agent1.javaagent.llm.LlmStreamListener;
 import com.agent1.javaagent.model.AgentMessage;
@@ -25,6 +26,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.agent1.javaagent.tool.WorkspaceToolProvider;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -193,17 +196,19 @@ class ProductivityAgentHostTest {
             host.runUserMessage("ping");
             assertFalse(toolNames.get().contains("read_agent_doc"));
             assertFalse(toolNames.get().contains("list_catalog"));
-            assertTrue(toolNames.get().contains("promote_request"));
+            assertFalse(toolNames.get().contains("promote_request"));
             assertFalse(toolNames.get().contains("catalog_install"));
             assertFalse(toolNames.get().contains("catalog_sync_status"));
-            assertTrue(toolNames.get().contains("list_sessions"));
+            assertFalse(toolNames.get().contains("list_sessions"));
             assertFalse(toolNames.get().contains("skill"));
             assertTrue(toolNames.get().contains("ask_user"));
             assertTrue(toolNames.get().contains("todo_write"));
             assertTrue(toolNames.get().contains("find_caps"));
-            assertTrue(toolNames.get().contains("media_resize"));
-            assertTrue(toolNames.get().contains("media_probe"));
-            assertTrue(toolNames.get().contains("media_extract_frame"));
+            assertFalse(toolNames.get().contains("media_resize"));
+            assertFalse(toolNames.get().contains("media_probe"));
+            assertFalse(toolNames.get().contains("media_extract_frame"));
+            assertTrue(toolNames.get().contains("images_download"));
+            assertFalse(toolNames.get().contains("image_search"));
             assertFalse(toolNames.get().contains("web_search"));
             assertFalse(host.runtime().getStateSnapshot().getSystemPrompt().contains("web_search"));
         }
@@ -225,6 +230,8 @@ class ProductivityAgentHostTest {
             host.createSession();
             host.runUserMessage("ping");
             assertTrue(toolNames.get().contains("web_search"));
+            assertTrue(toolNames.get().contains("image_search"));
+            assertTrue(toolNames.get().contains("images_download"));
             assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("web_search"));
         }
     }
@@ -328,6 +335,60 @@ class ProductivityAgentHostTest {
             );
             host.runUserMessage("继续");
             assertFalse(host.activeSystemPrompt().contains("当前任务清单"));
+        }
+    }
+
+    @Test
+    void toolBudgetStop_persistsToolResultAndContinueSucceeds() {
+        List<ChatRequest> requests = new CopyOnWriteArrayList<>();
+        AtomicInteger calls = new AtomicInteger();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            requests.add(request);
+            int index = calls.getAndIncrement();
+            if (index == 0) {
+                return new AssistantResponse("", List.of(new ToolCall("c0", "missing_tool", "{}")));
+            }
+            if (index == 1) {
+                return new AssistantResponse("", List.of(new ToolCall("c1", "missing_tool", "{}")));
+            }
+            streamListener.onTextDelta("补完了");
+            return new AssistantResponse("补完了", List.of());
+        };
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder()
+            .apiKey("test-key")
+            .maxTurnsPerRun(5)
+            .maxToolCallsPerRun(1)
+            .build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            host.createSession();
+            String sessionId = host.getActiveSessionId();
+            String runId = host.runUserMessage("配图");
+
+            FileRunStore runs = new FileRunStore(new FileSessionStore(temp));
+            assertEquals(RunState.PAUSED, runs.read(sessionId, runId).getState());
+            assertTrue(RunOutcome.isToolBudget(runs.read(sessionId, runId).getLastError().orElse("")));
+
+            List<AgentMessage> transcript = new FileSessionStore(temp).loadTranscript(sessionId);
+            int skipped = -1;
+            int notice = -1;
+            for (int i = 0; i < transcript.size(); i++) {
+                AgentMessage message = transcript.get(i);
+                if ("c1".equals(message.getToolCallId())) {
+                    skipped = i;
+                }
+                if (message.getContent() != null && message.getContent().contains(RunOutcome.TOOL_BUDGET_PREFIX)) {
+                    notice = i;
+                }
+            }
+            assertTrue(skipped >= 0, "未执行的工具调用必须先写入回执");
+            assertTrue(notice > skipped, "回执必须排在暂停说明之前");
+
+            host.runUserMessage("继续");
+            ChatRequest continued = requests.get(requests.size() - 1);
+            assertTrue(continued.getMessages().stream()
+                .anyMatch(m -> "c1".equals(m.getToolCallId())));
+            assertTrue(new FileSessionStore(temp).loadTranscript(sessionId).stream()
+                .anyMatch(m -> "补完了".equals(m.getContent())));
         }
     }
 }

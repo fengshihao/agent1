@@ -195,6 +195,48 @@ public final class FileSessionStore implements SessionStore {
         writeMeta(dir, updated);
     }
 
+    @Override
+    public synchronized void replaceTranscript(String sessionId, List<AgentMessage> messages, String defaultRunId) {
+        Path dir = requireSession(sessionId);
+        Path transcript = dir.resolve("transcript.jsonl");
+        String fallbackRunId = defaultRunId == null ? "" : defaultRunId;
+        List<String> existingRunIds = loadRunIds(transcript);
+        List<String> runIds = TranscriptPairingPersistence.runIdsForRewrite(
+            messages.size(),
+            existingRunIds,
+            fallbackRunId
+        );
+        StringBuilder body = new StringBuilder();
+        for (int i = 0; i < messages.size(); i++) {
+            body.append(codec.toLine(runIds.get(i), messages.get(i)));
+            body.append(System.lineSeparator());
+        }
+        try {
+            PathIo.writeString(transcript, body.toString(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("replace transcript failed: " + transcript, e);
+        }
+    }
+
+    private List<String> loadRunIds(Path transcript) {
+        if (!Files.isRegularFile(transcript)) {
+            return List.of();
+        }
+        List<String> runIds = new ArrayList<>();
+        try {
+            for (String line : Files.readAllLines(transcript, StandardCharsets.UTF_8)) {
+                if (line.isBlank()) {
+                    continue;
+                }
+                JsonNode root = mapper.readTree(line);
+                runIds.add(root.path("runId").asText(""));
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("read transcript runIds failed: " + transcript, e);
+        }
+        return runIds;
+    }
+
     private Path requireSession(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {
             throw new IllegalArgumentException("sessionId required");

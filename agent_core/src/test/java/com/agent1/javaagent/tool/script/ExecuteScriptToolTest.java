@@ -46,6 +46,25 @@ class ExecuteScriptToolTest {
     }
 
     @Test
+    void suggestedTimeoutUsesHostDefaultWhenParamAbsent() {
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "1");
+        assertEquals(60_000L, tool.suggestedTimeoutMs(params, 30_000L));
+    }
+
+    @Test
+    void suggestedTimeoutClampsRequestedTimeoutMs() {
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "1");
+        params.put("timeout_ms", 120_000);
+        assertEquals(120_000L, tool.suggestedTimeoutMs(params, 30_000L));
+        params.put("timeout_ms", 9_999_999);
+        assertEquals(ExecuteScriptTool.MAX_TIMEOUT_MS, tool.suggestedTimeoutMs(params, 30_000L));
+        params.put("timeout_ms", 100);
+        assertEquals(ExecuteScriptTool.MIN_TIMEOUT_MS, tool.suggestedTimeoutMs(params, 30_000L));
+    }
+
+    @Test
     void descriptionPrefersFileForLongOrIterativeScripts() {
         String description = tool.description();
         assertTrue(description.contains("20 行或 1000 字符"));

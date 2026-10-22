@@ -79,6 +79,7 @@ App 内即见 **生产力助手**：`ProductivityAgentHost` + 会话列表 / 流
 ```bash
 ./agent1                  # 生产力助手 · 交互
 ./agent1 ui               # 本机 Web UI（浏览器，风格对齐 Android）
+./agent1 ui --no-browser  # 仅起 HTTP 服务，不打开浏览器（WebView 薄壳联调见 desktop_shell/README.md）
 ./agent1 你好             # 单次提问
 ./agent1 models           # 模型与运行时参数
 ./agent1 tools            # 当前平台工具能力摘要

@@ -13,6 +13,7 @@ import com.agent1.android.productivity.logic.business.AskUserFormatting
 import com.agent1.android.productivity.logic.business.AskUserPendingDetector
 import com.agent1.android.productivity.logic.business.AskUserReplyFormatter
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
+import com.agent1.android.productivity.logic.business.ContinueAfterBudget
 import org.json.JSONObject
 import com.agent1.android.productivity.logic.business.ApiSetupGate
 import com.agent1.android.productivity.logic.business.AttachmentSheetDraft
@@ -190,12 +191,27 @@ class ChatViewModel(
                     .mapIndexed { index, line ->
                     line.copy(stableKey = "transcript-$index-${line.role}")
                 }
-                data class Loaded(val lines: List<ChatLine>, val entries: List<SessionAccessibleFilesStore.Entry>, val pending: AskUserFormatting.Request?)
-                Loaded(lines, accessibleEntries, pending)
+                data class Loaded(
+                    val lines: List<ChatLine>,
+                    val entries: List<SessionAccessibleFilesStore.Entry>,
+                    val pending: AskUserFormatting.Request?,
+                    val offerContinue: Boolean,
+                )
+                Loaded(
+                    lines,
+                    accessibleEntries,
+                    pending,
+                    ContinueAfterBudget.shouldOffer(
+                        messages,
+                        running = false,
+                        pendingAsk = pending != null,
+                    ),
+                )
             }
             val pendingForm = built.pending?.let { initialAskUserForm(it) }
             _state.value = _state.value.copy(
                 lines = built.lines,
+                offerContinue = built.offerContinue,
                 accessibleFilePaths = built.entries.map { it.workspaceRelativePath },
                 accessibleFileEntries = built.entries,
                 streamingText = "",
@@ -302,6 +318,11 @@ class ChatViewModel(
             }
         }
         return true
+    }
+
+    /** 轮次或工具次数用尽后的底部按钮。发给模型的仍是「继续」，和用户手打一致。 */
+    fun continueAfterBudget() {
+        sendMessage("继续")
     }
 
     private fun appendUnpersistedSendResult(text: String, failure: String) {

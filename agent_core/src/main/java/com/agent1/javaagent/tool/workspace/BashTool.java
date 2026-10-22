@@ -25,6 +25,9 @@ import java.util.concurrent.TimeoutException;
  */
 public final class BashTool {
 
+    /** 命令成功但无 stdout 时返回给模型的文案（避免字面 “empty output” 被当成失败）。 */
+    static final String NO_STDOUT_SUCCESS = "已成功执行（无标准输出）";
+
     private static final long TIMEOUT_MS = 10_000;
     private static final int MAX_OUTPUT_BYTES = 50_000;
 
@@ -118,7 +121,7 @@ public final class BashTool {
                 continue;
             }
             String line = execute(cancellationToken, new String[] {"which", name});
-            if (line.startsWith("Error:") || "(empty output)".equals(line)) {
+            if (line.startsWith("Error:") || NO_STDOUT_SUCCESS.equals(line)) {
                 continue;
             }
             if (out.length() > 0 && !out.toString().endsWith("\n")) {
@@ -129,7 +132,7 @@ public final class BashTool {
                 out.append('\n');
             }
         }
-        return out.length() == 0 ? "(empty output)" : out.toString().trim() + "\n";
+        return out.length() == 0 ? NO_STDOUT_SUCCESS : out.toString().trim() + "\n";
     }
 
     private static String checkSeparators(String cmd) {
@@ -307,7 +310,7 @@ public final class BashTool {
             if (exitCode != 0 && output.isEmpty()) {
                 return "Error: command exited with code " + exitCode;
             }
-            return output.isEmpty() ? "(empty output)" : output;
+            return output.isEmpty() ? NO_STDOUT_SUCCESS : output;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return "Error: command interrupted";

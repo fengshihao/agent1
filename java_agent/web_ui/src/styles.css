@@ -405,6 +405,20 @@ button {
   background: var(--paper-lift);
 }
 
+.continue-bar {
+  margin-bottom: 0.65rem;
+}
+
+.continue-bar p {
+  margin: 0 0 0.4rem;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.continue-bar .primary-btn {
+  width: 100%;
+}
+
 .inline-setup {
   margin-bottom: 0.65rem;
   padding: 0.75rem 0.85rem;

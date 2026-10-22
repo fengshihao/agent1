@@ -208,6 +208,41 @@ export function isFreshSession(state: {
   return !state.lines.some((l) => l.role === "user" || l.role === "assistant");
 }
 
+const PROGRESS_TURN_MARK = "往返轮次已达上限";
+
+function isContinuableStop(content: string): boolean {
+  return (
+    content.includes("单轮模型与工具往返超过上限") ||
+    content.includes("单轮工具调用次数超过上限") ||
+    content.includes("工具调用次数超过上限") ||
+    content.includes("insufficient tool messages")
+  );
+}
+
+/** 轮次或工具次数用尽、任务还没做完时，输入框上方显示「继续」。 */
+export function shouldOfferContinue(
+  lines: ChatLine[],
+  isRunning: boolean,
+  pendingAsk: boolean,
+): boolean {
+  if (isRunning || pendingAsk) return false;
+  let marker = -1;
+  lines.forEach((line, index) => {
+    const progressPrompt = line.role === "user" && line.content.includes(PROGRESS_TURN_MARK);
+    if (progressPrompt || isContinuableStop(line.content)) marker = index;
+  });
+  if (marker < 0) return false;
+  let sawUserAfter = false;
+  for (let index = marker + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line.role === "user" && !line.content.includes(PROGRESS_TURN_MARK)) sawUserAfter = true;
+    if (sawUserAfter && line.role === "assistant" && line.content.trim() && !isContinuableStop(line.content)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function messagesToLines(messages: MessageDto[]): ChatLine[] {
   const lines: ChatLine[] = [];
   messages.forEach((msg, index) => {

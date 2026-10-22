@@ -49,7 +49,7 @@ class ImageSearchToolTest {
             assertTrue(result.getText().contains("https://img.example.com/valley.png"), result.getText());
             assertTrue(result.getText().contains("来源页"), result.getText());
             assertTrue(result.getText().contains("https://photos.example.com/gallery/sunrise"), result.getText());
-            assertTrue(result.getText().contains("image_download"), result.getText());
+            assertTrue(result.getText().contains("images_download"), result.getText());
 
             RecordedRequest recorded = server.takeRequest();
             assertEquals("/search", recorded.getPath());

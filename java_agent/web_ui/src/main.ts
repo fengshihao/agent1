@@ -10,6 +10,7 @@ import {
   isHtmlPreviewPath,
   isPreviewablePath,
   messagesToLines,
+  shouldOfferContinue,
   ToolPart,
 } from "./state";
 import { extraPlainImageHtml, formatBubbleContentHtml } from "./messageFormat";
@@ -718,8 +719,8 @@ async function reloadAfterRun() {
   }
 }
 
-async function onSend() {
-  const text = state.composer.trim();
+async function onSend(preset?: string) {
+  const text = (preset ?? state.composer).trim();
   if (!text || !state.activeSessionId || state.isRunning || state.pendingAsk) return;
   if (!state.config?.hasApiKey) {
     setState({ showSettings: true, error: "请先配置 API Key" });
@@ -732,7 +733,7 @@ async function onSend() {
   };
   setState({
     lines: [...state.lines, optimistic],
-    composer: "",
+    composer: preset == null ? "" : state.composer,
     isRunning: true,
     streamingText: "",
     tools: [],
@@ -1292,6 +1293,7 @@ function render() {
 
   const usageFoot = usageFooterLine(state.usage);
 
+  const offerContinue = shouldOfferContinue(state.lines, state.isRunning, !!state.pendingAsk);
   const composerDisabled = state.isRunning || !!state.pendingAsk;
   const placeholder = state.pendingAsk
     ? "请在上方卡片回答"
@@ -1343,6 +1345,11 @@ function render() {
                     `<span class="chip">${escapeHtml(a.fileName)} <button type="button" data-rm-attach="${escapeHtml(a.workspaceRelativePath)}">×</button></span>`,
                 )
                 .join("")}</div>`
+            : ""
+        }
+        ${
+          offerContinue
+            ? `<div class="continue-bar"><p>这一轮已经到上限，点继续接着做完</p><button type="button" class="primary-btn" id="btn-continue">继续</button></div>`
             : ""
         }
         <div class="composer">
@@ -1669,6 +1676,7 @@ function bindEvents() {
     }
   });
   document.getElementById("btn-send")?.addEventListener("click", () => void onSend());
+  document.getElementById("btn-continue")?.addEventListener("click", () => void onSend("继续"));
   document.getElementById("btn-stop")?.addEventListener("click", async () => {
     await api.abortRun();
   });

@@ -21,4 +21,9 @@ public interface SessionStore {
 
     /** 追加一条消息并刷新 {@code updatedAt}；首条用户消息可自动更新标题。 */
     void appendMessage(String sessionId, String runId, AgentMessage message);
+
+    /**
+     * 原子替换整份 transcript（用于 tool_call 配对修复等）；{@code defaultRunId} 用于新增行。
+     */
+    void replaceTranscript(String sessionId, List<AgentMessage> messages, String defaultRunId);
 }

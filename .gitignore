@@ -55,3 +55,6 @@ user_memory.md
 
 # 本地对比样例产物（HTML2PPTX_SAMPLE_DIR 输出）
 out-samples/
+
+# desktop_shell (Rust / wry)
+desktop_shell/target/

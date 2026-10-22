@@ -230,29 +230,55 @@ public final class AgentRuntime implements Closeable {
                 emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(assistantMessage));
 
                 List<AgentMessage> toolResults = new ArrayList<>();
+                boolean toolBudgetHit = false;
                 if (assistantResponse.isTruncatedToolCall()) {
                     for (ToolCall toolCall : assistantResponse.getToolCalls()) {
                         toolResults.add(recordTruncatedToolCall(toolCall));
                     }
                 } else if (!assistantResponse.getToolCalls().isEmpty()) {
-                    for (ToolCall toolCall : assistantResponse.getToolCalls()) {
+                    List<ToolCall> calls = assistantResponse.getToolCalls();
+                    for (int i = 0; i < calls.size(); i++) {
                         if (token.isCancelled()) {
+                            toolResults.addAll(appendUnexecutedToolResults(
+                                calls,
+                                i,
+                                "执行已取消，本次调用未执行"
+                            ));
                             break;
                         }
                         if (toolCallCount >= maxToolCallsPerRun) {
-                            throw new IllegalStateException(
-                                "工具调用次数超过上限（" + maxToolCallsPerRun + "），已停止本轮以避免循环重试"
-                            );
+                            toolResults.addAll(appendUnexecutedToolResults(
+                                calls,
+                                i,
+                                RunOutcome.toolCallSkippedForBudget(maxToolCallsPerRun)
+                            ));
+                            toolBudgetHit = true;
+                            break;
                         }
-                        toolResults.add(executeToolCall(toolCall, token));
+                        toolResults.add(executeToolCall(calls.get(i), token));
                         toolCallCount += 1;
                         if (stopRunWaitingUser) {
+                            toolResults.addAll(appendUnexecutedToolResults(
+                                calls,
+                                i + 1,
+                                "本轮已暂停等待用户，本次调用未执行"
+                            ));
                             break;
                         }
                     }
                 }
 
                 emit(AgentEventType.TURN_END, new EventPayloads.TurnEnd(assistantMessage, toolResults));
+                if (toolBudgetHit) {
+                    state.setError(RunOutcome.toolBudgetMessage(maxToolCallsPerRun));
+                    AgentMessage notice = AgentMessage.assistant(
+                        RunOutcome.toolBudgetNotice(maxToolCallsPerRun),
+                        List.of()
+                    );
+                    state.appendMessage(notice);
+                    emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(notice));
+                    break;
+                }
                 if (stopRunWaitingUser) {
                     state.setError(RunOutcome.waitingUserMessage());
                     break;
@@ -302,6 +328,8 @@ public final class AgentRuntime implements Closeable {
             state.setStreaming(false);
             state.setStreamMessage(null);
             state.clearPendingToolCalls();
+            List<AgentMessage> paired = ToolCallPairingRepair.ensureResults(state.getMessages());
+            state.replaceMessages(paired);
             emit(AgentEventType.AGENT_END, new EventPayloads.AgentEnd(state.getMessages()));
         }
     }
@@ -486,6 +514,34 @@ public final class AgentRuntime implements Closeable {
         }
     }
 
+    /** 尚未开始的 tool_call 也要落一条回执，否则下一次请求会被服务端拒绝。 */
+    private List<AgentMessage> appendUnexecutedToolResults(List<ToolCall> calls, int fromInclusive, String note) {
+        List<AgentMessage> results = new ArrayList<>();
+        if (calls == null || fromInclusive >= calls.size()) {
+            return results;
+        }
+        for (int j = Math.max(fromInclusive, 0); j < calls.size(); j++) {
+            results.add(recordUnexecutedToolCall(calls.get(j), note));
+        }
+        return results;
+    }
+
+    private AgentMessage recordUnexecutedToolCall(ToolCall toolCall, String note) {
+        AgentMessage toolResult = AgentMessage.toolResult(toolCall.getId(), note, true);
+        state.appendMessage(toolResult);
+        emit(AgentEventType.TOOL_EXECUTION_START, new EventPayloads.ToolExecutionStart(toolCall));
+        emit(
+            AgentEventType.TOOL_EXECUTION_END,
+            new EventPayloads.ToolExecutionEnd(
+                toolCall.getId(),
+                ToolExecutionResult.text(note),
+                true,
+                note
+            )
+        );
+        return toolResult;
+    }
+
     private AgentMessage executeToolCall(ToolCall toolCall, CancellationToken token) {
         state.addPendingToolCall(toolCall.getId());
         emit(AgentEventType.TOOL_EXECUTION_START, new EventPayloads.ToolExecutionStart(toolCall));
@@ -643,6 +699,7 @@ public final class AgentRuntime implements Closeable {
             AgentRuntimeDefaults.DEFAULT_TOOL_RESULT_TRUNCATE_CHARS
         );
         forModel = MessageHistoryLimiter.limitTail(forModel, maxContextMessages);
+        forModel = ToolCallPairingRepair.ensureResults(forModel);
         if (systemPrompt.isBlank()) {
             return forModel;
         }

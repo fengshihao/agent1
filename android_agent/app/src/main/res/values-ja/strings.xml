@@ -10,6 +10,8 @@
 
     <string name="chat_new_session">新しいチャット</string>
     <string name="chat_input_hint">メッセージを入力…</string>
+    <string name="chat_continue">続ける</string>
+    <string name="chat_continue_hint">このラウンドは上限に達しました。続けるを押すと仕上げます。</string>
     <string name="chat_input_answer_card">上のカードで回答して送信してください</string>
     <string name="chat_opening">チャットを開いています…</string>
     <string name="chat_startup_error">チャットを開始できません：%1$s</string>

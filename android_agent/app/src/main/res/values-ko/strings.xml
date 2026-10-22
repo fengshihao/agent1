@@ -10,6 +10,8 @@
 
     <string name="chat_new_session">새 대화</string>
     <string name="chat_input_hint">메시지 입력…</string>
+    <string name="chat_continue">계속</string>
+    <string name="chat_continue_hint">이번 차례가 한도에 도달했습니다. 계속을 누르면 이어서 끝냅니다.</string>
     <string name="chat_input_answer_card">위 카드에서 답변 후 제출하세요</string>
     <string name="chat_opening">대화 여는 중…</string>
     <string name="chat_startup_error">대화를 시작할 수 없습니다: %1$s</string>

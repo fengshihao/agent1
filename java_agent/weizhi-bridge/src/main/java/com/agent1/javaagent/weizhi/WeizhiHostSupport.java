@@ -1,6 +1,7 @@
 package com.agent1.javaagent.weizhi;
 
 import com.agent1.javaagent.script.ScriptEngineFactory;
+import com.agent1.javaagent.tool.script.ExecuteScriptTool;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,15 +41,19 @@ public final class WeizhiHostSupport {
     }
 
     public static long scriptTimeoutMs() {
+        long cap = ExecuteScriptTool.MAX_TIMEOUT_MS;
         String raw = System.getenv(ENV_SCRIPT_TIMEOUT_MS);
         if (raw == null || raw.isBlank()) {
-            return 600_000L;
+            return ExecuteScriptTool.DEFAULT_TIMEOUT_MS;
         }
         try {
             long v = Long.parseLong(raw.trim());
-            return v > 0 ? v : 600_000L;
+            if (v <= 0) {
+                return ExecuteScriptTool.DEFAULT_TIMEOUT_MS;
+            }
+            return Math.min(v, cap);
         } catch (NumberFormatException e) {
-            return 600_000L;
+            return ExecuteScriptTool.DEFAULT_TIMEOUT_MS;
         }
     }
 

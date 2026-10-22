@@ -28,7 +28,7 @@ import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ChatHistoryTool;
 import com.agent1.javaagent.tool.workspace.EditFileTool;
 import com.agent1.javaagent.tool.workspace.ListDirTool;
-import com.agent1.javaagent.tool.web.ImageDownloadTool;
+import com.agent1.javaagent.tool.web.ImagesDownloadTool;
 import com.agent1.javaagent.tool.web.ImageSearchTool;
 import com.agent1.javaagent.tool.web.ReadUrlTool;
 import com.agent1.javaagent.tool.workspace.ReadFileTool;
@@ -459,7 +459,14 @@ public final class ProductivityAgentHost implements Closeable {
             }
         } finally {
             AgentStateSnapshot snapshot = runtime.getStateSnapshot();
-            persistNewMessages(sessionId, runId, messageCountBefore[0], snapshot.getMessages());
+            List<AgentMessage> beforeRepair = snapshot.getMessages();
+            List<AgentMessage> afterRun = TranscriptPairingPersistence.repairInMemory(beforeRepair);
+            runtime.replaceMessages(afterRun);
+            if (TranscriptPairingPersistence.persistIfRepaired(sessionStore, sessionId, beforeRepair, afterRun)) {
+                messageCountBefore[0] = afterRun.size();
+            } else {
+                persistNewMessages(sessionId, runId, messageCountBefore[0], afterRun);
+            }
             bridge.writeRunTerminal(terminal, lastError, snapshot.getMessages().size());
             runStore.write(
                 runningRef[0].withTerminal(terminal, Instant.now().toString(), lastError)
@@ -557,7 +564,7 @@ public final class ProductivityAgentHost implements Closeable {
         if (RunOutcome.isCancelled(error)) {
             return RunState.CANCELLED;
         }
-        if (RunOutcome.isPaused(error)) {
+        if (RunOutcome.isPaused(error) || RunOutcome.isToolBudget(error)) {
             return RunState.PAUSED;
         }
         if (RunOutcome.isWaitingUser(error)) {
@@ -633,7 +640,7 @@ public final class ProductivityAgentHost implements Closeable {
 
     private void refreshRuntimeForActiveSession() {
         String sessionId = requireActiveSession();
-        List<AgentMessage> transcript = sessionStore.loadTranscript(sessionId);
+        List<AgentMessage> transcript = TranscriptPairingPersistence.loadRepaired(sessionStore, sessionId);
         runtime.replaceMessages(transcript);
         Path workspace = sessionStore.workspaceDir(sessionId);
         applySystemPrompt(sessionId);
@@ -684,7 +691,7 @@ public final class ProductivityAgentHost implements Closeable {
                 runtimeConfig.getWebSearchBaseUrl()
             ));
         }
-        tools.add(new ImageDownloadTool(sandbox));
+        tools.add(new ImagesDownloadTool(sandbox));
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);
             if (extra != null && !extra.isEmpty()) {
@@ -706,7 +713,7 @@ public final class ProductivityAgentHost implements Closeable {
         if (scriptToolBridge instanceof MutableScriptToolBridge mutable) {
             mutable.set(new AgentToolsScriptBridge(tools));
         }
-        return tools;
+        return ProductivityLlmToolSurface.forLlm(tools);
     }
 
     private void applySystemPrompt(String sessionId) {

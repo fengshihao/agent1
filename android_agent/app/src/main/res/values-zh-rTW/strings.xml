@@ -10,6 +10,8 @@
 
     <string name="chat_new_session">新對話</string>
     <string name="chat_input_hint">輸入訊息…</string>
+    <string name="chat_continue">繼續</string>
+    <string name="chat_continue_hint">這一輪已經到上限，點繼續接著做完</string>
     <string name="chat_input_answer_card">請在上方卡片中回答並提交</string>
     <string name="chat_opening">正在開啟對話…</string>
     <string name="chat_startup_error">暫時無法開始對話：%1$s</string>

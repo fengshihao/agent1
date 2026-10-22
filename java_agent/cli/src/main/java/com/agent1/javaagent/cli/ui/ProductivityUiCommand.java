@@ -76,7 +76,13 @@ public final class ProductivityUiCommand {
             if (!config.isModelConfigured()) {
                 System.out.println("提示: 未检测到 API Key，请在浏览器设置页填写（将写入 " + UiConfigStore.configPath(agentRoot) + "）");
             }
-            openBrowser(url);
+            if (resolveNoBrowser(args)) {
+                System.out.println(
+                    "未打开系统浏览器（--no-browser 或 AGENT1_UI_NO_BROWSER）。"
+                        + "请手动访问上述地址，或使用 desktop_shell 的 agent1-ui-window。");
+            } else {
+                openBrowser(url);
+            }
 
             CountDownLatch latch = new CountDownLatch(1);
             Runtime.getRuntime().addShutdownHook(new Thread(latch::countDown));
@@ -106,6 +112,28 @@ public final class ProductivityUiCommand {
             }
         }
         return DEFAULT_PORT;
+    }
+
+    /**
+     * {@code --no-browser} 或环境变量 {@code AGENT1_UI_NO_BROWSER=1|true|yes|on}：仅起 HTTP 服务，不唤起系统浏览器。
+     */
+    static boolean resolveNoBrowser(String[] args) {
+        String env = System.getenv("AGENT1_UI_NO_BROWSER");
+        if (env != null && !env.isBlank()) {
+            String v = env.trim().toLowerCase();
+            if (v.equals("1") || v.equals("true") || v.equals("yes") || v.equals("on")) {
+                return true;
+            }
+        }
+        if (args == null) {
+            return false;
+        }
+        for (String arg : args) {
+            if ("--no-browser".equals(arg)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void openBrowser(String url) {

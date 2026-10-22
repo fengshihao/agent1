@@ -129,6 +129,8 @@ data class ChatUiState(
     /** 运行中的状态文案。预览页状态条使用；对话列表由「思考与执行」卡片自己表示进行中。 */
     val runActivityLabel: String? = null,
     val isRunning: Boolean = false,
+    /** 轮次或工具次数用尽，输入条上方展示「继续」。 */
+    val offerContinue: Boolean = false,
     val configError: String? = null,
     /** 尚未在 App 内保存 Key；首条消息后在列表里展示引导卡。 */
     val needsUserKeySetup: Boolean = false,

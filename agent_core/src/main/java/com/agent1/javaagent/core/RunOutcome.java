@@ -4,6 +4,7 @@ package com.agent1.javaagent.core;
 public final class RunOutcome {
 
     public static final String PAUSED_PREFIX = "单轮模型与工具往返超过上限";
+    public static final String TOOL_BUDGET_PREFIX = "单轮工具调用次数超过上限";
     public static final String WAITING_USER_PREFIX = "等待用户输入";
     public static final String CANCELLED_MESSAGE = "执行已取消";
 
@@ -17,6 +18,35 @@ public final class RunOutcome {
 
     public static String pausedMessage(int maxTurns) {
         return PAUSED_PREFIX + "（" + maxTurns + " 轮），已暂停本轮；用户可继续对话。";
+    }
+
+    /** 写入 Run 终态。与 {@link #toolBudgetNotice(int)} 共用前缀，便于界面认出可继续。 */
+    public static String toolBudgetMessage(int maxToolCalls) {
+        return TOOL_BUDGET_PREFIX + "（" + maxToolCalls + " 次），已暂停本轮；用户可继续对话。";
+    }
+
+    /** 落进对话、给用户看的一句。不要以「错误:」开头，避免被收成通用报错。 */
+    public static String toolBudgetNotice(int maxToolCalls) {
+        return toolBudgetMessage(maxToolCalls) + "点下方「继续」即可接着做完。";
+    }
+
+    public static String toolCallSkippedForBudget(int maxToolCalls) {
+        return "单轮工具调用已达上限（" + maxToolCalls + "），本次调用未执行。用户继续后可再试。";
+    }
+
+    public static boolean isToolBudget(String text) {
+        if (text == null) {
+            return false;
+        }
+        return text.contains(TOOL_BUDGET_PREFIX) || text.contains("工具调用次数超过上限");
+    }
+
+    /** 轮次用尽、工具次数用尽，或因此留下的未配对 tool_call 被服务端拒绝。 */
+    public static boolean isContinuableStop(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        return isPaused(text) || isToolBudget(text) || text.contains("insufficient tool messages");
     }
 
     public static String progressSummaryUserPrompt() {

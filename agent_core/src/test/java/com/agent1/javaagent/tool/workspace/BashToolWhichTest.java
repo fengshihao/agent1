@@ -24,7 +24,7 @@ class BashToolWhichTest {
         ObjectNode params = MAPPER.createObjectNode();
         params.put("command", "which node");
         String out = tool.execute("b", params, new CancellationToken(), update -> { }).getText();
-        assertEquals("(empty output)", out);
+        assertEquals(BashTool.NO_STDOUT_SUCCESS, out);
     }
 
     @Test
@@ -34,7 +34,7 @@ class BashToolWhichTest {
         params.put("command", "which ls");
         String out = tool.execute("b", params, new CancellationToken(), update -> { }).getText();
         assertFalse(out.startsWith("Error:"));
-        assertFalse(out.equals("(empty output)"));
+        assertFalse(out.equals(BashTool.NO_STDOUT_SUCCESS));
         assertTrue(out.contains("ls"));
     }
 }

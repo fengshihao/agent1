@@ -30,7 +30,7 @@ object WeizhiHostLoader {
                 agentRoot,
                 scriptToolBridge = scriptTools,
             ),
-            600_000L,
+            120_000L, // ExecuteScriptTool.DEFAULT_TIMEOUT_MS；timeout_ms 上限 10 分钟
             """
             用户手机上的原件（相册、微信文件等）不在工作区时：先说明需要什么，并在回复开头单独一行写
             [需要用户选文件] 或 [需要用户选文件: pdf,最多3个]，请用户点 App「选择文件」添加。

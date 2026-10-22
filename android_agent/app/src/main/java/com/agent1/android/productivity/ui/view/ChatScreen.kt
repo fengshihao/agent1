@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.Button
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -285,6 +286,8 @@ fun ChatScreen(
                     canPickMoreAttachments = canPickMoreAttachments,
                     modelLabel = composerModelLabel(state.configSummary),
                     onOpenModel = onOpenSettings,
+                    showContinue = state.offerContinue && !state.isRunning && pendingAsk == null,
+                    onContinue = viewModel::continueAfterBudget,
                     onSend = {
                         if (viewModel.sendMessage(input)) input = ""
                     },
@@ -357,6 +360,8 @@ internal fun ChatComposer(
     onOpenModel: (() -> Unit)? = null,
     onSend: () -> Unit,
     onStop: () -> Unit,
+    showContinue: Boolean = false,
+    onContinue: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val bar = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f)
@@ -381,6 +386,22 @@ internal fun ChatComposer(
         ) {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    if (showContinue) {
+                        Text(
+                            stringResource(R.string.chat_continue_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                        Button(
+                            onClick = onContinue,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                        ) {
+                            Text(stringResource(R.string.chat_continue))
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                     ComposerField(
                         value = value,
                         onValueChange = onValueChange,
