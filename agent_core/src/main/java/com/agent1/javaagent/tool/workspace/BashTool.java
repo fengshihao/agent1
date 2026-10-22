@@ -55,6 +55,7 @@ public final class BashTool {
             description = "在工作区执行一条命令。"
                     + "仅支持: base64, cat, cp, date, echo, file, find, head, ls, mkdir, mv, "
                     + "pwd, rm, sha256sum, tail, touch, wc, which。"
+                    + "which 仅对白名单内命令报路径（如 which ls）；node/python 等不可执行，which 也视为不存在。"
                     + "不支持管道、重定向等 shell 语法，无 python/node 等解释器。"
                     + "读写分离：只读命令可访问只读区（绝对路径）；"
                     + "mkdir/rm/mv/touch 及 cp 的目标仅限工作区内。",
@@ -91,7 +92,44 @@ public final class BashTool {
             return "Error: " + e.getMessage();
         }
 
+        if ("which".equals(cmdName)) {
+            return executeWhich(cancellationToken, tokens);
+        }
+
         return execute(cancellationToken, tokens);
+    }
+
+    /**
+     * 不把主机 PATH 里的 node/python 等路径暴露给模型：只有 {@link #ALLOWED_COMMANDS} 里的名字才查系统 which。
+     */
+    private String executeWhich(CancellationToken cancellationToken, String[] tokens) {
+        List<String> targets = new ArrayList<>();
+        for (int i = 1; i < tokens.length; i++) {
+            if (!tokens[i].startsWith("-")) {
+                targets.add(tokens[i]);
+            }
+        }
+        if (targets.isEmpty()) {
+            return execute(cancellationToken, tokens);
+        }
+        StringBuilder out = new StringBuilder();
+        for (String name : targets) {
+            if (!ALLOWED_COMMANDS.contains(name)) {
+                continue;
+            }
+            String line = execute(cancellationToken, new String[] {"which", name});
+            if (line.startsWith("Error:") || "(empty output)".equals(line)) {
+                continue;
+            }
+            if (out.length() > 0 && !out.toString().endsWith("\n")) {
+                out.append('\n');
+            }
+            out.append(line.trim());
+            if (!line.endsWith("\n")) {
+                out.append('\n');
+            }
+        }
+        return out.length() == 0 ? "(empty output)" : out.toString().trim() + "\n";
     }
 
     private static String checkSeparators(String cmd) {
