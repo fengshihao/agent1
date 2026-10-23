@@ -181,6 +181,12 @@ public final class ProductivityCoach {
                                 + "调用方式用 find_caps 返回的示例。";
                     }
                 }
+            } else if (hookId == null && !code.isBlank()
+                && (text == null || text.isBlank())
+                && code.contains("require(")) {
+                hookId = "script.not_node";
+                advice =
+                    "这是 QuickJS，不是 Node。不要 require。读写用脚本里的全局 fs，或外层 read_file / write_file。";
             } else if (hookId == null && file.isEmpty() && !code.isBlank()
                 && (text == null || !text.contains(InlineScriptSpill.MARKER))) {
                 int lines = countLines(code);

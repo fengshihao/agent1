@@ -71,7 +71,7 @@ public final class ExecuteScriptTool implements AgentTool {
             可以顶层 await。返回值是最后一条表达式，不要写顶层 return。
             MCP：await $mcp.服务器.工具({...})，名字来自 find_caps 的 entry。
             外层工具：await $tools.工具名({...})。已注册时可用 $tools.webview_exec 进入浏览器环境（与外层同名工具相同）。不能再调 run_js。
-            批量搜图/下载：同一段 run_js 里 await $tools.images_download({ items:[{url}], dir, name_prefix })，不要 bash cp 整理。
+            批量搜图/下载：同一段 run_js 里 await $tools.images_download({ items:[{url}], dir, name_prefix })，回执是直接对象（如 r.items），不要 JSON.stringify；不要 bash cp 整理。
             可选 timeout_ms（毫秒，1000–600000）：未指定则用宿主默认（约 2 分钟）；长批量可显式加大，上限 10 分钟。
             """.trim();
     }

@@ -85,8 +85,7 @@ class WeizhiScriptToolInstallerTest {
         assertTrue(prelude.contains("\"demo\""));
         assertTrue(prelude.contains("callTool(String(tool)"));
         assertTrue(prelude.contains("JSON.parse(out)"));
-        assertTrue(prelude.contains("webview_exec"));
-        assertTrue(prelude.contains("JSON.parse(t)"));
+        assertTrue(prelude.contains("typeof out === 'string'"));
     }
 
     @Test
@@ -102,11 +101,25 @@ class WeizhiScriptToolInstallerTest {
     }
 
     @Test
-    void otherToolsStayQuotedEvenWhenJson() {
-        String body = "{\"ok\":true}";
+    void imagesDownloadJsonReceiptIsEmbeddedObject() {
+        String body = "{\"ok\":true,\"total\":2,\"succeeded\":2,\"items\":[]}";
+        assertEquals(body, WeizhiScriptToolInstaller.encodeToolResult("images_download", body));
+        String envelope = "{\"result\":" + WeizhiScriptToolInstaller.encodeToolResult("images_download", body) + "}";
+        Object result = com.weizhi.platform.MiniJson.parse(envelope);
+        assertTrue(result instanceof java.util.Map);
+        Object inner = ((java.util.Map<?, ?>) result).get("result");
+        assertTrue(inner instanceof java.util.Map);
+        assertEquals(
+            2,
+            ((Number) ((java.util.Map<?, ?>) inner).get("total")).intValue()
+        );
+    }
+
+    @Test
+    void plainTextToolResultStaysQuoted() {
+        String body = "hello workspace";
         String encoded = WeizhiScriptToolInstaller.encodeToolResult("read_file", body);
-        assertTrue(encoded.startsWith("\""));
-        assertFalse(encoded.equals(body));
+        assertEquals("\"hello workspace\"", encoded);
     }
 
     @Test

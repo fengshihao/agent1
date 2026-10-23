@@ -133,7 +133,7 @@ public final class WeizhiScriptToolInstaller {
             + "      if (typeof r === 'string') { try { r = JSON.parse(r); } catch (e) {} }\n"
             + "      if (r && r.error) throw new Error(r.error);\n"
             + "      var out = (r && r.result !== undefined) ? r.result : r;\n"
-            + "      if (String(name) === 'webview_exec' && typeof out === 'string') {\n"
+            + "      if (typeof out === 'string') {\n"
             + "        var t = out.trim();\n"
             + "        var head = t.charAt(0);\n"
             + "        var tail = t.charAt(t.length - 1);\n"
@@ -195,18 +195,16 @@ public final class WeizhiScriptToolInstaller {
     }
 
     /**
-     * {@code webview_exec} 的回执已是 JSON 对象或数组时原样嵌入 {@code result}，
-     * 其它工具结果仍是 JSON 字符串。避免 run_js 再 stringify 一层。
+     * 宿主工具返回 JSON 对象/数组文本时原样嵌入 {@code result}（非字符串字段），
+     * 脚本里 {@code await $tools.*} 直接得到对象。纯文本仍 {@link MiniJson#quote}。
      */
     static String encodeToolResult(String toolName, String result) {
         if (result == null) {
             return "\"\"";
         }
-        if ("webview_exec".equals(toolName)) {
-            String embedded = embedJsonContainer(result);
-            if (embedded != null) {
-                return embedded;
-            }
+        String embedded = embedJsonContainer(result);
+        if (embedded != null) {
+            return embedded;
         }
         return MiniJson.quote(result);
     }

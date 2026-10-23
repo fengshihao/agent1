@@ -58,6 +58,7 @@ public final class ProductivitySystemPromptBuilder {
     /** 仅 scriptHostTools（Weizhi $tools 桥）时追加到工作流程段。 */
     static final String WEBVIEW_FROM_SCRIPT = """
         浏览器放进同一段脚本：await $tools.webview_exec({...})，返回值已是回执对象。不要 JSON.parse，也不要再 JSON.stringify。不要在外层单独调 webview_exec。
+        同一段里 await $tools.images_download({...}) 等结构化工具同样直接是对象（如 r.items），不要对整包结果 JSON.stringify 再交给外层 run_js。
         """.trim();
 
     static final String TOOLS_DIRECT = """
@@ -68,7 +69,7 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String TOOLS_WITH_SCRIPT = """
         # 主要工具
-        - run_js：执行 JS 脚本。宿主系统能力（平台 API）只在脚本里，没有对应的外层工具；$tools、工作区读写、import 已有脚本在同一段里 await。路径：fs 与 workspace 内 import 可用相对或绝对路径，须在 workspace 根下（引擎归一化）；官方能力用 import … from "weizhi:<name>"，按 find_caps 里的示例写，宿主在执行前安装缺失的包；./ 只表示与当前脚本同目录的 workspace 文件；编排入口用 file（如 jobs/run.js）；平台 Caps 的 path 仅相对路径。不要 glob 或 list_dir 去找脚本库。
+        - run_js：执行 QuickJS 脚本（非 Node）。禁止 require；读写文件用引擎提供的全局 fs，或外层 read_file / write_file。宿主系统能力（平台 API）只在脚本里；$tools、fs、import 已有脚本在同一段里 await。路径：fs 与 workspace 内 import 可用相对或绝对路径，须在 workspace 根下（引擎归一化）；官方能力用 import … from "weizhi:<name>"，按 find_caps 里的示例写，宿主在执行前安装缺失的包；./ 只表示与当前脚本同目录的 workspace 文件；编排入口用 file（如 jobs/run.js）；平台 Caps 的 path 仅相对路径。不要 glob 或 list_dir 去找脚本库。
         - find_caps：检索可用能力/API。query 写全本任务要用的能力，先看有没有现成接口或同类脚本；按结果里的调用示例写，不要猜函数。
         - 外层 read_file、write_file、edit_file 只用工作区相对路径查看和改脚本，不要 workspace/ 前缀。
         """.trim();

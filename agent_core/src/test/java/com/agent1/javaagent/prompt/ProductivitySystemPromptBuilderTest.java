@@ -81,6 +81,8 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("run_js"));
         assertTrue(prompt.contains("一段 run_js"));
         assertTrue(prompt.contains("不要在外层单独调 webview_exec"));
+        assertTrue(prompt.contains("images_download"));
+        assertTrue(prompt.contains("禁止 require"));
         assertTrue(prompt.contains("宿主系统能力"));
         assertFalse(prompt.contains("不操作手机界面"));
         assertFalse(prompt.contains("svgToImage"));

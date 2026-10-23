@@ -140,6 +140,17 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void runJsEmptyResultWithRequireGetsNotNodeCoach() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ObjectNode params = MAPPER.createObjectNode();
+        params.put("code", "const fs = require('fs');");
+        ToolExecutionResult in = ToolExecutionResult.text("");
+        ToolExecutionResult out = coach.maybeAugment("run_js", params, in, false);
+        assertTrue(out.getText().contains("[coach] script.not_node"));
+        assertTrue(out.getText().contains("不要 require"));
+    }
+
+    @Test
     void runJsPlainReceiptDoesNotScanOuterFs() {
         ProductivityCoach coach = new ProductivityCoach();
         ObjectNode params = MAPPER.createObjectNode();
