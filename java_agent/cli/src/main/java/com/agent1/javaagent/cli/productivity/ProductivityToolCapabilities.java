@@ -41,7 +41,7 @@ public final class ProductivityToolCapabilities {
         lines.add("media_resize / media_probe / media_extract_frame：桌面尚未实现（Android 上缩放图片、探测音视频、从视频抽帧）");
         lines.add("todo_write：会话短清单，跨轮记住计划；空数组清空");
         lines.add("web_search / image_search：Tavily（环境变量 TAVILY_API_KEY，或 App 模型配置里的 Web Search Key）");
-        lines.add("images_download：批量 https 图片下载（items、dir、name_prefix；返回 path/size/type/source）");
+        lines.add("images_download：批量 https 图片下载（items、dir、name_prefix；返回 path/width/height/size/type/source）");
         if (!weizhiToolsOnClasspath()) {
             lines.add("未检测到 weizhi 源码 — 构建需 ./weizhi 或 AGENT1_WEIZHI_REPO");
             return lines;

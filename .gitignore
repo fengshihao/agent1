@@ -1,6 +1,10 @@
 .venv/
 logs/
 
+# macOS / 本地桌面 UI 打包产物（勿提交）
+.DS_Store
+dist/
+
 # Local scratch / one-off captures (never commit)
 .tmp_*
 __pycache__/

@@ -82,7 +82,8 @@ public final class ImagesDownloadTool implements AgentTool {
             up to 10 MB each). Required: items [{url, path?}, ...]. Optional dir (default imports), \
             name_prefix (e.g. hero → hero-01.png). If path omitted, files are numbered under dir. \
             Extension follows magic bytes, not the URL. Returns total, succeeded, and per-item \
-            ok, index, path, size, type, source (error when ok is false). Do not use bash cp/mv. \
+            ok, index, path, width, height, size, type, source (error when ok is false). \
+            Do not use bash cp/mv. \
             Cite sources in the deliverable.
             """.trim();
     }
@@ -311,7 +312,10 @@ public final class ImagesDownloadTool implements AgentTool {
             }
             Files.write(dest, bytes);
             String display = sandbox.displayPath(dest);
-            return ItemOutcome.success(item.index, item.url, display, bytes.length, type);
+            int[] wh = ImageRasterDimensions.tryRead(bytes, type);
+            int width = wh == null ? 0 : wh[0];
+            int height = wh == null ? 0 : wh[1];
+            return ItemOutcome.success(item.index, item.url, display, bytes.length, type, width, height);
         } catch (IOException | SecurityException e) {
             String message = e.getMessage() == null || e.getMessage().isBlank()
                 ? "下载失败"
@@ -365,6 +369,8 @@ public final class ImagesDownloadTool implements AgentTool {
         final String path;
         final long byteLength;
         final String type;
+        final int width;
+        final int height;
         final String error;
 
         private ItemOutcome(
@@ -374,6 +380,8 @@ public final class ImagesDownloadTool implements AgentTool {
             String path,
             long byteLength,
             String type,
+            int width,
+            int height,
             String error
         ) {
             this.ok = ok;
@@ -382,15 +390,25 @@ public final class ImagesDownloadTool implements AgentTool {
             this.path = path;
             this.byteLength = byteLength;
             this.type = type;
+            this.width = width;
+            this.height = height;
             this.error = error;
         }
 
-        static ItemOutcome success(int index, String source, String path, long byteLength, String type) {
-            return new ItemOutcome(true, index, source, path, byteLength, type, null);
+        static ItemOutcome success(
+            int index,
+            String source,
+            String path,
+            long byteLength,
+            String type,
+            int width,
+            int height
+        ) {
+            return new ItemOutcome(true, index, source, path, byteLength, type, width, height, null);
         }
 
         static ItemOutcome failure(int index, String source, String error) {
-            return new ItemOutcome(false, index, source, "", 0, "", error);
+            return new ItemOutcome(false, index, source, "", 0, "", 0, 0, error);
         }
 
         ObjectNode toJson() {
@@ -402,6 +420,10 @@ public final class ImagesDownloadTool implements AgentTool {
                 node.put("path", path);
                 node.put("size", formatByteSize(byteLength));
                 node.put("type", type);
+                if (width > 0 && height > 0) {
+                    node.put("width", width);
+                    node.put("height", height);
+                }
             } else {
                 node.put("path", "");
                 node.put("size", "0 B");

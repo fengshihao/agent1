@@ -63,6 +63,8 @@ class ImagesDownloadToolTest {
             assertTrue(result.getText().contains("\"succeeded\":1"), result.getText());
             assertTrue(result.getText().contains("imports/01.png"), result.getText());
             assertTrue(result.getText().contains("\"size\""), result.getText());
+            assertTrue(result.getText().contains("\"width\":1"), result.getText());
+            assertTrue(result.getText().contains("\"height\":1"), result.getText());
             assertFalse(result.getText().contains("\"bytes\""), result.getText());
             assertTrue(Files.isRegularFile(workspace.resolve("imports/01.png")));
         } finally {
