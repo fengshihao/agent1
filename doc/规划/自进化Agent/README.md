@@ -27,6 +27,8 @@
 | [17-能力检索-capability-search.md](./17-能力检索-capability-search.md) | **编程智能体能力索引 + find_caps 设计与 REQ** |
 | [18-内置HTML预览与点选审查.md](./18-内置HTML预览与点选审查.md) | **Android 内置 HTML 预览 + 审查模式点选反馈（REQ-120～124）** |
 | [19-内置能力云升级.md](./19-内置能力云升级.md) | **默认云端清单升级预置脚本/模板/能力卡；不绑定某一家对象存储** |
+| [20-Office排版升级与视觉素材管线.md](./20-Office排版升级与视觉素材管线.md) | Office / 视觉素材；文生图等生成式后端见 §7 遗留 |
+| [23-多模态模型能力接口设计.md](./23-多模态模型能力接口设计.md) | **看懂 vs 生成：content parts + Weizhi 专项网关；对照 Claude Code 等** |
 | [../Agent1-SDK愿景.md](../Agent1-SDK愿景.md) | **三方嵌入式 SDK 愿景（后续实现）** |
 
 ## 讨论记录

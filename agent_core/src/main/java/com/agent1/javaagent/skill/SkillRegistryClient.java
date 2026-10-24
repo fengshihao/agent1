@@ -23,7 +23,7 @@ import java.util.logging.Logger;
 
 /**
  * 从统一 registry（{@code artifacts[]} 中 {@code kind=skill}）下载 zip 安装到 skills-home。
- * 对称 {@link com.weizhi.packages.PackageRegistryClient}，但不依赖 weizhi-home。
+ * 对称 {@code com.weizhi.packages.PackageRegistryClient}，但不依赖 weizhi-home。
  */
 public final class SkillRegistryClient {
 
