@@ -6,7 +6,7 @@
 
 **0.2.4 产品契约**：做 PPT = 交付 `deck.html` + 预览链接；`renderHtmlDeck` 仅用户点「导出可编辑版 / 导出原样版」或明说导出时执行。系统提示与 coach（`deck.html_ready`）同步收口。
 
-**0.2.5 主题变体**：随包 `SKILL.md` 增加 5 套 CSS 变量主题（与 `weizhi:pptx` 同名：`dusk` 默认 / `briefing` / `dark` / `editorial` / `harbor`）；页型骨架不变，整份 deck 选题后用 token 铺色。
+**0.2.5+ 主题与封面配方**：随包 `SKILL.md` 提供 5 套与 `weizhi:pptx` 同名的 CSS 变量主题（`dusk` 默认 / `briefing` / `dark` / `editorial` / `harbor`）+ deck 专用 `mono`；8 种页型共用，但封面/结尾按 **A 深底路演 / B 浅底杂志 / C 黑白极简 / D 暖色侧条** 四配方与主题绑定，避免只换 token 仍「深底 + 金 kicker + 渐变字」千篇一律；渐变字仅在 SKILL 表内允许的主题/位置使用。
 
 **推荐工作流（「HTML 源 + 用户端导出」）**：写 deck.html → 打开即默认**演示模式**（全屏翻页、页码、双导出按钮）→ 指点改 HTML → **用户点导出**才 `renderHtmlDeck`。桌面/无宿主预览用 `exportDeckPages`。
 

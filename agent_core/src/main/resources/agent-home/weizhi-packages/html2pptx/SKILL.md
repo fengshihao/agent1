@@ -39,11 +39,22 @@ export default await renderHtmlDeck({
 
 打开产物：`android.intent.start({ action: "view", path })`。
 
-## 主题变体（5 种，与 weizhi:pptx 同名）
+## 主题变体（6 种：5 个与 weizhi:pptx 同名 + `mono` 仅 deck）
 
-**整份 deck 只用一个主题**。在 `<html data-theme="…">` 标明，并用下方 CSS 变量铺色；页型骨架结构不变，换主题=换 token。
+**整份 deck 只用一个主题**。在 `<html data-theme="…">` 标明，拷入对应 `:root` token；**同一 deck 内禁止混主题**。
 
-选题：用户点名则用；否则按内容气质选——汇报/复盘→`briefing`，路演/品牌→`dusk`，夜间/科技→`dark`，故事/人文→`editorial`，产品/B2B→`harbor`。未指明时默认 **`dusk`**（与历史骨架观感一致）。多份 PPT 应主动轮换气质，避免总是同一套色。
+T8 收口的是「8 种页型 + 导出可验证的 CSS 模式」，不是「永远深紫封面 + 金 kicker + 渐变短条」。若只换 token、封面/结尾仍照抄深底路演配方，观感会千篇一律——**先按主题选封面/结尾配方（下节），再填 8 页内容**；KPI/表格/图表等页型结构共用，颜色走变量。
+
+| 气质（用户可点名） | `data-theme` | 封面配方 | accent 角色 | 渐变字 `background-clip:text` |
+|--------------------|--------------|----------|-------------|----------------------------------|
+| 深色路演 / 品牌夜场 | `dusk` | **A 深底渐变** | 暖金 kicker、双色 rule | 封面 h1、结尾大字**可用** |
+| 夜间 / 科技数据 | `dark` | **A 深底渐变** | 青绿 + 琥珀 kicker | 同上 |
+| 汇报 / 复盘 / 浅底杂志感 | `briefing` | **B 浅底大留白** | 海军蓝强调 | **禁止**（大字纯色） |
+| 产品 / B2B 冷白 | `harbor` | **B** 或轻 **A**（封面可深蓝条，正文仍浅底） | 海军 + 珊瑚点缀 | **禁止** |
+| 故事 / 人文 / 暖色商务 | `editorial` | **D 暖底 + 侧色条** | 赭橙 | 仅结尾大字**可选** |
+| 黑白极简 / 演讲极简 | `mono` | **C 纯黑白对比** | 无彩色（灰阶） | **禁止** |
+
+选题：用户指定则用；否则按上表气质匹配。未指明时默认 **`dusk`**（历史默认）。连续多份 deck **主动轮换** `data-theme` 与封面配方，勿份份深底金 kicker。
 
 把对应主题的 `:root` 块整段拷进 `<style>`（勿混用两套色）：
 
@@ -108,16 +119,38 @@ export default await renderHtmlDeck({
   --shadow-deep: 0 12px 32px rgba(18, 32, 51, .2);
   --delta-up: #059669; --delta-down: #dc2626;
 }
+/* mono — 黑白极简（仅 deck.html，weizhi:pptx 无同名） */
+:root {
+  --bg: #ffffff; --bg2: #f4f4f5; --surface: #ffffff;
+  --text: #09090b; --muted: #71717a;
+  --accent: #18181b; --accent2: #52525b; --on-accent: #ffffff;
+  --cover-from: #09090b; --cover-to: #18181b;
+  --kicker: #71717a; --card-top: #18181b; --card-top-2: #52525b; --card-top-3: #a1a1aa;
+  --table-head: #09090b; --table-stripe: #f4f4f5; --table-foot: #e4e4e7;
+  --shadow: 0 12px 32px rgba(0, 0, 0, .06);
+  --shadow-deep: 0 12px 32px rgba(0, 0, 0, .12);
+  --delta-up: #18181b; --delta-down: #71717a;
+}
 ```
 
-通用用法：`body/正文页` 用 `var(--bg)`；卡片 `var(--surface)` + `var(--shadow)`；文字 `var(--text)` / `var(--muted)`；封面/结尾/引言深底用 `linear-gradient(135deg, var(--cover-from), var(--cover-to))`；kicker/短条/大引号用 `var(--kicker)`；KPI 卡上边框三色轮换 `--card-top*`；涨跌用 `--delta-up/down`。`dark` 主题下正文页也用深底（`--bg`），卡片用 `--surface`，勿再铺浅色。
+通用用法：`body/正文页` 用 `var(--bg)`；卡片 `var(--surface)` + `var(--shadow)`；文字 `var(--text)` / `var(--muted)`；kicker/短条/大引号用 `var(--kicker)`；KPI 卡上边框三色轮换 `--card-top*`；涨跌用 `--delta-up/down`。`dark` / `dusk` 正文页可深底（`--bg`），卡片用 `--surface`。引言 `.quote` 需要深底对比时：A 主题用 `--cover-*` 渐变，B/C/D 可用 `var(--text)` 底 + `var(--on-accent)` 字或反色块，勿强行套 A 深紫底。
+
+### 封面 / 结尾配方（四选一，与 `data-theme` 绑定）
+
+| 代号 | 适用主题 | `.cover` 要点 | `.end` 要点 |
+|------|----------|---------------|-------------|
+| **A 深底路演** | `dusk`, `dark` | `linear-gradient(135deg, var(--cover-from), var(--cover-to))`；kicker 22px、`var(--kicker)`、字距 8px；h1 88px/800、`var(--on-accent)` 或白；rule 96×6 accent→accent2 渐变圆角；sub 30px；可选出界 radial deco | `radial-gradient` 深底；大字 120px/800，**可**渐变字 accent→accent2；副标 + 圆角描边标签 |
+| **B 浅底杂志** | `briefing`, `harbor`（封面） | 底 `var(--bg)` 或浅竖向渐变，**不要**深紫满屏；h1 同 88px、`var(--text)`，标题栈加衬线：`Georgia, "Noto Serif SC", "Songti SC", serif`；kicker 用 `var(--accent)`、字距 4px；rule 改为 64×4 **纯色** `var(--accent)`；sub `var(--muted)` | 浅底 `var(--bg)`；大字纯色 `var(--text)` 或 `var(--accent)`，**不用**渐变字；底部分隔线 1px `var(--bg2)` |
+| **C 黑白极简** | `mono` | 整页 `#fff` 或 `#09090b` 二选一；h1 96–120px/800 对比色；kicker 可选 18px `var(--muted)`；**无**彩色 rule，最多 1px `#e4e4e7` 线 | 与封面同黑白场；超大字纯色；**无** radial、**无**渐变字 |
+| **D 暖色侧条** | `editorial` | 底 `var(--bg)`；左侧 `12px` 宽 `var(--accent)` 竖条（或左 38% `var(--bg2)` 色块）；h1 `var(--text)`；kicker `var(--kicker)`；sub 暖灰 | 底 `var(--cover-from)`→`var(--cover-to)` 线性深暖色 **或** 浅底 + 居中大字；渐变字**仅**在允许时用于结尾一行 |
+
+生成时：**只实现当前主题那一行配方**；勿在 `briefing` 封面写 A 深底金 kicker，勿在 `mono` 写三色 KPI 以外的彩色装饰。
 
 ## 页型骨架（8 种，从这些起步改内容）
 
-约定：每页 `<section class="slide">`，CSS 尺寸 1280×720；字号阶梯 88/44/28/21px；每页元素 ≤40。颜色一律走主题变量，不要写死旧版硬编码色。
+约定：每页 `<section class="slide">`，CSS 尺寸 1280×720；字号阶梯 88/44/28/21px（`mono` 封面 h1 可到 96–120）；每页元素 ≤40。颜色一律走主题变量，不要写死旧版硬编码色。
 
-- **封面** `.cover`：深底渐变（`--cover-*`）+ kicker(22px、`var(--kicker)`、字距 8px) + h1(88px/800、`var(--on-accent)` 或白)
-  + rule 短条(96×6，accent→accent2 渐变圆角) + sub(30px)。可选 deco：大圆 radial-gradient 出界。
+- **封面** `.cover`：结构见上表 **A/B/C/D**；勿默认一律 A。
 - **KPI 卡** `.kpis`：h2 标题 + grid 3-4 列 `.card`（`var(--surface)`、radius 18、上边框 6px
   三色轮换、`var(--shadow)`），卡内 num(52px/800) +
   delta 涨跌色 + label(17px `var(--muted)`)。
@@ -133,8 +166,7 @@ export default await renderHtmlDeck({
   canvas 渲染的图表仍走截图补真。系列色优先 `--accent` / `--accent2` / `--card-top-3`。
 - **引言** `.quote`：深底 + 大引号(120px `var(--kicker)`) + blockquote(34px/1.75) + 圆形头像
   （border-radius:50% overflow:hidden）+ 署名。
-- **结尾** `.end`：radial 深底 + 大字(120px/800，渐变字用 background-clip:text，色走 accent→accent2)
-  + 一句副标 + 圆角描边标签条。
+- **结尾** `.end`：结构见上表 **A/B/C/D**；渐变字仅 `dusk`/`dark` 或 `editorial` 结尾且表内允许时用。
 
 ## 硬性约束（超了导出质量会崩）
 
@@ -142,7 +174,7 @@ export default await renderHtmlDeck({
 - 阴影只用主题档：`var(--shadow)`（深底页可用 `var(--shadow-deep)`）。
 - 图片：workspace 相对路径自动内联；`https://` 远图可用；图表 CDN 只用 echarts。
 - 字体用系统栈（PingFang SC / Microsoft YaHei / Helvetica）。
-- 渐变字（background-clip:text）只在封面/结尾大字用；其余文字纯色。
+- 渐变字（background-clip:text）：**仅**当前主题上表允许处（封面 h1 / 结尾大字）；`briefing`/`harbor`/`mono` **全程禁止**；其余文字纯色。native 导出对渐变字仍可能近似，浅色主题本来就不该依赖渐变字。
 
 ## native 导出的已知边界（用户问再答）
 
