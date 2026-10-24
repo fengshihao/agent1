@@ -81,7 +81,6 @@ public final class TodoList {
         }
         return """
             ## 当前任务清单
-            这是本会话还没做完的清单。状态没变就不要调用 todo_write。做完一项就整表更新，同时最多一项 in_progress。
             %s
             """.formatted(renderBody()).trim();
     }
