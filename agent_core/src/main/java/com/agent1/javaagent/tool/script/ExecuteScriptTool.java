@@ -31,6 +31,22 @@ public final class ExecuteScriptTool implements AgentTool {
     public static final long MAX_TIMEOUT_MS = 600_000L;
     public static final long MIN_TIMEOUT_MS = 1_000L;
 
+    /**
+     * 工具说明（单一事实来源）：运行环境、路径与 import 细则都在这里，
+     * 系统提示词只保留「一段脚本做完一件事」的编排原则。
+     */
+    public static final String DESCRIPTION = """
+        在 workspace 跑 QuickJS。不是 Node，不是浏览器，没有 document/window，不能 require。
+        code 与 file 二选一。短一次性脚本用 code。超过 20 行或 1000 字符时，运行时会把 code 写入 jobs/ 再执行，并在结果里给出路径；后续用 edit_file 改该文件，再用 file。编排入口用 file（如 jobs/run.js）。
+        可以顶层 await。返回值是最后一条表达式，不要写顶层 return。
+        文件与路径：读写用全局 fs，或外层 read_file / write_file / edit_file；fs 与 workspace 内 import 可用相对或绝对路径，须在 workspace 根下（引擎归一化）；./ 只表示与当前脚本同目录的 workspace 文件。
+        官方能力用 import … from "weizhi:<name>"，按 find_caps 里的示例写；宿主在执行前自动安装缺失的包。宿主系统能力（平台 API）只在脚本里，path 仅相对路径。不要 glob 或 list_dir 去找脚本库。
+        MCP：await $mcp.服务器.工具({...})，名字来自 find_caps 的 entry。
+        外层工具：await $tools.工具名({...})。已注册时可用 $tools.webview_exec 进入浏览器环境（与外层同名工具相同）。不能再调 run_js。
+        批量搜图/下载：同一段 run_js 里 await $tools.images_download({ items:[{url}], dir, name_prefix })，回执是直接对象（如 r.items），不要 JSON.stringify；不要 bash cp 整理。
+        可选 timeout_ms（毫秒，1000–600000）：未指定则用宿主默认（约 2 分钟）；长批量可显式加大，上限 10 分钟。
+        """.trim();
+
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final WorkspaceSandbox sandbox;
@@ -65,15 +81,7 @@ public final class ExecuteScriptTool implements AgentTool {
 
     @Override
     public String description() {
-        return """
-            在 workspace 跑 QuickJS。不是 Node，不是浏览器，没有 document/window，不能 require。
-            code 与 file 二选一。短一次性脚本用 code。超过 20 行或 1000 字符时，运行时会把 code 写入 jobs/ 再执行，并在结果里给出路径；后续用 edit_file 改该文件，再用 file。
-            可以顶层 await。返回值是最后一条表达式，不要写顶层 return。
-            MCP：await $mcp.服务器.工具({...})，名字来自 find_caps 的 entry。
-            外层工具：await $tools.工具名({...})。已注册时可用 $tools.webview_exec 进入浏览器环境（与外层同名工具相同）。不能再调 run_js。
-            批量搜图/下载：同一段 run_js 里 await $tools.images_download({ items:[{url}], dir, name_prefix })，回执是直接对象（如 r.items），不要 JSON.stringify；不要 bash cp 整理。
-            可选 timeout_ms（毫秒，1000–600000）：未指定则用宿主默认（约 2 分钟）；长批量可显式加大，上限 10 分钟。
-            """.trim();
+        return DESCRIPTION;
     }
 
     @Override

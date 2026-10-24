@@ -9,11 +9,11 @@ import java.util.Locale;
 
 /**
  * 生产力助手系统提示词，五段结构：
- * 你的角色和用户背景 / 任务和工作流程 / 当前环境状态 / 主要工具 /（宿主附加段）。
+ * 你的角色和用户背景 / 任务和工作流程（含动态「官方 Skill 目录」）/ 当前环境状态 / 主要工具 /（宿主附加段）。
  *
- * 默认把任务写成一段程序：检索一次，再用 run_js 做完；外层工具不逐个接力。
- * API 与脚本引擎细则留在工具说明和 find_caps 结果里，不写进提示词。
- * 环境状态段的平台 / 内核 / JS 运行环境 / 内存 / 目录结构由 {@link HostEnvironmentProvider} 提供
+ * 编排主脊：先对照官方 Skill 目录（命中 load_skill 按剧本执行），未命中则检索一次再用一段 run_js 做完；外层工具不逐个接力。
+ * 「怎么做事」的细则只住一层：剧本在 SKILL.md，API 与脚本引擎细则在工具说明和 find_caps 结果里，均不写进提示词。
+ * 环境状态段的平台 / JS 运行环境 / 目录结构由 {@link HostEnvironmentProvider} 提供
  * （CLI 用桌面默认实现，Android 注入自己的实现）。
  *
  * 时间注入：系统提示词只保留时区、语言这类不过时的信息；
@@ -33,47 +33,41 @@ public final class ProductivitySystemPromptBuilder {
         # 任务和工作流程
         1. 简单任务（闲聊、解释、只要建议）：直接回答。
         2. 目标不清晰、缺了会做错的关键信息：用 ask_user 工具与用户对齐，然后结束本轮。
-           打分/满意度/NPS 等数值题用 type=rating 并设 min/max（如 0–10），勿让用户自由填文字。
-        3. 其余：先看下方「官方 Skill 目录」；有匹配则 load_skill 读 SKILL 并按其中步骤做；没有合适 Skill 再 find_caps 一次（query 写全 API/工具），按调用示例做，不要猜。然后用尽量少的步骤一次做完。
+           数值打分题用 rating 并设 min/max（如 0–10），勿让用户自由填文字。
+        3. 其余：先对照下方「官方 Skill 目录」；有匹配则 load_skill 读剧本并按其中步骤做；没有合适 Skill 再 find_caps 一次（query 写全 API/工具），按调用示例做，不要猜。然后用尽量少的步骤一次做完。
         4. 完成后输出 markdown 总结，描述产出物路径；再给出下一步建议。
+        文档和可视化先写结构化源（Markdown、Mermaid 或 JSON），再按第 3 步选路出成品。
         """.trim();
 
     static final String WORKFLOW_WITH_SCRIPT = """
         # 任务和工作流程
         1. 简单任务（闲聊、解释、只要建议）：直接回答。
         2. 目标不清晰、缺了会做错的关键信息：用 ask_user 工具与用户对齐，然后结束本轮。
-           打分/满意度/NPS 等数值题用 type=rating 并设 min/max（如 0–10），勿让用户自由填文字。
-        3. 其余（目标清晰的复杂任务）：先看「官方 Skill 目录」；有匹配则 load_skill 再按 SKILL 执行（需要 API 时再 find_caps）；无合适 Skill 时先用 find_caps 查 JS API 和工具，再一次性写代码到文件，用一段 run_js 串行完成整件事，不逐步执行。失败就改这一段再跑，不要改成外层逐个工具补步骤。
+           数值打分题用 rating 并设 min/max（如 0–10），勿让用户自由填文字。
+        3. 其余（目标清晰的复杂任务）：先对照下方「官方 Skill 目录」；命中则 load_skill 按剧本执行（剧本需要 API 时按其指引查）；未命中则先用 find_caps 查 JS API 和工具（query 写全本任务要用的能力），再一次性写代码到文件，用一段 run_js 串行完成整件事，不逐步执行。失败就改这一段再跑，不要改成外层逐个工具补步骤。
         4. 只有纯文本、且只动一个已知文件时，才用一次 read_file、write_file 或 edit_file，不必写程序。
         5. 完成后输出 markdown 总结，描述产出物路径；再给出下一步建议。
+        文档和可视化先写结构化源（Markdown、Mermaid 或 JSON），再按第 3 步选路出成品。
         """.trim();
 
-    /**
-     * 文档与可视化的路由。库 URL 和薄壳示例留在 find_caps（web_lib / docx / pptx / html2pptx），不写进提示词。
-     */
-    static final String RENDER_PIPELINE = """
-        文档和可视化先写结构化源（Markdown、Mermaid 或 JSON），再 find_caps 查 web_lib、docx、pptx、html2pptx。做 PPT：快速结构化内容用 weizhi:pptx 直接出 pptx；要版式自由、设计感时用 weizhi:html2pptx 写 workspace 根 deck.html（每页 class="slide"、1280×720）——这一条允许手写完整 HTML/CSS，交付物是 deck.html 本身加可打开的预览链接，不要擅自 renderHtmlDeck；等用户在预览里点导出按钮或明说「导出」再出 pptx。web_lib 薄壳页则 script 和 link 只用结果里的稳定 URL，不要自造 CDN。写入 .html 后宿主会自动检查页面，失败按回执改。
-        """.trim();
-
-    /** 仅 scriptHostTools（Weizhi $tools 桥）时追加到工作流程段。 */
+    /** 仅 scriptHostTools（Weizhi $tools 桥）时追加到工作流程段；细则在 run_js 工具说明。 */
     static final String WEBVIEW_FROM_SCRIPT = """
-        浏览器放进同一段脚本：await $tools.webview_exec({...})，返回值已是回执对象。不要 JSON.parse，也不要再 JSON.stringify。不要在外层单独调 webview_exec。
-        同一段里 await $tools.images_download({...}) 等结构化工具同样直接是对象（如 r.items），不要对整包结果 JSON.stringify 再交给外层 run_js。
+        浏览器、批量下载图片等宿主能力放进同一段脚本：await $tools.webview_exec({...})、$tools.images_download({...}) 回执已是对象，不要 JSON.parse 或 JSON.stringify，也不要在外层单独调 webview_exec。
         """.trim();
 
     static final String TOOLS_DIRECT = """
         # 主要工具
-        - load_skill：按名加载 SKILL.md（官方目录里的 skill 优先）。
-        - find_caps：检索 API、Package、MCP 等；无合适 Skill 时用。query 写全本任务要用的能力，按调用示例做，不要猜。
+        - load_skill：按名加载官方或已安装 Skill 的剧本。
+        - find_caps：检索 API、Package、MCP、web_lib 等；按调用示例做，不要猜。
         - read_file / write_file / edit_file / list_dir：工作区相对路径（不要 workspace/ 前缀）。辅助：read_url、chat_history。
         """.trim();
 
     static final String TOOLS_WITH_SCRIPT = """
         # 主要工具
-        - run_js：执行 QuickJS 脚本（非 Node）。禁止 require；读写文件用引擎提供的全局 fs，或外层 read_file / write_file。宿主系统能力（平台 API）只在脚本里；$tools、fs、import 已有脚本在同一段里 await。路径：fs 与 workspace 内 import 可用相对或绝对路径，须在 workspace 根下（引擎归一化）；官方能力用 import … from "weizhi:<name>"，按 find_caps 里的示例写，宿主在执行前安装缺失的包；./ 只表示与当前脚本同目录的 workspace 文件；编排入口用 file（如 jobs/run.js）；平台 Caps 的 path 仅相对路径。不要 glob 或 list_dir 去找脚本库。
-        - load_skill：按名加载 SKILL.md（复杂任务先看官方 Skill 目录）。
-        - find_caps：检索 API、Package、MCP 等；无合适 Skill 时用。query 写全要用的能力，按调用示例写，不要猜函数。
-        - 外层 read_file、write_file、edit_file 只用工作区相对路径查看和改脚本，不要 workspace/ 前缀。
+        - run_js：主路径，一段脚本做完一件事；运行环境、路径与 import 细则见本工具说明。
+        - load_skill：按名加载官方或已安装 Skill 的剧本。
+        - find_caps：检索 API、Package、MCP、web_lib；按调用示例写，不要猜函数。
+        - 外层 read_file、write_file、edit_file：工作区相对路径（不要 workspace/ 前缀）。
         """.trim();
 
     static final String WEB_SEARCH_LINE = "- web_search：联网搜索（Tavily）。不要编造检索结果。";
@@ -172,7 +166,7 @@ public final class ProductivitySystemPromptBuilder {
         if (scriptToolRegistered && scriptHostTools) {
             workflow = workflow + "\n" + WEBVIEW_FROM_SCRIPT;
         }
-        sb.append(workflow).append("\n").append(RENDER_PIPELINE);
+        sb.append(workflow);
         if (!skillCatalogSection.isEmpty()) {
             sb.append("\n\n").append(skillCatalogSection);
         }
@@ -229,10 +223,6 @@ public final class ProductivitySystemPromptBuilder {
         lines.add(scriptToolRegistered
             ? "- JS 运行环境：" + (jsRuntime.isBlank() ? "QuickJS 扩展，非 Node" : jsRuntime)
             : "- JS 运行环境：未启用脚本引擎；没有 Node，不能 npm 或 require");
-        String memory = env.memoryLine();
-        if (!memory.isBlank()) {
-            lines.add("- 内存：" + memory);
-        }
         lines.add("- 用户消息末尾的（时间：…）是该消息发出时间；系统提示词不含日期");
         for (String dir : env.directoryLines()) {
             if (dir != null && !dir.isBlank()) {
@@ -244,7 +234,7 @@ public final class ProductivitySystemPromptBuilder {
                 + maxTurnsPerRun
                 + " 轮，工具执行最多 "
                 + maxToolCallsPerRun
-                + " 次（可在宿主「模型配置」高级参数调节）。留给按任务和工作流程做完，不要花在逐步试探上。");
+                + " 次。留给按任务和工作流程做完，不要花在逐步试探上。");
         }
         if (environmentSupplement != null && !environmentSupplement.isBlank()) {
             lines.add(environmentSupplement.trim());

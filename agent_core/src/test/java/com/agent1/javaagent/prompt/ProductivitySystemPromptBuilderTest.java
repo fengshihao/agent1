@@ -3,6 +3,8 @@ package com.agent1.javaagent.prompt;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.agent1.javaagent.skill.SkillCatalogDocument;
+import com.agent1.javaagent.tool.script.ExecuteScriptTool;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -47,12 +49,18 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
-    void pptPipelinePrefersDeckHtmlWithoutUnsolicitedExport() {
+    void skillCatalogRoutesPptAndDeckContractLivesInSkill() {
         String prompt = new ProductivitySystemPromptBuilder()
+            .skillCatalogSection(SkillCatalogDocument.bundledMarkdown())
             .buildMainPrompt(temp.resolve("ws"), true);
-        assertTrue(prompt.contains("deck.html"));
-        assertTrue(prompt.contains("不要擅自 renderHtmlDeck"));
+        // 路由由动态目录承载
+        assertTrue(prompt.contains("官方 Skill 目录"));
         assertTrue(prompt.contains("html2pptx"));
+        assertTrue(prompt.contains("pptx"));
+        // deck 契约细节住在 html2pptx 剧本里，不再进提示词
+        assertFalse(prompt.contains("deck.html"));
+        assertFalse(prompt.contains("renderHtmlDeck"));
+        assertFalse(prompt.contains("1280"));
     }
 
     @Test
@@ -82,8 +90,12 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("一段 run_js"));
         assertTrue(prompt.contains("不要在外层单独调 webview_exec"));
         assertTrue(prompt.contains("images_download"));
-        assertTrue(prompt.contains("禁止 require"));
-        assertTrue(prompt.contains("宿主系统能力"));
+        assertTrue(prompt.contains("回执已是对象"));
+        // QuickJS / 路径细则已下沉到 run_js 工具说明，不再写进提示词
+        assertFalse(prompt.contains("禁止 require"));
+        assertFalse(prompt.contains("宿主系统能力"));
+        assertTrue(ExecuteScriptTool.DESCRIPTION.contains("不能 require"));
+        assertTrue(ExecuteScriptTool.DESCRIPTION.contains("宿主系统能力"));
         assertFalse(prompt.contains("不操作手机界面"));
         assertFalse(prompt.contains("svgToImage"));
         assertFalse(prompt.contains("toDataURL"));
@@ -162,7 +174,8 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(prompt.contains("模型↔工具往返最多 24 轮"));
         assertTrue(prompt.contains("工具执行最多 48 次"));
-        assertTrue(prompt.contains("模型配置"));
+        // 「模型配置」是给用户看的设置入口，不进提示词
+        assertFalse(prompt.contains("模型配置"));
     }
 
     @Test
@@ -209,17 +222,12 @@ class ProductivitySystemPromptBuilderTest {
         HostEnvironmentProvider provider = new HostEnvironmentProvider() {
             @Override
             public String platformLine() {
-                return "Android 14 内核 5.15.0-android14";
+                return "Android 14";
             }
 
             @Override
             public String jsRuntimeLine() {
                 return "QuickJS 扩展，非 Node；不能 npm 或 require";
-            }
-
-            @Override
-            public String memoryLine() {
-                return "总内存 8192MB，可用 1024MB";
             }
 
             @Override
@@ -236,11 +244,13 @@ class ProductivitySystemPromptBuilderTest {
                 "",
                 provider
             );
-        assertTrue(prompt.contains("平台：Android 14 内核 5.15.0-android14"));
+        assertTrue(prompt.contains("平台：Android 14"));
         assertTrue(prompt.contains("JS 运行环境：QuickJS 扩展，非 Node"));
-        assertTrue(prompt.contains("内存：总内存 8192MB，可用 1024MB"));
         assertTrue(prompt.contains("- workspace/：本会话工作区（可写）"));
         assertTrue(prompt.contains("- shared/：公共能力库（只读）"));
+        // 内核 / 内存不影响模型决策，环境段不报
+        assertFalse(prompt.contains("内存"));
+        assertFalse(prompt.contains("内核"));
     }
 
     @Test
@@ -248,7 +258,8 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), null, true, false, "", null);
         assertTrue(prompt.contains("- 平台："));
-        assertTrue(prompt.contains("内核"));
+        assertFalse(prompt.contains("内核"));
+        assertFalse(prompt.contains("内存"));
         assertTrue(prompt.contains("QuickJS 扩展，非 Node"));
         assertTrue(prompt.contains("相对工作区根"));
         assertTrue(prompt.contains("shared/"));
@@ -351,13 +362,15 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("find_caps"));
         assertTrue(prompt.contains("官方 Skill 目录") || prompt.contains("load_skill"));
         assertTrue(prompt.contains("query 写全"));
-        assertTrue(prompt.contains("weizhi:<name>"));
-        assertTrue(prompt.contains("不要 glob 或 list_dir"));
-        assertFalse(prompt.contains("catalog_sync"));
-        assertFalse(prompt.contains("文件名.js"));
         assertTrue(prompt.contains("edit_file"));
         assertTrue(prompt.contains("外层 read_file"));
-        assertTrue(prompt.contains("须在 workspace 根下"));
+        // run_js 引擎细则已下沉到工具说明（单一事实来源）
+        assertTrue(ExecuteScriptTool.DESCRIPTION.contains("weizhi:<name>"));
+        assertTrue(ExecuteScriptTool.DESCRIPTION.contains("不要 glob 或 list_dir"));
+        assertTrue(ExecuteScriptTool.DESCRIPTION.contains("须在 workspace 根下"));
+        assertFalse(prompt.contains("weizhi:<name>"));
+        assertFalse(prompt.contains("catalog_sync"));
+        assertFalse(prompt.contains("文件名.js"));
         assertFalse(prompt.contains("20 行或 1000 字符"));
         assertFalse(prompt.contains("limit（最多 20）"));
         assertFalse(prompt.contains("不确定有什么能力时"));

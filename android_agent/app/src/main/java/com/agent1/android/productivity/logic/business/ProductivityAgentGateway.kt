@@ -49,7 +49,7 @@ class ProductivityAgentGateway(
                 agentRoot,
                 runtimeConfig,
             )
-            // 系统提示词「当前环境状态」段：Android 平台 / 内核 / 内存 / 目录标注
+            // 系统提示词「当前环境状态」段：Android 平台 / JS 运行环境 / 目录标注
             created.setEnvironmentProvider(AndroidHostEnvironmentProvider(appContext))
             host = created
             return created
