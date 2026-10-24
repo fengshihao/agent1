@@ -104,6 +104,7 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(prompt.contains("run_js"));
         assertTrue(prompt.contains("find_caps"));
+        assertTrue(prompt.contains("load_skill"));
         assertTrue(prompt.contains("一次性写代码到文件"));
         assertTrue(prompt.contains("先写结构化源"));
         assertTrue(prompt.contains("web_lib"));
@@ -348,7 +349,7 @@ class ProductivitySystemPromptBuilderTest {
         String prompt = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(prompt.contains("find_caps"));
-        assertTrue(prompt.contains("现成接口或同类脚本"));
+        assertTrue(prompt.contains("官方 Skill 目录") || prompt.contains("load_skill"));
         assertTrue(prompt.contains("query 写全"));
         assertTrue(prompt.contains("weizhi:<name>"));
         assertTrue(prompt.contains("不要 glob 或 list_dir"));

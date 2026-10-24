@@ -1,6 +1,10 @@
 ---
 name: html2pptx
+version: 1.0.0
 description: 用户要有设计感的 PPT 时用。交付物是 deck.html（每页 class="slide"，1280×720）+ 可打开的预览链接；禁止在用户未点导出/未明说导出时调用 renderHtmlDeck。快速结构化内容仍用 pptx skill。
+category: office.presentation
+catalog_line: 要做有设计感的 PPT、网页幻灯片 deck 预览时用。
+depends_weizhi: html2pptx
 tags: pptx,ppt,html,幻灯片,演示,设计,版式
 ---
 

@@ -8,6 +8,7 @@ import com.agent1.javaagent.weizhi.desktop.cdp.CdpWebViewRuntime;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.agent1.javaagent.skill.CompositeSkillRepository;
 import com.agent1.javaagent.skill.FileSystemSkillRepository;
+import com.agent1.javaagent.skill.SkillsHomeSkillRepository;
 import com.agent1.javaagent.skill.SkillRepository;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -78,6 +79,7 @@ public final class WeizhiWorkspaceTools {
         repos.add(workspaceSkills);
         if (agentRoot != null) {
             Path root = agentRoot.toAbsolutePath().normalize();
+            repos.add(new SkillsHomeSkillRepository(root));
             repos.add(new FileSystemSkillRepository(root.resolve("shared/catalog/skills")));
             repos.add(new FileSystemSkillRepository(root.resolve("shared/local/skills")));
         }

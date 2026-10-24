@@ -1,6 +1,6 @@
 package com.agent1.javaagent.weizhi;
 
-import com.agent1.javaagent.skill.PackageSkills;
+import com.agent1.javaagent.skill.SkillsBundledInstall;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weizhi.packages.PackageInstaller;
@@ -15,8 +15,7 @@ import java.util.List;
  * 将 classpath {@code agent-home/weizhi-packages/<name>/} 安装到
  * {@code <agentRoot>/weizhi-home}，供 {@link com.weizhi.WeizhiEngine#setPackageRoot} 使用。
  * 源码目录无版本号；版本只读各包 {@code manifest.json}，安装后目录为 {@code <name>@<version>}。
- * 包内 manifest 声明的 {@code skill} 文件（SKILL.md）一并安装，装完把随包 skill 卡
- * 写入 find_caps（见 {@link PackageSkills}）。
+ * 官方 Skill 与包分离，由 {@link SkillsBundledInstall} 写入 {@code skills-home}。
  */
 public final class WeizhiBundledPackages {
 
@@ -60,7 +59,7 @@ public final class WeizhiBundledPackages {
                 installBundledPackage(home, name);
             }
         }
-        PackageSkills.syncCapabilityCards(agentRoot);
+        SkillsBundledInstall.syncFromClasspath(agentRoot);
         return home.toAbsolutePath().toString();
     }
 
@@ -119,10 +118,6 @@ public final class WeizhiBundledPackages {
             String entryName = entryFileName(name);
             copyResourceFile(prefix + "/manifest.json", temp.resolve("manifest.json"));
             String version = readManifestVersion(temp.resolve("manifest.json"), name);
-            String skillFile = manifestSkillFile(temp.resolve("manifest.json"));
-            if (skillFile != null) {
-                copyResourceFile(prefix + "/" + skillFile, temp.resolve(skillFile));
-            }
             copyResourceFile(prefix + "/" + entryName, temp.resolve(entryName));
             PackageInstaller.installPackageDirectory(weizhiHome, name, version, temp);
         } finally {
@@ -141,16 +136,6 @@ public final class WeizhiBundledPackages {
             throw new IOException(expectedName + ": manifest.version required");
         }
         return version;
-    }
-
-    /** manifest 里 {@code skill} 字段声明的随包 skill 文件名；没有声明返回 null。 */
-    private static String manifestSkillFile(Path manifest) throws IOException {
-        JsonNode node = MAPPER.readValue(manifest.toFile(), JsonNode.class);
-        String declared = node.path("skill").asText("").trim();
-        if (declared.isEmpty() || declared.contains("/") || declared.contains("\\") || declared.contains("..")) {
-            return null;
-        }
-        return declared;
     }
 
     private static String entryFileName(String packageName) {

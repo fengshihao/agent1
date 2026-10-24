@@ -1,6 +1,11 @@
 ---
 name: pptx
+version: 1.0.0
 description: 用户要做演示文稿、幻灯片、PPT 或 pptx 时使用。用 run_js 调用 weizhi:pptx 的 renderPptx，由版式和主题绘制形状与背景，不要手写 OOXML。
+category: office.presentation
+catalog_line: 快速结构化幻灯片、直接出 pptx 时用。
+depends_weizhi: pptx,pptx-build
+tags: pptx,ppt,幻灯片,演示
 ---
 
 # 生成 PPT

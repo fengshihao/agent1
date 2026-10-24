@@ -1,12 +1,14 @@
 # html2pptx.js — HTML 自由版式生成 PPT（v0.2 截图 + native + 页图导出）
 
-真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx/`（仓内**无版本路径**；版本见 `manifest.json`，当前 `0.2.5`）。桌面 classpath 安装到 `weizhi-home/packages/html2pptx@<version>/`；Android 从云端 registry 动态安装（APK 不预装，`https://agentone.guoyoutech.cn/packages/html2pptx/0.2.5/`，2026-10-21 已上云，sha256 `df75e721…feb26507` 本地/云端一致）。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`；使用说明（skill 正文）**随包分发**：包内 `SKILL.md`（manifest 的 `skill` 字段声明），安装后由 `PackageSkills` 写入 `kind=skill` 能力卡（`source=package_skill`），`find_caps` 查 html2pptx 会同时命中包卡与 skill 卡，正文由 `AgentSkillLoader` 从已安装包加载。布局约定见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
+真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx/`（仓内**无版本路径**；版本见 `manifest.json`，当前 `0.2.5`）。桌面 classpath 安装到 `weizhi-home/packages/html2pptx@<version>/`；Android 从云端 registry 动态安装（APK 不预装）。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`（`kind=weizhi_package`）。
+
+**Skill 与 Package 分轨（2026-10 起）**：工作流说明在独立 Skill `html2pptx`（源码 `agent_core/skills-src/html2pptx/`，桌面 bundled 到 `skills-home`，云 `kind=skill` 条目 + `load_skill`）。包内**不再**携带 `SKILL.md`；`find_caps` 命中包卡与 `skill.html2pptx`（`source=skills_home`）双卡，正文优先 `load_skill` / `AgentSkillLoader` 从 `skills-home` 加载。布局约定见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
 
 **0.2.3 截图内存**：WebView 内逐页 `writeFile(page-N.png, dataUrl)`，宿主解码落盘后回执只带路径清单；QuickJS 不再 `readFileSync` 整包 Base64 JSON。Android 引擎堆默认与桌面对齐为 128MB（需新 APK；包可单独云升）。
 
 **0.2.4 产品契约**：做 PPT = 交付 `deck.html` + 预览链接；`renderHtmlDeck` 仅用户点「导出可编辑版 / 导出原样版」或明说导出时执行。系统提示与 coach（`deck.html_ready`）同步收口。
 
-**0.2.5+ 主题与封面配方**：随包 `SKILL.md` 提供 5 套与 `weizhi:pptx` 同名的 CSS 变量主题（`dusk` 默认 / `briefing` / `dark` / `editorial` / `harbor`）+ deck 专用 `mono`；8 种页型共用，但封面/结尾按 **A 深底路演 / B 浅底杂志 / C 黑白极简 / D 暖色侧条** 四配方与主题绑定，避免只换 token 仍「深底 + 金 kicker + 渐变字」千篇一律；渐变字仅在 SKILL 表内允许的主题/位置使用。
+**0.2.5+ 主题与封面配方**：Skill `html2pptx` 的 `SKILL.md` 提供 5 套与 `weizhi:pptx` 同名的 CSS 变量主题（`dusk` 默认 / `briefing` / `dark` / `editorial` / `harbor`）+ deck 专用 `mono`；8 种页型共用，但封面/结尾按 **A 深底路演 / B 浅底杂志 / C 黑白极简 / D 暖色侧条** 四配方与主题绑定，避免只换 token 仍「深底 + 金 kicker + 渐变字」千篇一律；渐变字仅在 SKILL 表内允许的主题/位置使用。
 
 **推荐工作流（「HTML 源 + 用户端导出」）**：写 deck.html → 打开即默认**演示模式**（全屏翻页、页码、双导出按钮）→ 指点改 HTML → **用户点导出**才 `renderHtmlDeck`。桌面/无宿主预览用 `exportDeckPages`。
 

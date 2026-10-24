@@ -20,6 +20,9 @@ import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.prompt.DesktopEnvironmentProvider;
 import com.agent1.javaagent.prompt.HostEnvironmentProvider;
 import com.agent1.javaagent.prompt.ProductivitySystemPromptBuilder;
+import com.agent1.javaagent.skill.SkillCatalogSync;
+import com.agent1.javaagent.tool.anno.AnnotatedTools;
+import com.agent1.javaagent.tool.skill.LoadSkillByNameTool;
 import com.agent1.javaagent.core.UserMessageTimestampAppender;
 import com.agent1.javaagent.run.FileRunStore;
 import com.agent1.javaagent.run.RunRecord;
@@ -175,6 +178,7 @@ public final class ProductivityAgentHost implements Closeable {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
         this.projectRoot = AgentDataPaths.projectRoot(this.agentRoot);
         AgentHomeBootstrap.ensure(this.agentRoot);
+        SkillCatalogSync.refreshAsync(this.agentRoot);
         EventJsonlRetention.pruneOnStartup(AgentDataPaths.eventsJsonl(this.agentRoot), new ObjectMapper());
         this.sessionStore = new FileSessionStore(this.agentRoot);
         this.runStore = new FileRunStore(sessionStore);
@@ -686,6 +690,7 @@ public final class ProductivityAgentHost implements Closeable {
             () -> applySystemPrompt(sessionId)
         ));
         tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform, projectRoot));
+        tools.addAll(AnnotatedTools.from(new LoadSkillByNameTool(agentRoot, projectRoot)));
         if (runtimeConfig.isWebSearchConfigured()) {
             tools.add(new WebSearchTool(
                 runtimeConfig.getWebSearchApiKey(),
@@ -726,6 +731,7 @@ public final class ProductivityAgentHost implements Closeable {
         boolean scriptTool = scriptEngineFactory != null;
         String prompt = new ProductivitySystemPromptBuilder()
             .hostAppend(scriptPromptAppend)
+            .skillCatalogSection(SkillCatalogSync.promptSection(agentRoot))
             .webSearch(runtimeConfig.isWebSearchConfigured())
             .runLimits(runtimeConfig.getMaxTurnsPerRun(), runtimeConfig.getMaxToolCallsPerRun())
             .buildMainPrompt(

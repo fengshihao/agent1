@@ -35,7 +35,8 @@ public final class AgentHomeBootstrap {
         "shared/catalog/native",
         "shared/catalog/bundles",
         "shared/local/skills",
-        "shared/local/scripts"
+        "shared/local/scripts",
+        "skills-home/skills"
     );
 
     private AgentHomeBootstrap() {

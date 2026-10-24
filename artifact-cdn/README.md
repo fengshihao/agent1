@@ -2,7 +2,7 @@
 
 这个目录是发布侧，不是 Agent 运行时。它把一个源目录打成 zip，计算 sha256，写进清单，再用 SSH 拷到国优服务器的网站根。下载工具只负责把 zip 取回来并校验，不负责安装。公网只能下载，不能上传。
 
-微智 JS 包是第一种 `kind=weizhi_package`。Skill 以后用同一套 `pack` / `fetch` / `upload.sh`，安装器另写，把校验过的 zip 解到 Skill 目录。
+微智 JS 包是 `kind=weizhi_package`。官方 **Skill**（SKILL.md + 可选业务脚本）用 **`pack-skill.mjs`** 打包，字段见 [doc/SKILL-PACK-FIELDS.md](./doc/SKILL-PACK-FIELDS.md)；产物含 `skills/registry/stable.json`（系统提示词目录）与合并进 `dist/registry/stable.json` 的 `kind=skill` 条目。Skill 安装：`agent_core` 的 `SkillRegistryClient`（对称 `PackageRegistryClient`，读统一 `registry/stable.json` 中 `kind=skill`）。
 
 不进入 `java_agent` / `android_agent` 的 Gradle，也不进入 `./scripts/ci-local.sh`。
 

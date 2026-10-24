@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "channel": "stable",
+  "generated_at": "2026-10-24",
+  "categories": [
+    {
+      "id": "office.presentation",
+      "skills": [
+        {
+          "name": "html2pptx",
+          "line": "要做有设计感的 PPT、网页幻灯片 deck 预览时用。"
+        },
+        {
+          "name": "pptx",
+          "line": "快速结构化幻灯片、直接出 pptx 时用。"
+        }
+      ]
+    },
+    {
+      "id": "travel.roadbook",
+      "skills": [
+        {
+          "name": "travel-itinerary",
+          "line": "规划旅游路书、自驾攻略、行程食宿表时用。"
+        }
+      ]
+    }
+  ]
+}

@@ -34,7 +34,7 @@ public final class ProductivitySystemPromptBuilder {
         1. 简单任务（闲聊、解释、只要建议）：直接回答。
         2. 目标不清晰、缺了会做错的关键信息：用 ask_user 工具与用户对齐，然后结束本轮。
            打分/满意度/NPS 等数值题用 type=rating 并设 min/max（如 0–10），勿让用户自由填文字。
-        3. 其余：find_caps 一次，query 写全本任务要用的能力，按结果里的调用示例做，不要猜；然后用尽量少的步骤一次做完，不要把一件事拆成许多轮试探。
+        3. 其余：先看下方「官方 Skill 目录」；有匹配则 load_skill 读 SKILL 并按其中步骤做；没有合适 Skill 再 find_caps 一次（query 写全 API/工具），按调用示例做，不要猜。然后用尽量少的步骤一次做完。
         4. 完成后输出 markdown 总结，描述产出物路径；再给出下一步建议。
         """.trim();
 
@@ -43,7 +43,7 @@ public final class ProductivitySystemPromptBuilder {
         1. 简单任务（闲聊、解释、只要建议）：直接回答。
         2. 目标不清晰、缺了会做错的关键信息：用 ask_user 工具与用户对齐，然后结束本轮。
            打分/满意度/NPS 等数值题用 type=rating 并设 min/max（如 0–10），勿让用户自由填文字。
-        3. 其余（目标清晰的复杂任务）：先用 find_caps 查所需 JS API 和工具，再一次性写代码到文件，用一段 run_js 串行完成整件事，不逐步执行，提高效率。失败就改这一段再跑，不要改成外层逐个工具补步骤。
+        3. 其余（目标清晰的复杂任务）：先看「官方 Skill 目录」；有匹配则 load_skill 再按 SKILL 执行（需要 API 时再 find_caps）；无合适 Skill 时先用 find_caps 查 JS API 和工具，再一次性写代码到文件，用一段 run_js 串行完成整件事，不逐步执行。失败就改这一段再跑，不要改成外层逐个工具补步骤。
         4. 只有纯文本、且只动一个已知文件时，才用一次 read_file、write_file 或 edit_file，不必写程序。
         5. 完成后输出 markdown 总结，描述产出物路径；再给出下一步建议。
         """.trim();
@@ -63,14 +63,16 @@ public final class ProductivitySystemPromptBuilder {
 
     static final String TOOLS_DIRECT = """
         # 主要工具
-        - find_caps：检索可用能力/API。query 写全本任务要用的能力，按结果里的调用示例做，不要猜。
+        - load_skill：按名加载 SKILL.md（官方目录里的 skill 优先）。
+        - find_caps：检索 API、Package、MCP 等；无合适 Skill 时用。query 写全本任务要用的能力，按调用示例做，不要猜。
         - read_file / write_file / edit_file / list_dir：工作区相对路径（不要 workspace/ 前缀）。辅助：read_url、chat_history。
         """.trim();
 
     static final String TOOLS_WITH_SCRIPT = """
         # 主要工具
         - run_js：执行 QuickJS 脚本（非 Node）。禁止 require；读写文件用引擎提供的全局 fs，或外层 read_file / write_file。宿主系统能力（平台 API）只在脚本里；$tools、fs、import 已有脚本在同一段里 await。路径：fs 与 workspace 内 import 可用相对或绝对路径，须在 workspace 根下（引擎归一化）；官方能力用 import … from "weizhi:<name>"，按 find_caps 里的示例写，宿主在执行前安装缺失的包；./ 只表示与当前脚本同目录的 workspace 文件；编排入口用 file（如 jobs/run.js）；平台 Caps 的 path 仅相对路径。不要 glob 或 list_dir 去找脚本库。
-        - find_caps：检索可用能力/API。query 写全本任务要用的能力，先看有没有现成接口或同类脚本；按结果里的调用示例写，不要猜函数。
+        - load_skill：按名加载 SKILL.md（复杂任务先看官方 Skill 目录）。
+        - find_caps：检索 API、Package、MCP 等；无合适 Skill 时用。query 写全要用的能力，按调用示例写，不要猜函数。
         - 外层 read_file、write_file、edit_file 只用工作区相对路径查看和改脚本，不要 workspace/ 前缀。
         """.trim();
 
@@ -89,9 +91,16 @@ public final class ProductivitySystemPromptBuilder {
         """.trim();
 
     private String hostAppend = "";
+    private String skillCatalogSection = "";
     private boolean webSearchEnabled;
     private int maxTurnsPerRun;
     private int maxToolCallsPerRun;
+
+    /** 官方 Skill 目录（自然语言 Markdown），通常来自 {@link com.agent1.javaagent.skill.SkillCatalogSync}. */
+    public ProductivitySystemPromptBuilder skillCatalogSection(String markdown) {
+        this.skillCatalogSection = markdown != null ? markdown.trim() : "";
+        return this;
+    }
 
     public ProductivitySystemPromptBuilder hostAppend(String hostAppend) {
         this.hostAppend = hostAppend != null ? hostAppend.trim() : "";
@@ -163,7 +172,11 @@ public final class ProductivitySystemPromptBuilder {
         if (scriptToolRegistered && scriptHostTools) {
             workflow = workflow + "\n" + WEBVIEW_FROM_SCRIPT;
         }
-        sb.append(workflow).append("\n").append(RENDER_PIPELINE).append("\n\n");
+        sb.append(workflow).append("\n").append(RENDER_PIPELINE);
+        if (!skillCatalogSection.isEmpty()) {
+            sb.append("\n\n").append(skillCatalogSection);
+        }
+        sb.append("\n\n");
         sb.append(buildEnvironmentSection(
             workspaceRoot,
             agentRoot,

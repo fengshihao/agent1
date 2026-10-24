@@ -61,10 +61,11 @@ class AgentSkillLoaderTest {
         assertTrue(bundled.warnings().isEmpty());
         AgentSkill creator = find(bundled, "skill-creator");
         assertEquals("bundled", creator.sourceLabel());
-        AgentSkill pptx = find(bundled, "pptx");
-        assertEquals("bundled", pptx.sourceLabel());
-        assertTrue(pptx.content().contains("renderPptx"));
         assertTrue(creator.description().contains("Skill"));
+        SkillsBundledInstall.syncFromClasspath(agentRoot);
+        AgentSkill pptx = find(new AgentSkillLoader().loadMerged(agentRoot, projectRoot), "pptx");
+        assertEquals("skills_home", pptx.sourceLabel());
+        assertTrue(pptx.content().contains("renderPptx"));
         assertTrue(creator.content().contains("promote_request"));
         assertTrue(creator.content().contains("staging/skills"));
 

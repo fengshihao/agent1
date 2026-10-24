@@ -12,7 +12,7 @@
 | `bridge_tool` | 仅 run_js 内可用的 `$tools` 桥 | `bridge_tool.*` | `bridge_tool.webview_exec` | `bundled:v1` |
 | `caps` | 微智原生 caps（Android 宿主能力） | `android.*` | `android.intent.start` | `weizhi` |
 | `weizhi_package` | 微智 JS 包（run_js `import "weizhi:<name>"`） | `<pkg>.<export>`、`svg.*`、office 家族（`docx.*`/`pptx.*`/`html2pptx.*`） | `html2pptx.render`、`pptx.render` | `agent1`（本仓库包）/ `registry`（云装包）/ `weizhi`（weizhi 真源卡） |
-| `skill` | SKILL 正文卡（`skill:<name>` 可加载） | `skill.<name>` | `skill.skill-creator`、`skill.html2pptx` | `bundled:v1`（内置）/ `package_skill`（随包 SKILL.md，`PackageSkills`）/ `local`（项目级） |
+| `skill` | SKILL 正文卡（`skill:<name>` 可加载） | `skill.<name>` | `skill.skill-creator`、`skill.html2pptx` | `bundled:v1`（内置 skill-creator）/ `skills_home`（官方 skills-home）/ `package_skill`（遗留随包，`PackageSkills`）/ `local` |
 | `web_lib` | 前端 CDN 库卡（deck HTML `<script src>`） | `web_lib.*` | `web_lib.echarts` | `web_lib`（`WebLibRegistrySync`） |
 
 ## 静态 seed（`agent-home/capabilities/`）
@@ -26,7 +26,8 @@
 动态来源（写入 capabilities.db，不在 seed 文件里）：
 
 - 云端 registry 装包 → `kind: weizhi_package`、`source: registry`（`WeizhiPackageSync`）。
-- 包内 SKILL.md → `kind: skill`、`id: skill.<name>`、`source: package_skill`、weight 1.3（`PackageSkills`）。
+- 官方 skills-home → `kind: skill`、`source: skills_home`（`SkillsCapabilitySync`）。
+- 遗留包内 SKILL.md → `source: package_skill`（`PackageSkills`，新包不再使用）。
 - web_lib 注册表 → `kind: web_lib`、`source: web_lib`（`WebLibRegistrySync`，要求 id 以 `web_lib.` 开头）。
 
 ## 变更规则

@@ -42,6 +42,7 @@ fi
 
 GENERIC="${DIST}/registry/stable.json"
 PROJECTION="${DIST}/packages/registry/stable.json"
+SKILLS_CATALOG="${DIST}/skills/registry/stable.json"
 WEB_LIBS="${DIST}/web-libs/registry/stable.json"
 if [[ ! -f "${GENERIC}" || ! -f "${PROJECTION}" ]]; then
   echo "缺少清单，先在该 dist 上运行 pack" >&2
@@ -94,6 +95,9 @@ for zip in "${zips[@]}"; do
   parents="${parents} ${parent}"
 done
 parents="${parents} $(dirname "$(remote_path "${GENERIC}")") $(dirname "$(remote_path "${PROJECTION}")")"
+if [[ -f "${SKILLS_CATALOG}" ]]; then
+  parents="${parents} $(dirname "$(remote_path "${SKILLS_CATALOG}")")"
+fi
 if [[ -f "${WEB_LIBS}" ]]; then
   parents="${parents} $(dirname "$(remote_path "${WEB_LIBS}")")"
 fi
@@ -105,6 +109,9 @@ for zip in "${zips[@]}"; do
 done
 run_scp "${GENERIC}" "$(remote_path "${GENERIC}")"
 run_scp "${PROJECTION}" "$(remote_path "${PROJECTION}")"
+if [[ -f "${SKILLS_CATALOG}" ]]; then
+  run_scp "${SKILLS_CATALOG}" "$(remote_path "${SKILLS_CATALOG}")"
+fi
 if [[ -f "${WEB_LIBS}" ]]; then
   run_scp "${WEB_LIBS}" "$(remote_path "${WEB_LIBS}")"
 fi

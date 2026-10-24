@@ -1,6 +1,11 @@
 ---
 name: travel-itinerary
-description: 用户要旅游路书、几日游行程攻略、自驾环线、景点食宿表、路线图或高德导航链接时使用。关键词：旅游 行程 攻略 自驾 路书 几日游 地图 里程 食宿 itinerary。不含机票火车酒店下单预订。
+version: 1.0.0
+description: 用户要旅游路书、几日游行程攻略、自驾环线、景点食宿表、路线图或高德导航链接时使用。不含机票火车酒店下单预订。
+category: travel.roadbook
+catalog_line: 规划旅游路书、自驾攻略、行程食宿表时用。
+depends_weizhi: travel-itinerary
+depends_mcp: gaode
 tags: 旅游,行程,攻略,自驾,路书,地图,高德,里程,食宿,itinerary,travel
 ---
 
@@ -18,9 +23,7 @@ tags: 旅游,行程,攻略,自驾,路书,地图,高德,里程,食宿,itinerary,t
 ## 开工协议
 
 1. 信息不全时：先用 `ask_user` 对齐出发城市、日期、人数、预算档、自驾/公共交通、忌口或老人小孩约束，然后结束本轮。
-2. 信息足够后：**第一个能力检索**用  
-   `find_caps` query=`旅游 行程攻略 路书 自驾 travel-itinerary 高德 leaflet docx`  
-   命中本 skill 后**严格按下列步骤**，不要另起一套即兴流程。
+2. 信息足够后：先 **`load_skill`（`travel-itinerary`）** 读本正文，**严格按下列步骤**；需要 API 时再 `find_caps`（高德 MCP、leaflet、docx 等）。不要另起一套即兴流程。
 3. 需要算路、导航链接时：确认宿主已配置**高德 MCP**（`maps_direction_driving`、`maps_schema_personal_map`）。未配置则用文字里程估算并说明无法生成导航链接。
 
 ## 推荐目录（单次任务一个文件夹）
