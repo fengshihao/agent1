@@ -29,7 +29,7 @@
 
 1. `write_file` → `staging/skills/.../SKILL.md`
 2. `promote_request` → `shared/local/skills`
-3. 下一轮 `find_caps` / `load_skill_through_path` 可读 local skill。
+3. 下一轮 `find_caps` / `load_skill` 可读 local skill。
 
 **自动化**：`ProductivityScriptedPromoteTest`。
 

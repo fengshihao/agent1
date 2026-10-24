@@ -22,7 +22,7 @@ object WeizhiHostLoader {
         WeizhiPackageSync.refreshIndexAsync(agentRoot)
         installBundledAsync(context, agentRoot)
         val scriptTools = MutableScriptToolBridge()
-        return ProductivityAgentHost(
+        val host = ProductivityAgentHost(
             agentRoot,
             config,
             WeizhiAndroidScriptEngineFactory(
@@ -40,6 +40,11 @@ object WeizhiHostLoader {
             WeizhiAgentTools(context, agentRoot),
             "android",
         )
+        // load_skill 统一优先级表中的宿主特有源：APK assets 内置 skill（可被 local/project/workspace 覆盖）
+        host.setSkillRepositories(
+            listOf(com.agent1.javaagent.skill.AssetSkillRepository(context, "agent_skills"))
+        )
+        return host
     }
 
     /**

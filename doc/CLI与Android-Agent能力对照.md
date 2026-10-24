@@ -45,7 +45,7 @@
 |-------------|----------|--------------|------|
 | `grep` / `glob` / `zip_extract` / `zip_create` | `agent_core` `@Tool`，由 `WeizhiWorkspaceTools` 注册 | 同左，由 `WeizhiAgentTools` 注册 | 行为对齐 |
 | `bash` | 同上，白名单、无 shell | 同左 | **PATH 上的命令不同**（桌面系统命令，设备多为 toybox） |
-| `load_skill_through_path` | 仓库 `.claude/skills` + workspace `skills/` | `assets/agent_skills` + workspace `skills/` | **Skill 来源不同**；读取逻辑在 `agent_core` |
+| `load_skill` | 内核注册（`ProductivityAgentHost`），统一优先级表 local → project `.claude/skills` → workspace `skills/` → 宿主源（Android 为 `assets/agent_skills`）→ skills-home → catalog；全表未命中自动从官方 registry 安装 | 同一套表；差异仅在宿主源 | `load_skill_through_path` 已并入其 `path` 参数（读 SKILL.md 或 references/scripts 资源） |
 | `run_js` | Weizhi QuickJS + `$tools` 桥 | 同左 | 两侧系统提示都只要求用脚本完成任务；沙盒细则走 `find_caps` |
 | MCP | `mcp_servers.json` + `find_caps`；脚本 `$mcp` 走 weizhi `mcp.connect`，不写 workspace `.mcp` | 同一 `agentRoot`（`filesDir/agent1`） | **已对齐** |
 | Web 渲染 / 脚本页 | `webview_exec`：**Headless Chromium + CDP**（`DesktopWebViewExecTool`） | `WebViewAgentExtension`：**系统 WebView** | **实现不同**；协议与 skill（如 `webview-canvas-draw`）尽量对齐 |
@@ -57,7 +57,7 @@
 |------|-----|---------|
 | 工具摘要 | `ProductivityToolCapabilities.summaryForCli(false)` | `ProductivityToolCapabilities.summaryForUi()`（`WEIZHI_INTEGRATED=false`） |
 | 可用工具 | 2.1 节表格 | 同左 |
-| 不可用 | grep/glob/zip/bash/load_skill_through_path/MCP/webview/run_js | 同左 |
+| 不可用 | grep/glob/zip/bash/MCP/webview/run_js | 同左 |
 
 集成条件对照：
 
@@ -101,7 +101,7 @@
 |:------:|-------------------------------|------|
 | P0 | **事件日志查询 UI 或导出入口** | 数据已在 `events.jsonl`，CLI 有 `ProductivityLogsCommand` |
 | P1 | **`run_js` 超时与脚本提示可配置** | CLI 有 env；Android 写死 600s，sandbox 提示仅内置 WebView 图片说明 |
-| P1 | **与仓库 `.claude/skills` 同步** | 桌面 load_skill 可读项目 skill；Android 仅 assets + workspace |
+| ~~P1~~ 已对齐 | **与仓库 `.claude/skills` 同步** | 桌面 load_skill 可读项目 skill；Android 经宿主源注入 assets，统一优先级表两侧一致 |
 | P2 | **非交互单次 Run API** | 便于自动化 / Shortcut |
 | P2 | **`./agent1 --help` 与默认 `agentRoot` 文案** | 代码默认 `$HOME/files/agent`；help 若仍写 `.agent1` 需单独修正 |
 

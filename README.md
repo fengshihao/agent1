@@ -197,7 +197,7 @@ Agent1 的脚本、设备能力和 WebView 依赖独立开源项目 **[Weizhi / 
 | | **Agent1（`java-agent-core`）** | **Weizhi** |
 | --- | --- | --- |
 | **定位** | 生产力 **编排层**：ReAct、Session、模型可见的 Java 工具、能力检索、JSONL 审计 | **脚本引擎**：在设备里跑 QuickJS |
-| **LLM 可见** | 工作区读写、`grep` / `glob` / `zip` / `bash`、`load_skill_through_path`、`run_js`、`webview_exec` | 脚本内 `fs`、`$tools`、`$mcp`、Caps（不是单独的模型工具） |
+| **LLM 可见** | 工作区读写、`grep` / `glob` / `zip` / `bash`、`load_skill`、`run_js`、`webview_exec` | 脚本内 `fs`、`$tools`、`$mcp`、Caps（不是单独的模型工具） |
 | **集成方式** | 发布 `java-agent-core` | 源码联编或 Maven AAR；经 `weizhi-bridge` 与 Android `WeizhiHostLoader` 接入 |
 
 **典型分工**：用户描述任务 → Agent1 用 Java 工具改文件、搜索、跑白名单命令、加载 Skill → 需要编排时用 **`run_js`** 交给 Weizhi → 脚本里调 `fs`、Caps、MCP，或 `webview_exec` 出图 → 事件写回 `events.jsonl`。

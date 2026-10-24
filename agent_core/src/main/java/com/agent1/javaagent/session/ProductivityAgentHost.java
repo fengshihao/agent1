@@ -21,6 +21,7 @@ import com.agent1.javaagent.prompt.DesktopEnvironmentProvider;
 import com.agent1.javaagent.prompt.HostEnvironmentProvider;
 import com.agent1.javaagent.prompt.ProductivitySystemPromptBuilder;
 import com.agent1.javaagent.skill.SkillCatalogSync;
+import com.agent1.javaagent.skill.SkillRepository;
 import com.agent1.javaagent.tool.anno.AnnotatedTools;
 import com.agent1.javaagent.tool.skill.LoadSkillByNameTool;
 import com.agent1.javaagent.core.UserMessageTimestampAppender;
@@ -113,6 +114,7 @@ public final class ProductivityAgentHost implements Closeable {
     private volatile MediaInspector mediaInspector = UnavailableMediaInspector.INSTANCE;
     private volatile String sessionEnvironmentSupplement = "";
     private volatile HostEnvironmentProvider environmentProvider = DesktopEnvironmentProvider.INSTANCE;
+    private volatile List<SkillRepository> skillRepositories = List.of();
     private ProductivityCoach productivityCoach;
     private String activeSessionId;
 
@@ -316,13 +318,21 @@ public final class ProductivityAgentHost implements Closeable {
     }
 
     /**
-     * 系统提示词「当前环境状态」段的信息来源（平台 / 内核 / JS 运行环境 / 内存 / 目录结构及只读/可写标注）。
+     * 系统提示词「当前环境状态」段的信息来源（平台 / JS 运行环境 / 目录结构及只读/可写标注）。
      * CLI 用桌面默认实现；Android 注入自己的实现。传 null 恢复默认。
      */
     public void setEnvironmentProvider(HostEnvironmentProvider provider) {
         this.environmentProvider = provider == null
             ? DesktopEnvironmentProvider.INSTANCE
             : provider;
+    }
+
+    /**
+     * 宿主特有的 skill 源（如 Android assets），插入 {@code load_skill} 统一优先级表
+     * 的 workspace 与 skills-home 之间。传 null 清空。
+     */
+    public void setSkillRepositories(List<SkillRepository> repositories) {
+        this.skillRepositories = repositories == null ? List.of() : List.copyOf(repositories);
     }
 
     /** 用户通过 UI 添加附件等：写入 transcript 并刷新 runtime，不触发 LLM Run。 */
@@ -690,7 +700,7 @@ public final class ProductivityAgentHost implements Closeable {
             () -> applySystemPrompt(sessionId)
         ));
         tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform, projectRoot));
-        tools.addAll(AnnotatedTools.from(new LoadSkillByNameTool(agentRoot, projectRoot)));
+        tools.addAll(AnnotatedTools.from(new LoadSkillByNameTool(agentRoot, projectRoot, workspace, skillRepositories)));
         if (runtimeConfig.isWebSearchConfigured()) {
             tools.add(new WebSearchTool(
                 runtimeConfig.getWebSearchApiKey(),

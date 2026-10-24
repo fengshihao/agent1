@@ -29,7 +29,9 @@ class WeizhiWorkspaceToolsTest {
         assertTrue(text.contains("note.txt"));
         assertTrue(tools.stream().anyMatch(tool -> "bash".equals(tool.name())));
         assertTrue(tools.stream().anyMatch(tool -> "zip_extract".equals(tool.name())));
-        assertTrue(tools.stream().anyMatch(tool -> "load_skill_through_path".equals(tool.name())));
+        // load_skill_through_path 已并入宿主注册的 load_skill（path 参数），Weizhi 工具环不再单独注册
+        assertTrue(tools.stream().noneMatch(tool -> "load_skill_through_path".equals(tool.name())));
+        assertTrue(tools.stream().noneMatch(tool -> "load_skill".equals(tool.name())));
     }
 
     @Test
