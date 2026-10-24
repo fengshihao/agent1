@@ -59,6 +59,7 @@ await run({
 | `media_extract_frame({ path, output, ss })` | `-ss` + `-vframes 1` | `getFrameAtTime`。纯音频返回「没有画面」 |
 | `media_resize({ path, output, maxEdge })` | `-vf scale` | Android：`BitmapImageResizer`（`BitmapFactory`）。桌面调用返回「未实现」 |
 | 从视频抽音轨 | **weizhi:video** `extractAudio`（m4a，Android MediaMuxer，AAR 0.4.0 起） | 桌面未实现 |
+| 剪辑 / 时间线 | **weizhi:video** `exportVideo`（v1 `clips`/`slides` remux；**video@0.6.0** v2 `tracks` 关键帧 + image crossfade） | 桌面以后再接 FFmpeg |
 | 整段转码 / 复杂滤镜 | **不做**（剪辑用 **weizhi:video** `exportVideo`） | 桌面以后再接 FFmpeg |
 
 **limits（Native 路径，与 WebView 无关）**：

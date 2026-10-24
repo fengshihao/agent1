@@ -245,6 +245,24 @@ class CapabilityIndexStoreTest {
     }
 
     @Test
+    void videoExportCardGuidesTimelineV2Tracks() {
+        var records = CapabilitySeedLoader.loadBundledSeed();
+        var card = records.stream()
+            .filter(r -> r.id().equals("video.export"))
+            .findFirst()
+            .orElseThrow();
+        assertTrue(card.summary().contains("0.6.0"), card.summary());
+        assertTrue(card.entry().contains("tracks"), card.entry());
+        assertTrue(card.tags().contains("关键帧"), card.tags());
+
+        Path agentRoot = temp.resolve("agentRootVideoV2");
+        CapabilityIndexStore.ensure(agentRoot);
+        var hits = CapabilityIndexStore.search(agentRoot, "关键帧 crossfade 时间线", List.of(), "android", 8);
+        assertTrue(hits.stream().anyMatch(h -> h.id().equals("video.export")));
+        assertTrue(hits.stream().anyMatch(h -> h.id().equals("video.export") && h.entry().contains("tracks")));
+    }
+
+    @Test
     void seedOmitsPromptCoveredAgentTools() {
         Path agentRoot = temp.resolve("agentRoot");
         CapabilityIndexStore.ensure(agentRoot);

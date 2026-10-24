@@ -17,13 +17,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * 视频剪辑冒烟（issue #98）：{@code weizhi:video} JS 包随 :weizhi-video AAR assets
+ * 视频剪辑冒烟（issue #98 / #101）：{@code weizhi:video} JS 包随 :weizhi-video AAR assets
  * 交付（syncBundled 自动安装，**无需联网**——区别于 office 包的云端安装路径），
  * 插件 SO（video/transcode）由 {@link WeizhiVideo#install} 注册。
  *
  * 链路覆盖：APK assets 装包 → beforeEval 对 registry 无 video 条目不挡本地解析
  * （issue 边界项）→ import weizhi:video → 包层 probe（video@0.3.1 起，weizhi#39）
- * → exportVideo remux 掐头去尾 → 输出再 probe。
+ * → exportVideo remux 掐头去尾（v1 {@code clips}，#101 要求此路径继续绿）
+ * → v2 image 主轨 {@code transform.scale} 关键帧（video@0.6.0 / P5c）。
  * video@0.4.0 起包内另有 extractFrame / extractFrames / extractAudio
  * （走 agent1 $tools 桥，宿主工具另测，见 MediaToolsTest）。
  */
@@ -64,6 +65,38 @@ public final class VideoExportInstrumentedTest {
     }
 
     /**
+     * issue #101 / weizhi P5c：image 主轨 scale 关键帧须真实下发，不能再报
+     * {@code unsupported: v2 keyframes (P5c)}（旧 AAR / 旧 SO 的特征）。
+     */
+    @Test
+    public void exportVideoV2ImageScaleKeyframes() throws Exception {
+        String src = "const { exportVideo, probe } = await import('weizhi:video');\n"
+                + "const r = await exportVideo({"
+                + "  width: 320, height: 240,"
+                + "  tracks: [{type: 'image', clips: [{src: 'w.jpg', durationMs: 1000,"
+                + "    transform: {scale: [{t: 0, v: 1}, {t: 800, v: 0.5}]}}]}],"
+                + "  output: 'k.mp4'});\n"
+                + "const meta = await probe('k.mp4');\n"
+                + "({ ok: r.ok, rDur: r.durationMs, outDur: meta.durationMs })\n";
+        Setup setup = prepare(src);
+        File jpg = JpegFixtures.gray(setup.workspace, "w.jpg", AvcFixtures.WIDTH, AvcFixtures.HEIGHT, 235);
+        assertTrue(jpg.length() > 0);
+
+        try (WeizhiEngine engine = engine(setup)) {
+            String out = engine.runJs(src, 60_000);
+            assertTrue("stale weizhi AAR still guarding P5c: " + out,
+                !out.contains("unsupported: v2 keyframes"));
+            assertTrue(out, out.contains("\"ok\":true"));
+            int rDur = jsonInt(out, "rDur");
+            assertTrue("rDur=" + rDur, rDur > 700 && rDur < 1300);
+            int outDur = jsonInt(out, "outDur");
+            assertTrue("outDur=" + outDur, outDur > 700 && outDur < 1300);
+        }
+        byte[] head = java.nio.file.Files.readAllBytes(new File(setup.workspace, "k.mp4").toPath());
+        assertTrue(head.length > 12);
+    }
+
+    /**
      * 独立 agentRoot（对齐 OfficeCatalogInstrumentedTest），但包不走云端：
      * video 在 APK assets 里，syncBundled 直接装。beforeEval 仍要跑一次——
      * 验证 registry 清单无 video 条目时不会挡本地已装包的解析（issue 边界项）。
@@ -73,8 +106,8 @@ public final class VideoExportInstrumentedTest {
         AgentHomeBootstrap.ensure(agentRoot);
         String packageRoot = WeizhiPackages.syncBundled(context());
         WeizhiPackageSync.beforeEval(src, packageRoot, agentRoot);
-        assertTrue("syncBundled 应从 APK assets 安装 video@0.4.0",
-            new File(packageRoot, "packages/video@0.4.0/index.js").isFile());
+        assertTrue("syncBundled 应从 APK assets 安装 video@0.6.0",
+            new File(packageRoot, "packages/video@0.6.0/index.js").isFile());
         File dir = new File(context().getCacheDir(), "video-ws-" + System.nanoTime());
         assertTrue(dir.mkdirs());
         return new Setup(packageRoot, dir);
