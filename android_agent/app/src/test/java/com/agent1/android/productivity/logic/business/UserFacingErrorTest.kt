@@ -40,6 +40,14 @@ class UserFacingErrorTest {
     }
 
     @Test
+    fun sseIdleTimeoutIsNotNetworkDrop() {
+        assertEquals(
+            UserFacingError.Kind.TIMEOUT,
+            UserFacingError.classifyKind("SSE failed: timeout "),
+        )
+    }
+
+    @Test
     fun connectionKindsStayDistinct() {
         assertEquals(UserFacingError.Kind.TIMEOUT, UserFacingError.classifyKind("SocketTimeoutException: timeout"))
         assertEquals(UserFacingError.Kind.OFFLINE, UserFacingError.classifyKind("UnknownHostException"))

@@ -80,6 +80,11 @@ public final class ProductivityAgentHost implements Closeable {
 
     private static final Logger LOG = Logger.getLogger(ProductivityAgentHost.class.getName());
 
+    /**
+     * 单次模型 SSE 连接读超时。思考/工具阶段可能超过 2 分钟无 token，120s 会误断（events 里 {@code SSE failed: timeout}）。
+     */
+    static final Duration LLM_SSE_TIMEOUT = Duration.ofMinutes(5);
+
     /** tmp 清扫后台单线程（22 号规划：run 收尾异步清，不拖慢回话收口）。 */
     private static final java.util.concurrent.ExecutorService TMP_CLEANER =
         java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
@@ -194,7 +199,7 @@ public final class ProductivityAgentHost implements Closeable {
         this(
             agentRoot,
             config,
-            new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(Duration.ofSeconds(120), 0.2))
+            new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(LLM_SSE_TIMEOUT, 0.2))
         );
     }
 
@@ -209,7 +214,7 @@ public final class ProductivityAgentHost implements Closeable {
         this(
             agentRoot,
             config,
-            new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(Duration.ofSeconds(120), 0.2)),
+            new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(LLM_SSE_TIMEOUT, 0.2)),
             scriptEngineFactory,
             executeScriptTimeoutMs,
             scriptPromptAppend
@@ -252,7 +257,7 @@ public final class ProductivityAgentHost implements Closeable {
         this(
             agentRoot,
             config,
-            new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(Duration.ofSeconds(120), 0.2)),
+            new OpenAiCompatibleClient(config.toOpenAiCompatibleConfig(LLM_SSE_TIMEOUT, 0.2)),
             scriptEngineFactory,
             executeScriptTimeoutMs,
             scriptPromptAppend,

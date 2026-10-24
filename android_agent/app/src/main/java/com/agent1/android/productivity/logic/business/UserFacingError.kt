@@ -102,6 +102,7 @@ object UserFacingError {
         if (isSsl(lower)) return Kind.SSL
         if (isTimeout(lower)) return Kind.TIMEOUT
         if (isOffline(lower)) return Kind.OFFLINE
+        if (isSseReadTimeout(lower)) return Kind.TIMEOUT
         if (isDroppedStream(lower)) return Kind.NETWORK
         if (lower.contains("err_failed") || lower == "net::err_failed") return Kind.PAGE
         return null
@@ -145,7 +146,21 @@ object UserFacingError {
     }
 
     private fun isTimeout(lower: String): Boolean {
-        return containsAny(lower, "sockettimeout", "timed out", "err_timed_out", "err_connection_timed_out")
+        return containsAny(
+            lower,
+            "sockettimeout",
+            "timed out",
+            "err_timed_out",
+            "err_connection_timed_out",
+            ": timeout",
+            "timeout ",
+            "timeout.",
+        )
+    }
+
+    /** OkHttp SSE 空闲读超时：网络未断，但模型/网关超过 readTimeout 未再吐 token。 */
+    private fun isSseReadTimeout(lower: String): Boolean {
+        return lower.contains("sse failed") && containsAny(lower, "timeout", "timed out")
     }
 
     private fun isOffline(lower: String): Boolean {
