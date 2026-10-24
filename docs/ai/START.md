@@ -17,6 +17,8 @@
 我要贡献：〈一件事〉。按 AGENTS.md 与 docs/ai/CHECKLIST.md 修改；新增或改动 Java 行为必须带 JUnit 单测；改完必须 ./scripts/ci-local.sh fast 通过，再按 docs/ai/PR_PLAYBOOK.md 开 PR。若改 Android 组装或大量 Android 代码，再跑 ./scripts/ci-local.sh full。
 ```
 
+**桌面 WebView 薄壳（Mac 优先）**：见 [桌面WebView壳-本地Agent开工.md](./桌面WebView壳-本地Agent开工.md)（含老旧 Mac 说明与可复制提示词）。
+
 ## 英文（给其他智能体）
 
 **Bootstrap:**
