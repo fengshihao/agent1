@@ -43,7 +43,7 @@ export default await renderHtmlDeck({
 
 ### echarts SVG → 原生矢量形状（0.2.6）
 
-图表用 `echarts.init(el, null, {renderer:'svg'})` 渲染时，提取器把带 `_echarts_instance_` 标记的 svg 解析为 shape JSON（浏览器侧：各元素 `getCTM` 矩阵变换坐标——遇旋转/斜切或相对路径指令等不支持面整体放弃，回退 clip 截图；`linearGradient` 收集为 stops；path d 解析为指令流），组包器转**原生矢量形状**：rect/circle/ellipse/line → prstGeom、path → custGeom（A 弧转贝塞尔、Q 升三次）、text → 文本框（text-anchor → 对齐）、渐变 → gradFill——图表在 PowerPoint 里可编辑、无失真，替代该区域的 clip 截图。canvas 渲染或非 echarts svg 仍走 svgBlip/clip 老路径。回执/geometry 的 `slides[].chartShapes` 即该数据；`applyClips` 对被 clip 完全包含的 chart 让位（防叠影）。
+图表用 `echarts.init(el, null, {renderer:'svg'})` 渲染时，提取器在带 `_echarts_instance_` 的**容器**上定位图表（echarts 把该属性设在 init 的 DOM 上，而非 svg 根），再解析其内 svg 为 shape JSON（浏览器侧：各元素 `getCTM` 矩阵变换坐标——遇旋转/斜切或相对路径指令等不支持面整体放弃，回退 clip 截图；`linearGradient` 收集为 stops；path d 解析为指令流），组包器转**原生矢量形状**：rect/circle/ellipse/line → prstGeom、path → custGeom（A 弧转贝塞尔、Q 升三次）、text → 文本框（text-anchor → 对齐）、渐变 → gradFill——图表在 PowerPoint 里可编辑、无失真，替代该区域的 clip 截图。canvas 渲染或非 echarts svg 仍走 svgBlip/clip 老路径。回执/geometry 的 `slides[].chartShapes` 即该数据；`applyClips` 对被 clip 完全包含的 chart 让位（防叠影）。
 
 ## HTML 约定
 

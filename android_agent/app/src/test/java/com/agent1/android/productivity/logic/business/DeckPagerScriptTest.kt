@@ -57,6 +57,15 @@ class DeckPagerScriptTest {
     }
 
     @Test
+    fun installJs_scalesInsideWrapperForFlexCentering() {
+        // slide 包在「缩放尺寸 wrapper」（WRAP_ATTR）里、origin '0 0'：
+        // 直接在 item 里缩放超宽 slide 时溢出方向 justify-content:center 不做负侧居中（真机黑屏根因）。
+        assertTrue(DeckPagerScript.INSTALL_JS.contains("data-agent1-deck-pwrap"))
+        assertTrue(DeckPagerScript.INSTALL_JS.contains("hasAttribute(WRAP_ATTR)"))
+        assertTrue(DeckPagerScript.INSTALL_JS.contains("transformOrigin = '0 0'"))
+    }
+
+    @Test
     fun parsePageEvent_acceptsValidPayload() {
         assertEquals(3 to 16, DeckPagerScript.parsePageEvent("""{"page":3,"total":16}"""))
         assertEquals(1 to 1, DeckPagerScript.parsePageEvent("""{"page":1,"total":1}"""))

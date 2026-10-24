@@ -120,7 +120,8 @@ class Html2PptxExtractTest {
         </section>
         <section class="slide echarts">
           <h2>转化漏斗（echarts svg 提取）</h2>
-          <svg _echarts_instance_="ec_1" width="600" height="360" viewBox="0 0 600 360">
+          <div id="bar" _echarts_instance_="ec_1" style="width:600px;height:360px">
+          <svg width="600" height="360" viewBox="0 0 600 360">
             <defs>
               <linearGradient id="bar2" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stop-color="#8b7ec8"/>
@@ -138,6 +139,7 @@ class Html2PptxExtractTest {
               <text x="300" y="145" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="700">42%</text>
             </g>
           </svg>
+          </div>
         </section>
         <script>
         (function () {

@@ -25,6 +25,7 @@ object DeckPagerScript {
   if (window.__agent1DeckPagerInstalled) return;
   window.__agent1DeckPagerInstalled = true;
   var PAGER_ATTR = 'data-agent1-deck-pager';
+  var WRAP_ATTR = 'data-agent1-deck-pwrap';
 
   function pagerEl() {
     return document.querySelector('[' + PAGER_ATTR + ']');
@@ -58,9 +59,16 @@ object DeckPagerScript {
     var scale = Math.round(Math.min(vw / w, vh / h) * 1000) / 1000;
     if (!(scale > 0)) return;
     slides.forEach(function(slide) {
-      slide.style.flex = '0 0 auto';
+      // slide 包在「缩放尺寸 wrapper」里：wrapper 宽高 = 页尺寸×scale（不溢出 item），
+      // flex 居中正常生效；直接在 item 里缩放 1280px 的 slide 时，溢出方向上
+      // justify-content:center 不做负侧居中（真机黑屏/内容偏出屏外的根因）。
+      var wrap = slide.parentElement;
+      if (wrap && wrap.hasAttribute && wrap.hasAttribute(WRAP_ATTR)) {
+        wrap.style.width = Math.round(w * scale) + 'px';
+        wrap.style.height = Math.round(h * scale) + 'px';
+      }
       slide.style.transform = 'scale(' + scale + ')';
-      slide.style.transformOrigin = 'center center';
+      slide.style.transformOrigin = '0 0';
     });
   }
 
@@ -78,8 +86,11 @@ object DeckPagerScript {
       var item = document.createElement('div');
       item.style.cssText = 'flex:0 0 100%;scroll-snap-align:center;'
         + 'display:flex;align-items:center;justify-content:center;';
+      var wrap = document.createElement('div');
+      wrap.setAttribute(WRAP_ATTR, '');
       pager.appendChild(item);
-      item.appendChild(slide);
+      item.appendChild(wrap);
+      wrap.appendChild(slide);
     });
     document.body.appendChild(pager);
     document.documentElement.style.overflow = 'hidden';

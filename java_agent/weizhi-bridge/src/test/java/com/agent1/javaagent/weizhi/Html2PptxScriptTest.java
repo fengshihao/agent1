@@ -781,7 +781,8 @@ class Html2PptxScriptTest {
         </section>
         <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
         <script>
-        var chart = echarts.init(document.getElementById('bar'), null, { renderer: 'canvas' });
+        // renderer:'svg'：native 导出图表转原生矢量形状（0.2.6），不再区域截图。
+        var chart = echarts.init(document.getElementById('bar'), null, { renderer: 'svg' });
         chart.setOption({
           animation: false,
           legend: { top: 0, textStyle: { fontSize: 18, color: '#5b6b7c' } },
