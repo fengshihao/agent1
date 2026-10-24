@@ -174,6 +174,7 @@ public final class TavilyWebSearchClient {
         int imageCount = 0;
         int index = 1;
         if (images != null && images.isArray()) {
+            java.util.List<ImageSearchUrlPolicy.RankedImage> ranked = new java.util.ArrayList<>();
             for (JsonNode item : images) {
                 String url;
                 String desc = "";
@@ -183,13 +184,16 @@ public final class TavilyWebSearchClient {
                     url = item.path("url").asText("").trim();
                     desc = item.path("description").asText("").trim();
                 }
-                if (url.isEmpty()) {
+                if (url.isEmpty() || ImageSearchUrlPolicy.isBlockedForDownload(url)) {
                     continue;
                 }
+                ranked.add(new ImageSearchUrlPolicy.RankedImage(url, desc, ImageSearchUrlPolicy.scoreImageUrl(url)));
+            }
+            for (ImageSearchUrlPolicy.RankedImage row : ImageSearchUrlPolicy.sortCandidates(ranked)) {
                 imageCount++;
-                text.append(index).append(". ").append(url).append('\n');
-                if (!desc.isEmpty()) {
-                    text.append("   ").append(clip(desc, 160)).append('\n');
+                text.append(index).append(". ").append(row.url()).append('\n');
+                if (!row.description().isEmpty()) {
+                    text.append("   ").append(clip(row.description(), 160)).append('\n');
                 }
                 index++;
                 if (text.length() >= MAX_OUTPUT_CHARS) {

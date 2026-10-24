@@ -18,13 +18,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CancellationException;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -46,6 +50,11 @@ public final class ImagesDownloadTool implements AgentTool {
     private static final String USER_AGENT = "Agent1ImagesDownload/1.0";
     static final int MAX_BATCH_SIZE = 32;
     static final int DOWNLOAD_PARALLELISM = 6;
+    /** 略早于 AgentRuntime 工具超时，尽量先返回 partial JSON 而非整次被取消。 */
+    static final long HOST_TIMEOUT_GRACE_MS = 800L;
+    static final int CONNECT_TIMEOUT_SEC = 10;
+    static final int READ_TIMEOUT_SEC = 22;
+    static final int CALL_TIMEOUT_SEC = 25;
 
     private final WorkspaceSandbox sandbox;
     private final OkHttpClient http;
@@ -65,8 +74,9 @@ public final class ImagesDownloadTool implements AgentTool {
 
     private static OkHttpClient defaultClient() {
         return new OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(CONNECT_TIMEOUT_SEC, TimeUnit.SECONDS)
+            .readTimeout(READ_TIMEOUT_SEC, TimeUnit.SECONDS)
+            .callTimeout(CALL_TIMEOUT_SEC, TimeUnit.SECONDS)
             .build();
     }
 
@@ -81,8 +91,9 @@ public final class ImagesDownloadTool implements AgentTool {
             Download one or more public https images into the workspace (png/jpg/gif/webp/svg, \
             up to 10 MB each). Required: items [{url, path?}, ...]. Optional dir (default imports), \
             name_prefix (e.g. hero → hero-01.png). If path omitted, files are numbered under dir. \
-            Extension follows magic bytes, not the URL. Returns total, succeeded, and per-item \
-            ok, index, path, width, height, size, type, source (error when ok is false). \
+            Extension follows magic bytes, not the URL. Returns total, succeeded, partial when \
+            batch deadline hit, and per-item ok, index, path, width, height, size, type, source \
+            (error when ok is false). Slow or blocked hosts fail fast. \
             Do not use bash cp/mv. \
             Cite sources in the deliverable.
             """.trim();
@@ -130,11 +141,20 @@ public final class ImagesDownloadTool implements AgentTool {
     public long suggestedTimeoutMs(JsonNode parameters, long fallbackMs) {
         int n = countItems(parameters);
         if (n <= 1) {
-            return Math.max(fallbackMs, 60_000L);
+            return Math.max(fallbackMs, estimateBatchWallMs(1));
         }
-        int waves = (n + DOWNLOAD_PARALLELISM - 1) / DOWNLOAD_PARALLELISM;
-        long estimate = 30_000L + (long) waves * 25_000L;
-        return Math.min(ExecuteScriptTool.MAX_TIMEOUT_MS, Math.max(fallbackMs, estimate));
+        return Math.min(ExecuteScriptTool.MAX_TIMEOUT_MS, Math.max(fallbackMs, estimateBatchWallMs(n)));
+    }
+
+    static long estimateBatchWallMs(int itemCount) {
+        if (itemCount <= 0) {
+            return 30_000L;
+        }
+        if (itemCount <= 1) {
+            return 30_000L;
+        }
+        int waves = (itemCount + DOWNLOAD_PARALLELISM - 1) / DOWNLOAD_PARALLELISM;
+        return 15_000L + (long) waves * 20_000L;
     }
 
     private static int countItems(JsonNode parameters) {
@@ -198,47 +218,124 @@ public final class ImagesDownloadTool implements AgentTool {
         int maxMb,
         CancellationToken cancellationToken
     ) {
+        long deadlineEpochMs = System.currentTimeMillis()
+            + estimateBatchWallMs(items.size())
+            - HOST_TIMEOUT_GRACE_MS;
+        return executeAllUntil(items, dir, namePrefix, maxMb, cancellationToken, deadlineEpochMs);
+    }
+
+    ToolExecutionResult executeAllUntil(
+        List<DownloadItem> items,
+        String dir,
+        String namePrefix,
+        int maxMb,
+        CancellationToken cancellationToken,
+        long deadlineEpochMs
+    ) {
         ExecutorService pool = Executors.newFixedThreadPool(
             Math.min(DOWNLOAD_PARALLELISM, items.size())
         );
         try {
-            List<Future<ItemOutcome>> futures = new ArrayList<>(items.size());
+            ExecutorCompletionService<ItemOutcome> completion = new ExecutorCompletionService<>(pool);
             for (DownloadItem item : items) {
-                if (cancellationToken.isCancelled()) {
-                    return ToolExecutionResult.text("错误：执行已取消");
-                }
-                futures.add(pool.submit(() -> downloadOne(item, dir, namePrefix, maxMb)));
+                completion.submit(() -> downloadOne(item, dir, namePrefix, maxMb));
             }
-            int succeeded = 0;
-            ArrayNode resultItems = MAPPER.createArrayNode();
-            for (Future<ItemOutcome> future : futures) {
+            List<ItemOutcome> finished = new ArrayList<>(items.size());
+            boolean partial = false;
+            String partialReason = null;
+            int received = 0;
+            while (received < items.size()) {
                 if (cancellationToken.isCancelled()) {
-                    return ToolExecutionResult.text("错误：执行已取消");
+                    partial = true;
+                    partialReason = "cancelled";
+                    break;
                 }
-                ItemOutcome outcome;
+                long remainingMs = deadlineEpochMs - System.currentTimeMillis();
+                if (remainingMs <= 0) {
+                    partial = true;
+                    partialReason = "batch_deadline";
+                    break;
+                }
+                Future<ItemOutcome> done;
                 try {
-                    outcome = future.get();
+                    done = completion.poll(remainingMs, TimeUnit.MILLISECONDS);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    return ToolExecutionResult.text("错误：执行已取消");
+                    partial = true;
+                    partialReason = "cancelled";
+                    break;
+                }
+                if (done == null) {
+                    partial = true;
+                    partialReason = "batch_deadline";
+                    break;
+                }
+                try {
+                    finished.add(done.get());
                 } catch (ExecutionException e) {
-                    outcome = ItemOutcome.failure(0, "", "下载失败");
+                    finished.add(ItemOutcome.failure(0, "", "下载失败"));
+                } catch (CancellationException | InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    partial = true;
+                    partialReason = "cancelled";
+                    break;
                 }
-                resultItems.add(outcome.toJson());
-                if (outcome.ok) {
-                    succeeded++;
-                }
+                received++;
             }
-            ObjectNode root = MAPPER.createObjectNode();
-            root.put("ok", succeeded == items.size());
-            root.put("dir", dir);
-            root.put("total", items.size());
-            root.put("succeeded", succeeded);
-            root.set("items", resultItems);
-            return ToolExecutionResult.text(root.toString());
+            return ToolExecutionResult.text(
+                buildBatchJson(items, dir, finished, partial, partialReason).toString()
+            );
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    static ObjectNode buildBatchJson(
+        List<DownloadItem> items,
+        String dir,
+        List<ItemOutcome> finished,
+        boolean partial,
+        String partialReason
+    ) {
+        Map<Integer, ItemOutcome> byIndex = new HashMap<>();
+        for (ItemOutcome outcome : finished) {
+            if (outcome.index > 0) {
+                byIndex.put(outcome.index, outcome);
+            }
+        }
+        int succeeded = 0;
+        ArrayNode resultItems = MAPPER.createArrayNode();
+        for (DownloadItem item : items) {
+            ItemOutcome outcome = byIndex.get(item.index);
+            if (outcome == null) {
+                outcome = ItemOutcome.failure(item.index, item.url, pendingItemMessage(partialReason));
+            }
+            resultItems.add(outcome.toJson());
+            if (outcome.ok) {
+                succeeded++;
+            }
+        }
+        ObjectNode root = MAPPER.createObjectNode();
+        boolean allOk = succeeded == items.size() && !partial;
+        root.put("ok", allOk);
+        root.put("dir", dir);
+        root.put("total", items.size());
+        root.put("succeeded", succeeded);
+        if (partial) {
+            root.put("partial", true);
+            if (partialReason != null && !partialReason.isBlank()) {
+                root.put("deadline", partialReason);
+            }
+        }
+        root.set("items", resultItems);
+        return root;
+    }
+
+    private static String pendingItemMessage(String partialReason) {
+        if ("cancelled".equals(partialReason)) {
+            return "下载已取消（未完成）";
+        }
+        return "下载未完成（批次时间已到，可换链接或减小 items 后重试）";
     }
 
     private static List<DownloadItem> parseItems(JsonNode itemsNode) {
@@ -254,6 +351,10 @@ public final class ImagesDownloadTool implements AgentTool {
     }
 
     private ItemOutcome downloadOne(DownloadItem item, String dir, String namePrefix, int maxMb) {
+        String blocked = ImageSearchUrlPolicy.blockedReason(item.url);
+        if (blocked != null) {
+            return ItemOutcome.failure(item.index, item.url, blocked);
+        }
         long maxBytes = (long) maxMb * 1024 * 1024;
         final URI uri;
         try {
@@ -359,10 +460,10 @@ public final class ImagesDownloadTool implements AgentTool {
         return p + "." + type;
     }
 
-    private record DownloadItem(int index, String url, String explicitPath) {
+    record DownloadItem(int index, String url, String explicitPath) {
     }
 
-    private static final class ItemOutcome {
+    static final class ItemOutcome {
         final boolean ok;
         final int index;
         final String source;

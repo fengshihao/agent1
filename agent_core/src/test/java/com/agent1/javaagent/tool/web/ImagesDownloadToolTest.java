@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.List;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -168,6 +169,50 @@ class ImagesDownloadToolTest {
     void buildDefaultPathFormatting() {
         assertEquals("imports/01.png", ImagesDownloadTool.buildDefaultPath("imports", "", 1, "png"));
         assertEquals("ultra/hero-02.jpg", ImagesDownloadTool.buildDefaultPath("ultra", "hero", 2, "jpg"));
+    }
+
+    @Test
+    void rejectsBlockedSocialHostWithoutNetwork(@TempDir Path workspace) throws Exception {
+        ToolExecutionResult result = testTool(workspace).execute(
+            "call-1",
+            MAPPER.readTree(
+                "{\"items\":[{\"url\":\"https://pbs.twimg.com/media/x?format=webp\",\"path\":\"imports/x.webp\"}]}"
+            ),
+            new CancellationToken(),
+            null
+        );
+        assertTrue(result.getText().contains("\"succeeded\":0"), result.getText());
+        assertTrue(result.getText().contains("Twitter"), result.getText());
+    }
+
+    @Test
+    void partialBatchJsonKeepsFinishedItems() throws Exception {
+        List<ImagesDownloadTool.DownloadItem> items = List.of(
+            new ImagesDownloadTool.DownloadItem(1, "https://fast.example/a.jpg", "assets/a.jpg"),
+            new ImagesDownloadTool.DownloadItem(2, "https://slow.example/b.jpg", "")
+        );
+        List<ImagesDownloadTool.ItemOutcome> finished = List.of(
+            ImagesDownloadTool.ItemOutcome.success(
+                1,
+                "https://fast.example/a.jpg",
+                "assets/a.jpg",
+                1024,
+                "jpg",
+                10,
+                10
+            )
+        );
+        String json = ImagesDownloadTool.buildBatchJson(
+            items,
+            "assets",
+            finished,
+            true,
+            "batch_deadline"
+        ).toString();
+        assertTrue(json.contains("\"partial\":true"), json);
+        assertTrue(json.contains("\"succeeded\":1"), json);
+        assertTrue(json.contains("assets/a.jpg"), json);
+        assertTrue(json.contains("批次时间已到"), json);
     }
 
     @Test
