@@ -63,7 +63,7 @@ var MAX_SCALE = 3;
 var SHOT_TIMEOUT_MS = "300000";
 var MAX_ELEMENTS_PER_SLIDE = 800;
 var IMG_SRC_MAX_CHARS = 1024 * 1024;
-var PACKAGE_TAG = "html2pptx@0.2.5";
+var PACKAGE_TAG = "html2pptx@0.2.6";
 
 var LIB_URL = "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js";
 var LIB_TOKEN = "html-to-image";
@@ -609,6 +609,7 @@ function geometryOutput(opts) {
 function extractCode(width, height) {
   return deckLoadCode(width, height, false)
     .concat(geometryHelpers())
+    .concat(chartShapesHelpers())
     .concat(geometryRecord())
     .concat([
       "  return JSON.stringify({ version: 1, generator: '" + PACKAGE_TAG + " extractDeckGeometry', slides: slides });",
@@ -693,6 +694,190 @@ function geometryHelpers() {
   ];
 }
 
+/**
+ * echarts SVG 图表 → 原生 shape JSON（浏览器侧解析，替代该区域 clip 截图）。
+ * 判定：svg 根带 `_echarts_instance_`（echarts init 标记）。坐标用各元素
+ * getCTM（相对 svg 根）变换——echarts 的 g 基本只有 translate；遇旋转/斜切
+ * （b/c 非零）或相对路径指令等不支持面时整体放弃（返回 null，回退 clip 截图）。
+ * 输出：{viewBox:{w,h}, shapes:[…]}，shape 种类 rect/line/circle/ellipse/path/text，
+ * fill 为 {color} | {grad:{ang,stops}} | null（none）。
+ */
+function chartShapesHelpers() {
+  return [
+    "  function svgPaint(el, prop) {",
+    "    var v = el.getAttribute ? el.getAttribute(prop) : null;",
+    "    if (v == null || v === '') {",
+    "      try { v = win.getComputedStyle(el)[prop]; } catch (e) { v = null; }",
+    "    }",
+    "    if (!v || v === 'none' || v === 'transparent') { return null; }",
+    "    var um = /^url\\(#([^)]+)\\)$/.exec(String(v).trim());",
+    "    if (um) { return { grad: um[1] }; }",
+    "    var c = normColor(v);",
+    "    return c ? { color: c } : null;",
+    "  }",
+    "  function svgOpacity(el, prop) {",
+    "    var v = el.getAttribute ? el.getAttribute(prop) : null;",
+    "    if (v == null || v === '') {",
+    "      try { v = win.getComputedStyle(el)[prop]; } catch (e) { v = null; }",
+    "    }",
+    "    var n = parseFloat(v);",
+    "    var base = parseFloat(el.getAttribute && el.getAttribute('opacity'));",
+    "    var o = isFinite(n) ? n : 1;",
+    "    if (isFinite(base)) { o *= base; }",
+    "    return o;",
+    "  }",
+    "  function svgGradTable(svgEl) {",
+    "    var table = {};",
+    "    var grads = svgEl.querySelectorAll('linearGradient');",
+    "    for (var gi = 0; gi < grads.length; gi++) {",
+    "      var g = grads[gi];",
+    "      var stops = [];",
+    "      var ss = g.querySelectorAll('stop');",
+    "      for (var si = 0; si < ss.length; si++) {",
+    "        var off = parseFloat(ss[si].getAttribute('offset')) || 0;",
+    "        var sc = normColor(ss[si].getAttribute('stop-color') || win.getComputedStyle(ss[si]).stopColor) || '#000000';",
+    "        var so = parseFloat(ss[si].getAttribute('stop-opacity'));",
+    "        if (!isFinite(so)) { so = 1; }",
+    "        stops.push({ pos: off, color: sc, alpha: so });",
+    "      }",
+    "      if (stops.length < 2) { continue; }",
+    "      var x1 = parseFloat(g.getAttribute('x1')), y1 = parseFloat(g.getAttribute('y1'));",
+    "      var x2 = parseFloat(g.getAttribute('x2')), y2 = parseFloat(g.getAttribute('y2'));",
+    "      if (!isFinite(x1)) { x1 = 0; }",
+    "      if (!isFinite(y1)) { y1 = 0; }",
+    "      if (!isFinite(x2)) { x2 = 1; }",
+    "      if (!isFinite(y2)) { y2 = 0; }",
+    "      // bbox 相对方向向量 → 屏幕角（东 0 顺时针）→ OOXML ang（1/60000 度，= 屏幕角）",
+    "      var ang = Math.round(Math.atan2(y2 - y1, x2 - x1) / Math.PI * 180 * 60000);",
+    "      table[g.id] = { ang: ang, stops: stops };",
+    "    }",
+    "    return table;",
+    "  }",
+    "  function parsePathAbs(d) {",
+    "    var out = [];",
+    "    var re = /([A-Za-z])([^A-Za-z]*)/g;",
+    "    var m; var cx = 0, cy = 0;",
+    "    var arity = { M: 2, L: 2, H: 1, V: 1, C: 6, Q: 4, A: 7, Z: 0 };",
+    "    while ((m = re.exec(d))) {",
+    "      var cmd = m[1];",
+    "      if (cmd !== 'Z' && cmd !== 'z' && arity[cmd] == null) { return null; }",
+    "      if (cmd === 'z') { cmd = 'Z'; }",
+    "      var raw = m[2].trim();",
+    "      var nums = raw ? raw.split(/[\\s,]+/).map(Number) : [];",
+    "      if (nums.length && nums.some(function (n) { return !isFinite(n); })) { return null; }",
+    "      if (cmd === 'Z') { out.push(['Z']); cx = 0; cy = 0; continue; }",
+    "      var n = arity[cmd];",
+    "      if (!nums.length || nums.length % n !== 0) { return null; }",
+    "      for (var k = 0; k < nums.length; k += n) {",
+    "        var a = nums.slice(k, k + n);",
+    "        if (cmd === 'H') { out.push(['L', a[0], cy]); cx = a[0]; }",
+    "        else if (cmd === 'V') { out.push(['L', cx, a[0]]); cy = a[0]; }",
+    "        else if (cmd === 'M') { out.push(['M', a[0], a[1]]); cx = a[0]; cy = a[1]; cmd = 'L'; }",
+    "        else if (cmd === 'L') { out.push(['L', a[0], a[1]]); cx = a[0]; cy = a[1]; }",
+    "        else if (cmd === 'C') { out.push(['C', a[0], a[1], a[2], a[3], a[4], a[5]]); cx = a[4]; cy = a[5]; }",
+    "        else if (cmd === 'Q') { out.push(['Q', a[0], a[1], a[2], a[3]]); cx = a[2]; cy = a[3]; }",
+    "        else if (cmd === 'A') { out.push(['A', a[0], a[1], a[2], a[3], a[4], a[5], a[6]]); cx = a[5]; cy = a[6]; }",
+    "      }",
+    "    }",
+    "    return out.length ? out : null;",
+    "  }",
+    "  function chartShapesOf(svgEl) {",
+    "    var vb = svgEl.viewBox && svgEl.viewBox.baseVal;",
+    "    var vw = vb && vb.width ? vb.width : (svgEl.width && svgEl.width.baseVal ? svgEl.width.baseVal.value : 0);",
+    "    var vh = vb && vb.height ? vb.height : (svgEl.height && svgEl.height.baseVal ? svgEl.height.baseVal.value : 0);",
+    "    if (!vw || !vh) { return null; }",
+    "    var grads = svgGradTable(svgEl);",
+    "    function resolvePaint(p, opacity) {",
+    "      if (!p) { return null; }",
+    "      if (p.grad != null) {",
+    "        var g = grads[p.grad];",
+    "        if (!g) { return null; }",
+    "        return { grad: { ang: g.ang, stops: g.stops } };",
+    "      }",
+    "      return opacity < 1 ? { color: p.color, alpha: opacity } : p;",
+    "    }",
+    "    var shapes = [];",
+    "    var els = svgEl.querySelectorAll('rect,line,circle,ellipse,path,text');",
+    "    for (var i = 0; i < els.length; i++) {",
+    "      var el = els[i];",
+    "      var d = win.getComputedStyle(el).display;",
+    "      if (d === 'none') { continue; }",
+    "      var m = el.getCTM ? el.getCTM() : null;",
+    "      if (!m) { continue; }",
+    "      if (Math.abs(m.b) > 1e-6 || Math.abs(m.c) > 1e-6) { return null; }",
+    "      function TX(x) { return m.a * x + m.e; }",
+    "      function TY(y) { return m.d * y + m.f; }",
+    "      var tag = el.tagName.toLowerCase();",
+    "      var fo = svgOpacity(el, 'fill-opacity');",
+    "      var so = svgOpacity(el, 'stroke-opacity');",
+    "      var fill = resolvePaint(svgPaint(el, 'fill'), fo);",
+    "      var stroke = resolvePaint(svgPaint(el, 'stroke'), so);",
+    "      var sw = parseFloat(el.getAttribute('stroke-width'));",
+    "      if (!isFinite(sw)) { sw = 1; }",
+    "      var s = null;",
+    "      if (tag === 'rect') {",
+    "        var rx = parseFloat(el.getAttribute('x')) || 0, ry = parseFloat(el.getAttribute('y')) || 0;",
+    "        var rw = parseFloat(el.getAttribute('width')) || 0, rh = parseFloat(el.getAttribute('height')) || 0;",
+    "        s = { t: 'rect', x: TX(rx), y: TY(ry), w: rw * m.a, h: rh * m.d };",
+    "      } else if (tag === 'line') {",
+    "        s = { t: 'line', x1: TX(parseFloat(el.getAttribute('x1')) || 0), y1: TY(parseFloat(el.getAttribute('y1')) || 0), x2: TX(parseFloat(el.getAttribute('x2')) || 0), y2: TY(parseFloat(el.getAttribute('y2')) || 0) };",
+    "      } else if (tag === 'circle') {",
+    "        s = { t: 'circle', cx: TX(parseFloat(el.getAttribute('cx')) || 0), cy: TY(parseFloat(el.getAttribute('cy')) || 0), r: (parseFloat(el.getAttribute('r')) || 0) * m.a };",
+    "      } else if (tag === 'ellipse') {",
+    "        s = { t: 'ellipse', cx: TX(parseFloat(el.getAttribute('cx')) || 0), cy: TY(parseFloat(el.getAttribute('cy')) || 0), rx: (parseFloat(el.getAttribute('rx')) || 0) * m.a, ry: (parseFloat(el.getAttribute('ry')) || 0) * m.d };",
+    "      } else if (tag === 'path') {",
+    "        var cmds = parsePathAbs(el.getAttribute('d') || '');",
+    "        if (!cmds) { return null; }",
+    "        var mapped = [];",
+    "        for (var ci = 0; ci < cmds.length; ci++) {",
+    "          var c = cmds[ci];",
+    "          if (c[0] === 'Z') { mapped.push(['Z']); continue; }",
+    "          var vals = c.slice(1);",
+    "          if (c[0] === 'A') {",
+    "            vals = [vals[0] * m.a, vals[1] * m.d, vals[2], vals[3], vals[4], TX(vals[5]), TY(vals[6])];",
+    "          } else {",
+    "            for (var vi = 0; vi < vals.length; vi += 2) { vals[vi] = TX(vals[vi]); vals[vi + 1] = TY(vals[vi + 1]); }",
+    "          }",
+    "          mapped.push([c[0]].concat(vals));",
+    "        }",
+    "        s = { t: 'path', d: mapped };",
+    "      } else if (tag === 'text') {",
+    "        var bb;",
+    "        try { bb = el.getBBox(); } catch (e) { bb = null; }",
+    "        if (!bb) { continue; }",
+    "        var size = parseFloat(el.getAttribute('font-size'));",
+    "        if (!isFinite(size)) { size = px(win.getComputedStyle(el).fontSize); }",
+    "        if (!size) { size = 12; }",
+    "        var anchor = el.getAttribute('text-anchor') || 'start';",
+    "        var weight = el.getAttribute('font-weight') || win.getComputedStyle(el).fontWeight || '400';",
+    "        var text = (el.textContent || '').replace(/\\s+/g, ' ').trim();",
+    "        if (!text) { continue; }",
+    "        var tp = svgPaint(el, 'fill');",
+    "        s = { t: 'text', x: TX(bb.x), y: TY(bb.y), w: bb.width * m.a, h: bb.height * m.d,",
+    "          size: size, color: (tp && tp.color) || '#333333', weight: String(weight),",
+    "          anchor: anchor === 'middle' ? 'middle' : (anchor === 'end' ? 'end' : 'start'), text: text };",
+    "      }",
+    "      if (!s) { continue; }",
+    "      if (fill) { s.fill = fill; }",
+    "      if (stroke) { s.stroke = stroke; }",
+    "      if (sw !== 1) { s.strokeW = sw; }",
+    "      shapes.push(s);",
+    "    }",
+    "    if (!shapes.length) { return null; }",
+    "    return { viewBox: { w: vw, h: vh }, shapes: shapes };",
+    "  }",
+    "  var chartDone = (typeof WeakMap === 'function') ? new WeakMap() : null;",
+    "  function chartHostSvg(el) {",
+    "    var host = el.ownerSVGElement;",
+    "    while (host) {",
+    "      if (host.getAttribute && host.getAttribute('_echarts_instance_')) { return host; }",
+    "      host = host.ownerSVGElement;",
+    "    }",
+    "    return null;",
+    "  }",
+  ];
+}
+
 /** recordSlide 定义 + slides 收集（不含 return 行），native 模式在此基础上续写 clip 段。 */
 function geometryRecord() {
   return [
@@ -704,14 +889,33 @@ function geometryRecord() {
     "    if (sbg != null) { slide.bg = sbg; }",
     "    if (cs.backgroundImage && cs.backgroundImage !== 'none') { slide.bgImage = cs.backgroundImage; }",
     "    slide.elements = [];",
+    "    slide.chartShapes = [];",
     "    var all = node.querySelectorAll('*');",
     "    for (var i = 0; i < all.length && slide.elements.length < " + MAX_ELEMENTS_PER_SLIDE + "; i++) {",
     "      var el = all[i];",
     "      var ecs = win.getComputedStyle(el);",
     "      if (ecs.display === 'none' || ecs.visibility === 'hidden') { continue; }",
+    // echarts svg：成功解析为原生 shapes 后整棵跳过（根与子元素都不进 elements，
+    // 也不进 clip 队列）；解析失败则整棵照旧走 clip 路径（子元素自然提取）
+    "      var tag = el.tagName.toLowerCase();",
+    "      if (tag === 'svg' && el.getAttribute && el.getAttribute('_echarts_instance_')) {",
+    "        var r0 = el.getBoundingClientRect();",
+    "        if (r0.width >= 0.5 && r0.height >= 0.5) {",
+    "          var ch = chartShapesOf(el);",
+    "          if (ch) {",
+    "            ch.rect = { x: r2(r0.left - sr.left), y: r2(r0.top - sr.top), w: r2(r0.width), h: r2(r0.height) };",
+    "            slide.chartShapes.push(ch);",
+    "            if (chartDone) { chartDone.set(el, true); }",
+    "            continue;",
+    "          }",
+    "        }",
+    "      }",
+    "      if (chartDone) {",
+    "        var host0 = chartHostSvg(el);",
+    "        if (host0 && chartDone.get(host0)) { continue; }",
+    "      }",
     "      var r = el.getBoundingClientRect();",
     "      if (r.width < 0.5 || r.height < 0.5) { continue; }",
-    "      var tag = el.tagName.toLowerCase();",
     "      var runs = runsOf(el);",
     "      var img = tag === 'img' || tag === 'canvas' || tag === 'svg' || tag === 'video' ? imgSource(el, tag) : { src: null, omitted: false };",
     "      var bg = normColor(ecs.backgroundColor);",
@@ -749,6 +953,7 @@ function geometryRecord() {
 function nativeCaptureCode(width, height, scale) {
   return deckLoadCode(width, height, true)
     .concat(geometryHelpers())
+    .concat(chartShapesHelpers())
     .concat(geometryRecord())
     .concat([
       "  function expanded(rect, shadow) {",
@@ -958,6 +1163,25 @@ function applyClips(slides) {
       });
     }
     slide.elements = kept;
+    // clip（如容器阴影扩出的区域截图）完全覆盖 chart 区域时，chart 原生形状让位
+    //（clip 已含真实渲染，双重绘制会叠影）。
+    if (slide.chartShapes && slide.chartShapes.length) {
+      var liveCharts = [];
+      for (var cc = 0; cc < slide.chartShapes.length; cc++) {
+        var chart = slide.chartShapes[cc];
+        var coveredChart = false;
+        for (var c3 = 0; c3 < clips.length; c3++) {
+          if (containsRect(clips[c3], chart.rect, 2)) {
+            coveredChart = true;
+            break;
+          }
+        }
+        if (!coveredChart) {
+          liveCharts.push(chart);
+        }
+      }
+      slide.chartShapes = liveCharts;
+    }
   }
 }
 
@@ -1214,6 +1438,18 @@ function nativeSlide(slide, media, slideNo) {
       needs.push(needEntry(slideNo, el.rect, "gradient text"));
     }
   }
+  // echarts svg 图表 → 原生形状集合（0.2.6）：替代该区域的 clip 截图，追加在页尾
+  // 保持 z 序在元素之上（chart 背景板等容器元素仍按 elements 顺序先行绘制）。
+  if (slide.chartShapes && slide.chartShapes.length) {
+    for (var ci = 0; ci < slide.chartShapes.length; ci++) {
+      var built = chartShapesBody(slide.chartShapes[ci], id + 1);
+      if (built.xml) {
+        body += built.xml;
+        id += built.count;
+        shapeCount += built.count;
+      }
+    }
+  }
   return {
     xml: nativeSlideXml(slideBackgroundXml(slide, gradBg), body),
     rels: rels,
@@ -1370,6 +1606,220 @@ function boxSpXml(el, id, name) {
     "<p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm>" + emuOff(el.rect) + emuExt(el.rect) + "</a:xfrm>" +
     geomXml(el) + elementFillXml(el) + uniformBorderLn(el, true) + shadowXml(el) + "</p:spPr></p:sp>"
   );
+}
+
+/**
+ * echarts svg chartShapes → 原生形状集合：svg viewBox 坐标按 chart.rect 相对换算到
+ * slide（EMU）；rect/line/circle/ellipse → prstGeom；path → custGeom（A 弧转贝塞尔、
+ * Q 升三次，bbox 平移到局部原点，ext 与 path@w/h 比例缩放自动成立）；text → 文本框
+ * （text-anchor → 对齐，字号按 svg→slide 缩放折算磅值）。渐变复用 [gradFillXml]。
+ * 返回 {xml, count}；形状 id 从 idStart 自增。
+ */
+function chartShapesBody(chart, idStart) {
+  var rect = chart.rect;
+  var sx = rect.w / chart.viewBox.w;
+  var sy = rect.h / chart.viewBox.h;
+  var sc = (sx + sy) / 2;
+
+  function paintXml(p) {
+    if (!p) { return null; }
+    if (p.grad) {
+      return gradFillXml({ ang: p.grad.ang, stops: p.grad.stops });
+    }
+    return solidFillCss(p.color, p.alpha != null ? p.alpha : 1);
+  }
+
+  function lnXml(s) {
+    var fill = paintXml(s.stroke);
+    if (!fill) { return ""; }
+    var w = Math.max(6350, Math.round((s.strokeW || 1) * sc * 9525));
+    return "<a:ln w=\"" + w + "\">" + fill + "</a:ln>";
+  }
+
+  function sp(id, name, x, y, w, h, geom, fillXml, ln) {
+    return "<p:sp><p:nvSpPr><p:cNvPr id=\"" + id + "\" name=\"" + xmlEscape(name) + "\"/>" +
+      "<p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm>" +
+      "<a:off x=\"" + emu(rect.x + x * sx) + "\" y=\"" + emu(rect.y + y * sy) + "\"/>" +
+      "<a:ext cx=\"" + emu(w * sx) + "\" cy=\"" + emu(h * sy) + "\"/></a:xfrm>" +
+      geom + (fillXml || "<a:noFill/>") + ln + "</p:spPr></p:sp>";
+  }
+
+  function textSp(id, s) {
+    var size = Math.max(100, Math.round(s.size * sc * 0.75 * 100));
+    var align = s.anchor === "middle" ? "ctr" : (s.anchor === "end" ? "r" : "l");
+    var color = s.color || "#333333";
+    return "<p:sp><p:nvSpPr><p:cNvPr id=\"" + id + "\" name=\"chart text " + id + "\"/>" +
+      "<p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm>" +
+      "<a:off x=\"" + emu(rect.x + s.x * sx) + "\" y=\"" + emu(rect.y + s.y * sy) + "\"/>" +
+      "<a:ext cx=\"" + emu(Math.max(s.w, 1) * sx) + "\" cy=\"" + emu(Math.max(s.h, 1) * sy) + "\"/></a:xfrm>" +
+      "<a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>" +
+      "<p:txBody><a:bodyPr wrap=\"none\" lIns=\"0\" tIns=\"0\" rIns=\"0\" bIns=\"0\" anchor=\"t\"/><a:lstStyle/>" +
+      "<a:p><a:pPr algn=\"" + align + "\" marL=\"0\" indent=\"0\"/>" +
+      "<a:r><a:rPr lang=\"zh-CN\" sz=\"" + size + "\" b=\"" + (isBold(s.weight) ? "1" : "0") + "\">" +
+      solidFillCss(color, 1) + "</a:rPr><a:t>" + xmlEscape(s.text) + "</a:t></a:r></a:p></p:txBody></p:sp>";
+  }
+
+  /** W3C 端点参数化弧 → 一组三次贝塞尔段（每段 6 数）。 */
+  function arcToCubics(x1, y1, rx, ry, phiDeg, largeArc, sweep, x2, y2) {
+    if (!rx || !ry) { return []; }
+    var phi = phiDeg * Math.PI / 180;
+    var cosP = Math.cos(phi), sinP = Math.sin(phi);
+    var dx2 = (x1 - x2) / 2, dy2 = (y1 - y2) / 2;
+    var x1p = cosP * dx2 + sinP * dy2;
+    var y1p = -sinP * dx2 + cosP * dy2;
+    var lambda = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry);
+    if (lambda > 1) {
+      var lamSqrt = Math.sqrt(lambda);
+      rx *= lamSqrt;
+      ry *= lamSqrt;
+    }
+    var sign = largeArc !== sweep ? 1 : -1;
+    var num = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p;
+    var den = rx * rx * y1p * y1p + ry * ry * x1p * x1p;
+    var co = sign * Math.sqrt(Math.max(0, num / den || 0));
+    var cxp = co * rx * y1p / ry;
+    var cyp = -co * ry * x1p / rx;
+    var cx = cosP * cxp - sinP * cyp + (x1 + x2) / 2;
+    var cy = sinP * cxp + cosP * cyp + (y1 + y2) / 2;
+    function ang(ux, uy, vx, vy) {
+      var dot = ux * vx + uy * vy;
+      var len = Math.sqrt(ux * ux + uy * uy) * Math.sqrt(vx * vx + vy * vy);
+      var a = Math.acos(Math.max(-1, Math.min(1, dot / (len || 1))));
+      if (ux * vy - uy * vx < 0) { a = -a; }
+      return a;
+    }
+    var th1 = ang(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry);
+    var dth = ang((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry);
+    if (!sweep && dth > 0) { dth -= 2 * Math.PI; }
+    if (sweep && dth < 0) { dth += 2 * Math.PI; }
+    var segs = Math.ceil(Math.abs(dth) / (Math.PI / 2));
+    var delta = dth / segs;
+    var t = 4 / 3 * Math.tan(delta / 4);
+    var out = [];
+    var th = th1;
+    var px = Math.cos(th) * rx + cx;
+    var py = Math.sin(th) * ry + cy;
+    for (var i = 0; i < segs; i++) {
+      var th2 = th + delta;
+      var px2 = Math.cos(th2) * rx + cx;
+      var py2 = Math.sin(th2) * ry + cy;
+      var d1x = -t * Math.sin(th) * rx, d1y = t * Math.cos(th) * ry;
+      var d2x = t * Math.sin(th2) * rx, d2y = -t * Math.cos(th2) * ry;
+      out.push([px + d1x, py + d1y, px2 + d2x, py2 + d2y, px2, py2]);
+      th = th2;
+      px = px2;
+      py = py2;
+    }
+    return out;
+  }
+
+  /** path 指令流 → 归一 C/L/Z（A 展开、Q 升三次），再算 bbox。 */
+  function normalizePath(d) {
+    var cmds = [];
+    var cx = 0, cy = 0;
+    for (var i = 0; i < d.length; i++) {
+      var c = d[i];
+      if (c[0] === "Z") { cmds.push(["Z"]); continue; }
+      if (c[0] === "M" || c[0] === "L") {
+        cmds.push([c[0], c[1], c[2]]);
+        cx = c[1]; cy = c[2];
+      } else if (c[0] === "C") {
+        cmds.push(["C", c[1], c[2], c[3], c[4], c[5], c[6]]);
+        cx = c[5]; cy = c[6];
+      } else if (c[0] === "Q") {
+        var q1x = cx + 2 / 3 * (c[1] - cx), q1y = cy + 2 / 3 * (c[2] - cy);
+        var q2x = c[3] + 2 / 3 * (c[1] - c[3]), q2y = c[4] + 2 / 3 * (c[2] - c[4]);
+        cmds.push(["C", q1x, q1y, q2x, q2y, c[3], c[4]]);
+        cx = c[3]; cy = c[4];
+      } else if (c[0] === "A") {
+        var cubics = arcToCubics(cx, cy, c[1], c[2], c[3], c[4], c[5], c[6], c[7]);
+        for (var k = 0; k < cubics.length; k++) {
+          cmds.push(["C", cubics[k][0], cubics[k][1], cubics[k][2], cubics[k][3], cubics[k][4], cubics[k][5]]);
+        }
+        cx = c[6]; cy = c[7];
+      }
+    }
+    return cmds;
+  }
+
+  function pathSp(id, s) {
+    var cmds = normalizePath(s.d);
+    if (!cmds.length) { return ""; }
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    function dot(x, y) {
+      if (!isFinite(x) || !isFinite(y)) { return; }
+      if (x < minX) { minX = x; }
+      if (y < minY) { minY = y; }
+      if (x > maxX) { maxX = x; }
+      if (y > maxY) { maxY = y; }
+    }
+    for (var i = 0; i < cmds.length; i++) {
+      var c = cmds[i];
+      if (c[0] === "Z") { continue; }
+      for (var v = 1; v < c.length; v += 2) { dot(c[v], c[v + 1]); }
+    }
+    if (minX === Infinity) { return ""; }
+    var w = Math.max(maxX - minX, 0.01);
+    var h = Math.max(maxY - minY, 0.01);
+    var hasFill = !!s.fill;
+    var fillAttr = hasFill ? "" : " fill=\"none\"";
+    var body = "";
+    for (var j = 0; j < cmds.length; j++) {
+      var p = cmds[j];
+      if (p[0] === "M") {
+        body += "<a:moveTo><a:pt x=\"" + Math.round((p[1] - minX) * 9525) + "\" y=\"" + Math.round((p[2] - minY) * 9525) + "\"/></a:moveTo>";
+      } else if (p[0] === "L") {
+        body += "<a:lnTo><a:pt x=\"" + Math.round((p[1] - minX) * 9525) + "\" y=\"" + Math.round((p[2] - minY) * 9525) + "\"/></a:lnTo>";
+      } else if (p[0] === "C") {
+        body += "<a:cubicBezTo>" +
+          "<a:pt x=\"" + Math.round((p[1] - minX) * 9525) + "\" y=\"" + Math.round((p[2] - minY) * 9525) + "\"/>" +
+          "<a:pt x=\"" + Math.round((p[3] - minX) * 9525) + "\" y=\"" + Math.round((p[4] - minY) * 9525) + "\"/>" +
+          "<a:pt x=\"" + Math.round((p[5] - minX) * 9525) + "\" y=\"" + Math.round((p[6] - minY) * 9525) + "\"/>" +
+          "</a:cubicBezTo>";
+      } else if (p[0] === "Z") {
+        body += "<a:close/>";
+      }
+    }
+    var geom = "<a:custGeom><a:avLst/><a:gdLst/><a:pathLst>" +
+      "<a:path w=\"" + Math.round(w * 9525) + "\" h=\"" + Math.round(h * 9525) + "\"" + fillAttr + ">" +
+      body + "</a:path></a:pathLst></a:custGeom>";
+    return sp(id, "chart path " + id, minX, minY, w, h, geom, paintXml(s.fill), lnXml(s));
+  }
+
+  var out = "";
+  var count = 0;
+  for (var i = 0; i < chart.shapes.length; i++) {
+    var s = chart.shapes[i];
+    var id = idStart + count;
+    var xml = "";
+    if (s.t === "rect") {
+      xml = sp(id, "chart rect " + id, s.x, s.y, s.w, s.h,
+        "<a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom>", paintXml(s.fill), lnXml(s));
+    } else if (s.t === "circle" || s.t === "ellipse") {
+      var rx = s.t === "circle" ? s.r : s.rx;
+      var ry = s.t === "circle" ? s.r : s.ry;
+      xml = sp(id, "chart ellipse " + id, s.cx - rx, s.cy - ry, rx * 2, ry * 2,
+        "<a:prstGeom prst=\"ellipse\"><a:avLst/></a:prstGeom>", paintXml(s.fill), lnXml(s));
+    } else if (s.t === "line") {
+      var lx = Math.min(s.x1, s.x2), ly = Math.min(s.y1, s.y2);
+      var lw = Math.abs(s.x2 - s.x1), lh = Math.abs(s.y2 - s.y1);
+      var flip = (s.x2 - s.x1) * (s.y2 - s.y1) < 0 ? '<a:xfrm flipV="1">' : "<a:xfrm>";
+      xml = "<p:sp><p:nvSpPr><p:cNvPr id=\"" + id + "\" name=\"chart line " + id + "\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>" +
+        "<p:spPr>" + flip +
+        "<a:off x=\"" + emu(rect.x + lx * sx) + "\" y=\"" + emu(rect.y + ly * sy) + "\"/>" +
+        "<a:ext cx=\"" + emu(Math.max(lw, 0.01) * sx) + "\" cy=\"" + emu(Math.max(lh, 0.01) * sy) + "\"/></a:xfrm>" +
+        "<a:prstGeom prst=\"line\"><a:avLst/></a:prstGeom><a:noFill/>" + lnXml(s) + "</p:spPr></p:sp>";
+    } else if (s.t === "path") {
+      xml = pathSp(id, s);
+    } else if (s.t === "text") {
+      xml = textSp(id, s);
+    }
+    if (xml) {
+      out += xml;
+      count++;
+    }
+  }
+  return { xml: out, count: count };
 }
 
 /**

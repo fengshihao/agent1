@@ -47,7 +47,7 @@ public final class BriefToolResultSummary {
                 return preview;
             }
             return truncatePlain(json.toString());
-        } catch (Exception e) {
+        } catch (RuntimeException | com.fasterxml.jackson.core.JsonProcessingException e) {
             return truncatePlain(trimmed);
         }
     }

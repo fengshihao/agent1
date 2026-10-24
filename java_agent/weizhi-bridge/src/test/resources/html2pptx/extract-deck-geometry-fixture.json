@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generator": "html2pptx@0.2.0 extractDeckGeometry",
+  "generator": "html2pptx@0.2.6 extractDeckGeometry",
   "slides": [
     {
       "slideW": 1280,
@@ -130,7 +130,8 @@
             }
           ]
         }
-      ]
+      ],
+      "chartShapes": []
     },
     {
       "slideW": 1280,
@@ -440,7 +441,8 @@
             }
           ]
         }
-      ]
+      ],
+      "chartShapes": []
     },
     {
       "slideW": 1280,
@@ -672,6 +674,202 @@
               "underline": false
             }
           ]
+        }
+      ],
+      "chartShapes": []
+    },
+    {
+      "slideW": 1280,
+      "slideH": 720,
+      "bg": "#ffffff",
+      "elements": [
+        {
+          "tag": "h2",
+          "rect": {
+            "x": 88,
+            "y": 64,
+            "w": 1104,
+            "h": 56
+          },
+          "font": {
+            "size": 40,
+            "weight": "700",
+            "color": "#122033",
+            "align": "start",
+            "lineHeight": 0,
+            "family": "Helvetica, Arial, \"PingFang SC\", sans-serif"
+          },
+          "textRuns": [
+            {
+              "text": "转化漏斗（echarts svg 提取）",
+              "size": 40,
+              "weight": "700",
+              "color": "#122033",
+              "italic": false,
+              "underline": false
+            }
+          ]
+        }
+      ],
+      "chartShapes": [
+        {
+          "viewBox": {
+            "w": 600,
+            "h": 360
+          },
+          "shapes": [
+            {
+              "t": "rect",
+              "x": 60,
+              "y": 220,
+              "w": 64,
+              "h": 120,
+              "fill": {
+                "color": "#7dd3c0"
+              }
+            },
+            {
+              "t": "rect",
+              "x": 156,
+              "y": 160,
+              "w": 64,
+              "h": 180,
+              "fill": {
+                "grad": {
+                  "ang": 5400000,
+                  "stops": [
+                    {
+                      "pos": 0,
+                      "color": "#8b7ec8",
+                      "alpha": 1
+                    },
+                    {
+                      "pos": 1,
+                      "color": "#4a90d9",
+                      "alpha": 1
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "t": "line",
+              "x1": 60,
+              "y1": 340,
+              "x2": 580,
+              "y2": 340,
+              "fill": {
+                "color": "#000000"
+              },
+              "stroke": {
+                "color": "#c9d4de"
+              },
+              "strokeW": 2
+            },
+            {
+              "t": "path",
+              "d": [
+                [
+                  "M",
+                  92,
+                  200
+                ],
+                [
+                  "C",
+                  156,
+                  140,
+                  220,
+                  170,
+                  284,
+                  110
+                ],
+                [
+                  "C",
+                  348,
+                  80,
+                  412,
+                  80,
+                  476,
+                  50
+                ]
+              ],
+              "stroke": {
+                "color": "#e8b86d"
+              },
+              "strokeW": 4
+            },
+            {
+              "t": "path",
+              "d": [
+                [
+                  "M",
+                  360,
+                  80
+                ],
+                [
+                  "A",
+                  80,
+                  80,
+                  0,
+                  1,
+                  1,
+                  360,
+                  239.9
+                ],
+                [
+                  "Z"
+                ]
+              ],
+              "fill": {
+                "color": "#2c7a7b"
+              }
+            },
+            {
+              "t": "circle",
+              "cx": 540,
+              "cy": 220,
+              "r": 10,
+              "fill": {
+                "color": "#4a90d9"
+              }
+            },
+            {
+              "t": "text",
+              "x": 76,
+              "y": 256,
+              "w": 32,
+              "h": 18,
+              "size": 16,
+              "color": "#5b6b7c",
+              "weight": "400",
+              "anchor": "middle",
+              "text": "周一",
+              "fill": {
+                "color": "#5b6b7c"
+              }
+            },
+            {
+              "t": "text",
+              "x": 339.984375,
+              "y": 147,
+              "w": 40.03125,
+              "h": 23,
+              "size": 20,
+              "color": "#ffffff",
+              "weight": "700",
+              "anchor": "middle",
+              "text": "42%",
+              "fill": {
+                "color": "#ffffff"
+              }
+            }
+          ],
+          "rect": {
+            "x": 88,
+            "y": 144,
+            "w": 600,
+            "h": 360
+          }
         }
       ]
     }

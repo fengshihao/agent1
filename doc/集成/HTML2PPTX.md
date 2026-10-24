@@ -41,6 +41,10 @@ export default await renderHtmlDeck({
 - native 模式对 broken 图片不硬报错（对齐提取模式，交给 clip 真实渲染）；截图模式照旧报 `图片加载失败`。
 - 近似取舍：跨出 clip 边界的文字保留原生文本框，与 clip 边缘可能轻微重叠。
 
+### echarts SVG → 原生矢量形状（0.2.6）
+
+图表用 `echarts.init(el, null, {renderer:'svg'})` 渲染时，提取器把带 `_echarts_instance_` 标记的 svg 解析为 shape JSON（浏览器侧：各元素 `getCTM` 矩阵变换坐标——遇旋转/斜切或相对路径指令等不支持面整体放弃，回退 clip 截图；`linearGradient` 收集为 stops；path d 解析为指令流），组包器转**原生矢量形状**：rect/circle/ellipse/line → prstGeom、path → custGeom（A 弧转贝塞尔、Q 升三次）、text → 文本框（text-anchor → 对齐）、渐变 → gradFill——图表在 PowerPoint 里可编辑、无失真，替代该区域的 clip 截图。canvas 渲染或非 echarts svg 仍走 svgBlip/clip 老路径。回执/geometry 的 `slides[].chartShapes` 即该数据；`applyClips` 对被 clip 完全包含的 chart 让位（防叠影）。
+
 ## HTML 约定
 
 - 每页一个 `<section class="slide">`，CSS 尺寸 = `width`×`height`；无 `.slide` 元素时报错。

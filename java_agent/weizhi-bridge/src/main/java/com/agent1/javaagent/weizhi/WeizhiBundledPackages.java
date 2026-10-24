@@ -161,6 +161,8 @@ public final class WeizhiBundledPackages {
             case "pptx-build" -> "pptx-build.js";
             case "svg-raster" -> "svg-raster.js";
             case "html2pptx" -> "html2pptx.js";
+            case "image" -> "image.js";
+            case "audio" -> "audio.js";
             default -> throw new IllegalArgumentException("unknown package: " + packageName);
         };
     }

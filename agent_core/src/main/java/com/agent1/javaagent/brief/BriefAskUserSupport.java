@@ -83,7 +83,7 @@ public final class BriefAskUserSupport {
             }
             String title = root.path("title").asText("").trim();
             return new Request(title.isEmpty() ? null : title, questions);
-        } catch (Exception e) {
+        } catch (RuntimeException | com.fasterxml.jackson.core.JsonProcessingException e) {
             return null;
         }
     }

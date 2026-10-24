@@ -26,12 +26,6 @@ public final class ToolCallPairingRepair {
         if (messages == null || messages.isEmpty()) {
             return messages == null ? List.of() : List.copyOf(messages);
         }
-        Set<String> satisfiedGlobally = new LinkedHashSet<>();
-        for (AgentMessage message : messages) {
-            if (isToolResult(message) && message.getToolCallId() != null) {
-                satisfiedGlobally.add(message.getToolCallId());
-            }
-        }
         List<AgentMessage> repaired = new ArrayList<>();
         int index = 0;
         while (index < messages.size()) {
@@ -57,7 +51,6 @@ public final class ToolCallPairingRepair {
                     continue;
                 }
                 repaired.add(AgentMessage.toolResult(id, MISSING_RESULT_NOTE, true));
-                satisfiedGlobally.add(id);
             }
             for (AgentMessage orphan : block) {
                 if (!consumed.contains(orphan)) {

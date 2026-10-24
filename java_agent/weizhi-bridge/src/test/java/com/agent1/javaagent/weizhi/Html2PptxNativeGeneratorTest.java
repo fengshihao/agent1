@@ -59,9 +59,9 @@ class Html2PptxNativeGeneratorTest {
                 export default await geometryToPptx({ geometryPath: "deck-geometry.json", output: "out/native.pptx" });
                 """, null, 60_000, new CancellationToken(), "jobs/run.js");
             assertTrue(out.contains("\"ok\":true"), out);
-            assertTrue(out.contains("\"slides\":3"), out);
+            assertTrue(out.contains("\"slides\":4"), out);
             assertTrue(out.contains("\"pictures\":2"), out);
-            assertTrue(out.contains("\"shapes\":23"), out);
+            assertTrue(out.contains("\"shapes\":32"), out);
             assertTrue(out.contains("\"reason\":\"shadow\""), "第三卡阴影应记入 needsScreenshot: " + out);
         }
 
@@ -200,6 +200,80 @@ class Html2PptxNativeGeneratorTest {
         try (ZipFile zip = new ZipFile(workspace.resolve("out/needs.pptx").toFile())) {
             String s1 = zipText(zip, "ppt/slides/slide1.xml");
             assertEquals(0, countOf(s1, "<p:pic>"), "远程/超限图片不应出 p:pic");
+        }
+    }
+
+    /**
+     * echarts svg chartShapes → 原生矢量形状（0.2.6）：rect/circle/line → prstGeom、
+     * path（含 A 弧）→ custGeom 贝塞尔、text → 文本框、svg 渐变 → gradFill；
+     * chart 区域不出 clip 截图（p:pic）。
+     */
+    @Test
+    void convertsChartShapesToNativeVectorShapes(@TempDir Path agentRoot) throws Exception {
+        AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        Path workspace = agentRoot.resolve("ws");
+        Files.createDirectories(workspace.resolve("jobs"));
+
+        ScriptEngine engine = new WeizhiScriptEngineFactory(
+            new WeizhiRuntimeOptions().installDesktopCaps(true), agentRoot
+        ).open(workspace);
+        try (engine) {
+            String out = engine.evalForAgent("""
+                import { geometryToPptx } from "weizhi:html2pptx";
+                export default await geometryToPptx({
+                  output: "out/chart.pptx",
+                  geometry: { version: 1, slides: [{
+                    slideW: 1280, slideH: 720, bg: "#ffffff",
+                    elements: [
+                      { tag: "h2", rect: { x: 96, y: 60, w: 500, h: 44 },
+                        font: { size: 32, weight: "700", color: "#1a1423", align: "start", lineHeight: 44, family: "Helvetica" },
+                        textRuns: [{ text: "月度指标", size: 32, weight: "700", color: "#1a1423" }] }
+                    ],
+                    chartShapes: [{
+                      rect: { x: 96, y: 200, w: 500, h: 300 },
+                      viewBox: { w: 500, h: 300 },
+                      shapes: [
+                        { t: "rect", x: 40, y: 100, w: 60, h: 150, fill: { color: "#7dd3c0" } },
+                        { t: "rect", x: 120, y: 60, w: 60, h: 190,
+                          fill: { grad: { ang: 0, stops: [
+                            { pos: 0, color: "#8b7ec8", alpha: 1 }, { pos: 1, color: "#4a90d9", alpha: 1 } ] } } },
+                        { t: "circle", cx: 400, cy: 80, r: 8, fill: { color: "#4a90d9" } },
+                        { t: "line", x1: 20, y1: 250, x2: 480, y2: 250, stroke: { color: "#999999" }, strokeW: 1 },
+                        { t: "path", d: [["M", 20, 220], ["A", 50, 50, 0, 1, 1, 120, 220], ["Z"]], fill: { color: "#e8b86d" } },
+                        { t: "text", x: 200, y: 20, w: 80, h: 16, size: 14, color: "#666666",
+                          anchor: "middle", weight: "400", text: "月度" }
+                      ]
+                    }]
+                  }] }
+                });
+                """, null, 60_000, new CancellationToken(), "jobs/run.js");
+            assertTrue(out.contains("\"ok\":true"), out);
+            assertTrue(out.contains("\"shapes\":7"), "h2 + 6 chart shapes: " + out);
+        }
+
+        try (ZipFile zip = new ZipFile(workspace.resolve("out/chart.pptx").toFile())) {
+            String s1 = zipText(zip, "ppt/slides/slide1.xml");
+            // rect 柱：svg x=40 → slide x=96+40=136 → EMU 1295400
+            assertTrue(s1.contains("<a:off x=\"1295400\""), "柱 x 应换算到 slide 坐标: " + s1.substring(0, 400));
+            assertTrue(s1.contains("val=\"7dd3c0\""), "柱纯色填充");
+            // 渐变柱：svg ang 0 → OOXML lin ang=0
+            assertTrue(s1.contains("<a:lin ang=\"0\""), "svg 渐变角度直接映射");
+            assertTrue(s1.contains("val=\"8b7ec8\"") && s1.contains("val=\"4a90d9\""), "渐变双色 stops");
+            // circle → ellipse：(96+400-8, 200+80-8) = (488,272) → EMU 4648200/2590800
+            assertTrue(s1.contains("prst=\"ellipse\"") && s1.contains("x=\"4648200\""), "圆 → ellipse 原生形状");
+            // 网格线 → prst line
+            assertTrue(s1.contains("prst=\"line\""), "line → 直线形状");
+            // 饼图 path → custGeom + A 弧转贝塞尔 + close
+            assertTrue(s1.contains("<a:custGeom>"), "path → 自定义几何");
+            assertTrue(countOf(s1, "<a:cubicBezTo>") >= 2, "半圆弧至少两段贝塞尔");
+            assertTrue(s1.contains("<a:close/>"), "Z → close");
+            assertTrue(s1.contains("val=\"e8b86d\""), "饼图填充");
+            // 文本标签：anchor middle → ctr
+            assertTrue(s1.contains("algn=\"ctr\"") && s1.contains("<a:t>月度</a:t>"), "text-anchor middle → 居中");
+            // chart 区域不走截图
+            assertEquals(0, countOf(s1, "<p:pic>"), "chart 原生形状不应出截图");
+            assertEquals(0, countOf(s1, "html2pptx-clip"), "无 clip 元素名");
         }
     }
 

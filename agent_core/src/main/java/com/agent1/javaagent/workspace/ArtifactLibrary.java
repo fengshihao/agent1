@@ -46,7 +46,7 @@ public final class ArtifactLibrary {
         List<ArtifactEntry> entries = new ArrayList<>();
         try (Stream<Path> sessions = Files.list(sessionsRoot)) {
             for (Path sessionDir : sessions.filter(Files::isDirectory).toList()) {
-                String sessionId = sessionDir.getFileName().toString();
+                String sessionId = String.valueOf(sessionDir.getFileName());
                 if (sessionId.isBlank()) {
                     continue;
                 }

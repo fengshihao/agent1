@@ -107,7 +107,7 @@ final class ImageRasterDimensions {
             int h = 1 + (b[27] & 0xff) + ((b[28] & 0xff) << 8) + ((b[29] & 0xff) << 16);
             return positive(w, h);
         }
-        if ("VP8L".equals(fourCc) && b.length >= 25) {
+        if ("VP8L".equals(fourCc)) {
             int bits = (b[21] & 0xff) | ((b[22] & 0xff) << 8) | ((b[23] & 0xff) << 16) | ((b[24] & 0xff) << 24);
             int w = (bits & 0x3fff) + 1;
             int h = ((bits >> 14) & 0x3fff) + 1;

@@ -128,7 +128,9 @@ export default await renderHtmlDeck({
 - **表格** `.tbl`：thead `var(--table-head)` 白字、tbody 斑马纹（nth-child(even) `var(--table-stripe)`）、
   tfoot `var(--table-foot)` 加粗、数字列右对齐。≤5 列。
 - **图表** `.charts`：容器写死像素宽高 + `<script src>` 引 echarts CDN，
-  **animation:false**，canvas 渲染；系列色优先 `--accent` / `--accent2` / `--card-top-3`。
+  **animation:false**，**`renderer:'svg'`**（`echarts.init(el, null, {renderer:'svg'})`）——
+  native 导出时图表转**原生矢量形状**（柱/线/弧/标签可编辑，不再区域截图）；
+  canvas 渲染的图表仍走截图补真。系列色优先 `--accent` / `--accent2` / `--card-top-3`。
 - **引言** `.quote`：深底 + 大引号(120px `var(--kicker)`) + blockquote(34px/1.75) + 圆形头像
   （border-radius:50% overflow:hidden）+ 署名。
 - **结尾** `.end`：radial 深底 + 大字(120px/800，渐变字用 background-clip:text，色走 accent→accent2)
@@ -144,6 +146,7 @@ export default await renderHtmlDeck({
 
 ## native 导出的已知边界（用户问再答）
 
-文字/卡片/背景/时间线原生可编辑；图片、echarts 图表、表格、阴影卡、渐变字是
-区域截图（视觉一致、不可在 PPT 里改）；多行段落折行位置可能与浏览器略差。
+文字/卡片/背景/时间线原生可编辑；**svg 渲染的 echarts 图表原生矢量形状**（0.2.6 起）；
+图片、canvas 图表、表格、阴影卡、渐变字是区域截图（视觉一致、不可在 PPT 里改）；
+多行段落折行位置可能与浏览器略差。
 云端导出（PDF/Word/Keynote 版式化）在规划中。

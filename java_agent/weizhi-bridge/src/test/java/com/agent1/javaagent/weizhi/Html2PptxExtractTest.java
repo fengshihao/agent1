@@ -80,6 +80,8 @@ class Html2PptxExtractTest {
         .chart{background:#ffffff;padding:64px 88px;display:flex;gap:24px;align-items:center}
         .chart .takeaway{flex:0 0 260px}
         .chart h2{font-size:40px;color:#122033;margin-bottom:8px}
+        .echarts{background:#ffffff;padding:64px 88px}
+        .echarts h2{font-size:40px;color:#122033;margin-bottom:24px}
         .chart p{font-size:20px;color:#5b6b7c;line-height:1.7;margin:16px 0}
         .chart .big{color:#2c7a7b;font-size:30px;font-weight:800}
         #bars{width:560px;height:400px}
@@ -115,6 +117,27 @@ class Html2PptxExtractTest {
             <p class="big">+12% YoY</p>
             <p><span>相邻</span><span>同款</span>合并</p>
           </div>
+        </section>
+        <section class="slide echarts">
+          <h2>转化漏斗（echarts svg 提取）</h2>
+          <svg _echarts_instance_="ec_1" width="600" height="360" viewBox="0 0 600 360">
+            <defs>
+              <linearGradient id="bar2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#8b7ec8"/>
+                <stop offset="1" stop-color="#4a90d9"/>
+              </linearGradient>
+            </defs>
+            <g transform="translate(60,20)">
+              <rect x="0" y="200" width="64" height="120" fill="#7dd3c0"/>
+              <rect x="96" y="140" width="64" height="180" fill="url(#bar2)"/>
+              <line x1="0" y1="320" x2="520" y2="320" stroke="#c9d4de" stroke-width="2"/>
+              <path d="M 32 180 C 96 120 160 150 224 90 C 288 60 352 60 416 30" fill="none" stroke="#e8b86d" stroke-width="4"/>
+              <path d="M 300 60 A 80 80 0 1 1 300 219.9 Z" fill="#2c7a7b"/>
+              <circle cx="480" cy="200" r="10" fill="#4a90d9"/>
+              <text x="32" y="250" font-size="16" fill="#5b6b7c" text-anchor="middle">周一</text>
+              <text x="300" y="145" font-size="20" fill="#ffffff" text-anchor="middle" font-weight="700">42%</text>
+            </g>
+          </svg>
         </section>
         <script>
         (function () {
@@ -189,7 +212,7 @@ class Html2PptxExtractTest {
                 export default await extractDeckGeometry({ htmlPath: "extract-deck.html" });
                 """, null, 300_000, new CancellationToken(), "jobs/run.js");
             assertTrue(out.contains("\"ok\":true"), out);
-            assertTrue(out.contains("\"slides\":3"), out);
+            assertTrue(out.contains("\"slides\":4"), out);
         }
         Path geo = workspace.resolve("extract-deck-geometry.json");
         assertTrue(Files.isRegularFile(geo), "默认输出应为 extract-deck-geometry.json");
@@ -214,7 +237,7 @@ class Html2PptxExtractTest {
             src + " generator 应为 html2pptx@<semver> extractDeckGeometry，实为 "
                 + root.get("generator").getAsString());
         JsonArray slides = root.getAsJsonArray("slides");
-        assertEquals(3, slides.size(), src);
+        assertEquals(4, slides.size(), src);
 
         // 封面：渐变背景 + 出界 deco 保留 + h1 左中区域 + 88px/800/#f6f1ea + 渐变 rule
         JsonObject cover = slides.get(0).getAsJsonObject();
@@ -299,6 +322,45 @@ class Html2PptxExtractTest {
         assertEquals("#2c7a7b", bigRuns.get(0).getAsJsonObject().get("color").getAsString(), src);
         JsonObject merged = elementWithRunText(chart, "p", "相邻 同款 合并", src);
         assertEquals(1, merged.getAsJsonArray("textRuns").size(), src + " 相邻同款 span 应合并为单 run");
+
+        // 第 4 页：echarts svg → chartShapes 原生形状集合（0.2.6），不再走 clip/imgSrc
+        JsonObject ech = slides.get(3).getAsJsonObject();
+        assertEquals("#ffffff", ech.get("bg").getAsString(), src);
+        JsonArray chartsArr = ech.getAsJsonArray("chartShapes");
+        assertEquals(1, chartsArr.size(), src + " echarts svg 应产出 1 组 chartShapes");
+        JsonObject chartDef = chartsArr.get(0).getAsJsonObject();
+        assertTrue(near(chartDef.get("viewBox").getAsJsonObject().get("w").getAsDouble(), 600, 0.5), src);
+        assertTrue(near(chartDef.get("rect").getAsJsonObject().get("w").getAsDouble(), 600, 1.5), src);
+        JsonArray shapes = chartDef.getAsJsonArray("shapes");
+        assertEquals(8, shapes.size(), src + " 2 rect + line + 2 path + circle + 2 text");
+        // CTM translate(60,20)：首柱 x=60 y=220 w=64 h=120
+        JsonObject bar = shapes.get(0).getAsJsonObject();
+        assertEquals("rect", bar.get("t").getAsString(), src);
+        assertTrue(near(bar.get("x").getAsDouble(), 60, 0.5), src + " CTM 平移 x+60");
+        assertTrue(near(bar.get("y").getAsDouble(), 220, 0.5), src + " CTM 平移 y+20");
+        assertTrue(near(bar.get("w").getAsDouble(), 64, 0.5), src);
+        assertEquals("#7dd3c0", bar.get("fill").getAsJsonObject().get("color").getAsString(), src);
+        // 渐变柱：svg 垂直渐变（x1y1 0,0→x2y2 0,1）→ ang 90°×60000=5400000，双色 stops
+        JsonObject gradBar = shapes.get(1).getAsJsonObject();
+        JsonObject grad = gradBar.get("fill").getAsJsonObject().getAsJsonObject("grad");
+        assertEquals(5400000, grad.get("ang").getAsInt(), src);
+        assertEquals(2, grad.getAsJsonArray("stops").size(), src);
+        // 饼弧 path 保留 A 指令（端点已 CTM 变换）
+        JsonObject pie = shapes.get(4).getAsJsonObject();
+        assertEquals("path", pie.get("t").getAsString(), src);
+        assertTrue(pie.getAsJsonArray("d").get(1).toString().contains("\"A\""), src + " 饼图应保留 A 指令");
+        assertTrue(near(pie.getAsJsonArray("d").get(1).getAsJsonArray().get(6).getAsDouble(), 360, 0.5), src);
+        // 文本：text-anchor middle + 颜色 + 字号
+        JsonObject label = shapes.get(6).getAsJsonObject();
+        assertEquals("text", label.get("t").getAsString(), src);
+        assertEquals("middle", label.get("anchor").getAsString(), src);
+        assertEquals("周一", label.get("text").getAsString(), src);
+        assertEquals("#5b6b7c", label.get("color").getAsString(), src);
+        assertTrue(near(label.get("size").getAsDouble(), 16, 0.5), src);
+        // chart svg 整棵跳过 elements：只剩 h2，无 rect/path/text 等 svg 子元素
+        JsonArray echEls = ech.getAsJsonArray("elements");
+        assertEquals(1, echEls.size(), src + " echarts 页 elements 只应有 h2");
+        assertEquals("h2", echEls.get(0).getAsJsonObject().get("tag").getAsString(), src);
     }
 
     /** live 与 fixture 的结构化对比：序列/数量/颜色/字号精确比对，矩形留字体度量容差。 */
