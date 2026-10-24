@@ -21,7 +21,16 @@ import java.util.List;
 public final class WeizhiBundledPackages {
 
     public static final List<String> BUNDLED_PACKAGE_NAMES =
-        List.of("docx", "docx-raw", "docx-build", "pptx", "pptx-build", "svg-raster", "html2pptx");
+        List.of(
+            "docx",
+            "docx-raw",
+            "docx-build",
+            "pptx",
+            "pptx-build",
+            "svg-raster",
+            "html2pptx",
+            "image",
+            "audio");
 
     private static final String RESOURCE_ROOT = "agent-home/weizhi-packages/";
     private static final ObjectMapper MAPPER = new ObjectMapper();

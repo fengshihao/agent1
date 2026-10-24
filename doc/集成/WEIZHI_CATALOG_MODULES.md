@@ -13,7 +13,7 @@ Weizhi 主干已移除 **`setScriptFolder` / `import "leaf.js"`**，官方 JS �
 
 内置 Office / SVG 脚本真源：`agent_core/.../agent-home/weizhi-packages/<name>/`（**仓内路径无版本**；版本只写在各包 `manifest.json`）。桌面 classpath 安装到 `weizhi-home/packages/<name>@<version>/`。**Android 不预装**（20-A 收口）：首次 `run_js` 由 `WeizhiPackageSync.beforeEval` 从云端 registry（`agentone.guoyoutech.cn`）动态安装，发布走 `artifact-cdn` 的 `pack.mjs + upload.sh`。源码 / 运行时 / 通道分层见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
 
-**例外——video（issue #98，2026-10-20）**：`weizhi:video`（video@0.3.1，含包层 `probe` 导出——weizhi#39）与插件 SO（`libweizhivideo.so` / `libweizhitranscode.so`）强版本耦合，**不上云 registry**，随 `:weizhi-video` AAR 原子交付进 APK（SO 走 jniLibs、JS 包走 AAR assets，`WeizhiPackages.syncBundled` 自动安装）；引擎侧 `WeizhiVideo.install(engine)` 注册插件。写法：`import { exportVideo, probe } from "weizhi:video"`（remux 剪辑/拼接；`reencode`/`filters` 走 transcode）。桌面无 MediaCodec，`ensureNative` 报 unsupported 属预期。
+**例外——video（issue #98，2026-10-20）**：`weizhi:video`（video@0.4.0，含包层 `probe` 导出——weizhi#39；0.4.0 起新增 `extractFrame` / `extractFrames` / `extractAudio`，经 agent1 `$tools.media_*` 宿主桥）与插件 SO（`libweizhivideo.so` / `libweizhitranscode.so`）强版本耦合，**不上云 registry**，随 `:weizhi-video` AAR 原子交付进 APK（SO 走 jniLibs、JS 包走 AAR assets，`WeizhiPackages.syncBundled` 自动安装）；引擎侧 `WeizhiVideo.install(engine)` 注册插件。写法：`import { exportVideo, probe, extractAudio } from "weizhi:video"`（remux 剪辑/拼接；`reencode`/`filters` 走 transcode；抽帧/抽音轨走宿主桥）。桌面无 MediaCodec，`ensureNative` 报 unsupported 属预期。
 
 **给模型的写法**：`import { markdownToDocx } from "weizhi:docx"`、`import { renderPptx } from "weizhi:pptx"` 等。workspace 内协作用 `import "./helper.js"`。
 

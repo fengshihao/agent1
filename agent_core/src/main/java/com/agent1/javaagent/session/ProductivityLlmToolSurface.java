@@ -15,6 +15,7 @@ public final class ProductivityLlmToolSurface {
     private static final Set<String> SCRIPT_BRIDGE_ONLY = Set.of(
         "media_resize",
         "media_extract_frame",
+        "media_extract_audio",
         "media_probe",
         "promote_request",
         "list_sessions",

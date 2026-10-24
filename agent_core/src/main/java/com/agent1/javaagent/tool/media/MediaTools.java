@@ -82,6 +82,40 @@ public final class MediaTools {
         }
     }
 
+    @Tool(
+        name = "media_extract_audio",
+        description = "从工作区视频抽出音轨，写成 m4a 或 aac。不要把整文件塞进 webview_exec。",
+        readOnly = false,
+        concurrencySafe = false,
+        timeoutMs = 120_000L
+    )
+    public String mediaExtractAudio(
+        @ToolParam(name = "path", description = "输入视频，工作区相对路径") String path,
+        @ToolParam(name = "output", description = "输出路径，须以 .m4a 或 .aac 结尾") String output,
+        @ToolParam(name = "format", required = false, description = "m4a（默认）或 aac") String format
+    ) {
+        try {
+            AudioExtractFormat fmt = AudioExtractFormat.parse(format);
+            requireAudioOutput(output, fmt);
+            Path source = requireFile(path);
+            Path dest = sandbox.resolveWrite(output);
+            Path parent = dest.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            inspector.extractAudio(source, dest, fmt);
+            ObjectNode node = MAPPER.createObjectNode();
+            node.put("path", sandbox.displayPath(dest));
+            node.put("format", fmt.name().toLowerCase(java.util.Locale.ROOT));
+            node.put("sizeBytes", Files.size(dest));
+            return node.toString();
+        } catch (SecurityException | IllegalArgumentException | UnsupportedOperationException e) {
+            return "错误：" + message(e);
+        } catch (IOException e) {
+            return "错误：" + message(e);
+        }
+    }
+
     private Path requireFile(String path) throws IOException {
         Path source = sandbox.resolveRead(path);
         if (!Files.isRegularFile(source)) {
@@ -109,6 +143,19 @@ public final class MediaTools {
             node.put("mime", info.mime());
         }
         return node;
+    }
+
+    private static void requireAudioOutput(String output, AudioExtractFormat format) {
+        if (output == null) {
+            throw new IllegalArgumentException("bad argument: media_extract_audio: output");
+        }
+        String name = output.trim().toLowerCase(java.util.Locale.ROOT);
+        if (format == AudioExtractFormat.M4A && !name.endsWith(".m4a")) {
+            throw new IllegalArgumentException("bad argument: media_extract_audio: m4a 输出须以 .m4a 结尾");
+        }
+        if (format == AudioExtractFormat.AAC && !name.endsWith(".aac")) {
+            throw new IllegalArgumentException("bad argument: media_extract_audio: aac 输出须以 .aac 结尾");
+        }
     }
 
     private static void requireJpegOutput(String output) {

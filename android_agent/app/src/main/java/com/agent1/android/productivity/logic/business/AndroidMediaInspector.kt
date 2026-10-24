@@ -2,7 +2,11 @@ package com.agent1.android.productivity.logic.business
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
+import android.media.MediaMuxer
+import com.agent1.javaagent.tool.media.AudioExtractFormat
 import com.agent1.javaagent.tool.media.ImageResizer
 import com.agent1.javaagent.tool.media.MediaInfo
 import com.agent1.javaagent.tool.media.MediaInspector
@@ -33,6 +37,70 @@ class AndroidMediaInspector : MediaInspector {
                 )
         } finally {
             retriever.release()
+        }
+    }
+
+    override fun extractAudio(source: Path, dest: Path, format: AudioExtractFormat) {
+        if (format != AudioExtractFormat.M4A) {
+            throw IllegalArgumentException("media_extract_audio: 当前仅支持 format=m4a")
+        }
+        val extractor = MediaExtractor()
+        var muxer: MediaMuxer? = null
+        try {
+            extractor.setDataSource(source.toString())
+            var audioIndex = -1
+            var trackFormat: MediaFormat? = null
+            for (i in 0 until extractor.trackCount) {
+                val candidate = extractor.getTrackFormat(i)
+                val mime = candidate.getString(MediaFormat.KEY_MIME) ?: continue
+                if (mime.startsWith("audio/")) {
+                    audioIndex = i
+                    trackFormat = candidate
+                    break
+                }
+            }
+            if (audioIndex < 0 || trackFormat == null) {
+                throw IllegalArgumentException("media_extract_audio: 没有音轨")
+            }
+            dest.parent?.let { Files.createDirectories(it) }
+            muxer = MediaMuxer(dest.toString(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            extractor.selectTrack(audioIndex)
+            val muxTrack = muxer.addTrack(trackFormat)
+            muxer.start()
+            val buffer = java.nio.ByteBuffer.allocate(256 * 1024)
+            val info = android.media.MediaCodec.BufferInfo()
+            while (true) {
+                buffer.clear()
+                val sampleSize = extractor.readSampleData(buffer, 0)
+                if (sampleSize < 0) {
+                    break
+                }
+                info.offset = 0
+                info.size = sampleSize
+                info.presentationTimeUs = extractor.sampleTime
+                info.flags = extractor.sampleFlags
+                muxer.writeSampleData(muxTrack, buffer, info)
+                extractor.advance()
+            }
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: IllegalStateException) {
+            throw IllegalArgumentException(
+                "media_extract_audio: ${e.message ?: e.javaClass.simpleName}",
+                e,
+            )
+        } catch (e: IOException) {
+            throw IllegalArgumentException(
+                "media_extract_audio: ${e.message ?: e.javaClass.simpleName}",
+                e,
+            )
+        } finally {
+            try {
+                muxer?.stop()
+            } catch (_: IllegalStateException) {
+            }
+            muxer?.release()
+            extractor.release()
         }
     }
 

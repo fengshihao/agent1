@@ -102,6 +102,33 @@ class MediaToolsTest {
         Files.writeString(root.resolve("clip.mp4"), "video");
         AgentTool probe = tool(root, "media_probe", UnavailableMediaInspector.INSTANCE);
         assertTrue(call(probe, params("clip.mp4")).contains("未实现"));
+        AgentTool extractAudio = tool(root, "media_extract_audio", UnavailableMediaInspector.INSTANCE);
+        ObjectNode audioParams = params("clip.mp4");
+        audioParams.put("output", "out/audio.m4a");
+        assertTrue(call(extractAudio, audioParams).contains("未实现"));
+    }
+
+    @Test
+    void extractAudioWritesM4aAndValidatesOutput() throws Exception {
+        Path root = workspace();
+        Files.writeString(root.resolve("clip.mp4"), "video");
+        AgentTool extractAudio = tool(root, "media_extract_audio");
+
+        ObjectNode good = params("clip.mp4");
+        good.put("output", "out/audio.m4a");
+        JsonNode json = MAPPER.readTree(call(extractAudio, good));
+        assertEquals("out/audio.m4a", json.get("path").asText());
+        assertEquals("m4a", json.get("format").asText());
+        assertTrue(json.get("sizeBytes").asLong() > 0);
+
+        ObjectNode badExt = params("clip.mp4");
+        badExt.put("output", "out/audio.mp3");
+        assertTrue(call(extractAudio, badExt).contains(".m4a"));
+
+        ObjectNode badFormat = params("clip.mp4");
+        badFormat.put("output", "out/audio.m4a");
+        badFormat.put("format", "mp3");
+        assertTrue(call(extractAudio, badFormat).contains("format"));
     }
 
     private Path workspace() throws Exception {
@@ -148,6 +175,15 @@ class MediaToolsTest {
             }
             Files.write(dest, new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0});
             return new ImageResizer.ImageSize(320, 180);
+        }
+
+        @Override
+        public void extractAudio(Path source, Path dest, AudioExtractFormat format) throws java.io.IOException {
+            Path parent = dest.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.write(dest, new byte[] {0x00, 0x01, 0x02});
         }
     }
 }

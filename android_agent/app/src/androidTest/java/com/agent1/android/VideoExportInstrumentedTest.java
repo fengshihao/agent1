@@ -24,6 +24,8 @@ import org.junit.runner.RunWith;
  * 链路覆盖：APK assets 装包 → beforeEval 对 registry 无 video 条目不挡本地解析
  * （issue 边界项）→ import weizhi:video → 包层 probe（video@0.3.1 起，weizhi#39）
  * → exportVideo remux 掐头去尾 → 输出再 probe。
+ * video@0.4.0 起包内另有 extractFrame / extractFrames / extractAudio
+ * （走 agent1 $tools 桥，宿主工具另测，见 MediaToolsTest）。
  */
 @RunWith(AndroidJUnit4.class)
 public final class VideoExportInstrumentedTest {
@@ -63,7 +65,7 @@ public final class VideoExportInstrumentedTest {
 
     /**
      * 独立 agentRoot（对齐 OfficeCatalogInstrumentedTest），但包不走云端：
-     * video@0.3.0 在 APK assets 里，syncBundled 直接装。beforeEval 仍要跑一次——
+     * video 在 APK assets 里，syncBundled 直接装。beforeEval 仍要跑一次——
      * 验证 registry 清单无 video 条目时不会挡本地已装包的解析（issue 边界项）。
      */
     private static Setup prepare(String src) throws java.io.IOException {
@@ -71,8 +73,8 @@ public final class VideoExportInstrumentedTest {
         AgentHomeBootstrap.ensure(agentRoot);
         String packageRoot = WeizhiPackages.syncBundled(context());
         WeizhiPackageSync.beforeEval(src, packageRoot, agentRoot);
-        assertTrue("syncBundled 应从 APK assets 安装 video@0.3.1",
-            new File(packageRoot, "packages/video@0.3.1/index.js").isFile());
+        assertTrue("syncBundled 应从 APK assets 安装 video@0.4.0",
+            new File(packageRoot, "packages/video@0.4.0/index.js").isFile());
         File dir = new File(context().getCacheDir(), "video-ws-" + System.nanoTime());
         assertTrue(dir.mkdirs());
         return new Setup(packageRoot, dir);

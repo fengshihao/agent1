@@ -20,6 +20,11 @@ public final class UnavailableMediaInspector implements MediaInspector {
         throw unsupported();
     }
 
+    @Override
+    public void extractAudio(Path source, Path dest, AudioExtractFormat format) {
+        throw unsupported();
+    }
+
     private static UnsupportedOperationException unsupported() {
         return new UnsupportedOperationException("未实现：桌面音视频处理尚未接入");
     }

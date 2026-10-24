@@ -11,7 +11,7 @@
 | 阶段 | 范围 | 实现 |
 |------|------|------|
 | **M0** | 图片（≤ 常规手机照） | **`media-image.js`**：灰度 / 缩放 / **catalog LUT**；WebView 执行；**无内置 preset 名** |
-| **M1** | 图 / 视频 / 音频 **探测 + 抽帧 + 大图缩放** | Agent1：`media.js` 调宿主工具。Android 后端在 `android_agent`；桌面后端后做 |
+| **M1** | 图 / 视频 / 音频 **探测 + 抽帧 + 抽音轨 + 大图缩放** | 官方 API：**weizhi:image** / **weizhi:video** / **weizhi:audio**（video 随 :weizhi-video AAR；内部桥 `$tools.media_*`，不进 find_caps） |
 | **未做（记录）** | 桌面转码、整段视频重编码、FFmpeg 滤镜链 | 文档 + 后续 `native.media_ffmpeg` 或 `bash ffmpeg` |
 
 ---
@@ -58,7 +58,8 @@ await run({
 | `media_probe({ path })` | `ffprobe` 子集 | `AndroidMediaInspector`：`MediaMetadataRetriever`；图片读不出时用 `BitmapFactory` 看宽高。音频只报时长和 MIME |
 | `media_extract_frame({ path, output, ss })` | `-ss` + `-vframes 1` | `getFrameAtTime`。纯音频返回「没有画面」 |
 | `media_resize({ path, output, maxEdge })` | `-vf scale` | Android：`BitmapImageResizer`（`BitmapFactory`）。桌面调用返回「未实现」 |
-| 截取音轨、整段转码 | **不做** | 引导系统剪辑 App；桌面以后再接 FFmpeg |
+| 从视频抽音轨 | **weizhi:video** `extractAudio`（m4a，Android MediaMuxer，AAR 0.4.0 起） | 桌面未实现 |
+| 整段转码 / 复杂滤镜 | **不做**（剪辑用 **weizhi:video** `exportVideo`） | 桌面以后再接 FFmpeg |
 
 **limits（Native 路径，与 WebView 无关）**：
 
