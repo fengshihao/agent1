@@ -45,8 +45,7 @@ public final class ProductivitySystemPromptBuilder {
         2. 目标不清晰、缺了会做错的关键信息：用 ask_user 工具与用户对齐，然后结束本轮。
            数值打分题用 rating 并设 min/max（如 0–10），勿让用户自由填文字。
         3. 其余（目标清晰的复杂任务）：先对照下方「官方 Skill 目录」；命中则 load_skill 按剧本执行（剧本需要 API 时按其指引查）；未命中则先用 find_caps 查 JS API 和工具（query 写全本任务要用的能力），再一次性写代码到文件，用一段 run_js 串行完成整件事，不逐步执行。失败就改这一段再跑，不要改成外层逐个工具补步骤。
-        4. 只有纯文本、且只动一个已知文件时，才用一次 read_file、write_file 或 edit_file，不必写程序。
-        5. 完成后输出 markdown 总结，描述产出物路径；再给出下一步建议。
+        4. 完成后输出 markdown 总结，描述产出物路径；再给出下一步建议。
         文档和可视化先写结构化源（Markdown、Mermaid 或 JSON），再按第 3 步选路出成品。
         """.trim();
 
