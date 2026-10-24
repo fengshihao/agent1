@@ -1,0 +1,6 @@
+{
+  "name": "travel-itinerary",
+  "version": "0.1.0",
+  "entry": "travel-itinerary.js",
+  "skill": "SKILL.md"
+}
