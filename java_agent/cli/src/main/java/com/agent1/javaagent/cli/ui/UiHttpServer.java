@@ -801,7 +801,7 @@ public final class UiHttpServer implements AutoCloseable {
         headers.set("Cache-Control", "no-cache");
         headers.set("Connection", "keep-alive");
         exchange.sendResponseHeaders(200, 0);
-        OutputStream out = exchange.getResponseBody();
+        OutputStream out = exchange.getResponseBody(); // NOPMD(CloseResource) SseClient.closeQuietly 在 finally 关闭 out，PMD 不跨类追踪
         SseClient client = new SseClient(out);
         sseClients.add(client);
         try {

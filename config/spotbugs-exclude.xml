@@ -70,4 +70,18 @@
         <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
         <Class name="com.agent1.javaagent.cli.tools.SkillTool"/>
     </Match>
+    <Match>
+        <!-- 理由：try-with-resources 对 null 资源自动作跳过，`getResourceAsStream` 判空后返回即安全；
+             SpotBugs 对该写法先后误报 NP_LOAD_OF_KNOWN_NULL_VALUE / RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE。 -->
+        <Bug pattern="NP_LOAD_OF_KNOWN_NULL_VALUE,RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE"/>
+        <Class name="com.agent1.javaagent.cli.ui.UiHttpServer"/>
+        <Method name="readClasspath"/>
+    </Match>
+    <Match>
+        <!-- 理由：2026-10-25 cli 首跑存量（本地带 weizhi 才跑 :cli:spotbugsMain，CI 因无 weizhi 跳过）。
+             rollover 等分支用 catch (Exception) 统一转 400 响应，属 HTTP 边界的有意兜底。 -->
+        <Bug pattern="REC_CATCH_EXCEPTION"/>
+        <Class name="com.agent1.javaagent.cli.ui.UiHttpServer"/>
+        <Method name="handleSessions"/>
+    </Match>
 </FindBugsFilter>

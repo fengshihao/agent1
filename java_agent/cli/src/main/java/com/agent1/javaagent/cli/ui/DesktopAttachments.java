@@ -27,7 +27,11 @@ public final class DesktopAttachments {
         List<ListedFile> out = new ArrayList<>();
         try (var stream = Files.list(imports)) {
             for (Path file : stream.filter(Files::isRegularFile).toList()) {
-                String name = file.getFileName().toString();
+                Path fileName = file.getFileName();
+                if (fileName == null) {
+                    continue;
+                }
+                String name = fileName.toString();
                 out.add(new ListedFile("imports/" + name, name, Files.size(file)));
             }
         }
@@ -60,8 +64,12 @@ public final class DesktopAttachments {
             suffix++;
         }
         Files.write(dest, data);
-        String relative = "imports/" + dest.getFileName();
-        return new ListedFile(relative, dest.getFileName().toString(), data.length);
+        Path destName = dest.getFileName();
+        if (destName == null) {
+            throw new IllegalStateException("unreachable: dest has a file name");
+        }
+        String relative = "imports/" + destName;
+        return new ListedFile(relative, destName.toString(), data.length);
     }
 
     public static void deleteImport(Path agentRoot, String sessionId, String workspaceRelativePath)
