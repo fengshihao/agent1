@@ -295,6 +295,13 @@ private fun ProductivityOverlayNav(
                         chatViewModel = chatVm,
                         onSendFeedback = { draft -> chatVm?.sendMessage(draft) == true },
                     )
+                } else if (WorkspaceFileActions.isMdPreviewableInApp(relativePath)) {
+                    MolanPreviewScreen(
+                        sessionId = sessionId,
+                        relativePath = relativePath,
+                        onBack = { nav.popBackStack() },
+                        chatViewModel = chatVm,
+                    )
                 } else {
                     HtmlPreviewScreen(
                         sessionId = sessionId,

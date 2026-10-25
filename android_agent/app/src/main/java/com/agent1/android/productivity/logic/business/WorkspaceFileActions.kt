@@ -25,8 +25,15 @@ object WorkspaceFileActions {
         return relativePath.substringAfterLast('.', "").lowercase() == "docx"
     }
 
+    /** Markdown 走墨览（molan）纸面阅读视图内置预览。 */
+    fun isMdPreviewableInApp(relativePath: String): Boolean {
+        val ext = relativePath.substringAfterLast('.', "").lowercase()
+        return ext == "md" || ext == "markdown"
+    }
+
     fun isPreviewableInApp(relativePath: String): Boolean {
-        return isHtmlPreviewableInApp(relativePath) || isDocxPreviewableInApp(relativePath)
+        return isHtmlPreviewableInApp(relativePath) || isDocxPreviewableInApp(relativePath) ||
+            isMdPreviewableInApp(relativePath)
     }
 
     fun mimeTypeForRelativePath(relativePath: String): String {

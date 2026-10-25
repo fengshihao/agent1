@@ -16,8 +16,11 @@ class WorkspaceFileActionsTest {
         assertTrue(WorkspaceFileActions.isDocxPreviewableInApp("out/report.docx"))
         assertFalse(WorkspaceFileActions.isHtmlPreviewableInApp("out/report.docx"))
         assertFalse(WorkspaceFileActions.isPreviewableInApp("cat.png"))
-        assertFalse(WorkspaceFileActions.isPreviewableInApp("notes.md"))
-        assertFalse(WorkspaceFileActions.isPreviewableInApp("html"))
+        // md / markdown 现走墨览（molan）内置预览（md-preview 能力）。
+        assertTrue(WorkspaceFileActions.isMdPreviewableInApp("notes.md"))
+        assertTrue(WorkspaceFileActions.isMdPreviewableInApp("out/notes.MARKDOWN"))
+        assertTrue(WorkspaceFileActions.isPreviewableInApp("notes.md"))
+        assertFalse(WorkspaceFileActions.isMdPreviewableInApp("html"))
         assertFalse(WorkspaceFileActions.isPreviewableInApp("no-ext"))
     }
 
