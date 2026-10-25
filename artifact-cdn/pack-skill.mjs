@@ -15,8 +15,9 @@
  *   dist/skills/registry/stable.json   # 仅 Skill 目录（进系统提示词）
  *   dist/registry/stable.json          # 合并 artifacts（kind=skill），不覆盖已有 weizhi_package
  *
- * 用法：
- *   node pack-skill.mjs --root ../skills-src --base-url https://agentone.guoyoutech.cn/
+ * 用法（Skill 源码在独立仓 agent1-skills）：
+ *   node pack-skill.mjs --root ../../agent1-skills/skills-src --base-url https://agentone.guoyoutech.cn/
+ *   或：../scripts/pack-official-skills.sh（agent1 根目录，尊重 AGENT1_SKILLS_ROOT）
  */
 import { spawn } from "node:child_process";
 import { mkdir, readFile, readdir, rm } from "node:fs/promises";

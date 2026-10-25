@@ -55,7 +55,7 @@ await exportVideo({
 
 ## 官方 Skill（与 Package 分轨，2026-10 起）
 
-- **Package** 只放 SDK 级 JS（`weizhi:<name>`）；**Skill** 为 `SKILL.md` + 可选脚本，源码 `agent_core/skills-src/`，`artifact-cdn/pack-skill.mjs` 上云。
+- **Package** 只放 SDK 级 JS（`weizhi:<name>`）；**Skill** 为 `SKILL.md` + 可选脚本，源码 [**agent1-skills**](https://github.com/fengshihao/agent1-skills) 仓 `skills-src/`，`./scripts/pack-official-skills.sh` 上云；classpath 副本 `./scripts/sync-skills-bundled.sh`。
 - 运行时目录 `<agentRoot>/skills-home/`；桌面 `SkillsBundledInstall`（随 `WeizhiBundledPackages.syncFromClasspath`）；`load_skill` / 云端 `SkillRegistryClient`（统一 `registry/stable.json` 里 `kind=skill`）安装 zip。
 - `SkillsCapabilitySync` 写 `kind=skill` 卡（`source=skills_home`）；系统提示词注入 `skills/registry/stable.json` 渲染的目录；工作流：**先 `load_skill`，无匹配再 `find_caps`**。
 - 遗留：`PackageSkills` 仍解析旧包 manifest 的 `"skill"` 字段（新官方包不再使用）。内置例外：`skill-creator`（classpath bundled）。
@@ -65,7 +65,7 @@ await exportVideo({
 - `DocxOfficeIntegrationTest` / `PptxOfficeIntegrationTest`（`:weizhi-bridge:test`，需 `libweizhijni`）
 - `OfficeCatalogInstrumentedTest`（Android 真机，云端 registry 动态安装，需联网）
 - `VideoExportInstrumentedTest`（Android 真机，AAR assets 离线装包：v1 remux 掐头去尾 + v2 image 主轨 scale 关键帧，无需联网）
-- 剪辑工作流 Skill：`video-edit`（`skills-src/video-edit`，内置进 APK；云端发布用 `artifact-cdn/pack-skill.mjs`）
+- 剪辑工作流 Skill：`video-edit`（[agent1-skills/skills-src/video-edit](https://github.com/fengshihao/agent1-skills)；内置进 APK 经 `sync-skills-bundled`；云端 `./scripts/pack-official-skills.sh`）
 
 ## 关联
 
