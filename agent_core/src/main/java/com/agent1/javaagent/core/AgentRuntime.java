@@ -320,7 +320,7 @@ public final class AgentRuntime implements Closeable {
             String message = e.getMessage() == null ? e.toString() : e.getMessage();
             state.setError(message);
             appendInterruptedToolResults();
-            AgentMessage errorMessage = AgentMessage.assistant("错误: " + message, List.of());
+            AgentMessage errorMessage = AgentMessage.runFailure(RunOutcome.RUN_FAILURE_PREFIX + message);
             state.appendMessage(errorMessage);
             emit(AgentEventType.MESSAGE_END, new EventPayloads.MessageEvent(errorMessage));
             emit(AgentEventType.AGENT_ERROR, new EventPayloads.AgentError(message));

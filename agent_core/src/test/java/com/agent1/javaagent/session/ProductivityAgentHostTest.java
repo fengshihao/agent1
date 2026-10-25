@@ -391,4 +391,67 @@ class ProductivityAgentHostTest {
                 .anyMatch(m -> "补完了".equals(m.getContent())));
         }
     }
+
+    @Test
+    void continueAfterRunFailure_sendsCleanContextAndStripsErrorRecord() {
+        List<ChatRequest> requests = new CopyOnWriteArrayList<>();
+        AtomicInteger calls = new AtomicInteger();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            requests.add(request);
+            if (calls.getAndIncrement() == 0) {
+                throw new IllegalStateException("SSE failed: Software caused connection abort");
+            }
+            streamListener.onTextDelta("继续完成");
+            return new AssistantResponse("继续完成", List.of());
+        };
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            host.createSession();
+            String sessionId = host.getActiveSessionId();
+            String failedRun = host.runUserMessage("做个规划");
+
+            FileRunStore runs = new FileRunStore(new FileSessionStore(temp));
+            assertEquals(RunState.FAILED, runs.read(sessionId, failedRun).getState());
+            List<AgentMessage> afterFailure = new FileSessionStore(temp).loadTranscript(sessionId);
+            assertEquals(2, afterFailure.size());
+            assertTrue(RunOutcome.isRunFailureRecord(afterFailure.get(1)));
+            assertTrue(afterFailure.get(1).isError(), "新写入的失败记录必须带 error 标志");
+
+            host.runUserMessage("继续");
+            ChatRequest retried = requests.get(requests.size() - 1);
+            assertTrue(retried.getMessages().stream().noneMatch(RunOutcome::isRunFailureRecord),
+                "重试请求不能再携带失败记录");
+            assertTrue(retried.getMessages().stream()
+                .anyMatch(m -> m.getContent().contains("做个规划")));
+
+            List<AgentMessage> transcript = new FileSessionStore(temp).loadTranscript(sessionId);
+            assertEquals(3, transcript.size());
+            assertEquals("做个规划", transcript.get(0).getContent());
+            assertEquals("继续", transcript.get(1).getContent());
+            assertEquals("继续完成", transcript.get(2).getContent());
+        }
+    }
+
+    @Test
+    void repeatedContinueFailures_doNotAccumulateErrorRecords() {
+        AtomicInteger calls = new AtomicInteger();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
+            calls.getAndIncrement();
+            throw new IllegalStateException("DashScope error [1113]: 余额不足或无可用资源包");
+        };
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        try (ProductivityAgentHost host = new ProductivityAgentHost(temp, config, fake)) {
+            host.createSession();
+            String sessionId = host.getActiveSessionId();
+            host.runUserMessage("做个规划");
+            host.runUserMessage("继续");
+            host.runUserMessage("继续");
+
+            List<AgentMessage> transcript = new FileSessionStore(temp).loadTranscript(sessionId);
+            assertEquals(3, transcript.size(), "重复失败重试不得堆积失败记录");
+            assertEquals("做个规划", transcript.get(0).getContent());
+            assertEquals("继续", transcript.get(1).getContent());
+            assertTrue(RunOutcome.isRunFailureRecord(transcript.get(2)));
+        }
+    }
 }

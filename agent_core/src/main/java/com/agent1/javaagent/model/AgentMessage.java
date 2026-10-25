@@ -68,6 +68,14 @@ public final class AgentMessage {
         );
     }
 
+    /**
+     * 本地合成的运行失败记录（AgentRuntime 捕获异常时写入），带 {@code error=true} 标志。
+     * 与模型产出的 assistant 消息区分，供界面「继续」按钮判定与重试前清理使用。
+     */
+    public static AgentMessage runFailure(String content) {
+        return new AgentMessage(ROLE_ASSISTANT, content, "", System.currentTimeMillis(), null, true, List.of());
+    }
+
     public static AgentMessage toolResult(String toolCallId, String content, boolean isError) {
         return new AgentMessage(ROLE_TOOL_RESULT, content, System.currentTimeMillis(), toolCallId, isError, List.of());
     }

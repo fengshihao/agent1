@@ -425,6 +425,7 @@ public final class ProductivityAgentHost implements Closeable {
         String sessionId = requireActiveSession();
         applySystemPrompt(sessionId);
         recoverInterruptedRuns(sessionId);
+        stripTrailingRunFailures(sessionId);
         assertNoRunningMainRun(sessionId);
         if (productivityCoach != null) {
             productivityCoach.resetRun();
@@ -601,6 +602,40 @@ public final class ProductivityAgentHost implements Closeable {
         for (int i = messageCountBefore; i < messages.size(); i++) {
             sessionStore.appendMessage(sessionId, runId, messages.get(i));
         }
+    }
+
+    /**
+     * 兜底自愈（24 号真机问题）：run 因网络 / SSE / API 等原因失败时，AgentRuntime 会把
+     * 「错误: …」失败记录落进 transcript。若用户点「继续」重试又失败，记录会一条条堆积，
+     * 上下文被本地错误污染。新 run 启动前，把尾部连续的失败记录、及其紧邻的重试指令
+     * 「继续」一并清除并写回 transcript——发给模型的是干净上下文，重试等于从头再来一次。
+     */
+    private void stripTrailingRunFailures(String sessionId) {
+        List<AgentMessage> current = runtime.getStateSnapshot().getMessages();
+        int cut = current.size();
+        boolean droppedFailure = false;
+        while (cut > 0) {
+            AgentMessage tail = current.get(cut - 1);
+            if (RunOutcome.isRunFailureRecord(tail)) {
+                cut -= 1;
+                droppedFailure = true;
+                continue;
+            }
+            if (droppedFailure
+                && AgentMessage.ROLE_USER.equals(tail.getRole())
+                && RunOutcome.CONTINUE_PROMPT.equals(tail.getContent().trim())) {
+                cut -= 1;
+                continue;
+            }
+            break;
+        }
+        if (!droppedFailure) {
+            return;
+        }
+        List<AgentMessage> cleaned = new ArrayList<>(current.subList(0, cut));
+        runtime.replaceMessages(cleaned);
+        TranscriptPairingPersistence.persistIfRepaired(sessionStore, sessionId, current, cleaned);
+        LOG.info("stripped " + (current.size() - cut) + " trailing run-failure record(s) before new run");
     }
 
     /**

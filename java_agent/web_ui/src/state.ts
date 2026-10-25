@@ -219,7 +219,15 @@ function isContinuableStop(content: string): boolean {
   );
 }
 
-/** 轮次或工具次数用尽、任务还没做完时，输入框上方显示「继续」。 */
+/** Run 失败记录（AgentRuntime 本地合成，非模型输出）：以「错误: 」开头。 */
+function isRunFailureRecord(content: string): boolean {
+  return content.trim().startsWith("错误:");
+}
+
+/**
+ * 轮次或工具次数用尽、上一轮异常收场（没有最终回答）时，输入框上方显示「继续」。
+ * 与 Android 端 ContinueAfterBudget 语义对齐。
+ */
 export function shouldOfferContinue(
   lines: ChatLine[],
   isRunning: boolean,
@@ -229,7 +237,8 @@ export function shouldOfferContinue(
   let marker = -1;
   lines.forEach((line, index) => {
     const progressPrompt = line.role === "user" && line.content.includes(PROGRESS_TURN_MARK);
-    if (progressPrompt || isContinuableStop(line.content)) marker = index;
+    const failureRecord = line.role === "assistant" && isRunFailureRecord(line.content);
+    if (progressPrompt || failureRecord || isContinuableStop(line.content)) marker = index;
   });
   if (marker < 0) return false;
   let sawUserAfter = false;

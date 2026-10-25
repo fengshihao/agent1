@@ -34,6 +34,10 @@ class UserFacingErrorTest {
             UserFacingError.classifyKind("DashScope error [InvalidApiKey]: Invalid API-key provided."),
         )
         assertEquals(UserFacingError.Kind.QUOTA, UserFacingError.classifyKind("DashScope error [Arrearage]: overdue"))
+        assertEquals(
+            UserFacingError.Kind.QUOTA,
+            UserFacingError.classifyKind("DashScope error [1113]: 余额不足或无可用资源包,请充值。"),
+        )
         assertEquals(UserFacingError.Kind.RATE, UserFacingError.classifyKind("DashScope error [Throttling.RateQuota]"))
         assertEquals(UserFacingError.Kind.FILTER, UserFacingError.classifyKind("DashScope error [DataInspectionFailed]"))
         assertEquals(UserFacingError.Kind.MODEL, UserFacingError.classifyKind("model_not_found: qwen-nope"))

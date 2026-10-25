@@ -1349,7 +1349,7 @@ function render() {
         }
         ${
           offerContinue
-            ? `<div class="continue-bar"><p>这一轮已经到上限，点继续接着做完</p><button type="button" class="primary-btn" id="btn-continue">继续</button></div>`
+            ? `<div class="continue-bar"><p>任务还没做完，点继续接着做完</p><button type="button" class="primary-btn" id="btn-continue">继续</button></div>`
             : ""
         }
         <div class="composer">

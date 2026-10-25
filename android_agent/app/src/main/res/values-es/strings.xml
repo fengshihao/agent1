@@ -11,7 +11,7 @@
     <string name="chat_new_session">Nuevo chat</string>
     <string name="chat_input_hint">Escribe un mensaje…</string>
     <string name="chat_continue">Continuar</string>
-    <string name="chat_continue_hint">Esta ronda llegó al límite. Pulsa Continuar para terminarla.</string>
+    <string name="chat_continue_hint">La tarea no terminó. Pulsa Continuar para seguir.</string>
     <string name="chat_input_answer_card">Responde en la tarjeta de arriba y envía</string>
     <string name="chat_opening">Abriendo chat…</string>
     <string name="chat_startup_error">No se puede iniciar el chat: %1$s</string>

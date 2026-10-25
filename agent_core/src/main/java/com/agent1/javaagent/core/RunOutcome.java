@@ -1,5 +1,7 @@
 package com.agent1.javaagent.core;
 
+import com.agent1.javaagent.model.AgentMessage;
+
 /** Run 终态语义（供 {@link AgentRuntime} 与 {@link com.agent1.javaagent.session.ProductivityAgentHost} 对齐）。 */
 public final class RunOutcome {
 
@@ -7,6 +9,10 @@ public final class RunOutcome {
     public static final String TOOL_BUDGET_PREFIX = "单轮工具调用次数超过上限";
     public static final String WAITING_USER_PREFIX = "等待用户输入";
     public static final String CANCELLED_MESSAGE = "执行已取消";
+    /** AgentRuntime 捕获异常时落 transcript 的失败记录前缀（本地合成，非模型输出）。 */
+    public static final String RUN_FAILURE_PREFIX = "错误: ";
+    /** 「继续」按钮发给模型的标准文本；重试前清理尾部时一并识别。 */
+    public static final String CONTINUE_PROMPT = "继续";
 
     private static final String PROGRESS_SUMMARY_USER =
         "【系统】本次运行中模型与工具的往返轮次已达上限（单轮任务较大时会触发）。"
@@ -67,5 +73,25 @@ public final class RunOutcome {
 
     public static boolean isWaitingUser(String error) {
         return error != null && error.contains(WAITING_USER_PREFIX);
+    }
+
+    /**
+     * 本地合成的运行失败记录：run 中途异常（网络 / SSE / API / 工具环崩溃）时
+     * {@link AgentRuntime} 落进 transcript、界面以错误气泡展示的消息。
+     * 新写入的记录带 {@code error=true}；旧 transcript 只能按 {@link #RUN_FAILURE_PREFIX} 前缀识别。
+     */
+    public static boolean isRunFailureRecord(AgentMessage message) {
+        if (message == null) {
+            return false;
+        }
+        if (!AgentMessage.ROLE_ASSISTANT.equals(message.getRole()) || !message.getToolCalls().isEmpty()) {
+            return false;
+        }
+        return message.isError() || message.getContent().startsWith(RUN_FAILURE_PREFIX);
+    }
+
+    /** 文本形态判定（Web UI 等只有 content 的场景）：以 {@link #RUN_FAILURE_PREFIX} 开头即视为失败记录。 */
+    public static boolean isRunFailureRecord(String content) {
+        return content != null && content.startsWith(RUN_FAILURE_PREFIX);
     }
 }

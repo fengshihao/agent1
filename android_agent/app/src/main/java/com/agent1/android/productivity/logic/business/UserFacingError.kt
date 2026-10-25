@@ -90,7 +90,7 @@ object UserFacingError {
         if (containsAny(lower, "datainspection", "data_inspection", "content filter", "inappropriate content")) {
             return Kind.FILTER
         }
-        if (containsAny(lower, "arrearage", "insufficient_quota", "insufficient quota", "allocationquota")) {
+        if (containsAny(lower, "arrearage", "insufficient_quota", "insufficient quota", "allocationquota", "余额不足", "无可用资源包")) {
             return Kind.QUOTA
         }
         if (isAuth(lower)) return if (lower.contains("tavily")) Kind.SEARCH_AUTH else Kind.AUTH

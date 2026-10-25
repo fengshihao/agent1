@@ -15,7 +15,7 @@
     <string name="chat_new_topic_after_reply_cd">基于当前会话另开一场新对话</string>
     <string name="chat_input_hint">输入消息…</string>
     <string name="chat_continue">继续</string>
-    <string name="chat_continue_hint">这一轮已经到上限，点继续接着做完</string>
+    <string name="chat_continue_hint">任务还没做完，点继续接着做完</string>
     <string name="chat_send_attachment_changes_only">（已更新附件）</string>
     <string name="chat_input_answer_card">请在上方卡片中回答并提交</string>
     <string name="chat_opening">正在打开对话…</string>
