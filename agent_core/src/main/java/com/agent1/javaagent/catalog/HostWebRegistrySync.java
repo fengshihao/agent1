@@ -13,7 +13,7 @@ import java.nio.file.Path;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/** 宿主 WebView 依赖清单（shell + vendor URL），APK 不内置 JS。 */
+/** 宿主 WebView 依赖清单（仅 shell URL；vendor 在发布时 baked 进 shell.html），APK 不内置 JS。 */
 public final class HostWebRegistrySync {
 
     public static final String OFFICIAL_HOST = WebLibRegistrySync.OFFICIAL_HOST;
@@ -22,11 +22,6 @@ public final class HostWebRegistrySync {
 
     public static final String DEFAULT_SHELL_URL =
         "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html";
-    public static final String DEFAULT_JSZIP_URL =
-        "https://agentone.guoyoutech.cn/host-web/vendor/jszip/3.10.1/jszip.min.js";
-    public static final String DEFAULT_DOCX_PREVIEW_URL =
-        "https://agentone.guoyoutech.cn/host-web/vendor/docx-preview/0.4.1/docx-preview.min.js";
-
     static final String URL_ENV = "AGENT1_HOST_WEB_REGISTRY_URL";
     static final String ENV = "AGENT1_HOST_WEB_REGISTRY";
 
@@ -38,7 +33,7 @@ public final class HostWebRegistrySync {
     private HostWebRegistrySync() {
     }
 
-    public record DocxPreviewUrls(String shell, String jszip, String docxPreview) {
+    public record DocxPreviewUrls(String shell) {
     }
 
     public static void refreshAsync(Path agentRoot) {
@@ -76,7 +71,7 @@ public final class HostWebRegistrySync {
                 // fall through
             }
         }
-        return new DocxPreviewUrls(DEFAULT_SHELL_URL, DEFAULT_JSZIP_URL, DEFAULT_DOCX_PREVIEW_URL);
+        return new DocxPreviewUrls(DEFAULT_SHELL_URL);
     }
 
     static Path cachePath(Path agentRoot) {
@@ -111,9 +106,7 @@ public final class HostWebRegistrySync {
         }
         JsonNode block = root.path("docx_preview");
         String shell = requireHttpsUrl(block.path("shell").asText(""), "docx_preview.shell");
-        String jszip = requireHttpsUrl(block.path("jszip").asText(""), "docx_preview.jszip");
-        String docx = requireHttpsUrl(block.path("docx_preview").asText(""), "docx_preview.docx_preview");
-        return new DocxPreviewUrls(shell, jszip, docx);
+        return new DocxPreviewUrls(shell);
     }
 
     static void validateManifest(String json) throws IOException {

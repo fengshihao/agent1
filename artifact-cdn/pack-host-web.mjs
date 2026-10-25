@@ -37,9 +37,23 @@ async function bakeShell(outDir, manifest) {
   const shellSrc = path.join(here, "host-web", "shell", "docx-preview", "1", "shell.html");
   let html = await readFile(shellSrc, "utf8");
   html = html.replaceAll("__JSZIP_URL__", jszip).replaceAll("__DOCX_PREVIEW_URL__", docx);
+  if (html.includes("__JSZIP_URL__") || html.includes("__DOCX_PREVIEW_URL__")) {
+    throw new Error("shell.html still contains bake placeholders");
+  }
   const shellDest = path.join(outDir, "host-web", "shell", "docx-preview", "1", "shell.html");
   await mkdir(path.dirname(shellDest), { recursive: true });
   await writeFile(shellDest, html);
+}
+
+function publishedManifest(source) {
+  const shell = source?.docx_preview?.shell;
+  if (!shell || typeof shell !== "string") {
+    throw new Error("manifest.source.json missing docx_preview.shell");
+  }
+  return {
+    schema_version: 1,
+    docx_preview: { shell },
+  };
 }
 
 async function main() {
@@ -54,7 +68,7 @@ async function main() {
   await bakeShell(outDir, manifest);
   const registryPath = path.join(outDir, "host-web", "registry", "stable.json");
   await mkdir(path.dirname(registryPath), { recursive: true });
-  await writeFile(registryPath, JSON.stringify(manifest, null, 2) + "\n");
+  await writeFile(registryPath, JSON.stringify(publishedManifest(manifest), null, 2) + "\n");
   process.stdout.write(`host-web/registry/stable.json + vendor + baked shell → ${outDir}/host-web/\n`);
 }
 
