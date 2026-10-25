@@ -97,6 +97,9 @@ fun ChatScreen(
     onSessionFreshness: (loading: Boolean, fresh: Boolean) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.state.collectAsState()
+    KeepScreenOnWhile(
+        active = state.isRunning || state.attachmentImportInProgress,
+    )
     val loadingTranscript = state.isLoadingTranscript
     val freshSession = state.isFreshSession()
     LaunchedEffect(loadingTranscript, freshSession) {

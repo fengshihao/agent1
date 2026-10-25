@@ -7,6 +7,7 @@ import com.agent1.javaagent.script.ScriptEngine
 import com.agent1.javaagent.script.ScriptEngineFactory
 import com.agent1.javaagent.script.ScriptToolBridge
 import com.agent1.javaagent.skill.PackageSkills
+import com.agent1.javaagent.skill.SkillsBundledInstall
 import com.agent1.javaagent.weizhi.WeizhiIoExecutors
 import com.agent1.javaagent.weizhi.WeizhiPackageSync
 import com.agent1.javaagent.weizhi.WeizhiScriptToolInstaller
@@ -114,7 +115,11 @@ internal object WeizhiBundledInstall {
     private val lock = Any()
 
     fun syncBundled(context: Context, agentRoot: java.nio.file.Path): String {
-        val packageRoot = synchronized(lock) { WeizhiPackages.syncBundled(context) }
+        val packageRoot = synchronized(lock) {
+            val root = WeizhiPackages.syncBundled(context)
+            SkillsBundledInstall.syncFromClasspath(agentRoot)
+            root
+        }
         PackageSkills.syncCapabilityCards(agentRoot)
         return packageRoot
     }
