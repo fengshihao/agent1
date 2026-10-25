@@ -162,8 +162,7 @@ class ProductivitySystemPromptBuilderTest {
             .buildMainPrompt(temp.resolve("ws"), true);
         assertTrue(withScript.contains("编程型生产力智能体"));
         assertTrue(withScript.contains("一段 run_js 串行完成"));
-        assertTrue(withScript.contains("失败就改这一段"));
-        assertTrue(withScript.contains("不要改成外层逐个工具补步骤"));
+        assertTrue(withScript.contains("find_caps"));
         assertFalse(withScript.contains("优先用"));
     }
 

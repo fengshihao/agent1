@@ -24,6 +24,15 @@
           "line": "规划旅游路书、自驾攻略、行程食宿表时用。"
         }
       ]
+    },
+    {
+      "id": "media.video",
+      "skills": [
+        {
+          "name": "video-edit",
+          "line": "剪视频、拼片、片头剧照、抽帧抽音轨、导出 mp4 时用（Android）。"
+        }
+      ]
     }
   ]
 }

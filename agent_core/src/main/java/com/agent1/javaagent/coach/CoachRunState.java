@@ -10,6 +10,7 @@ public final class CoachRunState {
     private int bashHostToolProbeCoachCount;
     private int libHuntCoachCount;
     private int deckHtmlReadyCoachCount;
+    private boolean findCapsHintAfterApiError;
 
     public void clear() {
         scriptFailureCounts.clear();
@@ -19,6 +20,16 @@ public final class CoachRunState {
         bashHostToolProbeCoachCount = 0;
         libHuntCoachCount = 0;
         deckHtmlReadyCoachCount = 0;
+        findCapsHintAfterApiError = false;
+    }
+
+    /** @return 本 Run 内是否已因 API 报错提示过 find_caps */
+    public boolean markFindCapsHintAfterApiError() {
+        if (findCapsHintAfterApiError) {
+            return false;
+        }
+        findCapsHintAfterApiError = true;
+        return true;
     }
 
     public int recordScriptFailure(String scriptKey) {

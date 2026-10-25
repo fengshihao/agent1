@@ -12,7 +12,7 @@ import java.util.List;
 /** 将 classpath {@code agent-home/skills-bundled/<name>/} 安装到 {@link SkillsHomePaths}。 */
 public final class SkillsBundledInstall {
 
-    public static final List<String> BUNDLED_SKILL_NAMES = List.of("html2pptx", "travel-itinerary", "pptx");
+    public static final List<String> BUNDLED_SKILL_NAMES = List.of("html2pptx", "travel-itinerary", "pptx", "video-edit");
 
     private static final String RESOURCE_ROOT = "agent-home/skills-bundled/";
     private static final ObjectMapper MAPPER = new ObjectMapper();
