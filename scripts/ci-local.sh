@@ -19,6 +19,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+# shellcheck source=proxy-env.sh
+source "${REPO_ROOT}/scripts/proxy-env.sh"
 cd "${REPO_ROOT}"
 
 MODE="${1:-fast}"

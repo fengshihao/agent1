@@ -19,6 +19,8 @@ EOF
 }
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=scripts/proxy-env.sh
+source "${REPO_ROOT}/scripts/proxy-env.sh"
 VARIANT=debug
 EXTRA=()
 
