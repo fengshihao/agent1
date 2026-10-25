@@ -39,10 +39,18 @@ public final class DocxPreviewAnnotateScript {
     }
     return tagged;
   };
-  window.__agent1DocxAfterRender = function() {
-    if (!window.Agent1Docx || !window.Agent1Docx.getBlockTextViewJson) return;
+  function docxBridge() {
     try {
-      var json = window.Agent1Docx.getBlockTextViewJson();
+      if (window.Agent1Docx) return window.Agent1Docx;
+      if (typeof Agent1Docx !== 'undefined') return Agent1Docx;
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+  window.__agent1DocxAfterRender = function() {
+    var b = docxBridge();
+    if (!b || !b.getBlockTextViewJson) return;
+    try {
+      var json = b.getBlockTextViewJson();
       if (json) window.__agent1AnnotateBlocks(json);
     } catch (e) { /* ignore */ }
   };

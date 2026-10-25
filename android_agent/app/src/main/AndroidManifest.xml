@@ -38,6 +38,14 @@
                     android:host="model-settings"
                     android:scheme="agent1" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="preview"
+                    android:scheme="agent1" />
+            </intent-filter>
         </activity>
         <provider
             android:name=".CrashBootstrapProvider"

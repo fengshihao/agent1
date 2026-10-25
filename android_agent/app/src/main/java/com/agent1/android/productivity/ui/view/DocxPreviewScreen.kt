@@ -1,14 +1,21 @@
 package com.agent1.android.productivity.ui.view
 
+import android.graphics.Color
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
+import android.util.Log
+import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +34,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,13 +55,17 @@ import com.agent1.android.productivity.logic.business.DocxPreviewAssets
 import com.agent1.android.productivity.logic.business.ProductivityToolCapabilities
 import com.agent1.android.productivity.logic.business.DocxPreviewDocxOps
 import com.agent1.android.productivity.logic.business.DocxPreviewFileReader
+import com.agent1.android.productivity.logic.business.DocxPreviewShellLoader
+import com.agent1.android.llm.AppFileLog
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.WorkspaceFileWatcher
+import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.DocxPreviewViewModel
 import com.agent1.javaagent.html.inspect.DocxInspectFeedbackComposer
 import com.agent1.javaagent.html.inspect.DocxInspectScript
 import com.agent1.javaagent.html.inspect.DocxPreviewAnnotateScript
+import com.agent1.javaagent.html.inspect.DocxPreviewBootstrapScript
 import com.agent1.javaagent.html.inspect.ElementSelectorBuilder
 import com.agent1.javaagent.html.inspect.HtmlInspectParser
 import com.agent1.javaagent.html.inspect.HtmlInspectScript
@@ -63,12 +76,15 @@ import kotlinx.coroutines.withContext
 
 /**
  * docx 内置预览：CDN shell + P1 审查草稿 + P2 块级写回（readDocx）。
+ * 反馈给 AI 后留在预览页；顶栏显示运行状态，文件变更后 [WorkspaceFileWatcher] 自动重渲染。
  */
 @Composable
 fun DocxPreviewScreen(
     sessionId: String,
     relativePath: String,
     onBack: () -> Unit,
+    /** 与聊天页同实例；null 时无顶栏 AI 状态条、发送可能失败。 */
+    chatViewModel: ChatViewModel? = null,
     onSendFeedback: (draft: String) -> Boolean = { false },
 ) {
     val context = LocalContext.current
@@ -91,6 +107,7 @@ fun DocxPreviewScreen(
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val chatState = chatViewModel?.state?.collectAsState()?.value
 
     fun afterPageReady(view: WebView) {
         view.evaluateJavascript(DocxPreviewAnnotateScript.ANNOTATE_JS, null)
@@ -98,6 +115,30 @@ fun DocxPreviewScreen(
         if (inspectEnabled) {
             view.evaluateJavascript(HtmlInspectScript.ENABLE_JS, null)
         }
+        view.evaluateJavascript(DocxPreviewBootstrapScript.RENDER_FROM_BRIDGE_JS, null)
+        mainHandler.postDelayed({
+            view.evaluateJavascript(
+                """
+                (function(){
+                  var s=document.querySelector('#docx-container section')||document.getElementById('docx-container');
+                  if(!s) return 'missing';
+                  var r=s.getBoundingClientRect();
+                  return JSON.stringify({oh:s.offsetHeight,sh:s.scrollHeight,ow:s.offsetWidth,top:Math.round(r.top),h:Math.round(r.height),bodyH:document.body.scrollHeight});
+                })()
+                """.trimIndent(),
+            ) { raw -> AppFileLog.i("DocxPreview", "box=$raw") }
+        }, 6_000L)
+        mainHandler.postDelayed({
+            view.evaluateJavascript(DocxPreviewBootstrapScript.DIAGNOSTIC_JS) { raw ->
+                AppFileLog.i("DocxPreview", "diag=$raw")
+                if (raw != null && raw.contains("err") && !raw.contains("\"err\":\"\"")) {
+                    val msg = raw.substringAfter("\"err\":\"").substringBefore("\"")
+                    if (msg.isNotBlank()) {
+                        loadError = msg
+                    }
+                }
+            }
+        }, 5_000L)
         rendering = false
     }
 
@@ -108,11 +149,8 @@ fun DocxPreviewScreen(
         selectedElement = null
         opinion = ""
         blockEditText = ""
-        target.evaluateJavascript(
-            "window.__agent1DocxRender && window.Agent1Docx && " +
-                "window.__agent1DocxRender(window.Agent1Docx.readDocxBase64());",
-            null,
-        )
+        target.evaluateJavascript(DocxPreviewBootstrapScript.RENDER_FROM_BRIDGE_JS, null)
+        rendering = false
     }
 
     DisposableEffect(webViewHost, lifecycleOwner) {
@@ -160,6 +198,15 @@ fun DocxPreviewScreen(
                     },
                 )
                 AgentHairline()
+                    AnimatedVisibility(visible = chatState?.isRunning == true) {
+                        val running = chatState
+                        if (running != null) {
+                            Column {
+                                AgentHairline()
+                                PreviewAiActivityStrip(state = running, onOpenChat = onBack)
+                            }
+                        }
+                    }
             }
         },
         bottomBar = {
@@ -179,7 +226,7 @@ fun DocxPreviewScreen(
                             value = opinion,
                             onValueChange = { opinion = it },
                             modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                            placeholder = { Text("描述问题，反馈给 AI…") },
+                            placeholder = { Text("描述要如何改（会附带 weizhi:docx 与块索引指引）…") },
                             maxLines = 3,
                         )
                         Row(
@@ -199,7 +246,11 @@ fun DocxPreviewScreen(
                                     val ok = onSendFeedback(draft)
                                     Toast.makeText(
                                         context,
-                                        if (ok) "已发送给 AI" else "发送失败",
+                                        if (ok) {
+                                            "已发送给 AI，修改后预览自动刷新"
+                                        } else {
+                                            "发送失败：模型忙碌或配置有误，稍后再试"
+                                        },
                                         Toast.LENGTH_SHORT,
                                     ).show()
                                     if (ok) {
@@ -285,6 +336,24 @@ fun DocxPreviewScreen(
                 watcher.start()
                 onDispose { watcher.stop() }
             }
+            LaunchedEffect(webView, state.shellUrl, file) {
+                val view = webView ?: return@LaunchedEffect
+                rendering = true
+                loadError = null
+                val html = withContext(Dispatchers.IO) {
+                    DocxPreviewShellLoader.loadHtml(appContext)
+                        ?: DocxPreviewShellLoader.fetchHtml(state.shellUrl)
+                }
+                if (html.isNullOrBlank()) {
+                    loadError = "无法加载预览页（网络或 CDN）"
+                    rendering = false
+                    AppFileLog.i("DocxPreview", "shell fetch failed url=${state.shellUrl}")
+                    return@LaunchedEffect
+                }
+                val base = DocxPreviewShellLoader.BASE_URL
+                AppFileLog.i("DocxPreview", "loadDataWithBaseURL base=$base bytes=${html.length}")
+                view.loadDataWithBaseURL(base, html, "text/html", "UTF-8", null)
+            }
             Box(Modifier.fillMaxSize().padding(innerPadding)) {
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
@@ -293,15 +362,33 @@ fun DocxPreviewScreen(
                         val wsRoot = workspaceRoot
                         val rel = relativePath
                         WebView(ctx).apply {
+                            setBackgroundColor(Color.parseColor("#E8E8E8"))
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
                             settings.allowFileAccess = true
+                            settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                            settings.loadsImagesAutomatically = true
+                            settings.useWideViewPort = false
+                            settings.loadWithOverviewMode = false
+                            settings.builtInZoomControls = true
+                            settings.displayZoomControls = false
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                @Suppress("DEPRECATION")
+                                settings.forceDark = WebSettings.FORCE_DARK_OFF
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                settings.isAlgorithmicDarkeningAllowed = false
+                            }
                             addJavascriptInterface(
                                 object : Any() {
                                     @JavascriptInterface
                                     fun readDocxBase64(): String {
-                                        val bytes = DocxPreviewFileReader.readBytes(docAbsolutePath)
-                                        return Base64.encodeToString(bytes, Base64.NO_WRAP)
+                                        return try {
+                                            val bytes = DocxPreviewFileReader.readBytes(docAbsolutePath)
+                                            if (bytes.isEmpty()) "" else Base64.encodeToString(bytes, Base64.NO_WRAP)
+                                        } catch (_: Exception) {
+                                            ""
+                                        }
                                     }
 
                                     @JavascriptInterface
@@ -325,6 +412,15 @@ fun DocxPreviewScreen(
                                 },
                                 HtmlInspectScript.BRIDGE_NAME,
                             )
+                            webChromeClient = object : WebChromeClient() {
+                                override fun onConsoleMessage(message: ConsoleMessage?): Boolean {
+                                    Log.d(
+                                        "DocxPreview",
+                                        "${message?.message()} -- ${message?.sourceId()}:${message?.lineNumber()}",
+                                    )
+                                    return true
+                                }
+                            }
                             webViewClient = object : WebViewClient() {
                                 override fun onPageFinished(view: WebView, url: String?) {
                                     afterPageReady(view)
@@ -335,13 +431,15 @@ fun DocxPreviewScreen(
                                     request: WebResourceRequest,
                                     error: WebResourceError,
                                 ) {
-                                    if (request.isForMainFrame) {
+                                    val url = request.url?.toString() ?: ""
+                                    val vendorFailed = !request.isForMainFrame &&
+                                        url.contains("/host-web/vendor/")
+                                    if (request.isForMainFrame || vendorFailed) {
                                         loadError = UserFacingError.explain(error.description?.toString())
                                         rendering = false
                                     }
                                 }
                             }
-                            loadUrl(state.shellUrl)
                             webView = this
                             webViewHost = HtmlPreviewWebViewHost(this)
                         }

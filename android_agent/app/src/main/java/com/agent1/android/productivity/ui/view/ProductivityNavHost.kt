@@ -80,6 +80,7 @@ fun ProductivityNavHost() {
             return@DisposableEffect onDispose { }
         }
         takeIncomingKey(activity.intent)
+        nav.handleDeepLink(activity.intent)
         val listener = Consumer<Intent> { incoming ->
             takeIncomingKey(incoming)
             nav.handleDeepLink(incoming)
@@ -278,6 +279,7 @@ private fun ProductivityOverlayNav(
                 navArgument("sessionId") { type = NavType.StringType },
                 navArgument("path") { type = NavType.StringType },
             ),
+            deepLinks = listOf(navDeepLink { uriPattern = AgentAppLinks.PREVIEW }),
         ) { entry ->
             NavPage {
                 val sessionId = entry.arguments?.getString("sessionId").orEmpty()
@@ -290,6 +292,7 @@ private fun ProductivityOverlayNav(
                         sessionId = sessionId,
                         relativePath = relativePath,
                         onBack = { nav.popBackStack() },
+                        chatViewModel = chatVm,
                         onSendFeedback = { draft -> chatVm?.sendMessage(draft) == true },
                     )
                 } else {

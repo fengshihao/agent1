@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light only">
+  <title>docx preview</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: auto; min-height: 100%; background: #e8e8e8; overflow: visible; }
+    /* height:100% 在 loadData 时父高为 0，会把 5000px 正文裁成顶部一条 */
+    #docx-body { overflow: visible; height: auto; min-height: 100vh; padding: 0; box-sizing: border-box; }
+    #docx-container { background: transparent; }
+    #error {
+      position: fixed; left: 0; right: 0; top: 0; z-index: 9999;
+      color: #b00020; background: #fff3f3; padding: 16px; font-family: sans-serif;
+      white-space: pre-wrap; border-bottom: 1px solid #b00020;
+    }
+  </style>
+  <!-- baked at publish: pack-host-web.mjs -->
+  <script src="https://agentone.guoyoutech.cn/host-web/vendor/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://agentone.guoyoutech.cn/host-web/vendor/docx-preview/0.4.1/docx-preview.min.js"></script>
+</head>
+<body>
+  <div id="docx-body"><div id="docx-container"></div></div>
+  <pre id="error" hidden></pre>
+  <script>
+    (function () {
+      function showError(msg) {
+        var el = document.getElementById("error");
+        el.hidden = false;
+        el.textContent = msg;
+      }
+      var screenWidth = document.documentElement.clientWidth || window.innerWidth;
+      function fitPageToWidth() {
+        var host = document.getElementById("docx-container");
+        var wrapper = host && host.querySelector(".docx-wrapper");
+        var page = wrapper && wrapper.querySelector("section.docx");
+        if (!host || !wrapper || !page) return;
+        wrapper.style.transform = "none";
+        wrapper.style.alignItems = "flex-start";
+        wrapper.style.padding = "0";
+        wrapper.style.width = page.offsetWidth + "px";
+        wrapper.style.background = "#fff";
+        var pageWidth = page.offsetWidth;
+        var pageHeight = wrapper.offsetHeight;
+        var avail = screenWidth || (window.visualViewport && window.visualViewport.width) || window.innerWidth;
+        if (!pageWidth || !pageHeight || !avail) return;
+        var scale = Math.min(1, avail / pageWidth);
+        wrapper.style.transformOrigin = "top left";
+        wrapper.style.transform = "scale(" + scale + ")";
+        host.style.height = Math.ceil(pageHeight * scale) + "px";
+        host.style.overflow = "hidden";
+        document.body.style.overflowX = "hidden";
+      }
+      async function renderFromBase64(b64) {
+        var errEl = document.getElementById("error");
+        errEl.hidden = true;
+        try {
+          var before = document.documentElement.clientWidth || window.innerWidth;
+          if (before > 50) screenWidth = before;
+          if (typeof docx === "undefined" || !docx.renderAsync) {
+            showError("docx-preview 未加载，请检查网络或 CDN");
+            return;
+          }
+          var binary = atob(b64);
+          var len = binary.length;
+          var bytes = new Uint8Array(len);
+          for (var i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+          var body = document.getElementById("docx-container");
+          body.innerHTML = "";
+          await docx.renderAsync(bytes, body, body, {
+            className: "docx",
+            inWrapper: true,
+            breakPages: true,
+            renderHeaders: true,
+            renderFooters: true,
+            ignoreLastRenderedPageBreak: false,
+            useBase64URL: true,
+          });
+          document.documentElement.style.height = "auto";
+          document.body.style.height = "auto";
+          document.body.style.overflow = "visible";
+          fitPageToWidth();
+          if (window.__agent1DocxAfterRender) {
+            window.__agent1DocxAfterRender();
+          }
+        } catch (e) {
+          showError(String(e && e.message ? e.message : e));
+        }
+      }
+      function docxBridge() {
+        try {
+          if (window.Agent1Docx) return window.Agent1Docx;
+          if (typeof Agent1Docx !== "undefined") return Agent1Docx;
+        } catch (e) { /* ignore */ }
+        return null;
+      }
+      window.__agent1DocxBoot = function () {
+        function attempt(n) {
+          if (typeof docx === "undefined" || !docx.renderAsync) {
+            if (n < 80) { setTimeout(function () { attempt(n + 1); }, 50); return; }
+            showError("docx-preview 未加载，请检查网络或 CDN");
+            return;
+          }
+          var b = docxBridge();
+          if (!b || typeof b.readDocxBase64 !== "function") {
+            if (n < 80) { setTimeout(function () { attempt(n + 1); }, 50); return; }
+            showError("预览桥未就绪");
+            return;
+          }
+          try {
+            var b64 = b.readDocxBase64();
+            if (!b64) { showError("无法读取文档"); return; }
+            renderFromBase64(b64);
+          } catch (e) {
+            showError(String(e && e.message ? e.message : e));
+          }
+        }
+        attempt(0);
+      };
+      window.__agent1DocxFit = fitPageToWidth;
+      window.addEventListener("resize", function () {
+        screenWidth = window.visualViewport && window.visualViewport.width
+          ? window.visualViewport.width
+          : screenWidth;
+        fitPageToWidth();
+      });
+      window.__agent1DocxRender = renderFromBase64;
+      function scheduleBoot() {
+        if (window.__agent1DocxBoot) window.__agent1DocxBoot();
+      }
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", scheduleBoot);
+      } else {
+        scheduleBoot();
+      }
+    })();
+  </script>
+</body>
+</html>

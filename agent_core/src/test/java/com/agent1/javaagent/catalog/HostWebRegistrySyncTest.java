@@ -16,7 +16,7 @@ public class HostWebRegistrySyncTest {
             {
               "schema_version": 1,
               "docx_preview": {
-                "shell": "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html"
+                "shell": "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html?v=1"
               }
             }
             """;

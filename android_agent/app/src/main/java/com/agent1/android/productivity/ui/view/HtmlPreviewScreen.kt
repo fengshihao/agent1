@@ -70,8 +70,6 @@ import com.agent1.javaagent.html.inspect.InspectFeedbackComposer
 import com.agent1.javaagent.html.inspect.InspectedElement
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.WorkspaceFileWatcher
-import com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem
-import com.agent1.android.productivity.ui.viewmodel.ChatUiState
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.HtmlPreviewViewModel
 
@@ -259,7 +257,7 @@ fun HtmlPreviewScreen(
                         if (running != null) {
                             Column {
                                 AgentHairline()
-                                AiActivityStrip(state = running, onOpenChat = onBack)
+                                PreviewAiActivityStrip(state = running, onOpenChat = onBack)
                             }
                         }
                     }
@@ -570,46 +568,6 @@ fun HtmlPreviewScreen(
         } else {
             // resolve() 只有 error 或 file 两种结果；防御分支。
             PreviewErrorBox("无法预览：$relativePath", Modifier.fillMaxSize().padding(innerPadding))
-        }
-    }
-}
-
-@Composable
-private fun AiActivityStrip(state: ChatUiState, onOpenChat: () -> Unit, modifier: Modifier = Modifier) {
-    val tool = state.runTimeline.lastOrNull { it is ChatRunTimelineItem.ToolPart } as? ChatRunTimelineItem.ToolPart
-    val label = when {
-        tool != null && !tool.finished -> "正在执行 ${tool.toolName}…"
-        !state.runActivityLabel.isNullOrBlank() -> state.runActivityLabel
-        tool != null -> "正在执行 ${tool.toolName}…"
-        state.streamingReasoning.isNotEmpty() -> "AI 正在思考…"
-        else -> "AI 正在工作中…"
-    }
-    Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onOpenChat)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(14.dp),
-                strokeWidth = 1.5.dp,
-            )
-            Text(
-                label,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                "查看对话",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
         }
     }
 }

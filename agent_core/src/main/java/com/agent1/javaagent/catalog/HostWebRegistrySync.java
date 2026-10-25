@@ -21,7 +21,7 @@ public final class HostWebRegistrySync {
         "https://agentone.guoyoutech.cn/host-web/registry/stable.json";
 
     public static final String DEFAULT_SHELL_URL =
-        "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html";
+        "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html?v=20251025b";
     static final String URL_ENV = "AGENT1_HOST_WEB_REGISTRY_URL";
     static final String ENV = "AGENT1_HOST_WEB_REGISTRY";
 
@@ -131,8 +131,8 @@ public final class HostWebRegistrySync {
         if (!OFFICIAL_HOST.equalsIgnoreCase(host)) {
             throw new IOException(field + " host not allowed: " + host);
         }
-        if (uri.getUserInfo() != null || uri.getRawQuery() != null || uri.getRawFragment() != null) {
-            throw new IOException(field + " must not contain credentials, query, or hash");
+        if (uri.getUserInfo() != null || uri.getRawFragment() != null) {
+            throw new IOException(field + " must not contain credentials or hash");
         }
         return trimmed;
     }
