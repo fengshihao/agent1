@@ -141,6 +141,19 @@ class WeizhiPackageSyncLocalRegistryTest {
     }
 
     @Test
+    void beforeEvalDoesNotEnsureBundledOnlyPackageAlreadyOnDisk(
+        @TempDir Path agentRoot,
+        @TempDir Path home) throws Exception {
+        AgentHomeBootstrap.ensure(agentRoot);
+        installFakePackage(home, "video", "0.6.0");
+        HITS.clear();
+        withLocalRegistry(() -> WeizhiPackageSync.beforeEval(
+            "import { probe } from \"weizhi:video\"", home.toString(), agentRoot));
+        assertEquals("0.6.0", PackageInstaller.readIndex(home).get("video"));
+        assertEquals(0, zipHits(), "video 不在 registry 清单时不应拉 zip");
+    }
+
+    @Test
     void installsFromLocalRegistryWhenMissing(@TempDir Path agentRoot, @TempDir Path home) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
         Files.createDirectories(home);
@@ -182,10 +195,15 @@ class WeizhiPackageSyncLocalRegistryTest {
     }
 
     private static void installFakePackage(Path home, String version) throws Exception {
+        installFakePackage(home, "html2pptx", version);
+    }
+
+    private static void installFakePackage(Path home, String name, String version) throws Exception {
         Path dir = Files.createTempDirectory("fake-pkg");
+        String entry = name + ".js";
         Files.writeString(dir.resolve("manifest.json"),
-            "{\"name\":\"html2pptx\",\"version\":\"" + version + "\",\"entry\":\"html2pptx.js\"}");
-        Files.writeString(dir.resolve("html2pptx.js"), "export const tag = 'local-" + version + "';\n");
-        PackageInstaller.installPackageDirectory(home, "html2pptx", version, dir);
+            "{\"name\":\"" + name + "\",\"version\":\"" + version + "\",\"entry\":\"" + entry + "\"}");
+        Files.writeString(dir.resolve(entry), "export const tag = 'local-" + version + "';\n");
+        PackageInstaller.installPackageDirectory(home, name, version, dir);
     }
 }

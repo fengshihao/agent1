@@ -136,9 +136,10 @@ public final class WeizhiPackageSync {
     }
 
     /**
-     * 过滤出需要 ensure 的包名：未安装/清单缺失（保持旧报错行为）/版本解析失败
-     * （保持旧的「同步清单版本」行为）或清单版本 ≥ 本地版本。清单版本更低时
-     * 保留本地（防止线上滞后回退内置新包）。
+     * 过滤出需要 ensure 的包名：未安装/版本解析失败（保持旧的「同步清单版本」行为）
+     * 或清单版本 ≥ 本地版本。清单版本更低时保留本地（防止线上滞后回退内置新包）。
+     * 清单里没有该名但本地已装（如 {@code weizhi:video} 随 AAR syncBundled、不上云
+     * registry）则跳过 ensure。
      */
     static List<String> namesNeedingEnsure(Path home, List<String> names, String manifestJson) {
         Map<String, String> registry = registryVersions(manifestJson);
@@ -152,8 +153,11 @@ public final class WeizhiPackageSync {
         for (String name : names) {
             String want = registry.get(name);
             String have = installed.get(name);
-            if (want == null || have == null || have.isBlank()) {
+            if (have == null || have.isBlank()) {
                 need.add(name);
+                continue;
+            }
+            if (want == null) {
                 continue;
             }
             Integer cmp = compareVersion(want, have);

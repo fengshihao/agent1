@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.capability.CapabilityIndexStore;
+import com.weizhi.packages.PackageInstaller;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,20 @@ class WeizhiPackageSyncTest {
             import { validateDocx } from "weizhi:docx-raw";
             """;
         assertEquals(List.of("docx", "docx-build", "docx-raw"), WeizhiPackageSync.packageNames(source));
+    }
+
+    @Test
+    void skipsEnsureWhenBundledPackageInstalledButNotInRegistry(@TempDir Path home) throws Exception {
+        Path dir = Files.createTempDirectory("video-pkg");
+        Files.writeString(dir.resolve("manifest.json"),
+            "{\"name\":\"video\",\"version\":\"0.6.0\",\"entry\":\"index.js\"}");
+        Files.writeString(dir.resolve("index.js"), "export const probe = () => ({});\n");
+        PackageInstaller.installPackageDirectory(home, "video", "0.6.0", dir);
+        String manifest = "{\"packages\":[{\"name\":\"docx\",\"version\":\"1.0.0\"}]}";
+        assertEquals(List.of(), WeizhiPackageSync.namesNeedingEnsure(home, List.of("video"), manifest));
+        assertEquals(List.of("docx"), WeizhiPackageSync.namesNeedingEnsure(home, List.of("docx"), manifest));
+        Path emptyHome = Files.createTempDirectory("weizhi-home-empty");
+        assertEquals(List.of("video"), WeizhiPackageSync.namesNeedingEnsure(emptyHome, List.of("video"), manifest));
     }
 
     @Test
