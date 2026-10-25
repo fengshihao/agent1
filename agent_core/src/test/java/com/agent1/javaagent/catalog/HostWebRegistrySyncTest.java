@@ -1,17 +1,21 @@
 package com.agent1.javaagent.catalog;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import org.junit.Test;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
-public class HostWebRegistrySyncTest {
+class HostWebRegistrySyncTest {
+
+    @TempDir
+    Path temp;
 
     @Test
-    public void parseDocxPreviewUrls_publishedManifestShellOnly() throws IOException {
+    void parseDocxPreviewUrls_publishedManifestShellOnly() throws Exception {
         String json = """
             {
               "schema_version": 1,
@@ -25,7 +29,22 @@ public class HostWebRegistrySyncTest {
     }
 
     @Test
-    public void parseDocxPreviewUrls_rejectsNonOfficialHost() {
+    void writeCache_createsRuntimeDirAndRoundTrips() throws Exception {
+        String json = """
+            {
+              "schema_version": 1,
+              "docx_preview": {
+                "shell": "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html?v=1"
+              }
+            }
+            """;
+        HostWebRegistrySync.writeCache(temp, json);
+        assertEquals(json, HostWebRegistrySync.readCache(temp));
+        assertTrue(HostWebRegistrySync.docxPreviewUrls(temp).shell().contains("/shell.html"));
+    }
+
+    @Test
+    void parseDocxPreviewUrls_rejectsNonOfficialHost() {
         String json = """
             {
               "schema_version": 1,

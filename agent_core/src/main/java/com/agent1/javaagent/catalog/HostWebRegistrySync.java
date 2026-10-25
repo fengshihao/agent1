@@ -80,7 +80,10 @@ public final class HostWebRegistrySync {
 
     static void writeCache(Path agentRoot, String manifest) throws IOException {
         Path path = cachePath(agentRoot);
-        Files.createDirectories(path.getParent());
+        Path parent = path.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
         PathIo.writeString(path, manifest, StandardCharsets.UTF_8);
     }
 
