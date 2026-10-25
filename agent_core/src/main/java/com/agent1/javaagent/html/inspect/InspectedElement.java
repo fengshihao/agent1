@@ -10,7 +10,9 @@ public record InspectedElement(
     String textPreview,
     String outerHtml,
     InspectRenderInfo render,
-    List<InspectAncestor> ancestors
+    List<InspectAncestor> ancestors,
+    /** docx 预览：{@code data-agent1-block-index}，HTML 审查为 null。 */
+    Integer blockIndex
 ) {
 
     public InspectedElement {
@@ -25,6 +27,18 @@ public record InspectedElement(
     }
 
     public InspectedElement(String tag) {
-        this(tag, "", List.of(), "", "", null, List.of());
+        this(tag, "", List.of(), "", "", null, List.of(), null);
+    }
+
+    public InspectedElement(
+        String tag,
+        String id,
+        List<String> classes,
+        String textPreview,
+        String outerHtml,
+        InspectRenderInfo render,
+        List<InspectAncestor> ancestors
+    ) {
+        this(tag, id, classes, textPreview, outerHtml, render, ancestors, null);
     }
 }

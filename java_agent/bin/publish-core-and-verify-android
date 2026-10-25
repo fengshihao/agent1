@@ -4,11 +4,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 JAVA_AGENT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ANDROID_DIR="$(cd "${JAVA_AGENT_DIR}/../android_agent" && pwd)"
+JAVA_AGENT_GRADLEW="${JAVA_AGENT_DIR}/gradlew"
+ANDROID_GRADLEW="${ANDROID_DIR}/gradlew"
+
+if [[ ! -x "${JAVA_AGENT_GRADLEW}" ]]; then
+  echo "缺少可执行的 Gradle Wrapper: ${JAVA_AGENT_GRADLEW}" >&2
+  exit 1
+fi
+if [[ ! -x "${ANDROID_GRADLEW}" ]]; then
+  echo "缺少可执行的 Gradle Wrapper: ${ANDROID_GRADLEW}" >&2
+  exit 1
+fi
 
 echo "[java-agent] 发布 core artifact 到本地仓库..."
-gradle --no-daemon -p "${JAVA_AGENT_DIR}" publishCoreToLocalRepo
+"${JAVA_AGENT_GRADLEW}" --no-daemon -p "${JAVA_AGENT_DIR}" publishCoreToLocalRepo
 
 echo "[android] 编译校验 :app:compileDebugKotlin ..."
-gradle --no-daemon -p "${ANDROID_DIR}" :app:compileDebugKotlin
+"${ANDROID_GRADLEW}" --no-daemon -p "${ANDROID_DIR}" :app:compileDebugKotlin
 
 echo "完成：core 已发布，Android 编译通过。"

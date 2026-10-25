@@ -44,6 +44,7 @@ GENERIC="${DIST}/registry/stable.json"
 PROJECTION="${DIST}/packages/registry/stable.json"
 SKILLS_CATALOG="${DIST}/skills/registry/stable.json"
 WEB_LIBS="${DIST}/web-libs/registry/stable.json"
+HOST_WEB="${DIST}/host-web/registry/stable.json"
 if [[ ! -f "${GENERIC}" || ! -f "${PROJECTION}" ]]; then
   echo "缺少清单，先在该 dist 上运行 pack" >&2
   exit 1
@@ -101,6 +102,12 @@ fi
 if [[ -f "${WEB_LIBS}" ]]; then
   parents="${parents} $(dirname "$(remote_path "${WEB_LIBS}")")"
 fi
+if [[ -f "${HOST_WEB}" ]]; then
+  parents="${parents} $(dirname "$(remote_path "${HOST_WEB}")")"
+  while IFS= read -r line; do
+    [[ -n "${line}" ]] && parents="${parents} $(dirname "$(remote_path "${line}")")"
+  done < <(find "${DIST}/host-web" -type f 2>/dev/null | sort)
+fi
 # shellcheck disable=SC2086
 run_ssh "mkdir -p ${parents}"
 
@@ -114,4 +121,9 @@ if [[ -f "${SKILLS_CATALOG}" ]]; then
 fi
 if [[ -f "${WEB_LIBS}" ]]; then
   run_scp "${WEB_LIBS}" "$(remote_path "${WEB_LIBS}")"
+fi
+if [[ -f "${HOST_WEB}" ]]; then
+  while IFS= read -r line; do
+    [[ -n "${line}" ]] && run_scp "${line}" "$(remote_path "${line}")"
+  done < <(find "${DIST}/host-web" -type f 2>/dev/null | sort)
 fi

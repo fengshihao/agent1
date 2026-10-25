@@ -613,24 +613,3 @@ private fun AiActivityStrip(state: ChatUiState, onOpenChat: () -> Unit, modifier
         }
     }
 }
-
-@Composable
-private fun PreviewErrorBox(message: String, modifier: Modifier = Modifier) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Text(
-            message,
-            modifier = Modifier.padding(24.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-private fun <T : androidx.lifecycle.ViewModel> previewViewModelFactory(
-    create: () -> T,
-): androidx.lifecycle.ViewModelProvider.Factory {
-    return object : androidx.lifecycle.ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <V : androidx.lifecycle.ViewModel> create(modelClass: Class<V>): V = create() as V
-    }
-}

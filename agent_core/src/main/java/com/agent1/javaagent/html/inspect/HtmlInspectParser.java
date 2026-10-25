@@ -33,6 +33,11 @@ public final class HtmlInspectParser {
         if (tag.isEmpty()) {
             return null;
         }
+        Integer blockIndex = null;
+        JsonNode blockNode = json.get("blockIndex");
+        if (blockNode != null && blockNode.isInt()) {
+            blockIndex = blockNode.intValue();
+        }
         return new InspectedElement(
             tag,
             json.path("id").asText("").trim(),
@@ -40,7 +45,8 @@ public final class HtmlInspectParser {
             json.path("textPreview").asText("").trim(),
             json.path("outerHtml").asText("").trim(),
             parseRenderInfo(json.get("render")),
-            parseAncestors(json.get("ancestors"))
+            parseAncestors(json.get("ancestors")),
+            blockIndex
         );
     }
 

@@ -37,7 +37,7 @@ class HtmlPreviewViewModel(
             if (sessionId.isBlank() || workspaceRoot == null) {
                 return HtmlPreviewState(error = "会话不存在，无法预览")
             }
-            if (!WorkspaceFileActions.isPreviewableInApp(relativePath)) {
+            if (!WorkspaceFileActions.isHtmlPreviewableInApp(relativePath)) {
                 return HtmlPreviewState(error = "不支持的预览文件类型：$relativePath")
             }
             val file = SessionWorkspacePaths.resolveFile(workspaceRoot, relativePath)

@@ -44,6 +44,7 @@ object WeizhiHostLoader {
         host.setSkillRepositories(
             listOf(com.agent1.javaagent.skill.AssetSkillRepository(context, "agent_skills"))
         )
+        com.agent1.android.productivity.logic.business.DocxPreviewWeizhiBackend.register(context, agentRoot)
         return host
     }
 
@@ -56,6 +57,10 @@ object WeizhiHostLoader {
             {
                 try {
                     WeizhiBundledInstall.syncBundled(context, agentRoot)
+                    com.agent1.android.productivity.logic.business.DocxPreviewWeizhiBackend.register(
+                        context,
+                        agentRoot,
+                    )
                 } catch (e: Exception) {
                     AppFileLog.e("WeizhiHost", "install bundled packages failed: ${e.message}")
                 }

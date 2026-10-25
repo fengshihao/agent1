@@ -1,6 +1,7 @@
 package com.agent1.android.productivity.logic.business
 
 import android.content.Context
+import com.agent1.javaagent.catalog.HostWebRegistrySync
 import com.agent1.javaagent.catalog.WebLibRegistrySync
 import com.agent1.javaagent.config.AgentRuntimeConfig
 import com.agent1.javaagent.session.ProductivityAgentHost
@@ -31,6 +32,7 @@ object ProductivityHostAssembly {
         host.setImageResizer(BitmapImageResizer())
         host.setMediaInspector(AndroidMediaInspector())
         WebLibRegistrySync.refreshIndexAsync(agentRoot)
+        HostWebRegistrySync.refreshAsync(agentRoot)
         return host
     }
 

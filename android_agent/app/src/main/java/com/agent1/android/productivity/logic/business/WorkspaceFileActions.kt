@@ -16,9 +16,17 @@ object WorkspaceFileActions {
      * 是否改为 app 内置 WebView 预览（不外跳）。
      * 当前仅 html；由 ui 层决定具体预览路由（本类不依赖 Activity/UI 类型）。
      */
-    fun isPreviewableInApp(relativePath: String): Boolean {
+    fun isHtmlPreviewableInApp(relativePath: String): Boolean {
         val ext = relativePath.substringAfterLast('.', "").lowercase()
         return ext == "html" || ext == "htm"
+    }
+
+    fun isDocxPreviewableInApp(relativePath: String): Boolean {
+        return relativePath.substringAfterLast('.', "").lowercase() == "docx"
+    }
+
+    fun isPreviewableInApp(relativePath: String): Boolean {
+        return isHtmlPreviewableInApp(relativePath) || isDocxPreviewableInApp(relativePath)
     }
 
     fun mimeTypeForRelativePath(relativePath: String): String {

@@ -36,6 +36,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.agent1.android.productivity.logic.business.AgentAppLinks
+import com.agent1.android.productivity.logic.business.WorkspaceFileActions
 import com.agent1.android.productivity.logic.business.McpSettingsCoordinator
 import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
 import com.agent1.android.productivity.ui.viewmodel.ArtifactLibraryViewModel
@@ -284,13 +285,22 @@ private fun ProductivityOverlayNav(
                 val chatVm = remember(sessionId) {
                     resolveHomeChatViewModel(activity, appContext, sessionId)
                 }
-                HtmlPreviewScreen(
-                    sessionId = sessionId,
-                    relativePath = relativePath,
-                    onBack = { nav.popBackStack() },
-                    chatViewModel = chatVm,
-                    onSendFeedback = { draft -> chatVm?.sendMessage(draft) == true },
-                )
+                if (WorkspaceFileActions.isDocxPreviewableInApp(relativePath)) {
+                    DocxPreviewScreen(
+                        sessionId = sessionId,
+                        relativePath = relativePath,
+                        onBack = { nav.popBackStack() },
+                        onSendFeedback = { draft -> chatVm?.sendMessage(draft) == true },
+                    )
+                } else {
+                    HtmlPreviewScreen(
+                        sessionId = sessionId,
+                        relativePath = relativePath,
+                        onBack = { nav.popBackStack() },
+                        chatViewModel = chatVm,
+                        onSendFeedback = { draft -> chatVm?.sendMessage(draft) == true },
+                    )
+                }
             }
         }
     }

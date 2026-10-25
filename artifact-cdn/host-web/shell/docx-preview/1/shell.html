@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>docx preview</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #e8e8e8; }
+    #docx-style { display: none; }
+    #docx-body { overflow: auto; height: 100%; padding: 8px; box-sizing: border-box; }
+    #error { color: #b00020; padding: 16px; font-family: sans-serif; white-space: pre-wrap; }
+  </style>
+  <!-- baked at publish: pack-host-web.mjs -->
+  <script src="__JSZIP_URL__"></script>
+  <script src="__DOCX_PREVIEW_URL__"></script>
+</head>
+<body>
+  <div id="docx-style"></div>
+  <div id="docx-body"><div id="docx-container"></div></div>
+  <pre id="error" hidden></pre>
+  <script>
+    (function () {
+      function showError(msg) {
+        var el = document.getElementById("error");
+        el.hidden = false;
+        el.textContent = msg;
+      }
+      async function renderFromBase64(b64) {
+        var errEl = document.getElementById("error");
+        errEl.hidden = true;
+        try {
+          if (typeof docx === "undefined" || !docx.renderAsync) {
+            showError("docx-preview 未加载，请检查网络或 CDN");
+            return;
+          }
+          var binary = atob(b64);
+          var len = binary.length;
+          var bytes = new Uint8Array(len);
+          for (var i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+          var body = document.getElementById("docx-container");
+          var style = document.getElementById("docx-style");
+          body.innerHTML = "";
+          style.innerHTML = "";
+          await docx.renderAsync(bytes.buffer, body, style, {
+            className: "docx",
+            inWrapper: true,
+            breakPages: true,
+            renderHeaders: true,
+            renderFooters: true,
+            ignoreLastRenderedPageBreak: false,
+          });
+          if (window.__agent1DocxAfterRender) {
+            window.__agent1DocxAfterRender();
+          }
+        } catch (e) {
+          showError(String(e && e.message ? e.message : e));
+        }
+      }
+      window.__agent1DocxRender = renderFromBase64;
+      function boot() {
+        if (!window.Agent1Docx || !window.Agent1Docx.readDocxBase64) {
+          showError("预览桥未就绪");
+          return;
+        }
+        try {
+          var b64 = window.Agent1Docx.readDocxBase64();
+          if (!b64) {
+            showError("无法读取文档");
+            return;
+          }
+          renderFromBase64(b64);
+        } catch (e) {
+          showError(String(e));
+        }
+      }
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", boot);
+      } else {
+        boot();
+      }
+    })();
+  </script>
+</body>
+</html>

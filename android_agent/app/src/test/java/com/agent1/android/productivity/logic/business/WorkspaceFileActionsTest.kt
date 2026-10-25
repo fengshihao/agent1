@@ -8,11 +8,13 @@ import org.junit.Test
 class WorkspaceFileActionsTest {
 
     @Test
-    fun isPreviewableInApp_acceptsHtmlOnly() {
+    fun isPreviewableInApp_acceptsHtmlAndDocx() {
         assertTrue(WorkspaceFileActions.isPreviewableInApp("out/index.html"))
         assertTrue(WorkspaceFileActions.isPreviewableInApp("demo.htm"))
         assertTrue(WorkspaceFileActions.isPreviewableInApp("INDEX.HTML"))
-        assertFalse(WorkspaceFileActions.isPreviewableInApp("out/report.docx"))
+        assertTrue(WorkspaceFileActions.isPreviewableInApp("out/report.docx"))
+        assertTrue(WorkspaceFileActions.isDocxPreviewableInApp("out/report.docx"))
+        assertFalse(WorkspaceFileActions.isHtmlPreviewableInApp("out/report.docx"))
         assertFalse(WorkspaceFileActions.isPreviewableInApp("cat.png"))
         assertFalse(WorkspaceFileActions.isPreviewableInApp("notes.md"))
         assertFalse(WorkspaceFileActions.isPreviewableInApp("html"))
