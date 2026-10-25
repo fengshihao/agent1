@@ -1,3 +1,4 @@
 dist/
 cdn.local.env
 node_modules/
+package-lock.json
