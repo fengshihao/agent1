@@ -166,6 +166,10 @@ public final class ProductivityCoach {
                     String plugin = CatalogMissingNativeHints.resolvePluginName(code, text);
                     hookId = "catalog.missing_native";
                     advice = CatalogMissingNativeHints.adviceFor(plugin);
+                } else if (ScriptApiErrorHints.looksLikeApiOrPackageError(text)
+                    && runState.markFindCapsHintAfterApiError()) {
+                    hookId = "script.api_error";
+                    advice = ScriptApiErrorHints.advice();
                 } else {
                     ScriptEvalFrame.SourceKind kind = file.isEmpty()
                         ? ScriptEvalFrame.SourceKind.INLINE

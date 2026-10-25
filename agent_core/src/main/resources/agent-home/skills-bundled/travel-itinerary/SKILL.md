@@ -89,7 +89,7 @@ const uri = await personalMapUri({ orgName: "本次路书", lineList });
 ## 编排建议
 
 - 同一段 `run_js`（`jobs/trip-build.js`）串行：读 `trip.json` → `queryDrivingLegs` → 写 JSON/CSV → `renderSchematicMap` → `personalMapUri`。
-- 外层不要逐个工具试探；失败就改同一段脚本再跑。
+- 外层不要拆成多个工具接力；脚本里 API 报错时先 `find_caps` 查相关能力，按示例改脚本。
 
 ## 对用户怎么说
 

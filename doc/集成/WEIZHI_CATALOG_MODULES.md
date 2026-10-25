@@ -45,8 +45,10 @@ await exportVideo({
 ```
 
 - `transform` 五元：`x` / `y`（归一化，±1 为画面边缘中心）、`scale`、`rotation`（度）、`opacity`（0–1）；每项可为常量或 `{t, v, interp?}` 数组（`linear`|`ease`，缺省 linear）。
-- image 主轨相邻 clip 的 `transition: { type: 'crossfade', durationMs }` 须与前 clip **精确重叠 D**。
-- video 主轨支持 transform 常量/关键帧（缩放 letterbox 黑底、opacity 混合）。
+- image 主轨相邻 clip 的 `transition: { type: 'crossfade', durationMs }` 须与前 clip **精确重叠 D**（`startMs_next = startMs_prev + durationMs_prev - D`）。**没有** `crossfadeMs` 字段；写了也不会生效，重叠会被报 `overlapping clips in tracks[n]`。
+- 剧照/静图序列用 `type: "image"` 轨；`type: "video"` 轨只接 mp4 等视频 `src`（`inMs`/`outMs`），不要把图片塞进 video 轨。
+- crossfade 与 clip 上自写的 `opacity` 关键帧**不能同时**用（引擎会合成淡化关键帧）。
+- video 主轨支持 transform 常量/关键帧（缩放 letterbox 黑底、opacity 混合）；**video 轨不支持** `transition` crossfade（P5e）。
 - **仍不支持**（P5d/P5e）：text 轨、audio gain 关键帧、video 轨 crossfade、时间轴空隙。
 
 **给模型的写法**：`import { markdownToDocx } from "weizhi:docx"`、`import { renderPptx } from "weizhi:pptx"` 等。workspace 内协作用 `import "./helper.js"`。
@@ -63,6 +65,7 @@ await exportVideo({
 - `DocxOfficeIntegrationTest` / `PptxOfficeIntegrationTest`（`:weizhi-bridge:test`，需 `libweizhijni`）
 - `OfficeCatalogInstrumentedTest`（Android 真机，云端 registry 动态安装，需联网）
 - `VideoExportInstrumentedTest`（Android 真机，AAR assets 离线装包：v1 remux 掐头去尾 + v2 image 主轨 scale 关键帧，无需联网）
+- 剪辑工作流 Skill：`video-edit`（`skills-src/video-edit`，内置进 APK；云端发布用 `artifact-cdn/pack-skill.mjs`）
 
 ## 关联
 

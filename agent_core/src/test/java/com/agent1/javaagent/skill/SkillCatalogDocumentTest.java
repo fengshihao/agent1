@@ -11,6 +11,7 @@ class SkillCatalogDocumentTest {
         String md = SkillCatalogDocument.renderMarkdown(SkillCatalogDocument.loadBundled());
         assertTrue(md.contains("travel-itinerary"), md);
         assertTrue(md.contains("html2pptx"), md);
+        assertTrue(md.contains("video-edit"), md);
         assertTrue(md.contains("load_skill"), md);
     }
 }
