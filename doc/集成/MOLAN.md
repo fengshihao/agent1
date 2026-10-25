@@ -29,6 +29,23 @@ http://127.0.0.1:5517/?file=/doc/<文件名>
 
 官方 Skill **`md-preview`**（[agent1-skills](https://github.com/fengshihao/agent1-skills) `skills-src/md-preview/`）封装了这套用法，agent 通过 `load_skill(md-preview)` + `run_bash` 自主预览。内置副本经 `./scripts/sync-skills-bundled.sh` 同步到 `agent_core/.../skills-bundled/md-preview/`。
 
+## Android：直接用线上 try 页（不打 APK、不起本地服务）
+
+墨览线上版已部署：`https://fengshihao.github.io/molan/try/`。Android 侧不打包 studio assets、不依赖 Node，用 **WebView + `MolanHost` 注入接口**（molan PR feat/studio-host-inject）：
+
+```kotlin
+webView.loadUrl("https://fengshihao.github.io/molan/try/")
+// 页面 ready 后（MolanHost.isReady() === true，或轮询/注入接口自带排队）：
+webView.evaluateJavascript(
+    "MolanHost.openText(${json(name)}, ${json(text)})", null
+)
+```
+
+- md 文本由 `logic.data` 从 workspace 读取；WebView 调用属于 `ui.*`（分层规则见 android-layering）
+- 未保存修改时 studio 走丢弃确认；注入是**只读副本**语义（保存为下载，不写回原文件）
+- molan 侧同窗口 `message { type: "molan:openText" }` 通道仅接受 `event.source === window`，无第三方投喂风险
+- 备选：文档若已发布为 URL，`?file=<路径>` 参数可直达（fetch 同源路径）
+
 ## 边界
 
 - 预览为**只读语义**：单文件模式内容载入内存，保存为下载副本，不写回原文件。
