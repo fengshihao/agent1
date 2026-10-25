@@ -10,7 +10,9 @@ AI 与人类在开 PR 前逐项确认。
 
 ## 测试（强制）
 
-- [ ] **Java**：`./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test` 通过
+- [ ] **Java**：`./java_agent/gradlew --no-daemon -p java_agent :core:test :cli:test` 通过  
+  macOS 本机若报「找不到 languageVersion=17」：工程要求 JDK **17** toolchain，请设  
+  `export JAVA_HOME="$HOME/sdk/jdk-17.0.21+9/Contents/Home"`（或本机 `~/sdk/jdk-17*` 下任一 17 安装），再跑 Gradle；勿用缺 17 的默认 `java` 误判为「环境没有 JDK」。
 - [ ] **新增/修改 Java 行为** 已附带或更新 JUnit 单测（非仅改注释/文档）
 - [ ] **Android 解析 / ViewModel / 业务逻辑**：已更新 `android_agent` 下对应 `src/test`（若该层已有测试惯例）
 - [ ] **PR 门禁**：`./scripts/ci-local.sh fast` 通过

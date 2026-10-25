@@ -4,6 +4,15 @@
   "generated_at": "2026-10-24",
   "categories": [
     {
+      "id": "office.document",
+      "skills": [
+        {
+          "name": "docx",
+          "line": "写 Word / docx、Markdown 转 Word、改已有 docx 时用。"
+        }
+      ]
+    },
+    {
       "id": "office.presentation",
       "skills": [
         {
