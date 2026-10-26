@@ -37,11 +37,11 @@ public final class ProductivityToolCapabilities {
 
     public static List<String> detailBullets(boolean weizhiScriptEnabled) {
         List<String> lines = new ArrayList<>();
-        lines.add("read_file · write_file · edit_file · list_dir · chat_history · read_url · web_search · image_search · images_download · todo_write");
+        lines.add("read_file · write_file · edit_file · list_dir · chat_history · read_url · web_search · image_search · files_download · todo_write");
         lines.add("媒体：run_js 内 weizhi:image / weizhi:audio（find_caps）；weizhi:video 随 Android AAR（probe/抽帧/抽音轨/exportVideo）");
         lines.add("todo_write：会话短清单，跨轮记住计划；空数组清空");
         lines.add("web_search / image_search：Tavily（环境变量 TAVILY_API_KEY，或 App 模型配置里的 Web Search Key）");
-        lines.add("images_download：批量 https 图片下载（items、dir、name_prefix；返回 path/width/height/size/type/source）");
+        lines.add("files_download：批量 https 下载（items、dir、name_prefix、expect；返回 path/detected/checks）");
         if (!weizhiToolsOnClasspath()) {
             lines.add("未检测到 weizhi 源码 — 构建需 ./weizhi 或 AGENT1_WEIZHI_REPO");
             return lines;

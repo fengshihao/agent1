@@ -38,8 +38,8 @@ public final class ImageSearchTool implements AgentTool {
     public String description() {
         return """
             Search public images via Tavily (personal-use decks and documents).
-            Returns image URLs plus source pages. Download with images_download \
-            (items: [{url, path?}], optional dir and name_prefix) before \
+            Returns image URLs plus source pages. Download with files_download \
+            (items: [{url, path?, expect: image}], optional dir and name_prefix) before \
             inserting into decks or documents, and cite the source in the output. \
             Do not invent URLs.
             """.trim();

@@ -151,7 +151,7 @@ public final class ProductivityCoach {
                 } else if (text != null && text.contains("工具执行超时") && toolName.equals("run_js")) {
                     hookId = "script.timeout";
                     advice =
-                        "外层 run_js 被宿主限时打断。多图请同一段脚本里 await $tools.images_download({ items:[{url}], dir, name_prefix })，"
+                        "外层 run_js 被宿主限时打断。多文件请同一段脚本里 await $tools.files_download({ items:[{url, expect}], dir, name_prefix })，"
                             + "必要时传 timeout_ms（毫秒，默认约 120000、上限 600000）；超过 20 行请 spill 到 jobs/*.js 后用 file 执行。";
                 } else if (text != null && text.contains("return not in a function")) {
                     hookId = "script.no_top_return";

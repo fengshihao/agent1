@@ -89,7 +89,7 @@ class ProductivitySystemPromptBuilderTest {
         assertTrue(prompt.contains("run_js"));
         assertTrue(prompt.contains("一段 run_js"));
         assertTrue(prompt.contains("不要在外层单独调 webview_exec"));
-        assertTrue(prompt.contains("images_download"));
+        assertTrue(prompt.contains("files_download"));
         assertTrue(prompt.contains("回执已是对象"));
         // QuickJS / 路径细则已下沉到 run_js 工具说明，不再写进提示词
         assertFalse(prompt.contains("禁止 require"));
