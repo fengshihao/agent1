@@ -57,7 +57,7 @@ node pack.mjs \
 浏览器 JS/CSS 库卡片不随 App 预置，走云端清单，和微智包同一台服务器。
 
 - **真源**：`web-libs/cards.jsonl`（每行 `lib_url` + `template` 文件名，不含内嵌 HTML）
-- **薄壳 HTML**：`agent_core/.../catalog/templates/*.html`，pack 时复制到 `dist/web-libs/templates/` 并上传到站点
+- **薄壳 HTML 真源**：`artifact-cdn/web-libs/templates/*.html`（不进 jar/APK），pack 复制到 `dist/web-libs/templates/` 并上传
 - **库脚本**：仍在 jsdelivr 等公共 CDN（`lib_url`），不打 zip
 
 ```bash
@@ -69,10 +69,10 @@ node pack-web-libs.mjs --base-url "${ARTIFACT_CDN_BASE_URL:-https://agentone.guo
 
 | 路径 | 内容 |
 |------|------|
-| `dist/web-libs/registry/stable.json` | `find_caps` 卡片；`entry` 为三行：`URL`（库）、`壳`（官方 HTML URL）、`路径`（工作区本地路径） |
+| `dist/web-libs/registry/stable.json` | `find_caps` 卡片；`entry` 为两行：`URL`（库）、`壳`（官方 HTML URL，运行时 GET） |
 | `dist/web-libs/templates/*.html` | 可热更的薄壳静态文件 |
 
-由 `upload.sh` 上传模板与清单。core 侧 `WebLibRegistrySync` 默认读 `https://agentone.guoyoutech.cn/web-libs/registry/stable.json`，失败时保留已有卡片。运行时拉壳：对 `entry` 里 `壳 https://...` 做 GET（或读 `路径` 下 jar 种子副本）；WebView 多一次请求，清单体积更小。
+由 `upload.sh` 上传模板与清单。core 侧 `WebLibRegistrySync` 默认读 `https://agentone.guoyoutech.cn/web-libs/registry/stable.json`，失败时保留已有卡片。薄壳**仅**从 `壳` URL 拉取，客户端不预置 HTML 模板。
 
 ## 校验下载
 

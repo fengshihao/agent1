@@ -180,7 +180,7 @@ Android 启用完整环：联编 `weizhi` 或使用 `weizhi-prebuilt`，见 [and
 2. **工具少而精，细节靠检索**：Java 层只保留工作区 I/O、脚本执行、用户澄清等「内核工具」。具体怎么做 Word、分享、画图、调外部服务，先走 **`find_caps`**：结果里的调用示例可以直接写进脚本。Skill 命中时附上正文。API 手册不打进 APK。
 3. **Skill：可加载、可自创、可晋升**：`load_skill` 从 workspace `skills/`、App `assets`（Android）或项目目录（桌面联编）拉取 SKILL.md 工作流；运行中沉淀的可重复流程经总结与 **`promote_request`** 进入 `shared/local/skills/`，供后续 Session 复用（自进化路线见 [doc/规划/自进化Agent/README.md](doc/规划/自进化Agent/README.md)）。
 4. **MCP：外接能力而不膨胀内核**：通过 `agentRoot/mcp_servers.json` 配置 MCP Server；索引进入 `find_caps`（kind=mcp），脚本内用 **`$mcp.<server>.<tool>`** 调用，不把每个 MCP 工具都注册成 Java `@Tool`。
-5. **WebView：在设备上「看得见」的结果**：Android 系统 WebView + `webview_exec` 渲染脚本页、图表、表单总结（见 `android_agent/doc/webview-draw-e2e.md`）；桌面联调用 Headless Chromium + CDP，协议与 Skill 尽量对齐。网页图走 `find_caps` 的 `web_lib`（按库锁定的 CDN 和薄 HTML 壳，同批壳装在 `shared/catalog/templates/`）：先写 Markdown / Mermaid / JSON，再套壳，`write_file` / `edit_file` 写入 `.html` 后宿主自动用 `webview_exec` 打开检查，失败回到工具回执。
+5. **WebView：在设备上「看得见」的结果**：Android 系统 WebView + `webview_exec` 渲染脚本页、图表、表单总结（见 `android_agent/doc/webview-draw-e2e.md`）；桌面联调用 Headless Chromium + CDP，协议与 Skill 尽量对齐。网页图走 `find_caps` 的 `web_lib`（库脚本 CDN + 官方 `壳` URL 拉 HTML 薄壳）：先写 Markdown / Mermaid / JSON，GET 壳后改数据区，`write_file` / `edit_file` 写入 `.html` 后宿主自动用 `webview_exec` 打开检查，失败回到工具回执。
 6. **自进化数据面**：Session 隔离的可写沙箱；可复用 Skill 晋升 **shared/local**；官方 Package 在 `run_js` 前按需安装；`events.jsonl` 全链路审计。目标：越用越懂你的流程，而不是每次从零科普工具列表。
 
 更完整的 SDK 集成面见 [doc/规划/Agent1-SDK愿景.md](doc/规划/Agent1-SDK愿景.md)。

@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { assertBaseUrl, joinUrl } from "./registry.mjs";
 
-const LOCAL_PREFIX = "路径 shared/catalog/templates/";
+const SHELL_PREFIX = "壳 ";
 const LEGACY_TEMPLATE_PREFIX = "模板 shared/catalog/templates/";
 
 /** @typedef {{ id: string, kind: string, title?: string, summary?: string, tags?: string[], platforms?: string[], weight?: number, lib_url?: string, template?: string, entry?: string }} WebLibCard */
@@ -32,11 +32,18 @@ export function normalizeWebLibCard(card) {
     throw new Error(`${card.id}: entry missing URL line`);
   }
   const libUrl = urlLine.slice(4).trim();
+  let template = "";
   const legacyTemplateLine = lines.find((line) => line.startsWith(LEGACY_TEMPLATE_PREFIX));
-  if (!legacyTemplateLine) {
-    throw new Error(`${card.id}: entry missing template path line`);
+  if (legacyTemplateLine) {
+    template = legacyTemplateLine.slice(LEGACY_TEMPLATE_PREFIX.length).trim();
+  } else {
+    const shellLine = lines.find((line) => line.startsWith(SHELL_PREFIX));
+    if (!shellLine) {
+      throw new Error(`${card.id}: entry missing shell or legacy template line`);
+    }
+    const shellUrl = shellLine.slice(SHELL_PREFIX.length).trim();
+    template = path.basename(new URL(shellUrl).pathname);
   }
-  const template = legacyTemplateLine.slice(LEGACY_TEMPLATE_PREFIX.length).trim();
   if (!template.endsWith(".html")) {
     throw new Error(`${card.id}: template must be .html`);
   }
@@ -56,7 +63,7 @@ export function normalizeWebLibCard(card) {
 export function buildWebLibEntry(libUrl, templateFile, baseUrl) {
   assertBaseUrl(baseUrl);
   const shellUrl = joinUrl(baseUrl, `web-libs/templates/${templateFile}`);
-  return `URL ${libUrl}\n壳 ${shellUrl}\n${LOCAL_PREFIX}${templateFile}`;
+  return `URL ${libUrl}\n壳 ${shellUrl}`;
 }
 
 export async function assertTemplateExists(templatesDir, templateFile) {

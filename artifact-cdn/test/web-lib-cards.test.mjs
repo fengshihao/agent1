@@ -21,7 +21,7 @@ test("normalize legacy fat entry and build slim registry entry", () => {
     "https://agentone.guoyoutech.cn/",
   );
   assert.match(entry, /^URL https:\/\/cdn\.jsdelivr\.net\//);
-  assert.match(entry, /\n壳 https:\/\/agentone\.guoyoutech\.cn\/web-libs\/templates\/mermaid\.html\n/);
-  assert.match(entry, /路径 shared\/catalog\/templates\/mermaid\.html$/);
+  assert.match(entry, /\n壳 https:\/\/agentone\.guoyoutech\.cn\/web-libs\/templates\/mermaid\.html$/);
+  assert.doesNotMatch(entry, /路径 shared\/catalog\/templates\//);
   assert.doesNotMatch(entry, /<!DOCTYPE/);
 });

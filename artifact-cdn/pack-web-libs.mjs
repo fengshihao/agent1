@@ -11,17 +11,7 @@ import {
 } from "./lib/web-lib-cards.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_TEMPLATES = path.join(
-  here,
-  "..",
-  "agent_core",
-  "src",
-  "main",
-  "resources",
-  "agent-home",
-  "catalog",
-  "templates",
-);
+const DEFAULT_TEMPLATES = path.join(here, "web-libs", "templates");
 const DEFAULT_BASE_URL = "https://agentone.guoyoutech.cn/";
 
 export async function packWebLibs({ cardsPath, outDir, templatesDir, baseUrl }) {
