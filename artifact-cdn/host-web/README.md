@@ -10,6 +10,10 @@
 
 Android 仅 `WebView.loadUrl(shell)`，不在 Kotlin 里拼 HTML。
 
+**服务器缓存策略**（nginx `/etc/nginx/conf.d/agentone.conf`）：`/host-web/` 版本目录整体 `public, max-age=2592000, immutable`（30 天），`/host-web/registry/` 嵌套 override 保持 `no-cache`；`gzip_types` 含 JS/CSS/SVG（vditor vendor 压缩率 ~85%，不压缩手机要下 20s+）。shell 内容更新时 bump registry 里的 `?v=`。
+
+**墨览 Markdown embed**（`molan-embed/1/`）：从 `MOLAN_REPO`（默认 `../../molan`）复制 studio 运行时 + vditor vendor，烘焙 `molan-md-shell.html` 到 Android assets。发布前需将 `dist/host-web/molan-embed/` 与更新后的 `registry/stable.json` 一并 `upload.sh`。
+
 ```bash
 cd artifact-cdn && npm run pack-host-web
 ```

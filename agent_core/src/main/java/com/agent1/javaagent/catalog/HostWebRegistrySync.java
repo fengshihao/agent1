@@ -22,6 +22,13 @@ public final class HostWebRegistrySync {
 
     public static final String DEFAULT_SHELL_URL =
         "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html?v=20251025b";
+
+    public static final String DEFAULT_MD_SHELL_URL =
+        "https://agentone.guoyoutech.cn/host-web/molan-embed/1/shell.html?v=20251026b";
+
+    public static final String DEFAULT_WEIZHI_SANDBOX_SHELL_URL =
+        "https://agentone.guoyoutech.cn/host-web/weizhi-sandbox/1/document.html?v=20251027a";
+
     static final String URL_ENV = "AGENT1_HOST_WEB_REGISTRY_URL";
     static final String ENV = "AGENT1_HOST_WEB_REGISTRY";
 
@@ -34,6 +41,12 @@ public final class HostWebRegistrySync {
     }
 
     public record DocxPreviewUrls(String shell) {
+    }
+
+    public record MdPreviewUrls(String shell) {
+    }
+
+    public record WeizhiSandboxUrls(String shell) {
     }
 
     public static void refreshAsync(Path agentRoot) {
@@ -74,6 +87,30 @@ public final class HostWebRegistrySync {
         return new DocxPreviewUrls(DEFAULT_SHELL_URL);
     }
 
+    public static MdPreviewUrls mdPreviewUrls(Path agentRoot) {
+        String manifest = readCache(agentRoot);
+        if (manifest != null) {
+            try {
+                return parseMdPreviewUrls(manifest);
+            } catch (IOException ignored) {
+                // fall through
+            }
+        }
+        return new MdPreviewUrls(DEFAULT_MD_SHELL_URL);
+    }
+
+    public static WeizhiSandboxUrls weizhiSandboxUrls(Path agentRoot) {
+        String manifest = readCache(agentRoot);
+        if (manifest != null) {
+            try {
+                return parseWeizhiSandboxUrls(manifest);
+            } catch (IOException ignored) {
+                // fall through
+            }
+        }
+        return new WeizhiSandboxUrls(DEFAULT_WEIZHI_SANDBOX_SHELL_URL);
+    }
+
     static Path cachePath(Path agentRoot) {
         return agentRoot.resolve("runtime").resolve("host-web-stable.json");
     }
@@ -112,8 +149,44 @@ public final class HostWebRegistrySync {
         return new DocxPreviewUrls(shell);
     }
 
+    static MdPreviewUrls parseMdPreviewUrls(String json) throws IOException {
+        JsonNode root = MAPPER.readTree(json);
+        if (root.path("schema_version").asInt(0) != 1) {
+            throw new IOException("schema_version must be 1");
+        }
+        JsonNode block = root.path("md_preview");
+        if (!block.isObject() || block.path("shell").asText("").isBlank()) {
+            return new MdPreviewUrls(DEFAULT_MD_SHELL_URL);
+        }
+        String shell = requireHttpsUrl(block.path("shell").asText(""), "md_preview.shell");
+        return new MdPreviewUrls(shell);
+    }
+
+    static WeizhiSandboxUrls parseWeizhiSandboxUrls(String json) throws IOException {
+        JsonNode root = MAPPER.readTree(json);
+        if (root.path("schema_version").asInt(0) != 1) {
+            throw new IOException("schema_version must be 1");
+        }
+        JsonNode block = root.path("weizhi_sandbox");
+        if (!block.isObject() || block.path("shell").asText("").isBlank()) {
+            return new WeizhiSandboxUrls(DEFAULT_WEIZHI_SANDBOX_SHELL_URL);
+        }
+        String shell = requireHttpsUrl(block.path("shell").asText(""), "weizhi_sandbox.shell");
+        return new WeizhiSandboxUrls(shell);
+    }
+
     static void validateManifest(String json) throws IOException {
+        JsonNode root = MAPPER.readTree(json);
+        if (root.path("schema_version").asInt(0) != 1) {
+            throw new IOException("schema_version must be 1");
+        }
         parseDocxPreviewUrls(json);
+        JsonNode md = root.path("md_preview");
+        if (!md.isObject() || md.path("shell").asText("").isBlank()) {
+            throw new IOException("missing md_preview.shell");
+        }
+        requireHttpsUrl(md.path("shell").asText(""), "md_preview.shell");
+        parseWeizhiSandboxUrls(json);
     }
 
     static String requireHttpsUrl(String raw, String field) throws IOException {

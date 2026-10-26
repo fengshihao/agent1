@@ -4,5 +4,11 @@
     "shell": "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html?v=20251025b",
     "jszip": "https://agentone.guoyoutech.cn/host-web/vendor/jszip/3.10.1/jszip.min.js",
     "docx_preview": "https://agentone.guoyoutech.cn/host-web/vendor/docx-preview/0.4.1/docx-preview.min.js"
+  },
+  "md_preview": {
+    "shell": "https://agentone.guoyoutech.cn/host-web/molan-embed/1/shell.html?v=20251026b"
+  },
+  "weizhi_sandbox": {
+    "shell": "https://agentone.guoyoutech.cn/host-web/weizhi-sandbox/1/document.html?v=20251027a"
   }
 }

@@ -5,7 +5,7 @@
   "description": "通用制品打包、发布与 sha256 校验。安装由各 kind 自己的安装器完成。",
   "scripts": {
     "pack": "node pack.mjs",
-    "pack-host-web": "node pack-host-web.mjs",
+    "pack-host-web": "node pack-host-web.mjs && node pack-molan-embed.mjs",
     "fetch": "node fetch.mjs",
     "test": "node --test 'test/*.test.mjs'"
   },

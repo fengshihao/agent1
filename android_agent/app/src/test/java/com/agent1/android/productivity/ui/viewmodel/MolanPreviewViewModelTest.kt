@@ -11,8 +11,10 @@ class MolanPreviewViewModelTest {
 
     @Test
     fun resolve_rejectsBlankSession() {
+        val dir = Files.createTempDirectory("molan-preview-vm")
         val state = MolanPreviewViewModel.resolve(
             workspaceRoot = null,
+            agentRoot = dir,
             sessionId = "",
             relativePath = "out/report.md",
         )
@@ -25,6 +27,7 @@ class MolanPreviewViewModelTest {
         val dir = Files.createTempDirectory("molan-preview-vm")
         val state = MolanPreviewViewModel.resolve(
             workspaceRoot = dir,
+            agentRoot = dir,
             sessionId = "s1",
             relativePath = "out/report.docx",
         )
@@ -37,6 +40,7 @@ class MolanPreviewViewModelTest {
         val dir = Files.createTempDirectory("molan-preview-vm")
         val state = MolanPreviewViewModel.resolve(
             workspaceRoot = dir,
+            agentRoot = dir,
             sessionId = "s1",
             relativePath = "out/report.md",
         )
@@ -49,6 +53,7 @@ class MolanPreviewViewModelTest {
         val dir = Files.createTempDirectory("molan-preview-vm")
         val state = MolanPreviewViewModel.resolve(
             workspaceRoot = dir,
+            agentRoot = dir,
             sessionId = "s1",
             relativePath = "../outside.md",
         )
@@ -67,6 +72,7 @@ class MolanPreviewViewModelTest {
 
         val state = MolanPreviewViewModel.resolve(
             workspaceRoot = dir,
+            agentRoot = dir,
             sessionId = "s1",
             relativePath = "out/report.md",
         )
@@ -75,6 +81,7 @@ class MolanPreviewViewModelTest {
 
         val stateMarkdown = MolanPreviewViewModel.resolve(
             workspaceRoot = dir,
+            agentRoot = dir,
             sessionId = "s1",
             relativePath = "out/notes.markdown",
         )

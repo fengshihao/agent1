@@ -31,6 +31,25 @@ async function copyVendor(outDir) {
   await copyFile(docxSrc, docxDest);
 }
 
+const SANDBOX_PLACEHOLDER = "/*__BRIDGE_JS__*/";
+
+async function bakeWeizhiSandbox(outDir, manifest) {
+  const shellPublished = manifest?.weizhi_sandbox?.shell;
+  if (!shellPublished || typeof shellPublished !== "string") {
+    throw new Error("manifest.source.json missing weizhi_sandbox.shell");
+  }
+  const sourceDir = path.join(here, "host-web", "weizhi-sandbox", "source");
+  const bridge = await readFile(path.join(sourceDir, "bridge.js"), "utf8");
+  let template = await readFile(path.join(sourceDir, "bootstrap.html"), "utf8");
+  if (!template.includes(SANDBOX_PLACEHOLDER)) {
+    throw new Error("weizhi-sandbox bootstrap.html missing bridge placeholder");
+  }
+  const document = template.replace(SANDBOX_PLACEHOLDER, bridge);
+  const dest = path.join(outDir, "host-web", "weizhi-sandbox", "1", "document.html");
+  await mkdir(path.dirname(dest), { recursive: true });
+  await writeFile(dest, document);
+}
+
 async function bakeShell(outDir, manifest) {
   const jszip = manifest.docx_preview.jszip;
   const docx = manifest.docx_preview.docx_preview;
@@ -50,9 +69,19 @@ function publishedManifest(source) {
   if (!shell || typeof shell !== "string") {
     throw new Error("manifest.source.json missing docx_preview.shell");
   }
+  const mdShell = source?.md_preview?.shell;
+  if (!mdShell || typeof mdShell !== "string") {
+    throw new Error("manifest.source.json missing md_preview.shell");
+  }
+  const weizhiShell = source?.weizhi_sandbox?.shell;
+  if (!weizhiShell || typeof weizhiShell !== "string") {
+    throw new Error("manifest.source.json missing weizhi_sandbox.shell");
+  }
   return {
     schema_version: 1,
     docx_preview: { shell },
+    md_preview: { shell: mdShell },
+    weizhi_sandbox: { shell: weizhiShell },
   };
 }
 
@@ -66,6 +95,7 @@ async function main() {
   }
   await copyVendor(outDir);
   await bakeShell(outDir, manifest);
+  await bakeWeizhiSandbox(outDir, manifest);
   const registryPath = path.join(outDir, "host-web", "registry", "stable.json");
   await mkdir(path.dirname(registryPath), { recursive: true });
   await writeFile(registryPath, JSON.stringify(publishedManifest(manifest), null, 2) + "\n");

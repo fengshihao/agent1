@@ -40,16 +40,48 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.agent1.android.llm.AppFileLog
 import com.agent1.android.productivity.logic.business.MolanPreviewFileReader
 import com.agent1.android.productivity.logic.business.MolanPreviewShellLoader
-import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.WorkspaceFileWatcher
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.MolanPreviewViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import org.json.JSONTokener
 
 /** 壳内注入桥名称（壳 HTML 侧 window.Agent1Molan）。 */
 private const val MOLAN_BRIDGE_NAME = "Agent1Molan"
+
+private data class MolanInjectDiag(
+    val shellErr: String,
+    val r: String,
+    val ready: Boolean,
+)
+
+/** [WebView.evaluateJavascript] 回调里是 JSON 编码字符串，不能直接用 contains 匹配。 */
+private fun parseMolanInjectDiag(raw: String?): MolanInjectDiag? {
+    if (raw.isNullOrBlank() || raw == "null") return null
+    val body = try {
+        val tok = JSONTokener(raw.trim())
+        when (val first = tok.nextValue()) {
+            is String -> first
+            is JSONObject -> first.toString()
+            else -> return null
+        }
+    } catch (_: Exception) {
+        return null
+    }
+    return try {
+        val o = JSONObject(body)
+        MolanInjectDiag(
+            shellErr = o.optString("shellErr"),
+            r = o.optString("r"),
+            ready = o.optBoolean("ready"),
+        )
+    } catch (_: Exception) {
+        null
+    }
+}
 
 private val MOLAN_INJECT_DIAG_JS =
     "(function(){var el=document.getElementById('agent1MdError');" +
@@ -59,9 +91,8 @@ private val MOLAN_INJECT_DIAG_JS =
         "return JSON.stringify({shellErr:shellErr,r:r,ready:ready});})()"
 
 /**
- * 墨览（molan）Markdown 内置预览：壳 HTML 在 APK（assets），编辑器与
- * vditor 大库引用线上 try 页（与 docx 壳模式一致）；md 文本经
- * [MOLAN_BRIDGE_NAME] 桥注入 [window.MolanHost]（molan#18）。
+ * 墨览 Markdown 内置预览：embed shell 在 APK（assets），vditor 与 molan 运行时走
+ * guoyoutech CDN；md 文本经 [MOLAN_BRIDGE_NAME] 桥注入 [window.MolanHost]。
  *
  * 打开即阅读（纸面视图）；文件变更后经 [WorkspaceFileWatcher] 自动重渲染。
  * 预览为只读语义：墨览内的保存是下载副本，不写回 workspace。
@@ -81,12 +112,10 @@ fun MolanPreviewScreen(
         factory = previewViewModelFactory { MolanPreviewViewModel(appContext, sessionId, relativePath) },
     )
     val state = vm.state
-    val workspaceRoot = remember(sessionId) { SessionWorkspacePaths.workspaceRoot(appContext, sessionId) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var rendering by remember { mutableStateOf(true) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var webViewHost by remember { mutableStateOf<HtmlPreviewWebViewLifecycle.Host?>(null) }
-    var shellHtml by remember { mutableStateOf<String?>(null) }
     var lastShellLoadKey by remember { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -96,17 +125,26 @@ fun MolanPreviewScreen(
         view?.evaluateJavascript("window.__agent1MolanRenderFromBridge && window.__agent1MolanRenderFromBridge()", null)
     }
 
+    fun applyInjectDiag(raw: String?) {
+        val diag = parseMolanInjectDiag(raw) ?: return
+        mainHandler.post {
+            if (diag.shellErr.isNotBlank() && loadError == null) {
+                loadError = diag.shellErr
+                rendering = false
+                return@post
+            }
+            if (diag.r == "ok" || diag.ready) {
+                AppFileLog.i("MolanPreview", "dismiss spinner inject r=${diag.r} ready=${diag.ready}")
+                rendering = false
+            }
+        }
+    }
+
     fun logMolanInject(view: WebView, delayMs: Long) {
         mainHandler.postDelayed({
             view.evaluateJavascript(MOLAN_INJECT_DIAG_JS) { raw ->
                 AppFileLog.i("MolanPreview", "inject=$raw")
-                if (raw != null && raw.contains("\"shellErr\":\"")) {
-                    val err = raw.substringAfter("\"shellErr\":\"").substringBefore("\"")
-                    if (err.isNotBlank() && loadError == null) {
-                        loadError = err
-                        rendering = false
-                    }
-                }
+                applyInjectDiag(raw)
             }
         }, delayMs)
     }
@@ -114,18 +152,12 @@ fun MolanPreviewScreen(
     fun afterPageReady(view: WebView) {
         rerender(view)
         logMolanInject(view, 1_500L)
-        logMolanInject(view, 5_000L)
-        mainHandler.postDelayed({ rendering = false }, 2_000L)
-    }
-
-    LaunchedEffect(Unit) {
-        val loaded = withContext(Dispatchers.IO) { MolanPreviewShellLoader.loadHtml(appContext) }
-        shellHtml = loaded ?: ""
-        if (loaded.isNullOrBlank()) {
-            loadError = "无法加载墨览预览壳"
-            rendering = false
-            AppFileLog.i("MolanPreview", "shell asset missing")
-        }
+        logMolanInject(view, 4_000L)
+        mainHandler.postDelayed({
+            if (rendering && loadError == null) {
+                rendering = false
+            }
+        }, 8_000L)
     }
 
     DisposableEffect(webViewHost, lifecycleOwner) {
@@ -185,24 +217,31 @@ fun MolanPreviewScreen(
                     watcher.start()
                     onDispose { watcher.stop() }
                 }
-                LaunchedEffect(webView, file.absolutePath, shellHtml) {
+                LaunchedEffect(webView, state.shellUrl, file.absolutePath) {
                     val view = webView ?: return@LaunchedEffect
-                    val html = shellHtml
-                    if (html.isNullOrBlank()) {
-                        return@LaunchedEffect
-                    }
-                    val loadKey = "${view.hashCode()}:${file.absolutePath}"
+                    val loadKey = "${view.hashCode()}:${file.absolutePath}:${state.shellUrl}"
                     if (lastShellLoadKey == loadKey) {
                         return@LaunchedEffect
                     }
                     lastShellLoadKey = loadKey
                     rendering = true
                     loadError = null
+                    val html = withContext(Dispatchers.IO) {
+                        MolanPreviewShellLoader.loadHtml(appContext)
+                            ?: MolanPreviewShellLoader.fetchHtml(state.shellUrl)
+                    }
+                    if (html.isNullOrBlank()) {
+                        loadError = "无法加载墨览预览页（网络或 CDN）"
+                        rendering = false
+                        AppFileLog.i("MolanPreview", "shell fetch failed url=${state.shellUrl}")
+                        return@LaunchedEffect
+                    }
+                    val base = MolanPreviewShellLoader.baseUrlFor(state.shellUrl)
                     AppFileLog.i(
                         "MolanPreview",
-                        "loadDataWithBaseURL base=${MolanPreviewShellLoader.BASE_URL} bytes=${html.length} file=${file.name}",
+                        "loadDataWithBaseURL base=$base bytes=${html.length} file=${file.name}",
                     )
-                    view.loadDataWithBaseURL(MolanPreviewShellLoader.BASE_URL, html, "text/html", "UTF-8", null)
+                    view.loadDataWithBaseURL(base, html, "text/html", "UTF-8", null)
                 }
                 Box(Modifier.fillMaxSize().padding(innerPadding)) {
                     AndroidView(
@@ -215,7 +254,7 @@ fun MolanPreviewScreen(
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
                                 settings.allowFileAccess = true
-                                settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                                settings.cacheMode = WebSettings.LOAD_DEFAULT
                                 settings.loadsImagesAutomatically = true
                                 settings.useWideViewPort = false
                                 settings.loadWithOverviewMode = false
@@ -233,6 +272,14 @@ fun MolanPreviewScreen(
                                         @JavascriptInterface
                                         fun readMdJson(): String {
                                             return MolanPreviewFileReader.readMdJson(docAbsolutePath, displayName)
+                                        }
+
+                                        @JavascriptInterface
+                                        fun onContentReady() {
+                                            mainHandler.post {
+                                                AppFileLog.i("MolanPreview", "dismiss spinner onContentReady")
+                                                rendering = false
+                                            }
                                         }
                                     },
                                     MOLAN_BRIDGE_NAME,
@@ -257,7 +304,7 @@ fun MolanPreviewScreen(
                                         error: WebResourceError,
                                     ) {
                                         val url = request.url?.toString() ?: ""
-                                        if (request.isForMainFrame || url.contains("/try/vendor/")) {
+                                        if (request.isForMainFrame || url.contains("/molan-embed/")) {
                                             loadError = UserFacingError.explain(error.description?.toString())
                                             rendering = false
                                         }
@@ -277,7 +324,10 @@ fun MolanPreviewScreen(
                     )
                     loadError?.let { PreviewErrorBox(it, Modifier.fillMaxSize()) }
                     if (rendering && loadError == null) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             CircularProgressIndicator()
                         }
                     }

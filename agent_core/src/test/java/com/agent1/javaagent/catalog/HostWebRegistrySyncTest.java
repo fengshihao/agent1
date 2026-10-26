@@ -21,11 +21,16 @@ class HostWebRegistrySyncTest {
               "schema_version": 1,
               "docx_preview": {
                 "shell": "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html?v=1"
+              },
+              "md_preview": {
+                "shell": "https://agentone.guoyoutech.cn/host-web/molan-embed/1/shell.html?v=1"
               }
             }
             """;
         var urls = HostWebRegistrySync.parseDocxPreviewUrls(json);
         assertTrue(urls.shell().contains("/shell.html"));
+        var md = HostWebRegistrySync.parseMdPreviewUrls(json);
+        assertTrue(md.shell().contains("/molan-embed/"));
     }
 
     @Test
@@ -35,6 +40,9 @@ class HostWebRegistrySyncTest {
               "schema_version": 1,
               "docx_preview": {
                 "shell": "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html?v=1"
+              },
+              "md_preview": {
+                "shell": "https://agentone.guoyoutech.cn/host-web/molan-embed/1/shell.html?v=1"
               }
             }
             """;

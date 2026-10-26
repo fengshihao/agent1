@@ -1,0 +1,27 @@
+/* Agent1 WebView：仅阅读区；首屏遮罩由 Android Compose 转圈负责，勿 visibility:hidden 整页 */
+.agent1-embed .sidebar,
+.agent1-embed .welcome,
+.agent1-embed .status-bar,
+.agent1-embed #pickBtn,
+.agent1-embed #saveBtn,
+.agent1-embed #reloadBtn,
+.agent1-embed .toolbar-pick,
+.agent1-embed .search-wrap {
+  display: none !important;
+}
+
+.agent1-embed .app {
+  grid-template-columns: 1fr;
+}
+
+.agent1-embed .main {
+  min-height: 100dvh;
+}
+
+.agent1-embed .main.is-idle .reader-body {
+  display: none;
+}
+
+.agent1-embed #vditor {
+  min-height: 0;
+}
