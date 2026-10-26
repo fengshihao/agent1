@@ -377,7 +377,14 @@ test("web lib cards pack into their own registry and upload ships it last", asyn
       assert.equal(card.kind, "web_lib");
       assert.match(card.id, /^web_lib\./);
       assert.match(card.entry, /https:\/\//);
+      assert.match(card.entry, /^URL https:\/\//m);
+      assert.match(card.entry, /\n壳 https:\/\/agentone\.guoyoutech\.cn\/web-libs\/templates\//);
+      assert.doesNotMatch(card.entry, /<!DOCTYPE|<html/i);
     }
+    const templateCount = (
+      await readdir(path.join(dist, "web-libs", "templates"), { withFileTypes: true })
+    ).filter((e) => e.isFile() && e.name.endsWith(".html")).length;
+    assert.equal(templateCount, registry.cards.length);
 
     const dry = await runAllowFail("bash", [path.join(artifactCdn, "upload.sh")], {
       ARTIFACT_CDN_SKIP_LOCAL_ENV: "1",
@@ -387,7 +394,8 @@ test("web lib cards pack into their own registry and upload ships it last", asyn
     });
     assert.equal(dry.code, 0, dry.stderr);
     const lines = dry.stdout.trim().split("\n").filter((line) => line.startsWith("scp "));
-    assert.match(lines[lines.length - 1], /web-libs\/registry\/stable\.json/);
+    assert.ok(lines.some((line) => /web-libs\/registry\/stable\.json/.test(line)));
+    assert.ok(lines.some((line) => /web-libs\/templates\/.*\.html/.test(line)));
 
     const bad = path.join(badCards, "cards.jsonl");
     await writeFile(
@@ -406,7 +414,8 @@ test("web lib cards pack into their own registry and upload ships it last", asyn
       `${JSON.stringify({
         id: "web_lib.mermaid",
         kind: "web_lib",
-        entry: "http://cdn.example/mermaid.js",
+        lib_url: "http://cdn.example/mermaid.js",
+        template: "mermaid.html",
       })}\n`,
     );
     const httpFail = await runAllowFail(
@@ -414,7 +423,7 @@ test("web lib cards pack into their own registry and upload ships it last", asyn
       [path.join(artifactCdn, "pack-web-libs.mjs"), "--cards", bad, "--out", badCards],
     );
     assert.notEqual(httpFail.code, 0);
-    assert.match(httpFail.stderr, /https URL/);
+    assert.match(httpFail.stderr, /lib_url must be https/);
   } finally {
     await rm(dist, { recursive: true, force: true });
     await rm(badCards, { recursive: true, force: true });

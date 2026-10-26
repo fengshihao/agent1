@@ -11,6 +11,7 @@
 #   registry/stable.json
 #   packages/registry/stable.json
 #   web-libs/registry/stable.json
+#   web-libs/templates/*.html
 #   packages/<name>/<version>/<name>-<version>.zip
 #   skills/<name>/<version>/<name>-<version>.zip
 # =============================================================================
@@ -102,6 +103,11 @@ fi
 if [[ -f "${WEB_LIBS}" ]]; then
   parents="${parents} $(dirname "$(remote_path "${WEB_LIBS}")")"
 fi
+if [[ -d "${DIST}/web-libs/templates" ]]; then
+  while IFS= read -r line; do
+    [[ -n "${line}" ]] && parents="${parents} $(dirname "$(remote_path "${line}")")"
+  done < <(find "${DIST}/web-libs/templates" -type f | sort)
+fi
 if [[ -f "${HOST_WEB}" ]]; then
   parents="${parents} $(dirname "$(remote_path "${HOST_WEB}")")"
   while IFS= read -r line; do
@@ -121,6 +127,11 @@ if [[ -f "${SKILLS_CATALOG}" ]]; then
 fi
 if [[ -f "${WEB_LIBS}" ]]; then
   run_scp "${WEB_LIBS}" "$(remote_path "${WEB_LIBS}")"
+fi
+if [[ -d "${DIST}/web-libs/templates" ]]; then
+  while IFS= read -r line; do
+    [[ -n "${line}" ]] && run_scp "${line}" "$(remote_path "${line}")"
+  done < <(find "${DIST}/web-libs/templates" -type f | sort)
 fi
 if [[ -f "${HOST_WEB}" ]]; then
   while IFS= read -r line; do
