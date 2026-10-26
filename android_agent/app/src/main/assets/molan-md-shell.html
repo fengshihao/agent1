@@ -132,7 +132,45 @@
         <div class="reader-title">
           <h2 id="readerTitle">墨览</h2>
         </div>
-        <div class="reader-actions"></div>
+        <div class="reader-actions">
+          <button class="icon-btn molan-find-btn" id="molanFindBtn" type="button" hidden title="在文档中查找" aria-label="在文档中查找" data-i18n-title="findAria" data-i18n-aria="findAria">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+              <path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button class="icon-btn" id="copyBtn" type="button" hidden title="复制原文" aria-label="复制原文" data-i18n-title="copySource" data-i18n-aria="copySource">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2"/><rect x="4" y="8" width="12" height="12" rx="2"/></svg>
+          </button>
+          <div class="export-prefs" id="exportPrefs">
+            <button class="icon-btn" id="pdfBtn" type="button" hidden title="导出" aria-label="导出" aria-expanded="false" aria-haspopup="menu" aria-controls="exportMenu" data-i18n-title="exportAria" data-i18n-aria="exportAria">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 8H6.8A1.8 1.8 0 0 0 5 9.8v7.4A1.8 1.8 0 0 0 6.8 19h10.4a1.8 1.8 0 0 0 1.8-1.8V9.8A1.8 1.8 0 0 0 17.2 8H15"/><path d="M12 15V4"/><path d="M8.7 7.2 12 4l3.3 3.2"/></svg>
+            </button>
+            <div class="export-menu" id="exportMenu" hidden role="menu" aria-label="导出">
+              <button type="button" role="menuitem" data-export="pdf" data-i18n="exportPdf">导出 PDF</button>
+              <button type="button" role="menuitem" data-export="png" data-i18n="exportPng">导出图片</button>
+            </div>
+          </div>
+          <button class="icon-btn" id="reloadBtn" type="button" hidden title="从磁盘重新加载" aria-label="从磁盘重新加载" data-i18n-title="reloadAria" data-i18n-aria="reloadAria">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M20 12a8 8 0 1 1-2.34-5.66"/>
+              <path d="M20 5v5h-5"/>
+            </svg>
+          </button>
+          <button class="icon-btn is-preview" id="modeBtn" type="button" hidden title="编辑" aria-label="编辑">
+            <svg class="icon-edit" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+            <svg class="icon-preview" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.8-7 9.5-7 9.5 7 9.5 7-3.8 7-9.5 7-9.5-7-9.5-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <button class="icon-btn" id="saveBtn" type="button" hidden disabled title="保存" aria-label="保存">
+            <svg class="icon-save" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h11l3 3v11H5V5z"/><path d="M9 5v4h7V5"/><path d="M8 19v-6h8v6"/></svg>
+            <svg class="icon-download" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"/><path d="M7.5 11.5 12 16l4.5-4.5"/><path d="M5 19h14"/></svg>
+          </button>
+          <div class="type-prefs" id="typePrefs">
+            <button class="icon-btn" id="typeBtn" type="button" hidden title="调节字号、行距与字体" aria-label="排版" aria-expanded="false" aria-haspopup="dialog" aria-controls="typeMenu" data-i18n-title="typeTitle" data-i18n-aria="typeAria">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 19L8.2 5.5h1.7L14.5 19"/><path d="M5.4 13.6h7.2"/><path d="M16.4 19l2.6-8h1.1L22.6 19"/><path d="M17.5 15.6h4.1"/></svg>
+            </button>
+          </div>
+        </div>
       </header>
 
       <div class="reader-body" id="readerBody">
@@ -195,14 +233,15 @@
         if (!window.MolanHost || typeof window.MolanHost.openText !== "function") return false;
         return window.MolanHost.openText(data.name || "document.md", data.text || "");
       }
+      var MAX_ATTEMPTS = 300;
       function attempt(n) {
         if (!window.MolanHost || typeof window.MolanHost.isReady !== "function") {
-          if (n < 100) { setTimeout(function () { attempt(n + 1); }, 60); return; }
+          if (n < MAX_ATTEMPTS) { setTimeout(function () { attempt(n + 1); }, 60); return; }
           showError("墨览脚本未加载，请检查网络");
           return;
         }
         if (!window.MolanHost.isReady()) {
-          if (n < 100) { setTimeout(function () { attempt(n + 1); }, 60); return; }
+          if (n < MAX_ATTEMPTS) { setTimeout(function () { attempt(n + 1); }, 60); return; }
           showError("墨览初始化超时");
           return;
         }

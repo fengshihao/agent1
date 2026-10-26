@@ -4,7 +4,6 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
@@ -52,6 +51,13 @@ import kotlinx.coroutines.withContext
 /** 壳内注入桥名称（壳 HTML 侧 window.Agent1Molan）。 */
 private const val MOLAN_BRIDGE_NAME = "Agent1Molan"
 
+private val MOLAN_INJECT_DIAG_JS =
+    "(function(){var el=document.getElementById('agent1MdError');" +
+        "var shellErr=(el&&!el.hidden)?String(el.textContent||''):'';" +
+        "var r=window.__agent1MolanRenderFromBridge?window.__agent1MolanRenderFromBridge():'no-fn';" +
+        "var ready=!!(window.MolanHost&&window.MolanHost.isReady&&window.MolanHost.isReady());" +
+        "return JSON.stringify({shellErr:shellErr,r:r,ready:ready});})()"
+
 /**
  * 墨览（molan）Markdown 内置预览：壳 HTML 在 APK（assets），编辑器与
  * vditor 大库引用线上 try 页（与 docx 壳模式一致）；md 文本经
@@ -80,11 +86,46 @@ fun MolanPreviewScreen(
     var rendering by remember { mutableStateOf(true) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var webViewHost by remember { mutableStateOf<HtmlPreviewWebViewLifecycle.Host?>(null) }
+    var shellHtml by remember { mutableStateOf<String?>(null) }
+    var lastShellLoadKey by remember { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
 
     fun rerender(view: WebView?) {
         view?.evaluateJavascript("window.__agent1MolanRenderFromBridge && window.__agent1MolanRenderFromBridge()", null)
+    }
+
+    fun logMolanInject(view: WebView, delayMs: Long) {
+        mainHandler.postDelayed({
+            view.evaluateJavascript(MOLAN_INJECT_DIAG_JS) { raw ->
+                AppFileLog.i("MolanPreview", "inject=$raw")
+                if (raw != null && raw.contains("\"shellErr\":\"")) {
+                    val err = raw.substringAfter("\"shellErr\":\"").substringBefore("\"")
+                    if (err.isNotBlank() && loadError == null) {
+                        loadError = err
+                        rendering = false
+                    }
+                }
+            }
+        }, delayMs)
+    }
+
+    fun afterPageReady(view: WebView) {
+        rerender(view)
+        logMolanInject(view, 1_500L)
+        logMolanInject(view, 5_000L)
+        mainHandler.postDelayed({ rendering = false }, 2_000L)
+    }
+
+    LaunchedEffect(Unit) {
+        val loaded = withContext(Dispatchers.IO) { MolanPreviewShellLoader.loadHtml(appContext) }
+        shellHtml = loaded ?: ""
+        if (loaded.isNullOrBlank()) {
+            loadError = "无法加载墨览预览壳"
+            rendering = false
+            AppFileLog.i("MolanPreview", "shell asset missing")
+        }
     }
 
     DisposableEffect(webViewHost, lifecycleOwner) {
@@ -144,18 +185,23 @@ fun MolanPreviewScreen(
                     watcher.start()
                     onDispose { watcher.stop() }
                 }
-                LaunchedEffect(webView, file) {
+                LaunchedEffect(webView, file.absolutePath, shellHtml) {
                     val view = webView ?: return@LaunchedEffect
-                    rendering = true
-                    loadError = null
-                    val html = withContext(Dispatchers.IO) { MolanPreviewShellLoader.loadHtml(appContext) }
+                    val html = shellHtml
                     if (html.isNullOrBlank()) {
-                        loadError = "无法加载墨览预览壳"
-                        rendering = false
-                        AppFileLog.i("MolanPreview", "shell asset missing")
                         return@LaunchedEffect
                     }
-                    AppFileLog.i("MolanPreview", "loadDataWithBaseURL base=${MolanPreviewShellLoader.BASE_URL} bytes=${html.length}")
+                    val loadKey = "${view.hashCode()}:${file.absolutePath}"
+                    if (lastShellLoadKey == loadKey) {
+                        return@LaunchedEffect
+                    }
+                    lastShellLoadKey = loadKey
+                    rendering = true
+                    loadError = null
+                    AppFileLog.i(
+                        "MolanPreview",
+                        "loadDataWithBaseURL base=${MolanPreviewShellLoader.BASE_URL} bytes=${html.length} file=${file.name}",
+                    )
                     view.loadDataWithBaseURL(MolanPreviewShellLoader.BASE_URL, html, "text/html", "UTF-8", null)
                 }
                 Box(Modifier.fillMaxSize().padding(innerPadding)) {
@@ -193,17 +239,16 @@ fun MolanPreviewScreen(
                                 )
                                 webChromeClient = object : WebChromeClient() {
                                     override fun onConsoleMessage(message: ConsoleMessage?): Boolean {
-                                        Log.d(
+                                        AppFileLog.i(
                                             "MolanPreview",
-                                            "${message?.message()} -- ${message?.sourceId()}:${message?.lineNumber()}",
+                                            "js: ${message?.message()} @ ${message?.sourceId()}:${message?.lineNumber()}",
                                         )
                                         return true
                                     }
                                 }
                                 webViewClient = object : WebViewClient() {
                                     override fun onPageFinished(view: WebView, url: String?) {
-                                        // 壳脚本自身轮询 MolanHost 就绪后注入，这里只收尾 loading 态。
-                                        view.postDelayed({ rendering = false }, 1_500L)
+                                        afterPageReady(view)
                                     }
 
                                     override fun onReceivedError(
@@ -224,6 +269,7 @@ fun MolanPreviewScreen(
                         },
                         onRelease = { view ->
                             webView = null
+                            lastShellLoadKey = null
                             val host = webViewHost ?: HtmlPreviewWebViewHost(view)
                             webViewHost = null
                             HtmlPreviewWebViewLifecycle.release(host)
