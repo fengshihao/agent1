@@ -222,7 +222,7 @@ public final class TavilyWebSearchClient {
             }
             text.append('\n');
         }
-        text.append("提示：用 images_download({ items:[{url}], dir, name_prefix }) 下载；产物请标注来源。");
+        text.append("提示：用 files_download({ items:[{url, expect:'image'}], dir, name_prefix }) 下载；产物请标注来源。");
         if (text.length() > MAX_OUTPUT_CHARS) {
             return text.substring(0, MAX_OUTPUT_CHARS) + "…";
         }

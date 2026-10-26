@@ -103,8 +103,8 @@ class WeizhiScriptToolInstallerTest {
     @Test
     void imagesDownloadJsonReceiptIsEmbeddedObject() {
         String body = "{\"ok\":true,\"total\":2,\"succeeded\":2,\"items\":[]}";
-        assertEquals(body, WeizhiScriptToolInstaller.encodeToolResult("images_download", body));
-        String envelope = "{\"result\":" + WeizhiScriptToolInstaller.encodeToolResult("images_download", body) + "}";
+        assertEquals(body, WeizhiScriptToolInstaller.encodeToolResult("files_download", body));
+        String envelope = "{\"result\":" + WeizhiScriptToolInstaller.encodeToolResult("files_download", body) + "}";
         Object result = com.weizhi.platform.MiniJson.parse(envelope);
         assertTrue(result instanceof java.util.Map);
         Object inner = ((java.util.Map<?, ?>) result).get("result");

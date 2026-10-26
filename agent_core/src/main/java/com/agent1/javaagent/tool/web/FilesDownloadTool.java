@@ -22,35 +22,33 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.CancellationException;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 /**
- * 批量下载公开图片到 workspace（20-A T6 演进）：仅 https、魔数校验、并行下载。
- * 单张也用 {@code items: [{url}]}。勿用 bash cp 整理。
+ * 批量下载公开 https 资源到 workspace，并按 {@code expect} 校验内容。
  */
-public final class ImagesDownloadTool implements AgentTool {
+public final class FilesDownloadTool implements AgentTool {
 
-    public static final String TOOL_NAME = "images_download";
+    public static final String TOOL_NAME = "files_download";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String DEFAULT_DIR = "imports";
     private static final int MIN_MB = 1;
     private static final int MAX_MB = 50;
     private static final int DEFAULT_MB = 10;
-    private static final String USER_AGENT = "Agent1ImagesDownload/1.0";
+    private static final String USER_AGENT = "Agent1FilesDownload/1.0";
     static final int MAX_BATCH_SIZE = 32;
     static final int DOWNLOAD_PARALLELISM = 6;
-    /** 略早于 AgentRuntime 工具超时，尽量先返回 partial JSON 而非整次被取消。 */
     static final long HOST_TIMEOUT_GRACE_MS = 800L;
     static final int CONNECT_TIMEOUT_SEC = 10;
     static final int READ_TIMEOUT_SEC = 22;
@@ -61,11 +59,11 @@ public final class ImagesDownloadTool implements AgentTool {
     private final boolean allowLoopback;
     private final boolean requireHttps;
 
-    public ImagesDownloadTool(WorkspaceSandbox sandbox) {
+    public FilesDownloadTool(WorkspaceSandbox sandbox) {
         this(sandbox, defaultClient(), false, true);
     }
 
-    ImagesDownloadTool(WorkspaceSandbox sandbox, OkHttpClient http, boolean allowLoopback, boolean requireHttps) {
+    FilesDownloadTool(WorkspaceSandbox sandbox, OkHttpClient http, boolean allowLoopback, boolean requireHttps) {
         this.sandbox = sandbox;
         this.http = http;
         this.allowLoopback = allowLoopback;
@@ -88,14 +86,12 @@ public final class ImagesDownloadTool implements AgentTool {
     @Override
     public String description() {
         return """
-            Download one or more public https images into the workspace (png/jpg/gif/webp/svg, \
-            up to 10 MB each). Required: items [{url, path?}, ...]. Optional dir (default imports), \
-            name_prefix (e.g. hero → hero-01.png). If path omitted, files are numbered under dir. \
-            Extension follows magic bytes, not the URL. Returns total, succeeded, partial when \
-            batch deadline hit, and per-item ok, index, path, width, height, size, type, source \
-            (error when ok is false). Slow or blocked hosts fail fast. \
-            Do not use bash cp/mv. \
-            Cite sources in the deliverable.
+            Download public https files into the workspace with validation.
+            Required: items [{url, path?, expect?}, ...]. Optional dir (default imports), \
+            name_prefix, max_mb (1-50, default 10), expect (auto|image|html|json|text|any; \
+            per-item expect overrides). Returns total, succeeded, partial, and per-item ok, \
+            path, size, detected, type, checks[], source (and width/height for images). \
+            Do not use bash cp/mv.
             """.trim();
     }
 
@@ -111,8 +107,7 @@ public final class ImagesDownloadTool implements AgentTool {
                 .put("type", "array")
                 .put(
                     "description",
-                    "Each element: { url (https), path? (workspace-relative override) }. Max "
-                        + MAX_BATCH_SIZE + " per call."
+                    "Each: { url (https), path?, expect? }. Max " + MAX_BATCH_SIZE + " per call."
                 )
         );
         properties.set(
@@ -125,13 +120,19 @@ public final class ImagesDownloadTool implements AgentTool {
             "name_prefix",
             MAPPER.createObjectNode()
                 .put("type", "string")
-                .put("description", "Optional filename stem: prefix-01.ext, prefix-02.ext, …")
+                .put("description", "Optional filename stem: prefix-01.ext, …")
         );
         properties.set(
             "max_mb",
             MAPPER.createObjectNode()
                 .put("type", "integer")
                 .put("description", "Per-file size cap in MB, 1-50, default 10.")
+        );
+        properties.set(
+            "expect",
+            MAPPER.createObjectNode()
+                .put("type", "string")
+                .put("description", "Default expect for items without their own: auto|image|html|json|text|any.")
         );
         schema.set("properties", properties);
         return schema;
@@ -182,7 +183,8 @@ public final class ImagesDownloadTool implements AgentTool {
         int maxMb = clampMaxMb(parameters);
         String dir = normalizeDir(parameters.path("dir").asText(DEFAULT_DIR));
         String namePrefix = parameters.path("name_prefix").asText("").trim();
-        List<DownloadItem> items = parseItems(parameters.get("items"));
+        FileDownloadExpect defaultExpect = parseExpect(parameters.path("expect").asText("auto"));
+        List<DownloadItem> items = parseItems(parameters.get("items"), defaultExpect);
         if (items.size() > MAX_BATCH_SIZE) {
             return ToolExecutionResult.text("错误：items 最多 " + MAX_BATCH_SIZE + " 项");
         }
@@ -206,7 +208,22 @@ public final class ImagesDownloadTool implements AgentTool {
             if (url.isEmpty()) {
                 return "items[" + index + "].url 不能为空";
             }
+            String expectRaw = item.path("expect").asText("");
+            if (!expectRaw.isBlank()) {
+                try {
+                    FileDownloadExpect.parse(expectRaw);
+                } catch (IllegalArgumentException e) {
+                    return "items[" + index + "]." + e.getMessage();
+                }
+            }
             index++;
+        }
+        if (parameters.has("expect") && !parameters.path("expect").asText("").isBlank()) {
+            try {
+                FileDownloadExpect.parse(parameters.path("expect").asText(""));
+            } catch (IllegalArgumentException e) {
+                return e.getMessage();
+            }
         }
         return null;
     }
@@ -273,7 +290,7 @@ public final class ImagesDownloadTool implements AgentTool {
                 try {
                     finished.add(done.get());
                 } catch (ExecutionException e) {
-                    finished.add(ItemOutcome.failure(0, "", "下载失败"));
+                    finished.add(ItemOutcome.failure(0, "", "下载失败", List.of()));
                 } catch (CancellationException | InterruptedException e) {
                     Thread.currentThread().interrupt();
                     partial = true;
@@ -308,7 +325,7 @@ public final class ImagesDownloadTool implements AgentTool {
         for (DownloadItem item : items) {
             ItemOutcome outcome = byIndex.get(item.index);
             if (outcome == null) {
-                outcome = ItemOutcome.failure(item.index, item.url, pendingItemMessage(partialReason));
+                outcome = ItemOutcome.failure(item.index, item.url, pendingItemMessage(partialReason), List.of());
             }
             resultItems.add(outcome.toJson());
             if (outcome.ok) {
@@ -338,38 +355,48 @@ public final class ImagesDownloadTool implements AgentTool {
         return "下载未完成（批次时间已到，可换链接或减小 items 后重试）";
     }
 
-    private static List<DownloadItem> parseItems(JsonNode itemsNode) {
+    private static List<DownloadItem> parseItems(JsonNode itemsNode, FileDownloadExpect defaultExpect) {
         List<DownloadItem> out = new ArrayList<>();
         int index = 0;
         for (JsonNode node : itemsNode) {
             index++;
             String url = node.path("url").asText("").trim();
             String path = node.path("path").asText("").trim();
-            out.add(new DownloadItem(index, url, path));
+            String expectRaw = node.path("expect").asText("").trim();
+            FileDownloadExpect expect = expectRaw.isEmpty() ? defaultExpect : FileDownloadExpect.parse(expectRaw);
+            out.add(new DownloadItem(index, url, path, expect));
         }
         return out;
+    }
+
+    private static FileDownloadExpect parseExpect(String raw) {
+        try {
+            return FileDownloadExpect.parse(raw == null || raw.isBlank() ? "auto" : raw);
+        } catch (IllegalArgumentException e) {
+            return FileDownloadExpect.AUTO;
+        }
     }
 
     private ItemOutcome downloadOne(DownloadItem item, String dir, String namePrefix, int maxMb) {
         String blocked = ImageSearchUrlPolicy.blockedReason(item.url);
         if (blocked != null) {
-            return ItemOutcome.failure(item.index, item.url, blocked);
+            return ItemOutcome.failure(item.index, item.url, blocked, List.of());
         }
         long maxBytes = (long) maxMb * 1024 * 1024;
         final URI uri;
         try {
             uri = PublicHttpUrl.parse(item.url);
             if (requireHttps && !"https".equalsIgnoreCase(uri.getScheme())) {
-                throw new IllegalArgumentException("images_download 只支持 https 图片地址");
+                throw new IllegalArgumentException("files_download 只支持 https 地址");
             }
             PublicHttpUrl.checkPublic(uri, allowLoopback);
         } catch (IllegalArgumentException e) {
-            return ItemOutcome.failure(item.index, item.url, e.getMessage());
+            return ItemOutcome.failure(item.index, item.url, e.getMessage(), List.of());
         }
 
         okhttp3.HttpUrl target = okhttp3.HttpUrl.get(uri);
         if (target == null) {
-            return ItemOutcome.failure(item.index, item.url, "url 无法解析");
+            return ItemOutcome.failure(item.index, item.url, "url 无法解析", List.of());
         }
         Request request = new Request.Builder()
             .url(target)
@@ -378,18 +405,19 @@ public final class ImagesDownloadTool implements AgentTool {
             .build();
         try (Response response = http.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-                return ItemOutcome.failure(item.index, item.url, "下载失败 HTTP " + response.code());
+                return ItemOutcome.failure(item.index, item.url, "下载失败 HTTP " + response.code(), List.of());
             }
             ResponseBody body = response.body();
             if (body == null) {
-                return ItemOutcome.failure(item.index, item.url, "下载响应为空");
+                return ItemOutcome.failure(item.index, item.url, "下载响应为空", List.of());
             }
             long declared = body.contentLength();
             if (declared > maxBytes) {
                 return ItemOutcome.failure(
                     item.index,
                     item.url,
-                    "图片超过大小上限 " + maxMb + "MB（声明 " + declared + " 字节）"
+                    "文件超过大小上限 " + maxMb + "MB（声明 " + declared + " 字节）",
+                    List.of()
                 );
             }
             byte[] bytes;
@@ -397,12 +425,14 @@ public final class ImagesDownloadTool implements AgentTool {
                 bytes = readCapped(in, maxBytes);
             }
             if (bytes == null) {
-                return ItemOutcome.failure(item.index, item.url, "图片超过大小上限 " + maxMb + "MB");
+                return ItemOutcome.failure(item.index, item.url, "文件超过大小上限 " + maxMb + "MB", List.of());
             }
-            String type = sniffType(bytes);
-            if (type == null) {
-                return ItemOutcome.failure(item.index, item.url, "不是支持的图片（png/jpg/gif/webp/svg）");
+            FileDownloadValidation.Result validation = FileDownloadValidation.validate(bytes, item.expect);
+            List<FileDownloadValidation.Check> checks = validation.checks();
+            if (!validation.ok()) {
+                return ItemOutcome.failure(item.index, item.url, validation.error(), checks);
             }
+            String type = validation.fileExtension();
             String relative = item.explicitPath.isEmpty()
                 ? buildDefaultPath(dir, namePrefix, item.index, type)
                 : ensureExtension(item.explicitPath, type);
@@ -413,15 +443,29 @@ public final class ImagesDownloadTool implements AgentTool {
             }
             Files.write(dest, bytes);
             String display = sandbox.displayPath(dest);
-            int[] wh = ImageRasterDimensions.tryRead(bytes, type);
-            int width = wh == null ? 0 : wh[0];
-            int height = wh == null ? 0 : wh[1];
-            return ItemOutcome.success(item.index, item.url, display, bytes.length, type, width, height);
+            int width = 0;
+            int height = 0;
+            if (sniffImageType(bytes) != null) {
+                int[] wh = ImageRasterDimensions.tryRead(bytes, type);
+                width = wh == null ? 0 : wh[0];
+                height = wh == null ? 0 : wh[1];
+            }
+            return ItemOutcome.success(
+                item.index,
+                item.url,
+                display,
+                bytes.length,
+                type,
+                validation.detected(),
+                width,
+                height,
+                checks
+            );
         } catch (IOException | SecurityException e) {
             String message = e.getMessage() == null || e.getMessage().isBlank()
                 ? "下载失败"
                 : e.getMessage();
-            return ItemOutcome.failure(item.index, item.url, message);
+            return ItemOutcome.failure(item.index, item.url, message, List.of());
         }
     }
 
@@ -460,7 +504,7 @@ public final class ImagesDownloadTool implements AgentTool {
         return p + "." + type;
     }
 
-    record DownloadItem(int index, String url, String explicitPath) {
+    record DownloadItem(int index, String url, String explicitPath, FileDownloadExpect expect) {
     }
 
     static final class ItemOutcome {
@@ -470,9 +514,11 @@ public final class ImagesDownloadTool implements AgentTool {
         final String path;
         final long byteLength;
         final String type;
+        final String detected;
         final int width;
         final int height;
         final String error;
+        final List<FileDownloadValidation.Check> checks;
 
         private ItemOutcome(
             boolean ok,
@@ -481,9 +527,11 @@ public final class ImagesDownloadTool implements AgentTool {
             String path,
             long byteLength,
             String type,
+            String detected,
             int width,
             int height,
-            String error
+            String error,
+            List<FileDownloadValidation.Check> checks
         ) {
             this.ok = ok;
             this.index = index;
@@ -491,9 +539,11 @@ public final class ImagesDownloadTool implements AgentTool {
             this.path = path;
             this.byteLength = byteLength;
             this.type = type;
+            this.detected = detected;
             this.width = width;
             this.height = height;
             this.error = error;
+            this.checks = checks == null ? List.of() : checks;
         }
 
         static ItemOutcome success(
@@ -502,14 +552,21 @@ public final class ImagesDownloadTool implements AgentTool {
             String path,
             long byteLength,
             String type,
+            String detected,
             int width,
-            int height
+            int height,
+            List<FileDownloadValidation.Check> checks
         ) {
-            return new ItemOutcome(true, index, source, path, byteLength, type, width, height, null);
+            return new ItemOutcome(true, index, source, path, byteLength, type, detected, width, height, null, checks);
         }
 
-        static ItemOutcome failure(int index, String source, String error) {
-            return new ItemOutcome(false, index, source, "", 0, "", 0, 0, error);
+        static ItemOutcome failure(
+            int index,
+            String source,
+            String error,
+            List<FileDownloadValidation.Check> checks
+        ) {
+            return new ItemOutcome(false, index, source, "", 0, "", "", 0, 0, error, checks);
         }
 
         ObjectNode toJson() {
@@ -517,10 +574,22 @@ public final class ImagesDownloadTool implements AgentTool {
             node.put("ok", ok);
             node.put("index", index);
             node.put("source", source);
+            ArrayNode checkNodes = MAPPER.createArrayNode();
+            for (FileDownloadValidation.Check check : checks) {
+                ObjectNode row = MAPPER.createObjectNode();
+                row.put("id", check.id());
+                row.put("ok", check.ok());
+                if (check.detail() != null && !check.detail().isBlank()) {
+                    row.put("detail", check.detail());
+                }
+                checkNodes.add(row);
+            }
+            node.set("checks", checkNodes);
             if (ok) {
                 node.put("path", path);
                 node.put("size", formatByteSize(byteLength));
                 node.put("type", type);
+                node.put("detected", detected);
                 if (width > 0 && height > 0) {
                     node.put("width", width);
                     node.put("height", height);
@@ -529,6 +598,7 @@ public final class ImagesDownloadTool implements AgentTool {
                 node.put("path", "");
                 node.put("size", "0 B");
                 node.put("type", "");
+                node.put("detected", "");
                 node.put("error", error == null ? "下载失败" : error);
             }
             return node;
@@ -571,7 +641,7 @@ public final class ImagesDownloadTool implements AgentTool {
         return String.format(Locale.ROOT, "%.2f MB", bytes / (1024.0 * 1024.0));
     }
 
-    static String sniffType(byte[] b) {
+    static String sniffImageType(byte[] b) {
         if (b.length >= 8
             && (b[0] & 0xff) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G') {
             return "png";

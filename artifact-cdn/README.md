@@ -54,14 +54,25 @@ node pack.mjs \
 
 ## WebView 库清单
 
-浏览器 JS/CSS 库卡片不随 App 预置，走云端清单，和微智包同一台服务器。真源是 `web-libs/cards.jsonl`：每行一张 `kind=web_lib` 卡，`id` 以 `web_lib.` 开头，`entry` 里必须带 `https://` 的稳定 CDN 地址（库文件本身在 jsdelivr 等公共 CDN，这里不打 zip）。
+浏览器 JS/CSS 库卡片不随 App 预置，走云端清单，和微智包同一台服务器。
+
+- **真源**：`web-libs/cards.jsonl`（每行 `lib_url` + `template` 文件名，不含内嵌 HTML）
+- **薄壳 HTML 真源**：`artifact-cdn/web-libs/templates/*.html`（不进 jar/APK），pack 复制到 `dist/web-libs/templates/` 并上传
+- **库脚本**：仍在 jsdelivr 等公共 CDN（`lib_url`），不打 zip
 
 ```bash
 cd artifact-cdn
-node pack-web-libs.mjs
+node pack-web-libs.mjs --base-url "${ARTIFACT_CDN_BASE_URL:-https://agentone.guoyoutech.cn/}"
 ```
 
-输出 `dist/web-libs/registry/stable.json`，由 `upload.sh` 一并上传。core 侧 `WebLibRegistrySync` 默认读 `https://agentone.guoyoutech.cn/web-libs/registry/stable.json`，失败时保留手机上已有的卡片。
+输出：
+
+| 路径 | 内容 |
+|------|------|
+| `dist/web-libs/registry/stable.json` | `find_caps` 卡片；`entry` 为两行：`URL`（库）、`壳`（官方 HTML URL，运行时 GET） |
+| `dist/web-libs/templates/*.html` | 可热更的薄壳静态文件 |
+
+由 `upload.sh` 上传模板与清单。core 侧 `WebLibRegistrySync` 默认读 `https://agentone.guoyoutech.cn/web-libs/registry/stable.json`，失败时保留已有卡片。薄壳**仅**从 `壳` URL 拉取，客户端不预置 HTML 模板。
 
 ## 校验下载
 

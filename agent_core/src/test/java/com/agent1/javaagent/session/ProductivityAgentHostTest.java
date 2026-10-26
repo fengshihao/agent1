@@ -207,7 +207,7 @@ class ProductivityAgentHostTest {
             assertFalse(toolNames.get().contains("media_resize"));
             assertFalse(toolNames.get().contains("media_probe"));
             assertFalse(toolNames.get().contains("media_extract_frame"));
-            assertTrue(toolNames.get().contains("images_download"));
+            assertTrue(toolNames.get().contains("files_download"));
             assertFalse(toolNames.get().contains("image_search"));
             assertFalse(toolNames.get().contains("web_search"));
             assertFalse(host.runtime().getStateSnapshot().getSystemPrompt().contains("web_search"));
@@ -231,7 +231,7 @@ class ProductivityAgentHostTest {
             host.runUserMessage("ping");
             assertTrue(toolNames.get().contains("web_search"));
             assertTrue(toolNames.get().contains("image_search"));
-            assertTrue(toolNames.get().contains("images_download"));
+            assertTrue(toolNames.get().contains("files_download"));
             assertTrue(host.runtime().getStateSnapshot().getSystemPrompt().contains("web_search"));
         }
     }

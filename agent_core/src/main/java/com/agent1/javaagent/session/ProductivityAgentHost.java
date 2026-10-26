@@ -32,7 +32,7 @@ import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ChatHistoryTool;
 import com.agent1.javaagent.tool.workspace.EditFileTool;
 import com.agent1.javaagent.tool.workspace.ListDirTool;
-import com.agent1.javaagent.tool.web.ImagesDownloadTool;
+import com.agent1.javaagent.tool.web.FilesDownloadTool;
 import com.agent1.javaagent.tool.web.ImageSearchTool;
 import com.agent1.javaagent.tool.web.ReadUrlTool;
 import com.agent1.javaagent.tool.workspace.ReadFileTool;
@@ -746,7 +746,7 @@ public final class ProductivityAgentHost implements Closeable {
                 runtimeConfig.getWebSearchBaseUrl()
             ));
         }
-        tools.add(new ImagesDownloadTool(sandbox));
+        tools.add(new FilesDownloadTool(sandbox));
         if (extraTools != null) {
             List<AgentTool> extra = extraTools.toolsFor(sandbox);
             if (extra != null && !extra.isEmpty()) {

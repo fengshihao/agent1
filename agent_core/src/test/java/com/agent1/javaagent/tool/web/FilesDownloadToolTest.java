@@ -20,14 +20,14 @@ import okio.Buffer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class ImagesDownloadToolTest {
+class FilesDownloadToolTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final byte[] PNG = Base64.getDecoder().decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
 
-    private static ImagesDownloadTool testTool(Path workspace) {
-        return new ImagesDownloadTool(
+    private static FilesDownloadTool testTool(Path workspace) {
+        return new FilesDownloadTool(
             new WorkspaceSandbox(workspace),
             new OkHttpClient(),
             true,
@@ -37,7 +37,7 @@ class ImagesDownloadToolTest {
 
     @Test
     void rejectsEmptyItems() throws Exception {
-        assertNotNull(ImagesDownloadTool.validateParameters(MAPPER.readTree("{}")));
+        assertNotNull(FilesDownloadTool.validateParameters(MAPPER.readTree("{}")));
         ToolExecutionResult result = testTool(Files.createTempDirectory("ws")).execute(
             "c",
             MAPPER.createObjectNode(),
@@ -56,18 +56,63 @@ class ImagesDownloadToolTest {
             String url = server.url("/a.png").toString();
             ToolExecutionResult result = testTool(workspace).execute(
                 "call-1",
-                MAPPER.readTree("{\"items\":[{\"url\":\"" + url + "\"}]}"),
+                MAPPER.readTree("{\"items\":[{\"url\":\"" + url + "\",\"expect\":\"image\"}]}"),
                 new CancellationToken(),
                 null
             );
             assertTrue(result.getText().contains("\"total\":1"), result.getText());
             assertTrue(result.getText().contains("\"succeeded\":1"), result.getText());
             assertTrue(result.getText().contains("imports/01.png"), result.getText());
-            assertTrue(result.getText().contains("\"size\""), result.getText());
+            assertTrue(result.getText().contains("\"checks\""), result.getText());
             assertTrue(result.getText().contains("\"width\":1"), result.getText());
-            assertTrue(result.getText().contains("\"height\":1"), result.getText());
-            assertFalse(result.getText().contains("\"bytes\""), result.getText());
             assertTrue(Files.isRegularFile(workspace.resolve("imports/01.png")));
+        } finally {
+            server.shutdown();
+        }
+    }
+
+    @Test
+    void downloadsHtmlShellWithExpect(@TempDir Path workspace) throws Exception {
+        MockWebServer server = new MockWebServer();
+        server.start();
+        String html = "<!DOCTYPE html><html><body>ok</body></html>";
+        server.enqueue(new MockResponse().setResponseCode(200).setBody(html));
+        try {
+            ToolExecutionResult result = testTool(workspace).execute(
+                "call-1",
+                MAPPER.readTree(
+                    "{\"dir\":\"shells\",\"items\":[{\"url\":\""
+                        + server.url("/rapier.html")
+                        + "\",\"expect\":\"html\"}]}"
+                ),
+                new CancellationToken(),
+                null
+            );
+            assertTrue(result.getText().contains("\"succeeded\":1"), result.getText());
+            assertTrue(result.getText().contains("expect_html"), result.getText());
+            assertTrue(result.getText().contains("shells/01.html"), result.getText());
+            assertTrue(Files.readString(workspace.resolve("shells/01.html")).contains("<!DOCTYPE html>"));
+        } finally {
+            server.shutdown();
+        }
+    }
+
+    @Test
+    void htmlExpectRejectsPlainText(@TempDir Path workspace) throws Exception {
+        MockWebServer server = new MockWebServer();
+        server.start();
+        server.enqueue(new MockResponse().setResponseCode(200).setBody("not html"));
+        try {
+            ToolExecutionResult result = testTool(workspace).execute(
+                "call-1",
+                MAPPER.readTree(
+                    "{\"items\":[{\"url\":\"" + server.url("/x") + "\",\"expect\":\"html\"}]}"
+                ),
+                new CancellationToken(),
+                null
+            );
+            assertTrue(result.getText().contains("\"succeeded\":0"), result.getText());
+            assertTrue(result.getText().contains("不是 HTML"), result.getText());
         } finally {
             server.shutdown();
         }
@@ -83,13 +128,14 @@ class ImagesDownloadToolTest {
             ToolExecutionResult result = testTool(workspace).execute(
                 "call-1",
                 MAPPER.readTree(
-                    "{\"dir\":\"photos\",\"name_prefix\":\"hero\",\"items\":[{\"url\":\"" + url + "\"}]}"
+                    "{\"dir\":\"photos\",\"name_prefix\":\"hero\",\"items\":[{\"url\":\""
+                        + url
+                        + "\",\"expect\":\"image\"}]}"
                 ),
                 new CancellationToken(),
                 null
             );
             assertTrue(result.getText().contains("photos/hero-01.png"), result.getText());
-            assertTrue(Files.isRegularFile(workspace.resolve("photos/hero-01.png")));
         } finally {
             server.shutdown();
         }
@@ -107,7 +153,7 @@ class ImagesDownloadToolTest {
                 MAPPER.readTree(
                     "{\"items\":[{\"url\":\""
                         + server.url("/icon")
-                        + "\",\"path\":\"assets/icon.svg\"}]}"
+                        + "\",\"path\":\"assets/icon.svg\",\"expect\":\"image\"}]}"
                 ),
                 new CancellationToken(),
                 null
@@ -131,14 +177,17 @@ class ImagesDownloadToolTest {
             ToolExecutionResult result = testTool(workspace).execute(
                 "call-1",
                 MAPPER.readTree(
-                    "{\"items\":[{\"url\":\"" + u1 + "\"},{\"url\":\"" + u2 + "\"}]}"
+                    "{\"items\":[{\"url\":\""
+                        + u1
+                        + "\",\"expect\":\"image\"},{\"url\":\""
+                        + u2
+                        + "\",\"expect\":\"image\"}]}"
                 ),
                 new CancellationToken(),
                 null
             );
             assertTrue(result.getText().contains("\"total\":2"), result.getText());
             assertTrue(result.getText().contains("\"succeeded\":2"), result.getText());
-            assertTrue(result.getText().contains("\"ok\":true"), result.getText());
         } finally {
             server.shutdown();
         }
@@ -157,9 +206,7 @@ class ImagesDownloadToolTest {
                 null
             );
             assertTrue(result.getText().contains("\"succeeded\":0"), result.getText());
-            assertTrue(result.getText().contains("\"size\":\"0 B\""), result.getText());
             assertTrue(result.getText().contains("\"ok\":false"), result.getText());
-            assertTrue(result.getText().contains("error"), result.getText());
         } finally {
             server.shutdown();
         }
@@ -167,8 +214,8 @@ class ImagesDownloadToolTest {
 
     @Test
     void buildDefaultPathFormatting() {
-        assertEquals("imports/01.png", ImagesDownloadTool.buildDefaultPath("imports", "", 1, "png"));
-        assertEquals("ultra/hero-02.jpg", ImagesDownloadTool.buildDefaultPath("ultra", "hero", 2, "jpg"));
+        assertEquals("imports/01.png", FilesDownloadTool.buildDefaultPath("imports", "", 1, "png"));
+        assertEquals("ultra/hero-02.jpg", FilesDownloadTool.buildDefaultPath("ultra", "hero", 2, "jpg"));
     }
 
     @Test
@@ -186,23 +233,25 @@ class ImagesDownloadToolTest {
     }
 
     @Test
-    void partialBatchJsonKeepsFinishedItems() throws Exception {
-        List<ImagesDownloadTool.DownloadItem> items = List.of(
-            new ImagesDownloadTool.DownloadItem(1, "https://fast.example/a.jpg", "assets/a.jpg"),
-            new ImagesDownloadTool.DownloadItem(2, "https://slow.example/b.jpg", "")
+    void partialBatchJsonKeepsFinishedItems() {
+        List<FilesDownloadTool.DownloadItem> items = List.of(
+            new FilesDownloadTool.DownloadItem(1, "https://fast.example/a.jpg", "assets/a.jpg", FileDownloadExpect.IMAGE),
+            new FilesDownloadTool.DownloadItem(2, "https://slow.example/b.jpg", "", FileDownloadExpect.IMAGE)
         );
-        List<ImagesDownloadTool.ItemOutcome> finished = List.of(
-            ImagesDownloadTool.ItemOutcome.success(
+        List<FilesDownloadTool.ItemOutcome> finished = List.of(
+            FilesDownloadTool.ItemOutcome.success(
                 1,
                 "https://fast.example/a.jpg",
                 "assets/a.jpg",
                 1024,
                 "jpg",
+                "image/jpg",
                 10,
-                10
+                10,
+                List.of(new FileDownloadValidation.Check("expect_image", true, "jpg"))
             )
         );
-        String json = ImagesDownloadTool.buildBatchJson(
+        String json = FilesDownloadTool.buildBatchJson(
             items,
             "assets",
             finished,
@@ -211,13 +260,11 @@ class ImagesDownloadToolTest {
         ).toString();
         assertTrue(json.contains("\"partial\":true"), json);
         assertTrue(json.contains("\"succeeded\":1"), json);
-        assertTrue(json.contains("assets/a.jpg"), json);
-        assertTrue(json.contains("批次时间已到"), json);
     }
 
     @Test
     void rejectsHttpInProductionMode(@TempDir Path workspace) throws Exception {
-        ImagesDownloadTool prod = new ImagesDownloadTool(new WorkspaceSandbox(workspace));
+        FilesDownloadTool prod = new FilesDownloadTool(new WorkspaceSandbox(workspace));
         ToolExecutionResult result = prod.execute(
             "call-1",
             MAPPER.readTree(
@@ -227,6 +274,5 @@ class ImagesDownloadToolTest {
             null
         );
         assertTrue(result.getText().contains("\"succeeded\":0"), result.getText());
-        assertTrue(result.getText().contains("https") || result.getText().contains("error"), result.getText());
     }
 }

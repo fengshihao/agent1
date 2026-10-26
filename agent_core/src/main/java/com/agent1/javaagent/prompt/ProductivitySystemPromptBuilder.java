@@ -51,7 +51,7 @@ public final class ProductivitySystemPromptBuilder {
 
     /** 仅 scriptHostTools（Weizhi $tools 桥）时追加到工作流程段；细则在 run_js 工具说明。 */
     static final String WEBVIEW_FROM_SCRIPT = """
-        浏览器、批量下载图片等宿主能力放进同一段脚本：await $tools.webview_exec({...})、$tools.images_download({...}) 回执已是对象，不要 JSON.parse 或 JSON.stringify，也不要在外层单独调 webview_exec。
+        浏览器、批量下载文件等宿主能力放进同一段脚本：await $tools.webview_exec({...})、$tools.files_download({...}) 回执已是对象，不要 JSON.parse 或 JSON.stringify，也不要在外层单独调 webview_exec。
         """.trim();
 
     static final String TOOLS_DIRECT = """

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<style>body{margin:0;overflow:hidden;background:#0a0a12}</style>
+</head>
+<body>
+<script type='importmap'>
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","@dimforge/rapier3d-compat":"https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs"}}
+</script>
+<script type='module'>
+import * as THREE from 'three';
+import RAPIER from '@dimforge/rapier3d-compat';
+
+await RAPIER.init();
+const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+
+const W = 480, H = 320;
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(W, H);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a18);
+const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 100);
+camera.position.set(4, 3.5, 7);
+camera.lookAt(0, 0.5, 0);
+
+scene.add(new THREE.AmbientLight(0x606080, 0.5));
+const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+sun.position.set(6, 10, 4);
+scene.add(sun);
+
+world.createCollider(RAPIER.ColliderDesc.cuboid(5, 0.1, 5));
+const floor = new THREE.Mesh(
+  new THREE.BoxGeometry(10, 0.2, 10),
+  new THREE.MeshStandardMaterial({ color: 0x2a3a4a })
+);
+floor.position.y = -0.1;
+scene.add(floor);
+
+const pairs = [];
+function spawnBox(x, y, z) {
+  const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z));
+  world.createCollider(RAPIER.ColliderDesc.cuboid(0.25, 0.25, 0.25), body);
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.5, 0.5),
+    new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff })
+  );
+  scene.add(mesh);
+  pairs.push({ body, mesh });
+}
+spawnBox(0, 2.5, 0);
+spawnBox(-0.6, 4, 0.2);
+spawnBox(0.5, 5.5, -0.3);
+
+function tick() {
+  requestAnimationFrame(tick);
+  world.step();
+  for (const { body, mesh } of pairs) {
+    const t = body.translation();
+    const r = body.rotation();
+    mesh.position.set(t.x, t.y, t.z);
+    mesh.quaternion.set(r.x, r.y, r.z, r.w);
+  }
+  renderer.render(scene, camera);
+}
+tick();
+</script>
+</body>
+</html>

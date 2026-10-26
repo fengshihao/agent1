@@ -34,9 +34,8 @@ class AgentHomeBootstrapTest {
         assertEquals(65_536, manifest.path("coach").path("triggers").path("fileLargeWriteBytes").asInt());
         assertFalse(Files.isRegularFile(root.resolve("docs/system/office-docx.md")));
         assertFalse(Files.isRegularFile(root.resolve("docs/system/svg-raster.md")));
-        assertTrue(Files.isRegularFile(root.resolve("shared/catalog/templates/three.html")));
-        assertTrue(Files.readString(root.resolve("shared/catalog/templates/three.html")).contains("three.module.js"));
-        assertTrue(Files.isRegularFile(root.resolve("shared/catalog/templates/markmap.html")));
+        assertTrue(Files.isDirectory(root.resolve("shared/catalog/templates")));
+        assertFalse(Files.isRegularFile(root.resolve("shared/catalog/templates/three.html")));
     }
 
     @Test
