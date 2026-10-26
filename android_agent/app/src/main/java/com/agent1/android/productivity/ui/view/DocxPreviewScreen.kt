@@ -55,7 +55,6 @@ import com.agent1.android.productivity.logic.business.DocxPreviewAssets
 import com.agent1.android.productivity.logic.business.ProductivityToolCapabilities
 import com.agent1.android.productivity.logic.business.DocxPreviewDocxOps
 import com.agent1.android.productivity.logic.business.DocxPreviewFileReader
-import com.agent1.android.productivity.logic.business.DocxPreviewShellLoader
 import com.agent1.android.llm.AppFileLog
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.UserFacingError
@@ -340,19 +339,8 @@ fun DocxPreviewScreen(
                 val view = webView ?: return@LaunchedEffect
                 rendering = true
                 loadError = null
-                val html = withContext(Dispatchers.IO) {
-                    DocxPreviewShellLoader.loadHtml(appContext)
-                        ?: DocxPreviewShellLoader.fetchHtml(state.shellUrl)
-                }
-                if (html.isNullOrBlank()) {
-                    loadError = "无法加载预览页（网络或 CDN）"
-                    rendering = false
-                    AppFileLog.i("DocxPreview", "shell fetch failed url=${state.shellUrl}")
-                    return@LaunchedEffect
-                }
-                val base = DocxPreviewShellLoader.BASE_URL
-                AppFileLog.i("DocxPreview", "loadDataWithBaseURL base=$base bytes=${html.length}")
-                view.loadDataWithBaseURL(base, html, "text/html", "UTF-8", null)
+                AppFileLog.i("DocxPreview", "loadUrl ${state.shellUrl}")
+                view.loadUrl(state.shellUrl)
             }
             Box(Modifier.fillMaxSize().padding(innerPadding)) {
                 AndroidView(

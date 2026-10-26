@@ -21,6 +21,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 # shellcheck source=proxy-env.sh
 source "${REPO_ROOT}/scripts/proxy-env.sh"
+# shellcheck source=ensure-agent1-java.sh
+source "${REPO_ROOT}/scripts/ensure-agent1-java.sh"
+ensure_agent1_java || true
 cd "${REPO_ROOT}"
 
 MODE="${1:-fast}"

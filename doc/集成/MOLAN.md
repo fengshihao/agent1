@@ -29,20 +29,19 @@ http://127.0.0.1:5517/?file=/doc/<文件名>
 
 官方 Skill **`md-preview`**（[agent1-skills](https://github.com/fengshihao/agent1-skills) `skills-src/md-preview/`）封装了这套用法，agent 通过 `load_skill(md-preview)` + `run_bash` 自主预览。内置副本经 `./scripts/sync-skills-bundled.sh` 同步到 `agent_core/.../skills-bundled/md-preview/`。
 
-## Android：embed 壳（APK）+ guoyoutech CDN + MolanHost 注入
+## Android：embed 壳 + guoyoutech CDN + MolanHost 注入
 
-与 docx 预览同轨（`artifact-cdn/host-web`）。Android **不打包** vditor 大库（约 8.8MB），运行时从 `agentone.guoyoutech.cn` 拉取；壳 HTML 烘焙在 APK 内。
+与 docx 预览同轨（`artifact-cdn/host-web`）。Android **不打包** vditor 大库（约 8.8MB）也 **不打包** 壳 HTML；首装需联网。
 
-- **CDN 目录**：`host-web/molan-embed/1/`（`molan.css`、`molan-app.js`、`vendor/vditor`、embed 样式与桥）
+- **CDN 目录**：`host-web/molan-embed/1/`（`shell.html`、`molan.css`、`molan-app.js`、`vendor/vditor`、embed 样式与桥）
 - **打包**：`cd artifact-cdn && npm run pack-host-web`（含 `pack-molan-embed.mjs`，需同级 `molan` 仓 `apps/studio` 与 vendor）
-- **壳**：`android_agent/app/src/main/assets/molan-md-shell.html`（由打包脚本写入，URL 已 baked）
-- **清单**：`host-web/registry/stable.json` 增加 `md_preview.shell`；`HostWebRegistrySync.mdPreviewUrls` 可热更新 shell 地址
-- **加载**：`loadDataWithBaseURL(base=…/molan-embed/1/)`；首屏 `agent1-boot` 隐藏布局，正文渲染后 `Agent1Molan.onContentReady()`
+- **清单**：`host-web/registry/stable.json` 的 `md_preview.shell`；`HostWebRegistrySync.mdPreviewUrls` 可热更新地址
+- **加载**：`WebView.loadUrl(md_preview.shell)`；首屏 `agent1-boot` 隐藏布局，正文渲染后 `Agent1Molan.onContentReady()`
 - **数据**：`MolanPreviewFileReader` → `Agent1Molan.readMdJson()` → `MolanHost.openText`；磁盘变更 `__agent1MolanRenderFromBridge()`（`force` 覆盖）
 - **molan 侧**：`apps/studio/molan-app.js` 支持 `data-agent1-embed="1"` / Agent1 桥；勿再指向 GitHub `try/` 整页 studio
 - **入口**：`preview/{sessionId}/{path}` 路由新增 `.md` / `.markdown` 分支（`WorkspaceFileActions.isMdPreviewableInApp`）；聊天气泡与产物库的「应用内打开」自动生效
 - **分层**：WebView/壳在 `ui.view`，读取在 `logic.business`，解析在 `ui.viewmodel`（android-layering 规则）
-- **不采用** `file://` 域：`fetch`/`localStorage`/Service Worker 在 file 域受限或需开启有安全争议的 universal access 开关；壳 + `loadDataWithBaseURL` 即可全部规避
+- **不采用** `file://` 域：壳走 https 同源 CDN，`MolanHost` 经 `@JavascriptInterface` 读 workspace 文件
 - 备选：文档若已发布为 URL，线上页 `?file=<路径>` 参数可直达（fetch 同源路径）
 
 ## 边界

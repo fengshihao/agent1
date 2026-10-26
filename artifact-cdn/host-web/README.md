@@ -1,21 +1,34 @@
 # host-web
 
-宿主 WebView 静态资源（`agentone.guoyoutech.cn`），与 `web_lib`（Agent 写 HTML 用公共 CDN）分轨。
+宿主 WebView 静态资源（`agentone.guoyoutech.cn`），与 `web_lib`（Agent 写 HTML 用公共 CDN）分轨。**Android APK 不内置**预览壳；宿主通过 `host-web/registry/stable.json` 拿 URL，`WebView.loadUrl` 加载。
+
+> `webview_exec` 无头沙箱引导页（`weizhi-web`）**不走 CDN**：协议与 weizhi 版本绑定、体积小、要求离线可用，随 APK assets 分发（`android_agent/app/src/weizhi/assets/weizhi-web/`）。
 
 ## 发布流程
 
-1. **`manifest.source.json`** — 维护 `shell` + vendor 的 **绝对 URL**（仅给打包脚本用）。
-2. **`pack-host-web.mjs`** — 复制 vendor 到 `dist/host-web/vendor/`，把 `__JSZIP_URL__` / `__DOCX_PREVIEW_URL__` 替换进 `shell.html` 后写入 `dist`。
-3. **`registry/stable.json`** — 只含 `docx_preview.shell`；**不再**向客户端暴露 jszip/docx-preview URL（已 baked 进 shell）。
+1. **`manifest.source.json`** — 维护各壳的 **绝对 URL**（仅给打包脚本用；含 vendor URL 供 docx shell 烘焙）。
+2. **`pack-host-web.mjs`** — vendor、`docx-preview` shell、`registry/stable.json`。
+3. **`pack-molan-embed.mjs`**（`npm run pack-host-web` 第二步）— `molan-embed/1/` 运行时 + 烘焙 `shell.html`。
 
-Android 仅 `WebView.loadUrl(shell)`，不在 Kotlin 里拼 HTML。
+`registry/stable.json` 字段：
 
-**服务器缓存策略**（nginx `/etc/nginx/conf.d/agentone.conf`）：`/host-web/` 版本目录整体 `public, max-age=2592000, immutable`（30 天），`/host-web/registry/` 嵌套 override 保持 `no-cache`；`gzip_types` 含 JS/CSS/SVG（vditor vendor 压缩率 ~85%，不压缩手机要下 20s+）。shell 内容更新时 bump registry 里的 `?v=`。
+| 字段 | 用途 |
+|------|------|
+| `docx_preview.shell` | Word 预览 WebView |
+| `md_preview.shell` | 墨览 Markdown 预览 |
 
-**墨览 Markdown embed**（`molan-embed/1/`）：从 `MOLAN_REPO`（默认 `../../molan`）复制 studio 运行时 + vditor vendor，烘焙 `molan-md-shell.html` 到 Android assets。发布前需将 `dist/host-web/molan-embed/` 与更新后的 `registry/stable.json` 一并 `upload.sh`。
+jszip / docx-preview **不**进 registry（已 bake 进 docx shell）。
+
+**Android 加载**
+
+- docx / md 预览：`loadUrl(registry 里的 shell URL)`；`HostWebRegistrySync` 后台刷新 registry。
+- `webview_exec`：`BootstrapAssets` 读 APK assets（不经网络）。
+
+**服务器缓存策略**（nginx）：`/host-web/` 版本目录 `immutable`（30 天），`/host-web/registry/` `no-cache`；改壳时 bump URL 的 `?v=`。
 
 ```bash
 cd artifact-cdn && npm run pack-host-web
+./upload.sh
 ```
 
-见 [README.md](../README.md) 中「宿主 Web 静态资源」一节。
+见 [README.md](../README.md) 与 [doc/集成/MOLAN.md](../../doc/集成/MOLAN.md)。

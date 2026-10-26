@@ -151,8 +151,19 @@ test("pack weizhi packages, fetch the projection, reject a bad digest", async ()
     assert.equal(index.schema_version, 1);
     assert.equal(index.channel, "stable");
     assert.deepEqual(
-      index.artifacts.map((item) => item.name),
-      ["docx", "docx-build", "docx-raw", "html2pptx", "pptx", "pptx-build", "svg-raster"],
+      index.artifacts.map((item) => item.name).sort(),
+      [
+        "audio",
+        "docx",
+        "docx-build",
+        "docx-raw",
+        "html2pptx",
+        "image",
+        "pptx",
+        "pptx-build",
+        "svg-raster",
+        "travel-itinerary",
+      ].sort(),
     );
     assert.ok(index.artifacts.every((item) => item.kind === "weizhi_package"));
     assert.equal(JSON.stringify(projection).includes('"kind"'), false);

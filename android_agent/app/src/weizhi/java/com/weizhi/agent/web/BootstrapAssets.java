@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * SR15 P1:assets 引导页装配——读 weizhi-web/bootstrap.html 与 weizhi-web/bridge.js,
  * 把 bridge 脚本注入 html 占位符后缓存(仅首次 IO,bootstrap 页内容进程内不变)。
+ * 真源随 weizhi 集成在 APK assets，不走 CDN。
  */
 public final class BootstrapAssets {
 
