@@ -29,25 +29,19 @@ http://127.0.0.1:5517/?file=/doc/<文件名>
 
 官方 Skill **`md-preview`**（[agent1-skills](https://github.com/fengshihao/agent1-skills) `skills-src/md-preview/`）封装了这套用法，agent 通过 `load_skill(md-preview)` + `run_bash` 自主预览。内置副本经 `./scripts/sync-skills-bundled.sh` 同步到 `agent_core/.../skills-bundled/md-preview/`。
 
-## Android：直接用线上 try 页（不打 APK、不起本地服务）
+## Android：壳 HTML（APK）+ 线上大库 + MolanHost 注入
 
-墨览线上版已部署：`https://fengshihao.github.io/molan/try/`。Android 侧不打包 studio assets、不依赖 Node，用 **WebView + `MolanHost` 注入接口**（molan PR feat/studio-host-inject）：
+墨览线上版已部署：`https://fengshihao.github.io/molan/try/`。Android 侧**不打包** studio 的 vditor 大库（约 8.8MB），也不依赖 Node——与 docx 壳模式一致（`assets/docx-preview-shell.html` 先例）：
 
-```kotlin
-webView.loadUrl("https://fengshihao.github.io/molan/try/")
-// 页面 ready 后（MolanHost.isReady() === true，或轮询/注入接口自带排队）：
-webView.evaluateJavascript(
-    "MolanHost.openText(${json(name)}, ${json(text)})", null
-)
-```
-
-- md 文本由 `logic.data` 从 workspace 读取；WebView 调用属于 `ui.*`（分层规则见 android-layering）
-- 未保存修改时 studio 走丢弃确认；注入是**只读副本**语义（保存为下载，不写回原文件）
-- molan 侧同窗口 `message { type: "molan:openText" }` 通道仅接受 `event.source === window`，无第三方投喂风险
-- 备选：文档若已发布为 URL，`?file=<路径>` 参数可直达（fetch 同源路径）
+- **壳**：`android_agent/app/src/main/assets/molan-md-shell.html`（几 KB，DOM + 注入桥），`<script>`/`<link>` 全部指向线上 try 页
+- **加载**：`loadDataWithBaseURL(BASE_URL=…/molan/try/)`，壳与线上同源，localStorage / IndexedDB 语义正常
+- **数据**：Kotlin 侧 `MolanPreviewFileReader`（`logic.business`）读 workspace md → 桥 `Agent1Molan.readMdJson()` → 壳 JS 调 `window.MolanHost.openText(name, text)`（molan#18）；文件变更经 `WorkspaceFileWatcher` 触发 `__agent1MolanRenderFromBridge()` 重渲染
+- **入口**：`preview/{sessionId}/{path}` 路由新增 `.md` / `.markdown` 分支（`WorkspaceFileActions.isMdPreviewableInApp`）；聊天气泡与产物库的「应用内打开」自动生效
+- **分层**：WebView/壳在 `ui.view`，读取在 `logic.business`，解析在 `ui.viewmodel`（android-layering 规则）
+- **不采用** `file://` 域：`fetch`/`localStorage`/Service Worker 在 file 域受限或需开启有安全争议的 universal access 开关；壳 + `loadDataWithBaseURL` 即可全部规避
+- 备选：文档若已发布为 URL，线上页 `?file=<路径>` 参数可直达（fetch 同源路径）
 
 ## 边界
 
-- 预览为**只读语义**：单文件模式内容载入内存，保存为下载副本，不写回原文件。
-- 仅桌面（macOS / Ubuntu）；Android 侧沿用自身文档预览能力。
-- 需要 `node >= 20`；首次 vendor 准备另需 `pnpm`。
+- 预览为**只读语义**：内容载入 WebView 内存，墨览内保存为下载副本，不写回 workspace 原文件。
+- 需要 `node >= 20`；首次 vendor 准备另需 `pnpm`（仅桌面脚本）。

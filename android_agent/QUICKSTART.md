@@ -57,7 +57,7 @@ adb install -r -d agent1-android-debug.apk
 
 `-r` 覆盖同签名包；`-d` 允许在误装过**更高** versionCode 的旧 CI 包后，再装一次稍低的 artifact（例如重跑旧 workflow）。
 
-**CI 版本号**：GitHub Actions 构建时使用 **`versionCode = 100000 + github.run_number`**（每次 workflow 单调递增）。本地 Gradle 仍用 `10000 + git 提交数`，除非你设 `VERSION_CODE`。
+**CI 版本号**：GitHub Actions 使用 **`versionCode = 100000 + max(github.run_number, git 提交数)`**（避免从旧「100000+提交数」规则切换后倒退）。本地仍为 `10000 + git 提交数`，除非你设 `VERSION_CODE`。细则见 [doc/release-signing-and-versions.md](doc/release-signing-and-versions.md)。
 
 **CI 签名**：Debug 包统一用仓库内 **`android_agent/debug.keystore`** 签名，不同 CI 任务产物可互相覆盖。若你曾在本机用 Android Studio 默认 debug 签名装过同包名，或装过旧 id `com.dynamicui.demo`，需**卸载一次**后再装 CI 包。
 

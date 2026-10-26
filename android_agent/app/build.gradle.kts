@@ -21,29 +21,32 @@ val weizhiIntegrated = weizhiAndroidRoot != null || weizhiPrebuiltBase != null
 
 val releaseSigningPropertiesFile = rootProject.file("release-signing.properties")
 
-/**
- * 单调递增的 versionCode，避免反复打 debug 包时因 versionCode 仍为 1 而无法覆盖安装。
- * 可覆盖：环境变量 VERSION_CODE / VERSION_NAME；CI 需 checkout fetch-depth: 0 以保证 git 计数正确。
- */
-fun agent1VersionCode(): Int {
-    System.getenv("VERSION_CODE")?.toIntOrNull()?.let { return it }
-    // GitHub Actions：run_number 单调递增，避免仅装 CI 包时因 shallow/回滚导致 versionCode 倒退
-    System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()?.let { run ->
-        return 100_000 + run.coerceAtLeast(1)
-    }
-    val repoRoot = rootProject.layout.projectDirectory.dir("..").asFile
-    return try {
+fun gitCommitCount(repoRoot: java.io.File): Int =
+    try {
         val proc = ProcessBuilder("git", "rev-list", "--count", "HEAD")
             .directory(repoRoot)
             .redirectErrorStream(true)
             .start()
         val text = proc.inputStream.bufferedReader().readText().trim()
         proc.waitFor()
-        val commitCount = text.toIntOrNull()?.coerceAtLeast(1) ?: 1
-        10_000 + commitCount
+        text.toIntOrNull()?.coerceAtLeast(1) ?: 1
     } catch (_: Exception) {
-        10_001
+        1
     }
+
+/**
+ * 单调递增的 versionCode，避免反复打 debug 包时因 versionCode 仍为 1 而无法覆盖安装。
+ * 可覆盖：环境变量 VERSION_CODE / VERSION_NAME；CI 需 checkout fetch-depth: 0 以保证 git 计数正确。
+ */
+fun agent1VersionCode(): Int {
+    System.getenv("VERSION_CODE")?.toIntOrNull()?.let { return it }
+    val repoRoot = rootProject.layout.projectDirectory.dir("..").asFile
+    // GitHub Actions：取 max(run_number, 提交数)，避免从「100000+提交数」切到「100000+run」后倒退
+    System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()?.let { run ->
+        val ordinal = maxOf(run.coerceAtLeast(1), gitCommitCount(repoRoot))
+        return 100_000 + ordinal
+    }
+    return 10_000 + gitCommitCount(repoRoot)
 }
 
 fun agent1VersionName(): String {
