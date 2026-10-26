@@ -5,6 +5,8 @@ marked.html
 katex.html
 water.html
 three.html
+rapier.html
+phaser.html
 echarts.html
 plotly.html
 d3.html

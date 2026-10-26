@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh}</style>
+</head>
+<body>
+<script src='https://cdn.jsdelivr.net/npm/phaser@3.87.0/dist/phaser.min.js'></script>
+<script>
+class Play extends Phaser.Scene {
+  create() {
+    this.add.rectangle(240, 160, 480, 320, 0x1a1a2e);
+    const ground = this.add.rectangle(240, 300, 460, 24, 0x3d5a80);
+    this.physics.add.existing(ground, true);
+    this.player = this.add.rectangle(80, 200, 36, 36, 0x66ccff);
+    this.physics.add.existing(this.player);
+    this.player.body.setBounce(0.15);
+    this.player.body.setCollideWorldBounds(true);
+    this.physics.add.collider(this.player, ground);
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.add.text(12, 8, '方向键移动，↑ 跳跃', { fontSize: '14px', color: '#ccc' });
+  }
+  update() {
+    const body = this.player.body;
+    if (this.cursors.left.isDown) body.setVelocityX(-200);
+    else if (this.cursors.right.isDown) body.setVelocityX(200);
+    else body.setVelocityX(0);
+    if (this.cursors.up.isDown && body.touching.down) body.setVelocityY(-320);
+  }
+}
+new Phaser.Game({
+  type: Phaser.AUTO,
+  width: 480,
+  height: 320,
+  physics: { default: 'arcade', arcade: { gravity: { y: 500 } } },
+  scene: Play,
+});
+</script>
+</body>
+</html>
