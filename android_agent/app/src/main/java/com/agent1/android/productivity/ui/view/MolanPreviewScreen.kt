@@ -39,13 +39,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.agent1.android.llm.AppFileLog
 import com.agent1.android.productivity.logic.business.MolanPreviewFileReader
-import com.agent1.android.productivity.logic.business.MolanPreviewShellLoader
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.WorkspaceFileWatcher
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.MolanPreviewViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.json.JSONTokener
 
@@ -226,22 +223,8 @@ fun MolanPreviewScreen(
                     lastShellLoadKey = loadKey
                     rendering = true
                     loadError = null
-                    val html = withContext(Dispatchers.IO) {
-                        MolanPreviewShellLoader.loadHtml(appContext)
-                            ?: MolanPreviewShellLoader.fetchHtml(state.shellUrl)
-                    }
-                    if (html.isNullOrBlank()) {
-                        loadError = "无法加载墨览预览页（网络或 CDN）"
-                        rendering = false
-                        AppFileLog.i("MolanPreview", "shell fetch failed url=${state.shellUrl}")
-                        return@LaunchedEffect
-                    }
-                    val base = MolanPreviewShellLoader.baseUrlFor(state.shellUrl)
-                    AppFileLog.i(
-                        "MolanPreview",
-                        "loadDataWithBaseURL base=$base bytes=${html.length} file=${file.name}",
-                    )
-                    view.loadDataWithBaseURL(base, html, "text/html", "UTF-8", null)
+                    AppFileLog.i("MolanPreview", "loadUrl ${state.shellUrl} file=${file.name}")
+                    view.loadUrl(state.shellUrl)
                 }
                 Box(Modifier.fillMaxSize().padding(innerPadding)) {
                     AndroidView(
