@@ -7,6 +7,9 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "${REPO_ROOT}"
+# shellcheck source=scripts/ensure-agent1-java.sh
+source "${REPO_ROOT}/scripts/ensure-agent1-java.sh"
+ensure_agent1_java || true
 
 GRADLE=(./java_agent/gradlew --no-daemon -p java_agent)
 if [ -d "${REPO_ROOT}/weizhi" ]; then
