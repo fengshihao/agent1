@@ -68,6 +68,7 @@ import com.agent1.javaagent.html.inspect.HtmlInspectParser
 import com.agent1.javaagent.html.inspect.HtmlInspectScript
 import com.agent1.javaagent.html.inspect.InspectFeedbackComposer
 import com.agent1.javaagent.html.inspect.InspectedElement
+import com.agent1.android.productivity.logic.business.HtmlPreviewNavigation
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.WorkspaceFileWatcher
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
@@ -422,6 +423,18 @@ fun HtmlPreviewScreen(
                                 )
                             }
                             webViewClient = object : WebViewClient() {
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView,
+                                    request: WebResourceRequest,
+                                ): Boolean {
+                                    return HtmlPreviewNavigation.consume(view.context, request.url?.toString())
+                                }
+
+                                @Deprecated("API 24+")
+                                override fun shouldOverrideUrlLoading(view: WebView, url: String?): Boolean {
+                                    return HtmlPreviewNavigation.consume(view.context, url)
+                                }
+
                                 override fun onPageFinished(view: WebView, url: String?) {
                                     // 页面（含跳转/刷新/热更新 reload）就绪后重装脚本；开关状态保持。
                                     view.evaluateJavascript(HtmlInspectScript.INSTALL_JS, null)

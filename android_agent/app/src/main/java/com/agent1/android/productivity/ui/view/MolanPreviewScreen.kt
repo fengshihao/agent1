@@ -38,6 +38,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.agent1.android.llm.AppFileLog
+import com.agent1.android.productivity.logic.business.HtmlPreviewNavigation
 import com.agent1.android.productivity.logic.business.MolanPreviewFileReader
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.WorkspaceFileWatcher
@@ -279,6 +280,18 @@ fun MolanPreviewScreen(
                                     }
                                 }
                                 webViewClient = object : WebViewClient() {
+                                    override fun shouldOverrideUrlLoading(
+                                        view: WebView,
+                                        request: WebResourceRequest,
+                                    ): Boolean {
+                                        return HtmlPreviewNavigation.consume(view.context, request.url?.toString())
+                                    }
+
+                                    @Deprecated("API 24+")
+                                    override fun shouldOverrideUrlLoading(view: WebView, url: String?): Boolean {
+                                        return HtmlPreviewNavigation.consume(view.context, url)
+                                    }
+
                                     override fun onPageFinished(view: WebView, url: String?) {
                                         afterPageReady(view)
                                     }
