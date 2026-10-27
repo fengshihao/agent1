@@ -38,6 +38,10 @@
 -dontwarn com.google.errorprone.annotations.Immutable
 -dontwarn com.google.errorprone.annotations.RestrictedApi
 
+# core 的 DesktopEnvironmentProvider（仅 CLI 用）读屏幕尺寸引用 java.awt；Android 注入自己的
+# HostEnvironmentProvider，不会加载该实现，但 R8 会因缺失类报警
+-dontwarn java.awt.**
+
 # Compose（由编译器生成 keep；保留 line numbers 便于 release 崩溃栈）
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile

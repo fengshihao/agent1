@@ -50,9 +50,26 @@ class ProductivitySystemPromptBuilderTest {
 
     @Test
     void skillCatalogRoutesPptAndDeckContractLivesInSkill() {
+        // 注入固定 provider：桌面默认实现会带出本机屏幕行（可能含数字），保持断言确定性
+        HostEnvironmentProvider fixedEnv = new HostEnvironmentProvider() {
+            @Override
+            public String platformLine() {
+                return "macOS test";
+            }
+
+            @Override
+            public String jsRuntimeLine() {
+                return "QuickJS 扩展，非 Node";
+            }
+
+            @Override
+            public List<String> directoryLines() {
+                return List.of();
+            }
+        };
         String prompt = new ProductivitySystemPromptBuilder()
             .skillCatalogSection(SkillCatalogDocument.bundledMarkdown())
-            .buildMainPrompt(temp.resolve("ws"), true);
+            .buildMainPrompt(temp.resolve("ws"), null, true, false, "", fixedEnv);
         // 路由由动态目录承载
         assertTrue(prompt.contains("官方 Skill 目录"));
         assertTrue(prompt.contains("html2pptx"));
@@ -225,6 +242,11 @@ class ProductivitySystemPromptBuilderTest {
             }
 
             @Override
+            public String screenLine() {
+                return "393×852";
+            }
+
+            @Override
             public String jsRuntimeLine() {
                 return "QuickJS 扩展，非 Node；不能 npm 或 require";
             }
@@ -244,12 +266,36 @@ class ProductivitySystemPromptBuilderTest {
                 provider
             );
         assertTrue(prompt.contains("平台：Android 14"));
+        assertTrue(prompt.contains("- 屏幕：393×852"));
         assertTrue(prompt.contains("JS 运行环境：QuickJS 扩展，非 Node"));
         assertTrue(prompt.contains("- workspace/：本会话工作区（可写）"));
         assertTrue(prompt.contains("- shared/：公共能力库（只读）"));
         // 内核 / 内存不影响模型决策，环境段不报
         assertFalse(prompt.contains("内存"));
         assertFalse(prompt.contains("内核"));
+    }
+
+    @Test
+    void omitsScreenLineWhenProviderReturnsBlank() {
+        HostEnvironmentProvider provider = new HostEnvironmentProvider() {
+            @Override
+            public String platformLine() {
+                return "Android 14";
+            }
+
+            @Override
+            public String jsRuntimeLine() {
+                return "QuickJS 扩展，非 Node";
+            }
+
+            @Override
+            public List<String> directoryLines() {
+                return List.of();
+            }
+        };
+        String prompt = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), temp.resolve("ar"), true, false, "", provider);
+        assertFalse(prompt.contains("屏幕"));
     }
 
     @Test

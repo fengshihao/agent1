@@ -218,6 +218,10 @@ public final class ProductivitySystemPromptBuilder {
         if (!platform.isBlank()) {
             lines.add("- 平台：" + platform);
         }
+        String screen = env.screenLine();
+        if (!screen.isBlank()) {
+            lines.add("- 屏幕：" + screen);
+        }
         String jsRuntime = env.jsRuntimeLine();
         lines.add(scriptToolRegistered
             ? "- JS 运行环境：" + (jsRuntime.isBlank() ? "QuickJS 扩展，非 Node" : jsRuntime)
