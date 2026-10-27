@@ -39,7 +39,7 @@
       "skills": [
         {
           "name": "xlsx",
-          "line": "分析/改 Excel、写公式、CSV 转 xlsx、生成图表时用。"
+          "line": "分析/改 Excel、写公式、CSV 转 xlsx 时用。"
         }
       ]
     },
@@ -48,7 +48,7 @@
       "skills": [
         {
           "name": "travel-itinerary",
-          "line": "自驾几日游路书、交互式 HTML 行程页（路线图+图片+高德导航）时用。"
+          "line": "几日自驾：照片封面、按天分色的曲线路线图、目录和出发清单。直接写 HTML。"
         }
       ]
     },
