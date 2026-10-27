@@ -3,8 +3,6 @@ package com.agent1.javaagent.tool.agent;
 import com.agent1.javaagent.capability.CapabilityIndexStore;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.mcp.McpSchemaBrief;
-import com.agent1.javaagent.skill.AgentSkill;
-import com.agent1.javaagent.skill.AgentSkillLoader;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolUpdateListener;
@@ -14,19 +12,13 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
 
-/** 检索 agentRoot SQLite 能力索引（FTS5）。命中 Skill 时直接附上正文。 */
+/** 检索 agentRoot SQLite 能力索引（FTS5）。Skill 由系统提示词目录 + {@code load_skill} 提供，不进本工具结果。 */
 public final class CapabilitySearchTool implements AgentTool {
 
     public static final String TOOL_NAME = "find_caps";
-
-    private static final int LOADED_SKILL_CHARS = 8_000;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -36,7 +28,6 @@ public final class CapabilitySearchTool implements AgentTool {
     private final Path projectRoot;
     /** 仅能力检索 UI 需要按 kind 筛选；模型工具默认全量检索。 */
     private final boolean applyKindFilter;
-    private final AgentSkillLoader skillLoader = new AgentSkillLoader();
 
     /** 单测等场景：不按平台过滤（等同 any）。 */
     public CapabilitySearchTool(Path agentRoot) {
@@ -71,11 +62,12 @@ public final class CapabilitySearchTool implements AgentTool {
     @Override
     public String description() {
         return """
-            编程前用来找本地已有 API 和官方 Package（MCP、Skill、Caps、weizhi_package），避免重复实现。
+            编程前用来找本地已有 API 和官方 Package（MCP、Caps、weizhi_package 等），避免重复实现。
+            Skill 不在此检索：对照系统提示词里的官方 Skill 目录，用 load_skill 读剧本。
             query 用空格分隔关键词，一次写全；命中越多越靠前。
             无翻页：只返回前 limit 条（默认 8，可设 1–20）。不够就改 query 或提高 limit。
             同一轮不必并行多次；不够再下一轮再搜。
-            默认检索全部类型（mcp、skill、weizhi_package、caps、web_lib 等）。前两条 MCP 命中带参数，其余给出名称和调用示例。命中 Skill 会直接带上正文。
+            默认检索全部类型（mcp、weizhi_package、caps、web_lib 等，不含 skill）。前两条 MCP 命中带参数，其余给出名称和调用示例。
             结果里的调用示例可以直接写进 run_js。
             流程图、思维导图、统计图和页面样式的稳定 CDN 在 web_lib 条目里。script 与 link 只用条目中的 URL，不要自造地址或猜全局变量。
             """.trim();
@@ -121,41 +113,29 @@ public final class CapabilitySearchTool implements AgentTool {
         List<String> kinds = applyKindFilter
             ? parseKinds(parameters == null ? null : parameters.get("kinds"))
             : List.of();
-        int limit = parameters == null ? 8 : parameters.path("limit").asInt(8);
+        int limit = Math.min(Math.max(parameters == null ? 8 : parameters.path("limit").asInt(8), 1), 20);
 
-        List<CapabilityIndexStore.CapabilityHit> hits =
-            CapabilityIndexStore.search(agentRoot, query, kinds, hostPlatform, limit);
-        List<AgentSkill> loadedSkills = selectSkills(query, kinds, hits, limit);
+        List<CapabilityIndexStore.CapabilityHit> hits = new ArrayList<>();
+        for (CapabilityIndexStore.CapabilityHit hit : filterOutSkills(
+            CapabilityIndexStore.search(agentRoot, query, kinds, hostPlatform, 20)
+        )) {
+            if (hits.size() >= limit) {
+                break;
+            }
+            hits.add(hit);
+        }
 
-        if (hits.isEmpty() && loadedSkills.isEmpty()) {
+        if (hits.isEmpty()) {
             return ToolExecutionResult.text(
                 "未找到匹配「" + query + "」的能力条目。用更短的关键词再搜一次。"
             );
         }
 
-        Set<String> loadedNames = new LinkedHashSet<>();
-        for (AgentSkill skill : loadedSkills) {
-            loadedNames.add(skill.name().toLowerCase(Locale.ROOT));
-        }
-
         StringBuilder text = new StringBuilder();
-        int shown = loadedSkills.size();
-        for (CapabilityIndexStore.CapabilityHit hit : hits) {
-            if (loadedNames.contains(skillName(hit))) {
-                continue;
-            }
-            shown++;
-        }
-        text.append("find_caps: ").append(shown).append(" 条\n");
+        text.append("find_caps: ").append(hits.size()).append(" 条\n");
         ArrayNode details = MAPPER.createArrayNode();
-        for (AgentSkill skill : loadedSkills) {
-            appendLoadedSkill(text, details, skill);
-        }
         int mcpDetails = 0;
         for (CapabilityIndexStore.CapabilityHit hit : hits) {
-            if (loadedNames.contains(skillName(hit))) {
-                continue;
-            }
             boolean withParams = "mcp".equalsIgnoreCase(hit.kind()) && mcpDetails < 2;
             if (withParams) {
                 mcpDetails++;
@@ -167,121 +147,19 @@ public final class CapabilitySearchTool implements AgentTool {
         return new ToolExecutionResult(text.toString().trim(), root);
     }
 
-    private List<AgentSkill> selectSkills(
-        String query,
-        List<String> kinds,
-        List<CapabilityIndexStore.CapabilityHit> hits,
-        int limit
+    static List<CapabilityIndexStore.CapabilityHit> filterOutSkills(
+        List<CapabilityIndexStore.CapabilityHit> hits
     ) {
-        if (kinds != null && !kinds.isEmpty() && !kinds.contains("skill")) {
+        if (hits == null || hits.isEmpty()) {
             return List.of();
         }
-        AgentSkillLoader.SkillLoadResult loaded = skillLoader.loadMerged(
-            agentRoot,
-            projectRoot == null ? agentRoot : projectRoot
-        );
-        Map<String, AgentSkill> byName = new LinkedHashMap<>();
-        for (AgentSkill skill : loaded.skills()) {
-            byName.put(skill.name().toLowerCase(Locale.ROOT), skill);
-        }
-
-        LinkedHashSet<String> names = new LinkedHashSet<>();
-        String exact = query.trim().toLowerCase(Locale.ROOT).replace(' ', '-').replace('_', '-');
-        if (byName.containsKey(exact)) {
-            names.add(exact);
-        } else {
-            List<String> terms = CapabilityIndexStore.queryTerms(query).stream()
-                .filter(term -> term.length() >= 2)
-                .toList();
-            if (!terms.isEmpty()) {
-                for (AgentSkill skill : byName.values()) {
-                    if (names.size() >= Math.min(limit, 3)) {
-                        break;
-                    }
-                    String haystack = (skill.name() + " " + skill.description()).toLowerCase(Locale.ROOT);
-                    if (matchesSkillQuery(haystack, terms)) {
-                        names.add(skill.name().toLowerCase(Locale.ROOT));
-                    }
-                }
-            }
-        }
+        List<CapabilityIndexStore.CapabilityHit> out = new ArrayList<>();
         for (CapabilityIndexStore.CapabilityHit hit : hits) {
-            String fromHit = skillName(hit);
-            if (!fromHit.isEmpty() && byName.containsKey(fromHit)) {
-                names.add(fromHit);
+            if (hit != null && !"skill".equalsIgnoreCase(hit.kind())) {
+                out.add(hit);
             }
         }
-
-        List<AgentSkill> selected = new ArrayList<>();
-        for (String name : names) {
-            if (selected.size() >= limit) {
-                break;
-            }
-            selected.add(byName.get(name));
-        }
-        return selected;
-    }
-
-    /**
-     * 多词 query：命中任意 {@value #MIN_SKILL_TERM_MATCHES} 个词即可（避免「绘制流程图」「图片生成」
-     * 等泛词把「时序图 + mermaid/svg」挡掉）。1～2 个词仍要求全中。
-     */
-    static final int MIN_SKILL_TERM_MATCHES = 2;
-
-    static boolean matchesSkillQuery(String haystack, List<String> terms) {
-        if (terms.isEmpty()) {
-            return false;
-        }
-        int required = terms.size() <= MIN_SKILL_TERM_MATCHES ? terms.size() : MIN_SKILL_TERM_MATCHES;
-        int matched = 0;
-        for (String term : terms) {
-            if (haystack.contains(term)) {
-                matched++;
-            }
-        }
-        return matched >= required;
-    }
-
-    private static String skillName(CapabilityIndexStore.CapabilityHit hit) {
-        if (hit == null) {
-            return "";
-        }
-        String entry = hit.entry() == null ? "" : hit.entry().trim();
-        if (entry.regionMatches(true, 0, "skill:", 0, "skill:".length())) {
-            return entry.substring("skill:".length()).trim().toLowerCase(Locale.ROOT);
-        }
-        if ("skill".equalsIgnoreCase(hit.kind()) && hit.id() != null) {
-            int dot = hit.id().indexOf('.');
-            if (dot >= 0 && dot + 1 < hit.id().length()) {
-                return hit.id().substring(dot + 1).trim().toLowerCase(Locale.ROOT);
-            }
-        }
-        return "";
-    }
-
-    private static void appendLoadedSkill(StringBuilder text, ArrayNode details, AgentSkill skill) {
-        text.append("- [skill] ").append(skill.name()).append(" loaded\n");
-        text.append("  source: ").append(skill.sourceLabel()).append('\n');
-        if (!skill.description().isEmpty()) {
-            text.append("  description: ").append(truncate(skill.description(), 220)).append('\n');
-        }
-        String body = skill.content() == null ? "" : skill.content().trim();
-        if (body.length() > LOADED_SKILL_CHARS) {
-            body = body.substring(0, LOADED_SKILL_CHARS) + "\n…（正文已截断）";
-        }
-        text.append(body.isEmpty() ? "  （正文为空）\n" : body).append('\n');
-
-        ObjectNode row = MAPPER.createObjectNode();
-        row.put("id", "skill:" + skill.name());
-        row.put("kind", "skill");
-        row.put("title", skill.name());
-        row.put("summary", skill.description());
-        row.put("entry", "skill:" + skill.name());
-        row.put("doc_path", "");
-        row.put("platforms", "any");
-        row.put("source", skill.sourceLabel());
-        row.put("loaded", true);
-        details.add(row);
+        return out;
     }
 
     private static void appendIndexHit(

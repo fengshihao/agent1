@@ -16,11 +16,11 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 7.1 / UC：catalog skill 经 find_caps 直接带上正文。 */
+/** 7.1 / UC：catalog skill 经 load_skill 读正文。 */
 class ProductivityScriptedCatalogSkillTest {
 
     @Test
-    void readCatalogSkillViaSearch(@TempDir Path agentRoot) throws Exception {
+    void readCatalogSkillViaLoad(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
         Path skillDir = agentRoot.resolve("shared/catalog/skills/catalog-demo");
         Files.createDirectories(skillDir);
@@ -29,7 +29,7 @@ class ProductivityScriptedCatalogSkillTest {
         ScriptedLlmClient llm = ScriptedLlmClient.builder()
             .whenUserMessageContains(
                 "scripted-catalog-skill-71",
-                ScriptedResponses.toolCall("find_caps", "{\"query\":\"catalog-demo\"}")
+                ScriptedResponses.toolCall("load_skill", "{\"name\":\"catalog-demo\"}")
             )
             .whenToolResultContains("Catalog skill body", ScriptedResponses.text("已读 catalog skill"))
             .build();

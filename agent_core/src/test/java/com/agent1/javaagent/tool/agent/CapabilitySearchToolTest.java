@@ -130,7 +130,7 @@ class CapabilitySearchToolTest {
     }
 
     @Test
-    void searchLoadsSkillCreatorBody() throws Exception {
+    void searchSkipsSkillHits() throws Exception {
         Path agentRoot = temp.resolve("agentRoot3");
         AgentHomeBootstrap.ensure(agentRoot);
         CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot, "android");
@@ -140,14 +140,12 @@ class CapabilitySearchToolTest {
         ToolExecutionResult result = tool.execute("t4", params, new CancellationToken(), u -> {
         });
 
-        assertTrue(result.getText().contains("skill-creator loaded"));
-        assertTrue(result.getText().contains("source: bundled"));
-        assertTrue(result.getText().contains("promote_request"));
-        assertFalse(result.getText().contains("skill(action=read"));
+        assertFalse(result.getText().contains("skill-creator loaded"));
+        assertFalse(result.getText().contains("[skill] skill-creator"));
     }
 
     @Test
-    void searchLoadsLocalSkillWhenPartialTermsMatch() throws Exception {
+    void searchSkipsLocalSkillEvenWhenTermsMatch() throws Exception {
         Path agentRoot = temp.resolve("agentRootMermaid");
         AgentHomeBootstrap.ensure(agentRoot);
         Path skillDir = agentRoot.resolve("shared/local/skills/mermaid-diagram");
@@ -165,12 +163,12 @@ class CapabilitySearchToolTest {
         ToolExecutionResult result = tool.execute("t-mermaid", params, new CancellationToken(), u -> {
         });
 
-        assertTrue(result.getText().contains("mermaid-diagram loaded"));
-        assertTrue(result.getText().contains("source: local"));
+        assertFalse(result.getText().contains("mermaid-diagram loaded"));
+        assertFalse(result.getText().contains("# body"));
     }
 
     @Test
-    void searchLoadsLocalSkillByName() throws Exception {
+    void searchSkipsLocalSkillByName() throws Exception {
         Path agentRoot = temp.resolve("agentRoot4");
         AgentHomeBootstrap.ensure(agentRoot);
         Path skillDir = agentRoot.resolve("shared/local/skills/uc09-skill");
@@ -183,8 +181,8 @@ class CapabilitySearchToolTest {
         ToolExecutionResult result = tool.execute("t5", params, new CancellationToken(), u -> {
         });
 
-        assertTrue(result.getText().contains("UC09 body"));
-        assertTrue(result.getText().contains("source: local"));
+        assertTrue(result.getText().startsWith("未找到匹配"));
+        assertFalse(result.getText().contains("UC09 body"));
     }
 
     @Test

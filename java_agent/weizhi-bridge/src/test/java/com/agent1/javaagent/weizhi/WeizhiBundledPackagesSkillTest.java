@@ -56,10 +56,8 @@ class WeizhiBundledPackagesSkillTest {
         ToolExecutionResult loaded = tool.execute("t-travel", params, new CancellationToken(), u -> {
         });
         String text = loaded.getText();
-        assertTrue(text.contains("[skill] travel-itinerary loaded"), text);
-        assertTrue(text.contains("source: skills_home"), text);
-        assertTrue(text.contains("queryDrivingLegs"), text);
-        assertTrue(text.contains("不含机酒火车"), text);
-        assertTrue(text.contains("jobs/roadbook.js"), text);
+        assertFalse(text.contains("[skill] travel-itinerary"), text);
+        assertFalse(text.contains("queryDrivingLegs"), text);
+        assertFalse(text.contains("jobs/roadbook.js"), text);
     }
 }
