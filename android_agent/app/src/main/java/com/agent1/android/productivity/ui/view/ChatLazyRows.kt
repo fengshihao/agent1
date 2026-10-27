@@ -18,7 +18,7 @@ internal sealed class ChatLazyRow {
         val skipTrailingImagePreviews: Boolean = false,
         val showReasoning: Boolean = true,
         val showPickFiles: Boolean = true,
-        /** 与上一段同属一条消息，抵消 LazyColumn item 间距。 */
+        /** 与上一段同属一条消息，上面不再留列表间距。 */
         val tightTop: Boolean = false,
     ) : ChatLazyRow() {
         private val stable: String = line.stableKey.ifBlank { "line" }

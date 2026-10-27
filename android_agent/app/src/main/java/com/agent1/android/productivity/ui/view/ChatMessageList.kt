@@ -1,10 +1,8 @@
 package com.agent1.android.productivity.ui.view
 
 import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,6 +26,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.agent1.android.productivity.ui.viewmodel.ChatNewTopicPrompt
+import com.agent1.android.productivity.logic.business.ChatListLazyItemGap
 import com.agent1.android.productivity.logic.business.ChatTranscriptFormatting
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
 import com.agent1.android.productivity.ui.viewmodel.ChatLine
@@ -176,23 +175,29 @@ internal fun ChatMessageList(
         modifier = modifier
             .padding(horizontal = 4.dp)
             .nestedScroll(followConnection),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
         contentPadding = PaddingValues(top = topContentPadding, bottom = 8.dp, start = 8.dp, end = 8.dp),
     ) {
         items(
             count = lazyRows.size,
             key = { index -> lazyRows[index].key },
         ) { index ->
-            when (val row = lazyRows[index]) {
-                is ChatLazyRow.Message -> {
-                    val line = row.line
-                    val slice = row.contentSlice
-                    val bodyForMarkdown = slice ?: line.content
-                    val useMarkdown = !line.isTool &&
-                        !line.isSystemNotice &&
-                        line.role != "user" &&
-                        ChatTranscriptFormatting.shouldRenderAsMarkdown(bodyForMarkdown)
-                    Column(modifier = Modifier.fillMaxWidth()) {
+            val row = lazyRows[index]
+            val messageTightTop = (row as? ChatLazyRow.Message)?.tightTop
+            val gapAbove = ChatListLazyItemGap.shouldPadTop(index, messageTightTop)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .chatListGapAbove(gapAbove),
+            ) {
+                when (row) {
+                    is ChatLazyRow.Message -> {
+                        val line = row.line
+                        val slice = row.contentSlice
+                        val bodyForMarkdown = slice ?: line.content
+                        val useMarkdown = !line.isTool &&
+                            !line.isSystemNotice &&
+                            line.role != "user" &&
+                            ChatTranscriptFormatting.shouldRenderAsMarkdown(bodyForMarkdown)
                         MessageBubble(
                             line = line,
                             workspacePath = state.workspacePath,
@@ -206,39 +211,39 @@ internal fun ChatMessageList(
                             contentSlice = slice,
                             showReasoning = row.showReasoning,
                             showPickFiles = row.showPickFiles,
-                            modifier = if (row.tightTop) {
-                                Modifier.padding(top = (-6).dp)
-                            } else {
-                                Modifier
-                            },
                         )
                         if (onNewChat != null && offerNewTopic && index == newTopicLazyIndex) {
                             NewTopicAfterReplyButton(onClick = onNewChat)
                         }
                     }
-                }
-                is ChatLazyRow.DetachedImage -> {
-                    DetachedWorkspaceImageBubble(
-                        workspacePath = state.workspacePath,
-                        relativePath = row.relativePath,
-                    )
-                }
-                is ChatLazyRow.TurnActivity -> {
-                    TurnActivityBubble(
-                        stateKey = row.key,
-                        pieces = row.pieces,
-                    )
+                    is ChatLazyRow.DetachedImage -> {
+                        DetachedWorkspaceImageBubble(
+                            workspacePath = state.workspacePath,
+                            relativePath = row.relativePath,
+                        )
+                    }
+                    is ChatLazyRow.TurnActivity -> {
+                        TurnActivityBubble(
+                            stateKey = row.key,
+                            pieces = row.pieces,
+                        )
+                    }
                 }
             }
         }
         items(
-            items = timelineRows,
-            key = { row -> row.key },
-        ) { row ->
-            when (row) {
-                is RunTimelineRow.Assistant -> {
-                    val item = row.part
-                    Column(modifier = Modifier.fillMaxWidth()) {
+            count = timelineRows.size,
+            key = { index -> timelineRows[index].key },
+        ) { index ->
+            val row = timelineRows[index]
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .chatListGapAbove(index > 0 || lazyRows.isNotEmpty()),
+            ) {
+                when (row) {
+                    is RunTimelineRow.Assistant -> {
+                        val item = row.part
                         MessageBubble(
                             line = ChatLine(
                                 role = "assistant",
@@ -254,13 +259,13 @@ internal fun ChatMessageList(
                             showReasoning = false,
                         )
                     }
-                }
-                is RunTimelineRow.Activity -> {
-                    TurnActivityBubble(
-                        stateKey = row.key,
-                        pieces = row.pieces,
-                        runInProgress = state.isRunning,
-                    )
+                    is RunTimelineRow.Activity -> {
+                        TurnActivityBubble(
+                            stateKey = row.key,
+                            pieces = row.pieces,
+                            runInProgress = state.isRunning,
+                        )
+                    }
                 }
             }
         }
@@ -278,18 +283,32 @@ internal fun ChatMessageList(
                     onOpenAttachments = onOpenAttachments,
                     attachmentsActionEnabled = false,
                     onOpenInApp = onOpenInApp,
+                    modifier = Modifier.chatListGapAbove(
+                        lazyRows.isNotEmpty() || timelineRows.isNotEmpty(),
+                    ),
                 )
             }
         }
         if (!state.isRunning) {
             state.lastRunTokenSummary?.let { summary ->
                 item(key = "run-token-summary") {
-                    RunTokenSummaryRow(summary)
+                    RunTokenSummaryRow(
+                        summary = summary,
+                        modifier = Modifier.chatListGapAbove(
+                            lazyRows.isNotEmpty() ||
+                                timelineRows.isNotEmpty() ||
+                                state.streamingText.isNotEmpty(),
+                        ),
+                    )
                 }
             }
         }
         if (state.inlineApiSetupVisible) {
             item(key = "inline-api-setup") {
+                val gapAbove = lazyRows.isNotEmpty() ||
+                    timelineRows.isNotEmpty() ||
+                    state.streamingText.isNotEmpty() ||
+                    (!state.isRunning && state.lastRunTokenSummary != null)
                 ApiSetupInlineCard(
                     draft = state.setupKeyDraft,
                     isSaving = state.setupKeySaving,
@@ -297,12 +316,20 @@ internal fun ChatMessageList(
                     fieldErrorText = state.setupKeyFieldError,
                     onDraftChange = onSetupKeyDraftChange,
                     onSubmitDraft = onSubmitSetupKey,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier
+                        .chatListGapAbove(gapAbove)
+                        .padding(top = 4.dp),
                 )
             }
         }
     }
 }
+
+/** 原先用 `spacedBy(6.dp)`。分段消息若再写负 padding，Compose 会抛 Padding must be non-negative。 */
+private val ChatListItemSpacing = 6.dp
+
+private fun Modifier.chatListGapAbove(enabled: Boolean): Modifier =
+    if (enabled) padding(top = ChatListItemSpacing) else this
 
 private suspend fun LazyListState.followBottomByScroll() {
     repeat(6) {
@@ -322,7 +349,10 @@ private suspend fun LazyListState.followBottomByScroll() {
 }
 
 @Composable
-private fun RunTokenSummaryRow(summary: RunTokenSummary) {
+private fun RunTokenSummaryRow(
+    summary: RunTokenSummary,
+    modifier: Modifier = Modifier,
+) {
     val color = if (summary.failed) {
         MaterialTheme.colorScheme.error
     } else {
@@ -330,7 +360,7 @@ private fun RunTokenSummaryRow(summary: RunTokenSummary) {
     }
     Text(
         text = summary.displayText(),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 6.dp),
         style = MaterialTheme.typography.labelMedium,
