@@ -49,8 +49,6 @@ class WeizhiBundledPackagesSkillTest {
             CapabilityIndexStore.search(agentRoot, "旅游 行程攻略 路书", List.of(), "any", 10);
         assertTrue(travelHits.stream().anyMatch(hit -> "skill.travel-itinerary".equals(hit.id())
             && "skill".equals(hit.kind())));
-        assertTrue(travelHits.stream().anyMatch(hit -> "travel-itinerary.roadbook".equals(hit.id())
-            && "weizhi_package".equals(hit.kind())));
 
         CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot, "android");
         ObjectNode params = new ObjectMapper().createObjectNode();
@@ -61,6 +59,7 @@ class WeizhiBundledPackagesSkillTest {
         assertTrue(text.contains("[skill] travel-itinerary loaded"), text);
         assertTrue(text.contains("source: skills_home"), text);
         assertTrue(text.contains("queryDrivingLegs"), text);
-        assertTrue(text.contains("不含机票火车酒店"), text);
+        assertTrue(text.contains("不含机酒火车"), text);
+        assertTrue(text.contains("jobs/roadbook.js"), text);
     }
 }

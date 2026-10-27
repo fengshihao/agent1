@@ -4,10 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.JarURLConnection;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 /** 将 classpath {@code agent-home/skills-bundled/<name>/} 安装到 {@link SkillsHomePaths}。 */
 public final class SkillsBundledInstall {
@@ -83,7 +88,46 @@ public final class SkillsBundledInstall {
         String prefix = RESOURCE_ROOT + name + "/";
         copyResourceFile(prefix + "manifest.json", dest.resolve("manifest.json"));
         copyResourceFile(prefix + "SKILL.md", dest.resolve("SKILL.md"));
-        // 可选 scripts/、references/ — 当前内置 skill 无子目录，略过递归列举
+        copyOptionalScripts(prefix, dest);
+    }
+
+    /** 可选 scripts/ 子目录：file classpath 直接列举；jar 按 entry 列举；缺失则跳过。 */
+    private static void copyOptionalScripts(String prefix, Path dest) throws IOException {
+        ClassLoader loader = SkillsBundledInstall.class.getClassLoader();
+        URL scriptsUrl = loader.getResource(prefix + "scripts");
+        if (scriptsUrl == null) {
+            return;
+        }
+        if ("file".equals(scriptsUrl.getProtocol())) {
+            Path scriptsDir;
+            try {
+                scriptsDir = Path.of(scriptsUrl.toURI());
+            } catch (URISyntaxException e) {
+                throw new IOException("bad scripts dir: " + scriptsUrl, e);
+            }
+            if (!Files.isDirectory(scriptsDir)) {
+                return;
+            }
+            try (var walk = Files.walk(scriptsDir)) {
+                for (Path p : walk.filter(Files::isRegularFile).toList()) {
+                    String rel = scriptsDir.relativize(p).toString().replace('\\', '/');
+                    copyResourceFile(prefix + "scripts/" + rel, dest.resolve("scripts").resolve(rel));
+                }
+            }
+        } else {
+            try (JarFile jar = ((JarURLConnection) scriptsUrl.openConnection()).getJarFile()) {
+                String scriptsPrefix = prefix + "scripts/";
+                var entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    JarEntry entry = entries.nextElement();
+                    String entryName = entry.getName();
+                    if (entryName.startsWith(scriptsPrefix) && !entry.isDirectory() && !entryName.contains("..")) {
+                        String rel = entryName.substring(scriptsPrefix.length());
+                        copyResourceFile(entryName, dest.resolve("scripts").resolve(rel));
+                    }
+                }
+            }
+        }
     }
 
     private static void copyResourceFile(String resourcePath, Path target) throws IOException {

@@ -1,114 +1,59 @@
 ---
 name: travel-itinerary
-version: 1.1.0
-description: 用户要旅游路书、几日游行程攻略、自驾环线、景点食宿表、路线图，或要在手机上打开高德 App 看路线时使用。不含机票火车酒店下单预订。
+version: 1.3.2
+description: 用户要几日自驾路书、行程攻略、带图带路线、可点开高德导航，或「生成一个好看能点的路书网页」时使用。主交付是单页 HTML；不含机酒火车下单、Word/docx。
 category: travel.roadbook
-catalog_line: 规划旅游路书、自驾攻略、行程食宿表，或生成手机上打开高德 App 的路线时用。
-depends_weizhi: travel-itinerary
+catalog_line: 自驾几日游路书、交互式 HTML 行程页（路线图+图片+高德导航）时用。
 depends_mcp: gaode
-tags: 旅游,行程,攻略,自驾,路书,地图,高德,里程,食宿,导航,itinerary,travel
+tags: 旅游,行程,攻略,自驾,路书,地图,高德,HTML,路线图,itinerary,travel
 ---
 
-# 旅游路书（行程规划交付包）
+# 自驾路书 → 可交互 HTML
 
-当前只考虑手机。给用户点的地图链接一律用 `appRouteUri`（`amapuri://`），点开进入高德 App。不要按桌面、iOS 再写一套 Skill。
+交付一个手机可开的单页 **`<trip-slug>/路书.html`**。不做 Word/CSV/机酒下单；不订不了的别假装能订。禁用 Leaflet。
 
-## 范围（硬边界）
+信息不够（去哪、几天、出发城市）先 `ask_user` 问一轮，否则直接开工。API 签名拿不准就 `find_caps`，按示例写。
 
-| 做 | 不做 |
-|----|------|
-| 逐日行程、驾驶里程/耗时、景点与三餐建议、住宿区域与参考价、预算表、示意图路线图、手机上打开高德 App 的路线链接 | **机票 / 火车 / 酒店下单、锁价、支付、代订** |
-| `web_search` 查门票/封路/旺季房价等**公开信息**，写入攻略并标注来源日期 | 假装能订到房或买到票 |
-
-大交通（飞哪、坐哪趟车）只在路书里写**建议班次类型与时段**；用户自行在 OTA / 12306 / 酒店 App 预订。
-
-## 脚本能力（何时用）
-
-`find_caps` 里这几项通常是同一张包卡，正文以本 Skill 为准。
-
-| 函数 | 什么时候用 | 要不要高德 MCP |
-|------|------------|----------------|
-| `appRouteUri` | 把路线交给用户。回复里单独一行放返回的 `amapuri://`，手机点开进高德 App 路线规划 | 不要 |
-| `queryDrivingLegs` | 攻略、CSV 里要写真实公里和分钟 | 要 `maps_direction_driving` |
-| `renderSchematicMap` | 攻略里嵌一张不依赖瓦片的示意图 PNG | 不要（要 `webview_exec`） |
-| `buildLineList` + `personalMapUri` | 用户明确要高德云端「专属地图」页时才用。返回的是 https，手机上常常打开网页，**不要**当作导航入口 | 要 `maps_schema_personal_map` |
-
-## 开工协议
-
-1. 信息不全时：先用 `ask_user` 对齐出发城市、日期、人数、预算档、自驾/公共交通、忌口或老人小孩约束，然后结束本轮。
-2. 信息足够后：先 **`load_skill`（`travel-itinerary`）** 读本正文，**严格按下列步骤**；需要 API 时再 `find_caps`（高德 MCP、leaflet、docx 等）。不要另起一套即兴流程。
-3. 给用户的导航链接用 `appRouteUri`，不依赖 MCP。只有要写真实里程时，才确认宿主已配置高德 MCP 的 `maps_direction_driving`；未配置则用文字估算并说明数字不是高德实测。
-
-## 推荐目录（单次任务一个文件夹）
+## 目录
 
 ```text
 <trip-slug>/
-  trip.json           # 元信息 + 按天 waypoints（name,lng,lat,day）
-  legs-distances.json # queryDrivingLegs 输出
-  行程食宿表.csv
-  攻略.md             # 主交付
-  route_map.png       # 示意图（可选）
-  路书速查.html       # 可打印速查（可选）
-  sources.md          # web_search 来源摘要
+  trip.json     # days[].{title, waypoints[{name,lng,lat}], images[{path,sourcePage}]}
+  assets/       # 配图（已下载到本地，不外链图床）
+  路书.html     # 主交付
 ```
 
-## 工作流
+经纬度用高德格式 `经度,纬度`。缺坐标 → 高德 MCP geocode。
 
-### 1. 结构化路线
+## 工具脚本（本 Skill 自带）
 
-- 用 `trip.json` 写清每天落脚点与景点坐标（高德经纬度：`经度,纬度`）。
-
-### 2. 手机上打开高德 App（主路径）
-
-第一个点是起点，最后一个点是终点，中间是途经点，最多 16 个。一天一条，或一次连续驾驶一条；点更多就拆开，不要塞进一条链接。
+`scripts/roadbook.js` 提供 `appRouteUri`、`queryDrivingLegs`、`renderSchematicMap`。`run_js` 只认 workspace 路径，先落盘再 import：
 
 ```javascript
-import { appRouteUri } from "weizhi:travel-itinerary";
+// load_skill(path="scripts/roadbook.js") 读源码 → write_file 到 jobs/roadbook.js
+import { appRouteUri, queryDrivingLegs, renderSchematicMap } from "./roadbook.js";
 
-const uri = appRouteUri({
-  waypoints: [
-    { name: "乌鲁木齐", lng: 87.6168, lat: 43.8256 },
-    { name: "天山天池", lng: 88.1273, lat: 43.8830 }
-  ]
-});
-// 回复里单独一行原文展示 uri。默认 amapuri://route/plan/。
-// 仅在 amapuri 拉不起 App 时再传 scheme: "androidamap"。
+appRouteUri({ waypoints, mode: "drive" });   // amapuri://，手机进高德 App；途经点≤16
+await queryDrivingLegs([{ name, origin, destination }]); // 真实公里/分钟，需高德 MCP；有折线就用折线
+await renderSchematicMap({ waypoints, outputPath });     // PNG 示意图，需 webview_exec
 ```
 
-自驾默认 `mode: "drive"`。公交、步行、骑行分别用 `"bus"`、`"walk"`、`"ride"`。
+MCP 未配置时里程用估算并注明「非高德实测」。
 
-### 3. 真实驾车里程（有高德 MCP 时）
+## 流程（一段 run_js 串完）
 
-```javascript
-import { queryDrivingLegs } from "weizhi:travel-itinerary";
+1. 写 `trip.json`（按天 waypoints）。
+2. `queryDrivingLegs` 汇总每天里程时间。
+3. 配图：`image_search` 搜景点图 → `$tools.files_download({ items:[{url, expect:"image"}], dir:"<trip-slug>/assets" })`；`trip.json` 记 `sourcePage`，页面图注标来源。搜不到就占位，**不要编 URL**。门票/封路等事实用 `web_search` 并标注检索日期。
+4. 每天 `appRouteUri` → 「用高德导航」按钮。
+5. 生成 `路书.html`。
 
-const legs = [
-  { name: "乌市机场→天池", origin: "87.4742,43.9071", destination: "88.1273,43.8830" }
-];
-const distances = await queryDrivingLegs(legs);
-// 写入 legs-distances.json，再汇总进 CSV / 攻略.md
-```
+## 页面要求
 
-### 4. 示意图 `route_map.png`
+- 按天分块（Tab 或手风琴）：当天里程耗时、景点食宿、1～3 张 `assets/` 配图（`loading="lazy"`）、当天路线图、导航按钮。
+- 路线图三选一：**① 内嵌 SVG（默认）**：waypoints/折线投影成 `<polyline>`，滚轮/双指缩放 `viewBox`；**② 高德 Web/静态图**：需要真实底图时 `find_caps` 拿高德 JS API 或静态图用法；**③ `renderSchematicMap` PNG** 作缩略图。`maps_schema_personal_map` 只在用户点名要云端地图页时用。
+- 顶部行程总览（天数、总里程）；配色偏旅行杂志感，别素成 Markdown 导出样。
 
-- 优先 `renderSchematicMap({ waypoints, outputPath: "<trip-slug>/route_map.png" })`（canvas 示意图，不依赖地图瓦片）。
-- 需要交互地图页：`find_caps` → `web_lib.leaflet` + `points.json` 薄壳，不要手写整页业务 HTML。
+## 收尾
 
-### 5. 事实与价格
-
-- 门票、封路（如独库）、旺季房价：用 `web_search`，结论写入 `sources.md` 和攻略正文，带**检索日期**。
-- 数值不确定时写区间并注明「出发前再核实」。
-
-### 6. 文档
-
-- 主文 `攻略.md`：线路概述、逐日、住宿策略、预算、风险预案。文中的导航链接同样用 `appRouteUri` 的原文。
-- 要 Word：`find_caps` → `weizhi:docx` 的 `markdownToDocx`。
-
-## 编排建议
-
-- 同一段 `run_js`（`jobs/trip-build.js`）串行：读 `trip.json` → `appRouteUri`（按天）→ 有 MCP 再 `queryDrivingLegs` → 写 JSON/CSV → `renderSchematicMap`。
-- 外层不要拆成多个工具接力；脚本里 API 报错时先 `find_caps` 查相关能力，按示例改脚本。
-
-## 对用户怎么说
-
-用日常语言总结「去哪几天、每天住哪、有哪些表和图」；文件用 `[攻略](<trip-slug>/攻略.md)` 形式链接。每条高德路线单独一行给出 `amapuri://…` 原文，方便在手机上点进高德 App。
+口语总结几天、每天去哪；给 `[路书](<trip-slug>/路书.html)`，需要时贴当天 `amapuri://` 一行。改行程就改 `trip.json` 再生成。

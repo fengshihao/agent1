@@ -61,7 +61,6 @@ description: 用户要旅游路书、几日游攻略…时使用（load_skill �
 category: travel.roadbook
 catalog_line: 规划旅游路书、自驾攻略、行程表时用。
 tags: 旅游,行程,路书
-depends_weizhi: travel-itinerary
 depends_mcp: gaode
 ---
 ```
@@ -97,13 +96,12 @@ depends_mcp: gaode
   "title": "旅游路书",
   "summary": "几日游行程、自驾里程、高德地图链接、食宿表；不含机酒火车下单。",
   "catalog_line": "规划旅游路书、自驾攻略、行程表时用。",
-  "depends_weizhi": ["travel-itinerary"],
   "depends_mcp": ["gaode"],
   "platforms": ["any"]
 }
 ```
 
-迁移后 **`weizhi:travel-itinerary` 包只保留通用函数**（里程、示意图）；**剧本在 Skill**。若业务脚本极薄，可 `depends_weizhi: []`，只在 SKILL 里写 `import weizhi:docx`。
+`travel-itinerary` 已完全 Skill 化：工具函数随 `scripts/` 走，**不再有 weizhi 包**。若业务脚本极薄，可 `depends_weizhi: []`，只在 SKILL 里写 `import weizhi:docx`。
 
 ---
 
@@ -221,7 +219,7 @@ depends_mcp: gaode
 |------|----------------|-----------------|
 | 快速 pptx | `pptx`（bundled → 云 skill） | `weizhi:pptx`、`pptx-build` |
 | HTML deck | `html2pptx`（原包内 SKILL.md） | `weizhi:html2pptx`（仅 JS API） |
-| 路书 | `travel-itinerary` | `weizhi:travel-itinerary`（仅工具函数，去掉 SKILL.md） |
+| 路书 | `travel-itinerary`（剧本 + `scripts/roadbook.js`） | 无（已并入 Skill） |
 
 ---
 
