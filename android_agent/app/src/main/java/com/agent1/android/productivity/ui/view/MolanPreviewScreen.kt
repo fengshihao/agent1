@@ -237,7 +237,9 @@ fun MolanPreviewScreen(
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
                                 settings.allowFileAccess = true
-                                settings.cacheMode = WebSettings.LOAD_DEFAULT
+                                // host-web 目录 immutable 长缓存；壳 ?v= 与资源 ?v= 负责刷新，
+                                // 开发迭代时与 docx 预览一致禁用 HTTP 缓存，避免旧 CSS 粘住。
+                                settings.cacheMode = WebSettings.LOAD_NO_CACHE
                                 settings.loadsImagesAutomatically = true
                                 settings.useWideViewPort = false
                                 settings.loadWithOverviewMode = false

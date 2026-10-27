@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const EMBED_VERSION = "1";
-const SHELL_VERSION_QUERY = "20251027a";
+const SHELL_VERSION_QUERY = "20251027b";
 
 function argValue(argv, name) {
   const i = argv.indexOf(name);
@@ -46,7 +46,8 @@ async function bakeShell(destDir, baseUrl) {
   const src = path.join(here, "host-web", "molan-embed", EMBED_VERSION, "shell.html");
   let html = await readFile(src, "utf8");
   html = html.replaceAll("__MOLAN_EMBED_BASE__", baseUrl);
-  if (html.includes("__MOLAN_EMBED_BASE__")) {
+  html = html.replaceAll("__MOLAN_SHELL_V__", SHELL_VERSION_QUERY);
+  if (html.includes("__MOLAN_EMBED_BASE__") || html.includes("__MOLAN_SHELL_V__")) {
     throw new Error("shell.html still contains bake placeholders");
   }
   const shellDest = path.join(destDir, "shell.html");
