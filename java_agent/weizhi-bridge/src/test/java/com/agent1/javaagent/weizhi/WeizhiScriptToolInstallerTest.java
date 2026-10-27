@@ -84,6 +84,9 @@ class WeizhiScriptToolInstallerTest {
         assertTrue(prelude.contains("https://example.com/mcp"));
         assertTrue(prelude.contains("\"demo\""));
         assertTrue(prelude.contains("callTool(String(tool)"));
+        assertTrue(prelude.contains("paceGaode"));
+        assertTrue(prelude.contains("gaodeGapMs"));
+        assertTrue(prelude.contains("String(server) === 'gaode'"));
         assertTrue(prelude.contains("JSON.parse(out)"));
         assertTrue(prelude.contains("typeof out === 'string'"));
     }
