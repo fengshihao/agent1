@@ -13,6 +13,8 @@ class SkillCatalogDocumentTest {
         assertTrue(md.contains("html2pptx"), md);
         assertTrue(md.contains("video-edit"), md);
         assertTrue(md.contains("docx"), md);
+        assertTrue(md.contains("xlsx"), md);
+        assertTrue(md.contains("Excel"), md);
         assertTrue(md.contains("load_skill"), md);
     }
 }

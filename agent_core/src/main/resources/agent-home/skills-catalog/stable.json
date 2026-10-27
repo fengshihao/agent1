@@ -35,6 +35,15 @@
       ]
     },
     {
+      "id": "office.spreadsheet",
+      "skills": [
+        {
+          "name": "xlsx",
+          "line": "分析/改 Excel、写公式、CSV 转 xlsx、生成图表时用。"
+        }
+      ]
+    },
+    {
       "id": "travel.roadbook",
       "skills": [
         {

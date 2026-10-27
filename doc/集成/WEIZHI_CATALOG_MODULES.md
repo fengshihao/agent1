@@ -11,7 +11,9 @@ Weizhi 主干已移除 **`setScriptFolder` / `import "leaf.js"`**，官方 JS �
 | `setFsRoot` | 会话 workspace |
 | `setPackageRoot` | 桌面：`{agentRoot}/weizhi-home`（`WeizhiBundledPackages.syncFromClasspath`）；Android：`WeizhiPackages.syncBundled(Context)` → `filesDir/weizhi-home` |
 
-内置 Office / SVG 脚本真源：`agent_core/.../agent-home/weizhi-packages/<name>/`（**仓内路径无版本**；版本只写在各包 `manifest.json`）。桌面 classpath 安装到 `weizhi-home/packages/<name>@<version>/`。**Android 不预装**（20-A 收口）：首次 `run_js` 由 `WeizhiPackageSync.beforeEval` 从云端 registry（`agentone.guoyoutech.cn`）动态安装，发布走 `artifact-cdn` 的 `pack.mjs + upload.sh`。源码 / 运行时 / 通道分层见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
+内置 Office / SVG 脚本真源：`agent_core/.../agent-home/weizhi-packages/<name>/`（**仓内路径无版本**；版本只写在各包 `manifest.json`）。桌面 classpath 安装到 `weizhi-home/packages/<name>@<version>/`（见 `WeizhiBundledPackages`）。**Android 不预装**（20-A 收口）：首次 `run_js` 由 `WeizhiPackageSync.beforeEval` 从云端 registry（`agentone.guoyoutech.cn`）动态安装，发布走 `artifact-cdn` 的 `pack.mjs + upload.sh`。源码 / 运行时 / 通道分层见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
+
+**云端-only（xlsx）**：`weizhi:xlsx` / `weizhi:xlsx-build` 真源仍在 `weizhi-packages/`，但**不**列入桌面 `BUNDLED_PACKAGE_NAMES`；Skill `xlsx` 不进 `skills-bundled`（`sync-skills-bundled.sh` 的 `CLOUD_ONLY_SKILLS`）。生产两侧均靠 registry；单测用 `WeizhiSourcePackages.installFromSource`。API 见 [OFFICE_XLSX_API.md](./OFFICE_XLSX_API.md)。
 
 **例外——video（issue #98 交付模型，[#101](https://github.com/fengshihao/agent1/issues/101) 升至 0.6.0）**：`weizhi:video`（**video@0.6.0**）与插件 SO（`libweizhivideo.so` / `libweizhitranscode.so`）强版本耦合，**不上云 registry**，随 `:weizhi-video` AAR 原子交付进 APK（SO 走 jniLibs、JS 包走 AAR assets，`WeizhiPackages.syncBundled` 自动安装）；引擎侧 `WeizhiVideo.install(engine)` 注册插件。桌面无 MediaCodec，`ensureNative` 报 unsupported 属预期。
 
@@ -62,7 +64,7 @@ await exportVideo({
 
 ## 集成测
 
-- `DocxOfficeIntegrationTest` / `PptxOfficeIntegrationTest`（`:weizhi-bridge:test`，需 `libweizhijni`）
+- `DocxOfficeIntegrationTest` / `PptxOfficeIntegrationTest` / `XlsxOfficeIntegrationTest`（`:weizhi-bridge:test`，需 `libweizhijni`；xlsx 从仓内真源安装）
 - `OfficeCatalogInstrumentedTest`（Android 真机，云端 registry 动态安装，需联网）
 - `VideoExportInstrumentedTest`（Android 真机，AAR assets 离线装包：v1 remux 掐头去尾 + v2 image 主轨 scale 关键帧，无需联网）
 - 剪辑工作流 Skill：`video-edit`（[agent1-skills/skills-src/video-edit](https://github.com/fengshihao/agent1-skills)；内置进 APK 经 `sync-skills-bundled`；云端 `./scripts/pack-official-skills.sh`）

@@ -13,11 +13,34 @@ if [[ ! -d "${SRC_ROOT}" ]]; then
   exit 1
 fi
 
+# 云端-only Skill：不进 classpath skills-bundled（APK / 桌面离线兜底）。
+# load_skill 经 registry 安装。空格分隔；可用环境变量覆盖。
+CLOUD_ONLY_SKILLS="${CLOUD_ONLY_SKILLS:-xlsx}"
+
+is_cloud_only() {
+  local needle="$1"
+  local item
+  for item in ${CLOUD_ONLY_SKILLS}; do
+    if [[ "${item}" == "${needle}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 rm -rf "${DEST}"
 mkdir -p "${DEST}"
+skipped=()
 for dir in "${SRC_ROOT}"/*/; do
   name="$(basename "${dir}")"
+  if is_cloud_only "${name}"; then
+    skipped+=("${name}")
+    continue
+  fi
   cp -R "${dir}" "${DEST}/${name}"
 done
 
 echo "已同步 $(find "${DEST}" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ') 个 Skill → ${DEST}"
+if ((${#skipped[@]} > 0)); then
+  echo "云端-only 已跳过（不进 bundled）: ${skipped[*]}"
+fi
