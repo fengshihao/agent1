@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # 从 agent1-skills 内容仓同步官方 Skill 到 classpath skills-bundled（桌面离线兜底）。
+# Skill 真源请在 agent1-skills 编辑；Cursor 用根目录 agent1.code-workspace 同时打开两仓（见 docs/ai/WORKSPACE.md）。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"

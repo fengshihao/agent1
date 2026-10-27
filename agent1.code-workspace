@@ -1,0 +1,21 @@
+{
+  "folders": [
+    {
+      "name": "agent1",
+      "path": "."
+    },
+    {
+      "name": "agent1-skills",
+      "path": "../agent1-skills"
+    },
+    {
+      "name": "weizhi",
+      "path": "../weizhi"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true
+    }
+  }
+}

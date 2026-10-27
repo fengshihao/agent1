@@ -12,6 +12,7 @@
 #
 # 默认克隆到本仓库内 agent1/weizhi（与 android_agent/../weizhi 路径一致）。
 # 若已存在同级目录 ../weizhi，则不会重复克隆，仅尝试 git pull。
+# 多根 Cursor workspace（agent1.code-workspace）推荐同级 ../weizhi：先 ./scripts/ensure-weizhi-sibling.sh
 
 set -euo pipefail
 
