@@ -25,3 +25,33 @@
 .agent1-embed #vditor {
   min-height: 0;
 }
+
+/*
+ * 手机预览：宽表勿压成屏宽。
+ * molan 默认 max-width:100% + .molan-table--wide（fixed + 列宽重分配）会把单元格挤扁；
+ * embed 改为保持内容自然宽度，由预览区横向滚动。
+ */
+.agent1-embed .molan-preview > .vditor-reset,
+.agent1-embed #molanPreviewBody {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.agent1-embed .vditor-reset table,
+.agent1-embed .vditor-reset table.molan-table--wide {
+  width: max-content !important;
+  max-width: none !important;
+  table-layout: auto !important;
+}
+
+.agent1-embed .vditor-reset table.molan-table--wide tr > :nth-child(n) {
+  width: auto !important;
+}
+
+.agent1-embed .vditor-reset table td,
+.agent1-embed .vditor-reset table th {
+  min-width: 5.5em;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+}
