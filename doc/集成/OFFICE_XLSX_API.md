@@ -13,7 +13,9 @@ import { Workbook, readXlsx, renderXlsx, csvToXlsx } from "weizhi:xlsx";
 import { buildXlsx } from "weizhi:xlsx-build";
 ```
 
-## 读与改
+## 读与改（保真）
+
+`readXlsx` 打开的工作簿 `save` 时走**保真改写**（1.2.0）：只替换被编辑单元格的 XML 与 mergeCells/dimension，未编辑格的样式索引、公式缓存、列宽、冻结窗格、原图表与其它 parts 逐字节保留。不支持：对已打开文件 `addChart`（报错）、新增/删除/重命名 sheet。
 
 ```javascript
 const wb = readXlsx("in/sales.xlsx");
@@ -23,6 +25,7 @@ sh.head(20);
 sh.grep("华北");
 sh.set("B2", 1200);
 sh.setFormula("D2", "B2*(1+C2)"); // 可选第三参缓存值
+sh.merge("E5:F6");
 wb.save("out/sales-edited.xlsx");
 ```
 
@@ -55,5 +58,6 @@ sh.merge("A1:C1");
 ## 边界
 
 - 仅 `.xlsx`
-- `save` / `renderXlsx` **重写整包**（样式 / 原图表 / 宏可能丢失；单元格值、公式、合并单元格保留）
-- 公式写入、不求值；图表**只写不读**，改已有文件时需重新 `addChart`
+- 新建走全量生成（`Workbook.create` 无 sourceDir）；`readXlsx → save` 走保真 patch
+- 公式写入、不求值；图表只支持从零 build
+- 深度改 OOXML 用 `weizhi:xlsx-raw`：`unpackXlsx` / `packXlsx` / `validateXlsx`

@@ -1,6 +1,6 @@
 {
   "name": "xlsx",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "entry": "xlsx.js",
-  "description": "Read/write Excel .xlsx: cells, formulas, merged cells, native charts (bar/line/pie). Cloud registry install (not desktop classpath bundled)."
+  "description": "Read/write Excel .xlsx: cells, formulas, merged cells, native charts (bar/line/pie), fidelity-preserving save. Cloud registry install (not desktop classpath bundled)."
 }

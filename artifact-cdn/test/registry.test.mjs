@@ -164,6 +164,7 @@ test("pack weizhi packages, fetch the projection, reject a bad digest", async ()
         "svg-raster",
         "xlsx",
         "xlsx-build",
+        "xlsx-raw",
       ].sort(),
     );
     assert.ok(index.artifacts.every((item) => item.kind === "weizhi_package"));

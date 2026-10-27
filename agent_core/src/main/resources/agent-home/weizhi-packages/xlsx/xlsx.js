@@ -149,7 +149,28 @@ function Sheet(name, cells) {
   this.mergeCells = [];
   /** 原生图表（addChart 写入；读已有文件不解析图表）。 */
   this.charts = [];
+  /** 保真改写（1.2.0）：readXlsx 时记录原始 sheet XML 的行/单元格结构。 */
+  this._origRows = null;
+  this._origSheetPart = null;
+  this._dirtyRefs = null;
+  this._mergesDirty = false;
+  this._patched = false;
 }
+
+Sheet.prototype._markDirty = function (a1) {
+  if (!this._dirtyRefs) {
+    this._dirtyRefs = Object.create(null);
+  }
+  this._dirtyRefs[a1] = true;
+};
+
+/** 该 sheet 自 readXlsx 后是否有结构/内容改动（决定 patch 与否）。 */
+Sheet.prototype._isDirty = function () {
+  if (this._mergesDirty || this._patched) {
+    return true;
+  }
+  return this._dirtyRefs != null && Object.keys(this._dirtyRefs).length > 0;
+};
 
 Sheet.prototype.get = function (ref) {
   var a1 = parseCellRef(ref).a1;
@@ -169,6 +190,7 @@ Sheet.prototype.set = function (ref, value) {
   var a1 = parseCellRef(ref).a1;
   if (value == null || value === "") {
     delete this.cells[a1];
+    this._markDirty(a1);
     return this;
   }
   var type = guessType(value);
@@ -182,6 +204,7 @@ Sheet.prototype.set = function (ref, value) {
     cell.value = String(value);
   }
   this.cells[a1] = cell;
+  this._markDirty(a1);
   return this;
 };
 
@@ -206,12 +229,14 @@ Sheet.prototype.setFormula = function (ref, formula, cachedValue) {
     }
   }
   this.cells[a1] = cell;
+  this._markDirty(a1);
   return this;
 };
 
 Sheet.prototype.clear = function (ref) {
   var a1 = parseCellRef(ref).a1;
   delete this.cells[a1];
+  this._markDirty(a1);
   return this;
 };
 
@@ -429,6 +454,7 @@ Sheet.prototype.merge = function (rangeA1) {
   if (this.mergeCells.indexOf(ref) < 0) {
     this.mergeCells.push(ref);
   }
+  this._mergesDirty = true;
   return this;
 };
 
@@ -438,6 +464,7 @@ Sheet.prototype.unmerge = function (rangeA1) {
   if (i >= 0) {
     this.mergeCells.splice(i, 1);
   }
+  this._mergesDirty = true;
   return this;
 };
 
@@ -1319,9 +1346,306 @@ function parseWorkbookSheetNames(xml) {
   return names.length ? names : ["Sheet1"];
 }
 
+function parseWorkbookSheetEntries(xml) {
+  var out = [];
+  var re = /<sheet\b[^>]*>/g;
+  var m;
+  while ((m = re.exec(xml)) != null) {
+    var name = attr(m[0], "name") || "Sheet" + (out.length + 1);
+    out.push({ name: decodeXml(name), rid: attr(m[0], "r:id") });
+  }
+  return out.length ? out : [{ name: "Sheet1", rid: "" }];
+}
+
+function parseWorkbookRels(relsXml) {
+  var map = {};
+  if (!relsXml) {
+    return map;
+  }
+  var re = /<Relationship\b[^>]*>/g;
+  var m;
+  while ((m = re.exec(relsXml)) != null) {
+    var id = attr(m[0], "Id");
+    var target = attr(m[0], "Target");
+    var type = attr(m[0], "Type") || "";
+    if (id && target && type.indexOf("/worksheet") >= 0) {
+      var norm = target.replace(/^\/+/, "");
+      if (norm.indexOf("xl/") === 0) {
+        norm = norm.slice(3);
+      }
+      map[id] = norm;
+    }
+  }
+  return map;
+}
+
+/** 保真改写：记录原始 sheetData 的行结构（open 标签 + 每个 cell 的原 XML）。 */
+function parseOrigRows(sheetXmlText) {
+  var rows = [];
+  if (!sheetXmlText || sheetXmlText.indexOf("<sheetData") < 0) {
+    return rows;
+  }
+  var bodyMatch = sheetXmlText.match(/<sheetData>([\s\S]*?)<\/sheetData>/);
+  var body = bodyMatch ? bodyMatch[1] : "";
+  var rowRe = /<row\b[^>]*\/>|<row\b[^>]*>[\s\S]*?<\/row>/g;
+  var m;
+  while ((m = rowRe.exec(body)) != null) {
+    var rowXml = m[0];
+    var open = rowXml.match(/<row\b[^>]*>/)[0];
+    var rowRef = attr(open, "r");
+    var rowNum = rowRef ? parseInt(rowRef, 10) : 0;
+    var selfClose = /\/>$/.test(rowXml.trim());
+    var cells = {};
+    if (!selfClose) {
+      var cellRe = /<c\b[^>]*>[\s\S]*?<\/c>|<c\b[^>]*\/>/g;
+      var cm;
+      while ((cm = cellRe.exec(rowXml)) != null) {
+        var ref = attr(cm[0], "r");
+        if (ref) {
+          cells[ref.toUpperCase()] = cm[0];
+        }
+      }
+    }
+    rows.push({ row: rowNum, open: open, cells: cells });
+  }
+  return rows;
+}
+
+/** patch 模式下生成新 cell XML：字符串走 inlineStr（不动 sharedStrings），继承原样式索引 s。 */
+function cellPatchXml(a1, cell, origCellXml) {
+  var sAttr = "";
+  if (origCellXml) {
+    var m = origCellXml.match(/\bs="(\d+)"/);
+    if (m) {
+      sAttr = ' s="' + m[1] + '"';
+    }
+  }
+  if (cell.type === "formula") {
+    var out = '<c r="' + a1 + '"' + sAttr;
+    if (cell.valueType === "string") {
+      out += ' t="str"';
+    } else if (cell.valueType === "boolean") {
+      out += ' t="b"';
+    }
+    out += "><f>" + xmlEscape(cell.formula) + "</f>";
+    if (cell.value != null) {
+      if (cell.valueType === "boolean") {
+        out += "<v>" + (cell.value ? "1" : "0") + "</v>";
+      } else {
+        out += "<v>" + xmlEscape(String(cell.value)) + "</v>";
+      }
+    }
+    return out + "</c>";
+  }
+  if (cell.type === "number") {
+    return '<c r="' + a1 + '"' + sAttr + "><v>" + xmlEscape(String(cell.value)) + "</v></c>";
+  }
+  if (cell.type === "boolean") {
+    return '<c r="' + a1 + '"' + sAttr + ' t="b"><v>' + (cell.value ? "1" : "0") + "</v></c>";
+  }
+  if (cell.type === "string") {
+    return (
+      '<c r="' + a1 + '"' + sAttr + ' t="inlineStr"><is><t>' +
+      xmlEscape(cell.value) + "</t></is></c>"
+    );
+  }
+  return '<c r="' + a1 + '"' + sAttr + "/>";
+}
+
+function refRowCol(a1) {
+  var p = parseCellRef(a1);
+  return p;
+}
+
+/**
+ * 生成替换后的 sheetData 内容：未编辑的原始 cell 原样保留（含样式 s、公式缓存等），
+ * 编辑/新增的 cell 用模型重写；行属性保留原始（ht/spans/s 等）。
+ */
+function buildPatchedSheetData(sheet) {
+  var dirty = sheet._dirtyRefs || {};
+  var origRows = sheet._origRows || [];
+  var origByRow = Object.create(null);
+  for (var i = 0; i < origRows.length; i++) {
+    origByRow[origRows[i].row] = origRows[i];
+  }
+  var modelByRow = Object.create(null);
+  var keys = Object.keys(sheet.cells);
+  for (var k = 0; k < keys.length; k++) {
+    var rc = refRowCol(keys[k]);
+    if (!modelByRow[rc.row]) {
+      modelByRow[rc.row] = [];
+    }
+    modelByRow[rc.row].push({ a1: keys[k], col: rc.col, cell: sheet.cells[keys[k]] });
+  }
+  var rowNumbers = Object.keys(origByRow);
+  for (var mr in modelByRow) {
+    if (rowNumbers.indexOf(mr) < 0) {
+      rowNumbers.push(mr);
+    }
+  }
+  rowNumbers = rowNumbers.map(Number).sort(function (a, b) { return a - b; });
+
+  var parts = [];
+  for (var r = 0; r < rowNumbers.length; r++) {
+    var rowNum = rowNumbers[r];
+    var orig = origByRow[rowNum];
+    var open = orig ? orig.open : '<row r="' + rowNum + '">';
+    var selfClose = /\/>$/.test(open);
+    var modelCells = modelByRow[rowNum] || [];
+    if (selfClose && modelCells.length === 0) {
+      parts.push(open);
+      continue;
+    }
+    if (selfClose) {
+      open = open.replace(/\/>$/, ">") + "</row>";
+    }
+    var merged = [];
+    if (orig) {
+      var origRefs = Object.keys(orig.cells);
+      for (var oc = 0; oc < origRefs.length; oc++) {
+        var ref = origRefs[oc];
+        if (dirty[ref]) {
+          continue;
+        }
+        merged.push({ col: refRowCol(ref).col, xml: orig.cells[ref] });
+      }
+    }
+    for (var mc = 0; mc < modelCells.length; mc++) {
+      var entry = modelCells[mc];
+      if (!dirty[entry.a1]) {
+        continue;
+      }
+      merged.push({
+        col: entry.col,
+        xml: cellPatchXml(entry.a1, entry.cell, orig ? orig.cells[entry.a1] : null),
+      });
+    }
+    if (merged.length === 0 && orig && !/\/>$/.test(orig.open)) {
+      parts.push('<row r="' + rowNum + '">');
+      parts.push("</row>");
+      continue;
+    }
+    if (merged.length === 0 && !orig) {
+      continue;
+    }
+    merged.sort(function (a, b) { return a.col - b.col; });
+    var openNoClose = open.replace(/<\/row>$/, "");
+    parts.push(openNoClose);
+    for (var x = 0; x < merged.length; x++) {
+      parts.push(merged[x].xml);
+    }
+    parts.push("</row>");
+  }
+  return parts.join("");
+}
+
+function replaceSheetDataSpan(xml, newSheetData) {
+  var re = /<sheetData(?:\/>|>[\s\S]*?<\/sheetData>)/;
+  if (!re.test(xml)) {
+    throw new Error("xlsx: sheetData span not found (unsupported sheet xml)");
+  }
+  if (newSheetData === "") {
+    return xml.replace(re, "<sheetData/>");
+  }
+  return xml.replace(re, "<sheetData>" + newSheetData + "</sheetData>");
+}
+
+function replaceMergeCellsSpan(xml, merges) {
+  var re = /<mergeCells\b[^>]*(?:\/>|>[\s\S]*?<\/mergeCells>)/;
+  if (merges.length === 0) {
+    return xml.replace(re, "");
+  }
+  var block = '<mergeCells count="' + merges.length + '">';
+  for (var i = 0; i < merges.length; i++) {
+    block += '<mergeCell ref="' + merges[i] + '"/>';
+  }
+  block += "</mergeCells>";
+  if (re.test(xml)) {
+    return xml.replace(re, block);
+  }
+  // 原文件没有 mergeCells：插到 sheetData 之后
+  var sd = /(<sheetData(?:\/>|>[\s\S]*?<\/sheetData>))/;
+  return xml.replace(sd, "$1" + block);
+}
+
+function updateDimensionSpan(xml, sheet) {
+  var refs = Object.keys(sheet.cells);
+  var origRows = sheet._origRows || [];
+  for (var i = 0; i < origRows.length; i++) {
+    var origRefs = Object.keys(origRows[i].cells);
+    for (var j = 0; j < origRefs.length; j++) {
+      if (refs.indexOf(origRefs[j]) < 0) {
+        refs.push(origRefs[j]);
+      }
+    }
+  }
+  if (refs.length === 0) {
+    return xml;
+  }
+  var minR = 1e9, maxR = -1, minC = 1e9, maxC = -1;
+  for (var k = 0; k < refs.length; k++) {
+    var p = refRowCol(refs[k]);
+    if (p.row < minR) minR = p.row;
+    if (p.row > maxR) maxR = p.row;
+    if (p.col < minC) minC = p.col;
+    if (p.col > maxC) maxC = p.col;
+  }
+  var dim = "A1:" + cellA1(maxC, maxR);
+  var re = /<dimension ref="[^"]*"\/>/;
+  if (re.test(xml)) {
+    return xml.replace(re, '<dimension ref="' + dim + '"/>');
+  }
+  return xml.replace(/<worksheet\b[^>]*>/, function (m) {
+    return m + '<dimension ref="' + dim + '"/>';
+  });
+}
+
+/**
+ * 保真保存（1.2.0）：对 readXlsx 打开的工作簿，只替换被编辑 sheet 的
+ * sheetData / mergeCells / dimension，其余 parts（样式、列宽、原图表、
+ * 打印设置等）与未编辑单元格原 XML（含样式索引 s、公式缓存）逐字节保留。
+ */
+function patchSave(wb, outputPath) {
+  var dir = wb._sourceDir;
+  for (var i = 0; i < wb.sheets.length; i++) {
+    var sheet = wb.sheets[i];
+    if (sheet.charts.length > 0) {
+      throw new Error(
+        "xlsx: addChart on a workbook loaded by readXlsx is not supported yet; " +
+          "build a new workbook (buildXlsx) or edit via weizhi:xlsx-raw"
+      );
+    }
+    if (!sheet._origSheetPart) {
+      throw new Error(
+        "xlsx: adding/removing/renaming sheets on a loaded workbook is not supported yet; " +
+          "sheets are: " + (wb._origSheetNames || []).join(", ")
+      );
+    }
+    if (!sheet._isDirty()) {
+      continue;
+    }
+    var xmlPath = dir + "/" + sheet._origSheetPart;
+    var xml = readUtf8(xmlPath);
+    xml = replaceSheetDataSpan(xml, buildPatchedSheetData(sheet));
+    xml = replaceMergeCellsSpan(xml, sheet.mergeCells);
+    xml = updateDimensionSpan(xml, sheet);
+    writeUtf8(xmlPath, xml);
+    // 保存后原始结构以新状态为准，允许继续编辑后再 save。
+    sheet._origRows = parseOrigRows(xml);
+    sheet._dirtyRefs = null;
+    sheet._mergesDirty = false;
+  }
+  packDir(dir, outputPath);
+  var bytes = fs.readFileSync(outputPath).length;
+  return { ok: true, path: outputPath, bytes: bytes };
+}
+
 export function renderXlsx(wb, outputPath) {
   if (!outputPath) {
     throw new Error("bad argument: renderXlsx: outputPath required");
+  }
+  if (wb && wb._sourceDir) {
+    return patchSave(wb, outputPath);
   }
   if (!wb || !wb.sheets || wb.sheets.length === 0) {
     throw new Error("bad argument: renderXlsx: workbook has no sheets");
@@ -1354,7 +1678,17 @@ export function readXlsx(inputPath, options) {
   var workDir = options.workDir || "tmp/xlsx-read-" + Date.now();
   unpack(inputPath, workDir);
   var wbXml = readUtf8(workDir + "/xl/workbook.xml");
-  var names = parseWorkbookSheetNames(wbXml);
+  var relsXml = "";
+  try {
+    relsXml = readUtf8(workDir + "/xl/_rels/workbook.xml.rels");
+  } catch (eRels) {
+    relsXml = "";
+  }
+  var relMap = parseWorkbookRels(relsXml);
+  var entries = parseWorkbookSheetEntries(wbXml);
+  var names = entries.map(function (en) {
+    return en.name;
+  });
   var shared = [];
   try {
     shared = parseSharedStrings(readUtf8(workDir + "/xl/sharedStrings.xml"));
@@ -1362,22 +1696,29 @@ export function readXlsx(inputPath, options) {
     shared = [];
   }
   var wb = Workbook.create({ empty: true, title: "", _sourcePath: inputPath });
-  for (var i = 0; i < names.length; i++) {
-    var sheetPath = workDir + "/xl/worksheets/sheet" + (i + 1) + ".xml";
+  for (var i = 0; i < entries.length; i++) {
+    var target = relMap[entries[i].rid] || "worksheets/sheet" + (i + 1) + ".xml";
+    var part = "xl/" + target.replace(/^xl\//, "");
     var sheetXmlText = "";
     try {
-      sheetXmlText = readUtf8(sheetPath);
+      sheetXmlText = readUtf8(workDir + "/" + part);
     } catch (e2) {
       sheetXmlText = "";
     }
     var cells = parseSheetCells(sheetXmlText, shared);
     var sheet = new Sheet(names[i], cells);
     sheet.mergeCells = parseMergeCells(sheetXmlText);
+    if (sheetXmlText) {
+      sheet._origRows = parseOrigRows(sheetXmlText);
+      sheet._origSheetPart = part;
+    }
     wb.sheets.push(sheet);
   }
   if (wb.sheets.length === 0) {
     wb.addSheet("Sheet1");
   }
+  wb._sourceDir = workDir;
+  wb._origSheetNames = names.slice();
   return wb;
 }
 

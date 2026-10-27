@@ -16,7 +16,8 @@ import java.util.List;
 public final class WeizhiSourcePackages {
 
     /** 不上桌面 classpath 预装、靠 CDN registry 的包名。 */
-    public static final List<String> CLOUD_ONLY_PACKAGE_NAMES = List.of("xlsx", "xlsx-build");
+    public static final List<String> CLOUD_ONLY_PACKAGE_NAMES =
+        List.of("xlsx", "xlsx-build", "xlsx-raw");
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
