@@ -20,7 +20,7 @@ jobs:
         with:
           repository: fengshihao/agent1-skills
           path: agent1-skills
-          ref: cursor/move-weizhi-packages-1a21
+          ref: main
 
       - name: Sync Weizhi source
         env:
