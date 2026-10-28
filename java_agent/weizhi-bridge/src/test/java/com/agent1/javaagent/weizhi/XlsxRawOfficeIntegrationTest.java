@@ -35,9 +35,9 @@ class XlsxRawOfficeIntegrationTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path home = WeizhiBundledPackages.weizhiHome(agentRoot);
         Files.createDirectories(home);
-        WeizhiSourcePackages.installFromSource(home, "xlsx");
-        WeizhiSourcePackages.installFromSource(home, "xlsx-build");
-        WeizhiSourcePackages.installFromSource(home, "xlsx-raw");
+        WeizhiTestPackages.installFromSource(home, "xlsx");
+        WeizhiTestPackages.installFromSource(home, "xlsx-build");
+        WeizhiTestPackages.installFromSource(home, "xlsx-raw");
 
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot, home);
         String js =
@@ -85,9 +85,9 @@ class XlsxRawOfficeIntegrationTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path home = WeizhiBundledPackages.weizhiHome(agentRoot);
         Files.createDirectories(home);
-        WeizhiSourcePackages.installFromSource(home, "xlsx");
-        WeizhiSourcePackages.installFromSource(home, "xlsx-build");
-        WeizhiSourcePackages.installFromSource(home, "xlsx-raw");
+        WeizhiTestPackages.installFromSource(home, "xlsx");
+        WeizhiTestPackages.installFromSource(home, "xlsx-build");
+        WeizhiTestPackages.installFromSource(home, "xlsx-raw");
 
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot, home);
         String js =

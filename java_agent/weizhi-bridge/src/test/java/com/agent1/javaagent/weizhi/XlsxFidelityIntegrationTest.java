@@ -45,7 +45,7 @@ class XlsxFidelityIntegrationTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path home = WeizhiBundledPackages.weizhiHome(agentRoot);
         Files.createDirectories(home);
-        WeizhiSourcePackages.installCloudOnlyFromSource(home);
+        WeizhiTestPackages.installCloudOnlyFromSource(home);
 
         // 1) 基础 xlsx
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot, home);
@@ -143,8 +143,8 @@ class XlsxFidelityIntegrationTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path home = WeizhiBundledPackages.weizhiHome(agentRoot);
         Files.createDirectories(home);
-        WeizhiSourcePackages.installFromSource(home, "xlsx");
-        WeizhiSourcePackages.installFromSource(home, "xlsx-build");
+        WeizhiTestPackages.installFromSource(home, "xlsx");
+        WeizhiTestPackages.installFromSource(home, "xlsx-build");
 
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot, home);
         String build =

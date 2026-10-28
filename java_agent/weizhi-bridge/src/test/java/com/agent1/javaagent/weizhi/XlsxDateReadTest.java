@@ -43,8 +43,8 @@ class XlsxDateReadTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path home = WeizhiBundledPackages.weizhiHome(agentRoot);
         Files.createDirectories(home);
-        WeizhiSourcePackages.installFromSource(home, "xlsx");
-        WeizhiSourcePackages.installFromSource(home, "xlsx-build");
+        WeizhiTestPackages.installFromSource(home, "xlsx");
+        WeizhiTestPackages.installFromSource(home, "xlsx-build");
 
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot, home);
         String build =

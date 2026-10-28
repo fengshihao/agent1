@@ -46,7 +46,7 @@ class ChartScriptTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
-        WeizhiSourcePackages.installFromSource(WeizhiBundledPackages.weizhiHome(agentRoot), "chart");
+        WeizhiTestPackages.installFromSource(WeizhiBundledPackages.weizhiHome(agentRoot), "chart");
 
         AtomicReference<Map<String, Object>> seen = new AtomicReference<>();
         ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) -> {
@@ -107,7 +107,7 @@ class ChartScriptTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
-        WeizhiSourcePackages.installFromSource(WeizhiBundledPackages.weizhiHome(agentRoot), "chart");
+        WeizhiTestPackages.installFromSource(WeizhiBundledPackages.weizhiHome(agentRoot), "chart");
 
         AtomicReference<Map<String, Object>> seen = new AtomicReference<>();
         ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) -> {
@@ -157,7 +157,7 @@ class ChartScriptTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
-        WeizhiSourcePackages.installFromSource(WeizhiBundledPackages.weizhiHome(agentRoot), "chart");
+        WeizhiTestPackages.installFromSource(WeizhiBundledPackages.weizhiHome(agentRoot), "chart");
 
         AtomicInteger calls = new AtomicInteger();
         ScriptEngine engine = open(agentRoot, workspace, (toolName, arguments) -> {
@@ -208,7 +208,7 @@ class ChartScriptTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
-        WeizhiSourcePackages.installFromSource(WeizhiBundledPackages.weizhiHome(agentRoot), "chart");
+        WeizhiTestPackages.installFromSource(WeizhiBundledPackages.weizhiHome(agentRoot), "chart");
 
         CdpWebViewRuntime runtime = CdpWebViewRuntime.getInstance(repo);
         com.agent1.javaagent.workspace.WorkspaceSandbox sandbox =

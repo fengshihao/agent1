@@ -9,13 +9,13 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 纯 JVM：从仓内真源安装云端-only 包，不依赖 libweizhijni。 */
-class WeizhiSourcePackagesTest {
+/** 纯 JVM：从固化测试 fixture 安装云端-only 包，不依赖 libweizhijni。 */
+class WeizhiTestPackagesTest {
 
     @Test
-    void installsXlsxFromRepoSource(@TempDir Path home) throws Exception {
+    void installsXlsxFromFixture(@TempDir Path home) throws Exception {
         Files.createDirectories(home);
-        String version = WeizhiSourcePackages.installFromSource(home, "xlsx");
+        String version = WeizhiTestPackages.installFromSource(home, "xlsx");
         assertEquals("1.5.0", version);
         assertEquals("1.5.0", PackageInstaller.readIndex(home).get("xlsx"));
         assertTrue(Files.isRegularFile(home.resolve("packages/xlsx@1.5.0/xlsx.js")));
@@ -29,9 +29,9 @@ class WeizhiSourcePackagesTest {
     }
 
     @Test
-    void installsXlsxRawFromRepoSource(@TempDir Path home) throws Exception {
+    void installsXlsxRawFromFixture(@TempDir Path home) throws Exception {
         Files.createDirectories(home);
-        String version = WeizhiSourcePackages.installFromSource(home, "xlsx-raw");
+        String version = WeizhiTestPackages.installFromSource(home, "xlsx-raw");
         assertEquals("1.0.0", version);
         assertTrue(Files.isRegularFile(home.resolve("packages/xlsx-raw@1.0.0/xlsx-raw.js")));
         assertTrue(Files.readString(home.resolve("packages/xlsx-raw@1.0.0/xlsx-raw.js")).contains("validateXlsx"));
@@ -39,15 +39,15 @@ class WeizhiSourcePackagesTest {
 
     @Test
     void cloudOnlyListCoversXlsxFamily() {
-        assertTrue(WeizhiSourcePackages.isCloudOnly("xlsx"));
-        assertTrue(WeizhiSourcePackages.isCloudOnly("xlsx-build"));
-        assertTrue(WeizhiSourcePackages.isCloudOnly("xlsx-raw"));
+        assertTrue(WeizhiBundledPackages.isCloudOnly("xlsx"));
+        assertTrue(WeizhiBundledPackages.isCloudOnly("xlsx-build"));
+        assertTrue(WeizhiBundledPackages.isCloudOnly("xlsx-raw"));
     }
 
     @Test
-    void resolvePackageSourcePointsAtWeizhiPackages() throws Exception {
-        Path dir = WeizhiSourcePackages.resolvePackageSource("xlsx-build");
+    void resolvePackageSourcePointsAtFixture() throws Exception {
+        Path dir = WeizhiTestPackages.resolvePackageSource("xlsx-build");
         assertTrue(Files.isRegularFile(dir.resolve("xlsx-build.js")));
-        assertTrue(dir.toString().contains("packages-src"));
+        assertTrue(dir.toString().contains("weizhi-test-packages"));
     }
 }

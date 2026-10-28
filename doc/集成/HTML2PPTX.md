@@ -2,7 +2,7 @@
 
 真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/html2pptx/`（仓内**无版本路径**；版本见 `manifest.json`，当前 `0.2.5`）。桌面 classpath 安装到 `weizhi-home/packages/html2pptx@<version>/`；Android 从云端 registry 动态安装（APK 不预装）。QuickJS **ES module**，截图在 `webview_exec`（桌面 CDP Chromium / Android 系统 WebView）里完成。Agent 检索见 `office-api-cards.jsonl` 的 `html2pptx.render`（`kind=weizhi_package`）。
 
-**Skill 与 Package 分轨（2026-10 起）**：工作流说明在独立 Skill `html2pptx`（源码 [agent1-skills/skills-src/html2pptx](https://github.com/fengshihao/agent1-skills)），桌面 bundled 到 `skills-home`，云 `kind=skill` 条目 + `load_skill`）。包内**不再**携带 `SKILL.md`；`find_caps` 命中包卡与 `skill.html2pptx`（`source=skills_home`）双卡，正文优先 `load_skill` / `AgentSkillLoader` 从 `skills-home` 加载。布局约定见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
+**Skill 与 Package 分轨（2026-10 起）**：工作流说明在独立 Skill `html2pptx`（内容源可插拔，官方默认 [agent1-skills/skills-src/html2pptx](https://github.com/fengshihao/agent1-skills)），桌面 bundled 到 `skills-home`（官方预置离线快照），云 `kind=skill` 条目 + `load_skill`）。包内**不再**携带 `SKILL.md`；`find_caps` 命中包卡与 `skill.html2pptx`（`source=skills_home`）双卡，正文优先 `load_skill` / `AgentSkillLoader` 从 `skills-home` 加载。布局约定见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
 
 **0.2.3 截图内存**：WebView 内逐页 `writeFile(page-N.png, dataUrl)`，宿主解码落盘后回执只带路径清单；QuickJS 不再 `readFileSync` 整包 Base64 JSON。Android 引擎堆默认与桌面对齐为 128MB（需新 APK；包可单独云升）。
 
