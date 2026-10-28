@@ -4,7 +4,7 @@
 
 **交付**：云端 registry（`artifact-cdn` pack + upload）。**不**进 `WeizhiBundledPackages` 桌面预装列表；Android APK 本就不打 `weizhi-packages`。`run_js` 前 `WeizhiPackageSync.beforeEval` 按 `import "weizhi:xlsx"` ensure。
 
-Agent 发现面：`office-api-cards.jsonl` 的 `xlsx.*`；Skill 真源 [agent1-skills `skills-src/xlsx`](https://github.com/fengshihao/agent1-skills)（`sync-skills-bundled` **跳过**，靠 `load_skill` 云装）。
+Agent 发现面：`office-api-cards.jsonl` 的 `xlsx.*`；Skill `xlsx` 为云端-only（**不**进 `skills-bundled`，靠 `load_skill` 经 registry 云装；内容源可插拔，官方默认 [agent1-skills `skills-src/xlsx`](https://github.com/fengshihao/agent1-skills)）。
 
 ## 加载
 

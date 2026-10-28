@@ -2,7 +2,7 @@
 
 这个目录是发布侧，不是 Agent 运行时。它把一个源目录打成 zip，计算 sha256，写进清单，再用 SSH 拷到国优服务器的网站根。下载工具只负责把 zip 取回来并校验，不负责安装。公网只能下载，不能上传。
 
-微智 JS 包是 `kind=weizhi_package`。官方 **Weizhi Package** 与 **Skill** 源码均在 [**agent1-skills**](https://github.com/fengshihao/agent1-skills)（`packages-src/`、`skills-src/`）；在 agent1 根目录用 **`./scripts/pack-official-packages.sh`** / **`./scripts/pack-official-skills.sh`**（或该仓 `scripts/pack-*.mjs`）打包，字段见 [agent1-skills/doc/SKILL-PACK-FIELDS.md](https://github.com/fengshihao/agent1-skills/blob/main/doc/SKILL-PACK-FIELDS.md)（本目录 `doc/SKILL-PACK-FIELDS.md` 为历史副本）。产物含 `packages/registry/stable.json`、`skills/registry/stable.json` 与合并进 `dist/registry/stable.json` 的条目。
+微智 JS 包是 `kind=weizhi_package`。官方 **Weizhi Package** 与 **Skill** 的内容源**可插拔**：官方默认 [**agent1-skills**](https://github.com/fengshihao/agent1-skills)（`packages-src/`、`skills-src/`），打包脚本在内容仓侧（`scripts/pack-*.mjs`），贡献者可自建内容仓。本目录提供**通用** `pack.mjs` / `fetch.mjs` / `upload.sh` 工具，指向任意内容源目录即可。字段见 [agent1-skills/doc/SKILL-PACK-FIELDS.md](https://github.com/fengshihao/agent1-skills/blob/main/doc/SKILL-PACK-FIELDS.md)（本目录 `doc/SKILL-PACK-FIELDS.md` 为历史副本）。产物含 `packages/registry/stable.json`、`skills/registry/stable.json` 与合并进 `dist/registry/stable.json` 的条目。
 
 不进入 `java_agent` / `android_agent` 的 Gradle，也不进入 `./scripts/ci-local.sh`。
 
@@ -44,10 +44,10 @@ zip 根就是源目录里的文件（含 `manifest.json`），不套一层父目
 ```bash
 cd artifact-cdn
 export ARTIFACT_CDN_BASE_URL=https://agentone.guoyoutech.cn/
-# 推荐：从 agent1 根目录
-#   ./scripts/pack-official-packages.sh && ./scripts/pack-official-skills.sh
+# 官方内容源在 agent1-skills 仓（可插拔：--root 指向任意内容仓的 packages-src）
+#   官方推荐：在 agent1-skills 仓用其 scripts/pack-*.mjs 打包后，再用本目录 upload.sh 上传
 node pack.mjs \
-  --root ../agent1-skills/packages-src \
+  --root <内容仓>/packages-src \
   --kind weizhi_package \
   --base-url "$ARTIFACT_CDN_BASE_URL" \
   --cards ../agent_core/src/main/resources/agent-home/capabilities/office-api-cards.jsonl
@@ -121,7 +121,7 @@ cd artifact-cdn
 
 ```bash
 node pack.mjs \
-  --root ../agent1-skills/packages-src \
+  --root <内容仓>/packages-src \
   --kind weizhi_package \
   --base-url "$ARTIFACT_CDN_BASE_URL" \
   --cards ../agent_core/src/main/resources/agent-home/capabilities/office-api-cards.jsonl
@@ -138,4 +138,4 @@ cd artifact-cdn
 node --test 'test/*.test.mjs'
 ```
 
-夹具优先使用 `agent1-skills/packages-src`（若已 clone），否则回退 classpath `weizhi-packages` 副本。
+夹具默认使用仓内 `agent_core/.../agent-home/weizhi-packages` 官方预置快照（无外部仓依赖）；`ARTIFACT_CDN_TEST_PACKAGES_ROOT` 可覆盖。

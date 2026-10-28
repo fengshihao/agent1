@@ -15,13 +15,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Checkout agent1-skills (packages-src)
-        uses: actions/checkout@v4
-        with:
-          repository: fengshihao/agent1-skills
-          path: agent1-skills
-          ref: main
-
       - name: Sync Weizhi source
         env:
           WEIZHI_GIT_URL: ${{ secrets.WEIZHI_GIT_URL }}

@@ -16,7 +16,7 @@ import java.util.List;
  * {@code <agentRoot>/weizhi-home}，供 {@link com.weizhi.WeizhiEngine#setPackageRoot} 使用。
  * 源码目录无版本号；版本只读各包 {@code manifest.json}，安装后目录为 {@code <name>@<version>}。
  * 官方 Skill 与包分离，由 {@link SkillsBundledInstall} 写入 {@code skills-home}。
- * <p>云端-only 包（如 {@code xlsx}）见 {@link WeizhiSourcePackages#CLOUD_ONLY_PACKAGE_NAMES}，
+ * <p>云端-only 包（如 {@code xlsx}）见 {@link #CLOUD_ONLY_PACKAGE_NAMES}，
  * <strong>不要</strong>加入本列表；Android / 桌面生产路径靠 registry。
  */
 public final class WeizhiBundledPackages {
@@ -32,6 +32,14 @@ public final class WeizhiBundledPackages {
             "html2pptx",
             "image",
             "audio");
+
+    /** 不上桌面 classpath 预装、靠 CDN registry 的官方包名。 */
+    public static final List<String> CLOUD_ONLY_PACKAGE_NAMES =
+        List.of("xlsx", "xlsx-build", "xlsx-raw", "chart");
+
+    public static boolean isCloudOnly(String name) {
+        return name != null && CLOUD_ONLY_PACKAGE_NAMES.contains(name);
+    }
 
     private static final String RESOURCE_ROOT = "agent-home/weizhi-packages/";
     private static final ObjectMapper MAPPER = new ObjectMapper();

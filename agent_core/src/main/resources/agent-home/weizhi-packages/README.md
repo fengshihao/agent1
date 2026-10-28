@@ -1,7 +1,7 @@
-# weizhi-packages（classpath 副本）
+# weizhi-packages（官方预置离线快照）
 
-**真源**：[agent1-skills/packages-src](https://github.com/fengshihao/agent1-skills/tree/main/packages-src)。
+本目录为 **官方预置离线快照** 的桌面 **bundled** 子集（`WeizhiBundledPackages`）：Android APK / 桌面离线兜底用。agent1 **不依赖、不感知任何外部内容仓**；如需更新快照，从内容仓（官方默认 [agent1-skills/packages-src](https://github.com/fengshihao/agent1-skills/tree/main/packages-src)，可插拔）或 CDN registry 手动替换。
 
-本目录仅保留桌面 **bundled** 子集（`WeizhiBundledPackages`），由 `./scripts/sync-weizhi-packages-bundled.sh` 从 agent1-skills 同步。云端-only（如 `xlsx` / `xlsx-build` / `xlsx-raw`）不在此目录；单测与联调读 `packages-src`。
+云端-only 包（如 `xlsx` / `xlsx-build` / `xlsx-raw` / `chart`）**不**在此目录，生产路径靠 registry 云装；集成测试 fixture 固化在 `java_agent/weizhi-bridge/src/test/resources/weizhi-test-packages/`。
 
-发布：`./scripts/pack-official-packages.sh` → `artifact-cdn/upload.sh`。
+发布（内容仓侧）：内容仓的 pack 脚本 → 本仓 `artifact-cdn/upload.sh`。

@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# 准备 agent1.code-workspace 所需的同级仓：agent1-skills、weizhi。
+# 准备 agent1.code-workspace 所需的同级仓：weizhi。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
-"${ROOT}/scripts/ensure-agent1-skills.sh"
 "${ROOT}/scripts/ensure-weizhi-sibling.sh"
 
 if [[ -d "${ROOT}/../weizhi/android" ]]; then
