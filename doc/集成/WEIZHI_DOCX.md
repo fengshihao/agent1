@@ -10,15 +10,15 @@
 
 | 项 | 位置 |
 |----|------|
-| 脚本真源 | `agent_core/.../agent-home/weizhi-packages/docx/`（及 `docx-raw`、`docx-build`；版本在各自 manifest） |
-| Android 分发 | 云端 registry 动态安装（APK 不预装；首次 `run_js` ensure） |
-| 装进运行时 | 桌面 `WeizhiBundledPackages` 从 classpath 装到 `weizhi-home`；Android `WeizhiPackages.syncBundled` 从 assets 装 |
+| 脚本真源 | 内容仓（官方默认 agent1-skills `packages-src/docx/` 等）；不进 jar/APK |
+| 分发 | 云端 registry 动态安装（首次 `run_js` ensure） |
+| 装进运行时 | `WeizhiPackageSync.beforeEval` → `weizhi-home/packages/<name>@<version>/` |
 | 调用 | `run_js` 里 `import { markdownToDocx } from "weizhi:docx"`。无外层 `docx_*` 工具 |
-| 调用卡 | `agent-home/capabilities/office-api-cards.jsonl`（`docx.*`） |
+| 调用卡 | 云端 package registry `cards[]`（打包输入 `artifact-cdn/office-api-cards.jsonl`） |
 | 测试 | `DocxOfficeIntegrationTest`（需 `libweizhijni`） |
 | 用户打开 docx | 脚本用 `android.intent.start({ action: "view", path })` |
 
-改脚本时改 `weizhi-packages` 真源，云端发布走 `artifact-cdn`（`pack.mjs + upload.sh`），并改 `office-api-cards.jsonl` 里对应 `entry`。
+改脚本时改内容仓真源，云端发布走 `artifact-cdn`（`pack.mjs --cards office-api-cards.jsonl` + `upload.sh`）。
 
 ## 系统提示
 

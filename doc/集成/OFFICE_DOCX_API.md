@@ -1,8 +1,8 @@
 # docx.js — 文档模型 + 渲染
 
-真源脚本：`agent_core/src/main/resources/agent-home/weizhi-packages/docx/docx.js`（及 `docx-build`、`docx-raw`；版本在 manifest）。Android 从云端 registry 动态安装（APK 不预装，20-A 收口）。QuickJS **ES module**，无 npm。引擎由 Weizhi 提供 `fs` / `zip` 和包加载。
+`weizhi:docx` / `docx-build` / `docx-raw` 走云端 registry 动态安装（不进 jar/APK）。QuickJS **ES module**，无 npm。引擎由 Weizhi 提供 `fs` / `zip` 和包加载。
 
-Agent 的发现面是 `agent-home/capabilities/office-api-cards.jsonl`（`docx.*`）。本页给人读；API 变更时同时改对应卡的 `entry` / `summary`，并让 Android assets 与 `weizhi-packages` 真源一致。
+Agent 的发现面是云端 package registry 写入 find_caps 的 `docx.*` 卡。本页给人读；API 变更时改 `artifact-cdn/office-api-cards.jsonl` 再 pack 上云。
 
 ## 加载
 

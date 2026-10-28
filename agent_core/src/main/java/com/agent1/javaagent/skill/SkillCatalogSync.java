@@ -13,8 +13,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Skill 目录缓存：默认 bundled；可用 {@code AGENT1_SKILL_CATALOG_URL} 拉远程
- * {@code skills/registry/stable.json} 覆盖缓存（失败保留上一份）。
+ * Skill 目录缓存：从 {@code AGENT1_SKILL_CATALOG_URL}（默认官方 CDN）拉取
+ * {@code skills/registry/stable.json}。无缓存则提示词不注入目录；失败保留上一份。
  */
 public final class SkillCatalogSync {
 
@@ -82,11 +82,7 @@ public final class SkillCatalogSync {
                 }
             }
         }
-        try {
-            return SkillCatalogDocument.loadBundled();
-        } catch (IOException e) {
-            return MAPPER.createObjectNode();
-        }
+        return MAPPER.createObjectNode();
     }
 
     static String catalogUrl() {

@@ -34,9 +34,12 @@ public final class WeizhiScriptEngineFactory implements ScriptEngineFactory {
                 effective.nativePluginDir(nativeDir.toString());
             }
             try {
-                effective.packageRoot(WeizhiBundledPackages.syncFromClasspath(agentRoot));
+                // 无 classpath 预装：package 由 WeizhiPackageSync.beforeEval 从云端 registry 惰性安装
+                effective.packageRoot(
+                    java.nio.file.Files.createDirectories(
+                        WeizhiBundledPackages.weizhiHome(agentRoot)).toAbsolutePath().toString());
             } catch (java.io.IOException e) {
-                throw new IllegalStateException("sync bundled Weizhi packages failed", e);
+                throw new IllegalStateException("prepare weizhi-home failed", e);
             }
             effective.mcpAgentRoot(agentRoot);
             if (!effective.enableFetch()) {

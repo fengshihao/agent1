@@ -27,8 +27,8 @@ import java.util.regex.Pattern;
  * 跑脚本前按 {@code weizhi:} 名字安装官方包，并把清单里的当前卡片写入 find_caps。
  * 清单每个 name 只有一行当前版本，索引按这份清单整批替换 {@code source=registry} 的行。
  *
- * <p>版本策略：registry 只升不降——本地已装版本高于清单版本时保留本地（内置
- * classpath 包常比线上新），不会发生「清单 0.2.0 覆盖本地 0.2.1」的回退。
+ * <p>版本策略：registry 只升不降——本地已装版本高于清单版本时保留本地，
+ * 不会发生「清单 0.2.0 覆盖本地 0.2.1」的回退。
  * registry 地址可用 {@code AGENT1_WEIZHI_PACKAGE_REGISTRY_URL} 环境变量或
  * {@code agent1.weizhi.package.registry.url} 系统属性覆盖（本地/测试 registry）；
  * 覆盖时 zip 白名单自动加入该地址的 host，缓存写到独立文件不污染生产缓存。

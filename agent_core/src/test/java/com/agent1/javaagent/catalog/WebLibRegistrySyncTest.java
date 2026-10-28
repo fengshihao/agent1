@@ -43,8 +43,8 @@ class WebLibRegistrySyncTest {
         WebLibRegistrySync.applyManifest(agentRoot, "{\"schema_version\":1,\"cards\":[]}");
         var after = CapabilityIndexStore.search(agentRoot, "流程图 mermaid", List.of("web_lib"), "any", 5);
         assertTrue(after.isEmpty());
-        var remaining = CapabilityIndexStore.search(agentRoot, "链式生成 PPT", List.of(), "any", 5);
-        assertTrue(remaining.stream().anyMatch(hit -> hit.id().startsWith("pptx.")));
+        var remaining = CapabilityIndexStore.search(agentRoot, "skill creator", List.of(), "any", 5);
+        assertTrue(remaining.stream().anyMatch(hit -> "skill.skill-creator".equals(hit.id())));
     }
 
     @Test

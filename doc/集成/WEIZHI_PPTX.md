@@ -10,10 +10,10 @@
 
 | 项 | 位置 |
 |----|------|
-| 脚本真源 | `agent_core/.../weizhi-packages/pptx/`、`pptx-build/`（版本在各自 manifest） |
+| 脚本真源 | 内容仓（官方默认 agent1-skills `packages-src/pptx/` 等）；不进 jar/APK |
 | Android 分发 | 云端 registry 动态安装（APK 不预装，20-A 收口） |
 | Skill | `agent-home/skills/pptx/SKILL.md`（随 core 内置） |
-| 调用卡 | `office-api-cards.jsonl` 的 `pptx.render` / `pptx.build` |
+| 调用卡 | 云端 package registry `cards[]`（`pptx.render` / `pptx.build`） |
 | 调用 | `import { renderPptx } from "weizhi:pptx"` 或 `buildPptx` from `weizhi:pptx-build` |
 | 测试 | `PptxOfficeIntegrationTest`（需 `libweizhijni`） |
 

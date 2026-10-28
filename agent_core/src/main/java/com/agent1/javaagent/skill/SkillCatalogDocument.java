@@ -1,29 +1,14 @@
 package com.agent1.javaagent.skill;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/** 解析 {@code skills-catalog/stable.json} 并渲染进系统提示词的自然语言目录。 */
+/** 把 Skill registry 目录 JSON 渲染进系统提示词的自然语言 Markdown。 */
 public final class SkillCatalogDocument {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final String BUNDLED_CATALOG = "/agent-home/skills-catalog/stable.json";
-
     private SkillCatalogDocument() {
-    }
-
-    public static JsonNode loadBundled() throws IOException {
-        try (InputStream in = SkillCatalogDocument.class.getResourceAsStream(BUNDLED_CATALOG)) {
-            if (in == null) {
-                throw new IOException("missing bundled skills catalog");
-            }
-            return MAPPER.readTree(in);
-        }
     }
 
     public static String renderMarkdown(JsonNode catalog) {
@@ -66,13 +51,5 @@ public final class SkillCatalogDocument {
             }
         }
         return sb.toString().trim();
-    }
-
-    public static String bundledMarkdown() {
-        try {
-            return renderMarkdown(loadBundled());
-        } catch (IOException e) {
-            return "";
-        }
     }
 }

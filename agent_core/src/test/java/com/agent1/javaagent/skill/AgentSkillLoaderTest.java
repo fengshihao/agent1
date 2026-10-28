@@ -62,10 +62,11 @@ class AgentSkillLoaderTest {
         AgentSkill creator = find(bundled, "skill-creator");
         assertEquals("bundled", creator.sourceLabel());
         assertTrue(creator.description().contains("Skill"));
-        SkillsBundledInstall.syncFromClasspath(agentRoot);
-        AgentSkill pptx = find(new AgentSkillLoader().loadMerged(agentRoot, projectRoot), "pptx");
-        assertEquals("skills_home", pptx.sourceLabel());
-        assertTrue(pptx.content().contains("renderPptx"));
+        // 模拟 registry 云装后的 skills-home 状态（生产为 load_skill → SkillRegistryClient）
+        SkillsHomeInstallTest.installFixtureSkill(agentRoot, "demo-installed", "installed body");
+        AgentSkill installed = find(new AgentSkillLoader().loadMerged(agentRoot, projectRoot), "demo-installed");
+        assertEquals("skills_home", installed.sourceLabel());
+        assertTrue(installed.content().contains("installed body"));
         assertTrue(creator.content().contains("promote_request"));
         assertTrue(creator.content().contains("staging/skills"));
 

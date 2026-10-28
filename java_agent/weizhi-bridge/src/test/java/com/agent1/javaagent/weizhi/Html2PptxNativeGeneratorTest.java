@@ -42,7 +42,7 @@ class Html2PptxNativeGeneratorTest {
     @Test
     void convertsFixtureGeometryToNativePptx(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         try (InputStream in = getClass().getResourceAsStream(FIXTURE_RESOURCE)) {
@@ -129,7 +129,7 @@ class Html2PptxNativeGeneratorTest {
     @Test
     void defaultsOutputNameAndRejectsInlineWithoutOutput(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         try (InputStream in = getClass().getResourceAsStream(FIXTURE_RESOURCE)) {
@@ -171,7 +171,7 @@ class Html2PptxNativeGeneratorTest {
     @Test
     void recordsRemoteAndOmittedImagesAsScreenshotNeeds(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
 
@@ -211,7 +211,7 @@ class Html2PptxNativeGeneratorTest {
     @Test
     void convertsChartShapesToNativeVectorShapes(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
 

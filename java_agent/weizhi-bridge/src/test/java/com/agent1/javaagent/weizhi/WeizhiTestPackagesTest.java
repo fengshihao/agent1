@@ -39,9 +39,9 @@ class WeizhiTestPackagesTest {
 
     @Test
     void cloudOnlyListCoversXlsxFamily() {
-        assertTrue(WeizhiBundledPackages.isCloudOnly("xlsx"));
-        assertTrue(WeizhiBundledPackages.isCloudOnly("xlsx-build"));
-        assertTrue(WeizhiBundledPackages.isCloudOnly("xlsx-raw"));
+        assertTrue(WeizhiTestPackages.CLOUD_ONLY_FIXTURE_NAMES.contains("xlsx"));
+        assertTrue(WeizhiTestPackages.CLOUD_ONLY_FIXTURE_NAMES.contains("xlsx-build"));
+        assertTrue(WeizhiTestPackages.CLOUD_ONLY_FIXTURE_NAMES.contains("xlsx-raw"));
     }
 
     @Test

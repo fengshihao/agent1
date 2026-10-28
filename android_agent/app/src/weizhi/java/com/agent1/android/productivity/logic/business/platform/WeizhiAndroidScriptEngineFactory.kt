@@ -7,7 +7,6 @@ import com.agent1.javaagent.script.ScriptEngine
 import com.agent1.javaagent.script.ScriptEngineFactory
 import com.agent1.javaagent.script.ScriptToolBridge
 import com.agent1.javaagent.skill.PackageSkills
-import com.agent1.javaagent.skill.SkillsBundledInstall
 import com.agent1.javaagent.weizhi.WeizhiIoExecutors
 import com.agent1.javaagent.weizhi.WeizhiPackageSync
 import com.agent1.javaagent.weizhi.WeizhiScriptToolInstaller
@@ -105,10 +104,11 @@ class WeizhiAndroidScriptEngineFactory(
 }
 
 /**
- * 刷新随包 skill 卡；Package 安装走**云端 registry 动态拉取**（APK 不再预装
- * weizhi-packages，20-A 收口）：engine init 时 assets 为空、syncBundled 只返回
- * weizhi-home 路径；首次 run_js 由 `WeizhiPackageSync.beforeEval` 按源里的
- * import 从 registry ensure。宿主启动线程与 engine open 共用一把锁。
+ * Package 与 Skill 均走**云端 registry 动态拉取**（APK 不预装，20-A 收口）：
+ * engine init 时 `WeizhiPackages.syncBundled` 只确保 weizhi-home 目录并返回路径；
+ * 首次 run_js 由 `WeizhiPackageSync.beforeEval` 按源里的 import 从 registry ensure；
+ * skill 由 `load_skill` 经 `SkillRegistryClient` 云装并自动刷卡。此处只对
+ * skills-home 里**已安装**的 skill 重刷能力卡。宿主启动线程与 engine open 共用一把锁。
  */
 internal object WeizhiBundledInstall {
 
@@ -116,9 +116,7 @@ internal object WeizhiBundledInstall {
 
     fun syncBundled(context: Context, agentRoot: java.nio.file.Path): String {
         val packageRoot = synchronized(lock) {
-            val root = WeizhiPackages.syncBundled(context)
-            SkillsBundledInstall.syncFromClasspath(agentRoot)
-            root
+            WeizhiPackages.syncBundled(context)
         }
         PackageSkills.syncCapabilityCards(agentRoot)
         return packageRoot

@@ -121,12 +121,12 @@ class XlsxOfficeIntegrationTest {
     }
 
     @Test
-    void cloudOnlyPackagesAreNotOnBundledList() {
-        assertTrue(WeizhiBundledPackages.isCloudOnly("xlsx"));
-        assertTrue(WeizhiBundledPackages.isCloudOnly("xlsx-build"));
+    void cloudOnlyFixtureNamesAreFixtureSubset() {
+        assertTrue(WeizhiTestPackages.CLOUD_ONLY_FIXTURE_NAMES.contains("xlsx"));
+        assertTrue(WeizhiTestPackages.CLOUD_ONLY_FIXTURE_NAMES.contains("xlsx-build"));
         assertTrue(
-            WeizhiBundledPackages.BUNDLED_PACKAGE_NAMES.stream().noneMatch(WeizhiBundledPackages::isCloudOnly),
-            "cloud-only xlsx must not be classpath-bundled"
+            WeizhiTestPackages.FIXTURE_PACKAGE_NAMES.containsAll(WeizhiTestPackages.CLOUD_ONLY_FIXTURE_NAMES),
+            "cloud-only fixture names must be part of fixture packages"
         );
     }
 
