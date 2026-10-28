@@ -15,9 +15,18 @@ const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const artifactCdn = path.resolve(here, "..");
 const packagesRoot = (() => {
-  const nested = path.resolve(artifactCdn, "../agent1-skills/packages-src");
-  if (existsSync(nested)) {
-    return nested;
+  // packages-src 候选：env > CI 内嵌（agent1/agent1-skills）> 同级仓（../agent1-skills）。
+  const candidates = [
+    process.env.AGENT1_SKILLS_ROOT
+      ? path.resolve(process.env.AGENT1_SKILLS_ROOT, "packages-src")
+      : null,
+    path.resolve(artifactCdn, "../agent1-skills/packages-src"),
+    path.resolve(artifactCdn, "../../agent1-skills/packages-src"),
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
   }
   return path.resolve(
     artifactCdn,
