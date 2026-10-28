@@ -172,6 +172,7 @@ test("pack weizhi packages, fetch the projection, reject a bad digest", async ()
         "xlsx",
         "xlsx-build",
         "xlsx-raw",
+        "chart",
       ].sort(),
     );
     assert.ok(index.artifacts.every((item) => item.kind === "weizhi_package"));
