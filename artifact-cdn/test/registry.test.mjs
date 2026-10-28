@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
@@ -13,10 +14,16 @@ import { cardsForPackage, projectWeizhi, readPackageIdentity, sha256Hex } from "
 const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const artifactCdn = path.resolve(here, "..");
-const packagesRoot = path.resolve(
-  artifactCdn,
-  "../agent_core/src/main/resources/agent-home/weizhi-packages",
-);
+const packagesRoot = (() => {
+  const nested = path.resolve(artifactCdn, "../agent1-skills/packages-src");
+  if (existsSync(nested)) {
+    return nested;
+  }
+  return path.resolve(
+    artifactCdn,
+    "../agent_core/src/main/resources/agent-home/weizhi-packages",
+  );
+})();
 
 function run(script, args, env = {}) {
   return new Promise((resolvePromise, reject) => {

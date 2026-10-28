@@ -3,9 +3,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-SKILLS_ROOT="$(cd "${AGENT1_SKILLS_ROOT:-${ROOT}/../agent1-skills}" && pwd -P)"
-PACK="${SKILLS_ROOT}/scripts/pack-skill.mjs"
-SRC="${SKILLS_ROOT}/skills-src"
+SKILLS_REPO="$(cd "${AGENT1_SKILLS_REPO:-${ROOT}/../agent1-skills}" 2>/dev/null && pwd -P)" || SKILLS_REPO="${AGENT1_SKILLS_REPO:-${ROOT}/agent1-skills}"
+SRC="${SKILLS_REPO}/skills-src"
+PACK="${SKILLS_REPO}/scripts/pack-skill.mjs"
 OUT="${ROOT}/artifact-cdn/dist"
 BASE="${ARTIFACT_CDN_BASE_URL:-https://agentone.guoyoutech.cn/}"
 
