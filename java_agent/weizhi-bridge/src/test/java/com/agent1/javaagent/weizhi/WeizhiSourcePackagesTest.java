@@ -16,12 +16,13 @@ class WeizhiSourcePackagesTest {
     void installsXlsxFromRepoSource(@TempDir Path home) throws Exception {
         Files.createDirectories(home);
         String version = WeizhiSourcePackages.installFromSource(home, "xlsx");
-        assertEquals("1.2.0", version);
-        assertEquals("1.2.0", PackageInstaller.readIndex(home).get("xlsx"));
-        assertTrue(Files.isRegularFile(home.resolve("packages/xlsx@1.2.0/xlsx.js")));
-        assertTrue(Files.readString(home.resolve("packages/xlsx@1.2.0/xlsx.js")).contains("setFormula"));
-        assertTrue(Files.readString(home.resolve("packages/xlsx@1.2.0/xlsx.js")).contains("addChart"));
-        assertTrue(Files.readString(home.resolve("packages/xlsx@1.2.0/xlsx.js")).contains("patchSave"));
+        assertEquals("1.3.0", version);
+        assertEquals("1.3.0", PackageInstaller.readIndex(home).get("xlsx"));
+        assertTrue(Files.isRegularFile(home.resolve("packages/xlsx@1.3.0/xlsx.js")));
+        assertTrue(Files.readString(home.resolve("packages/xlsx@1.3.0/xlsx.js")).contains("setFormula"));
+        assertTrue(Files.readString(home.resolve("packages/xlsx@1.3.0/xlsx.js")).contains("addChart"));
+        assertTrue(Files.readString(home.resolve("packages/xlsx@1.3.0/xlsx.js")).contains("patchSave"));
+        assertTrue(Files.readString(home.resolve("packages/xlsx@1.3.0/xlsx.js")).contains("evaluateFormula"));
     }
 
     @Test
