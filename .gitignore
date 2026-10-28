@@ -1,6 +1,9 @@
 .venv/
 logs/
 
+# 本地 clone 的 agent1-skills（真源在独立仓；勿嵌套提交）
+agent1-skills/
+
 # macOS / 本地桌面 UI 打包产物（勿提交）
 .DS_Store
 dist/
