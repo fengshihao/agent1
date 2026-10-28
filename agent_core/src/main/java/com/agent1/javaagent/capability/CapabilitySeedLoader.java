@@ -16,13 +16,9 @@ public final class CapabilitySeedLoader {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String SEED_RESOURCE = "/agent-home/capabilities/search-index.seed.jsonl";
-    /** 微智引擎 / caps 调用卡。真源：weizhi {@code docs/api-cards.jsonl}。 */
+    /** 微智引擎 / caps 调用卡。描述打进 APK 的 Weizhi AAR API，真源：weizhi {@code docs/api-cards.jsonl}。 */
     private static final String WEIZHI_CARDS_RESOURCE = "/agent-home/capabilities/weizhi-api-cards.jsonl";
-    /** Word / PPT 调用卡。真源在本仓库，不随 Weizhi 发布。 */
-    private static final String OFFICE_CARDS_RESOURCE = "/agent-home/capabilities/office-api-cards.jsonl";
-    private static final String[] SEED_RESOURCES = {
-        SEED_RESOURCE, WEIZHI_CARDS_RESOURCE, OFFICE_CARDS_RESOURCE
-    };
+    private static final String[] SEED_RESOURCES = {SEED_RESOURCE, WEIZHI_CARDS_RESOURCE};
 
     private static volatile String fingerprintCache;
 
@@ -65,7 +61,6 @@ public final class CapabilitySeedLoader {
         List<CapabilityRecord> out = new ArrayList<>();
         out.addAll(loadResource(SEED_RESOURCE, false));
         out.addAll(loadResource(WEIZHI_CARDS_RESOURCE, true));
-        out.addAll(loadResource(OFFICE_CARDS_RESOURCE, true));
         return out;
     }
 
@@ -111,9 +106,10 @@ public final class CapabilitySeedLoader {
     }
 
     /**
-     * 调用卡：kind/weight/source 显式声明优先（office-api-cards.jsonl 已全部显式化，
-     * 见 docs/system/capability-kinds.md）；未声明的按 id 前缀推断兜底（weizhi 真源
-     * {@code docs/api-cards.jsonl} 同步侧）。{@code params} 放进 requires_json。
+     * 调用卡：kind/weight/source 显式声明优先（见 docs/system/capability-kinds.md）；
+     * 未声明的按 id 前缀推断兜底（weizhi 真源 {@code docs/api-cards.jsonl}）。
+     * {@code params} 放进 requires_json。云端 Package 卡不进本 seed，由
+     * {@code WeizhiPackageSync} 从 registry 写入 {@code source=registry}。
      */
     static CapabilityRecord parseWeizhiCard(String jsonLine) throws Exception {
         JsonNode node = MAPPER.readTree(jsonLine);

@@ -172,8 +172,10 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            // weizhi-packages 不随任何端预装：桌面 classpath 排除，Android 走云端 registry 动态安装（20-A 收口）。
+            // 能上云的 Skill / Package 不进 APK；registry 动态安装。
             excludes += "/agent-home/weizhi-packages/**"
+            excludes += "/agent-home/skills-bundled/**"
+            excludes += "/agent-home/skills-catalog/**"
             excludes += "/agent-home/catalog/scripts/**"
         }
     }

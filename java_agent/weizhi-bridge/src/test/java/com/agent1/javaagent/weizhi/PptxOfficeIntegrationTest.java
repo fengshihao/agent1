@@ -37,8 +37,7 @@ class PptxOfficeIntegrationTest {
     @Test
     void renderPptxViaPptxJs(@TempDir Path agentRoot, @TempDir Path workspace) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
-        assumeTrue(WeizhiBundledPackages.isOfficeReady(agentRoot), "pptx package not installed");
+        WeizhiTestPackages.syncFromFixture(agentRoot);
 
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot);
         String js =
@@ -68,8 +67,7 @@ class PptxOfficeIntegrationTest {
     @Test
     void buildPptxViaPptxBuildJs(@TempDir Path agentRoot, @TempDir Path workspace) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
-        assumeTrue(WeizhiBundledPackages.isOfficeReady(agentRoot), "pptx package not installed");
+        WeizhiTestPackages.syncFromFixture(agentRoot);
 
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot);
         String js =
@@ -89,8 +87,7 @@ class PptxOfficeIntegrationTest {
     @Test
     void contentBoxesStayWithTheText(@TempDir Path agentRoot, @TempDir Path workspace) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
-        assumeTrue(WeizhiBundledPackages.isOfficeReady(agentRoot), "pptx package not installed");
+        WeizhiTestPackages.syncFromFixture(agentRoot);
 
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot);
         String js =
@@ -128,8 +125,7 @@ class PptxOfficeIntegrationTest {
         String dir = System.getenv("PPTX_SAMPLE_DIR");
         assumeTrue(dir != null && !dir.isBlank(), "PPTX_SAMPLE_DIR not set");
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
-        assumeTrue(WeizhiBundledPackages.isOfficeReady(agentRoot), "pptx package not installed");
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path out = Path.of(dir);
         Files.createDirectories(out);
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot);

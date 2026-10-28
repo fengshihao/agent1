@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.skill.SkillCatalogDocument;
 import com.agent1.javaagent.tool.script.ExecuteScriptTool;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -49,7 +51,7 @@ class ProductivitySystemPromptBuilderTest {
     }
 
     @Test
-    void skillCatalogRoutesPptAndDeckContractLivesInSkill() {
+    void skillCatalogRoutesPptAndDeckContractLivesInSkill() throws Exception {
         // 注入固定 provider：桌面默认实现会带出本机屏幕行（可能含数字），保持断言确定性
         HostEnvironmentProvider fixedEnv = new HostEnvironmentProvider() {
             @Override
@@ -67,8 +69,12 @@ class ProductivitySystemPromptBuilderTest {
                 return List.of();
             }
         };
+        String catalogMd;
+        try (InputStream in = ProductivitySystemPromptBuilderTest.class.getResourceAsStream("/skill-catalog/stable.json")) {
+            catalogMd = SkillCatalogDocument.renderMarkdown(new ObjectMapper().readTree(in));
+        }
         String prompt = new ProductivitySystemPromptBuilder()
-            .skillCatalogSection(SkillCatalogDocument.bundledMarkdown())
+            .skillCatalogSection(catalogMd)
             .buildMainPrompt(temp.resolve("ws"), null, true, false, "", fixedEnv);
         // 路由由动态目录承载
         assertTrue(prompt.contains("官方 Skill 目录"));

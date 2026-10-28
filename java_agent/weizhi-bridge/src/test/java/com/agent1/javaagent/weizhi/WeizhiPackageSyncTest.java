@@ -41,7 +41,7 @@ class WeizhiPackageSyncTest {
     }
 
     @Test
-    void manifestCardsReplaceBundledRowWithSameId() throws Exception {
+    void manifestCardsReplaceRegistryRowsKeepSeed() throws Exception {
         Path agentRoot = temp.resolve("agent");
         CapabilityIndexStore.ensure(agentRoot);
         String json = """
@@ -66,7 +66,9 @@ class WeizhiPackageSyncTest {
         WeizhiPackageSync.applyManifest(agentRoot, "{\"packages\":[]}");
         var after = CapabilityIndexStore.search(agentRoot, "清单里的当前卡片", List.of(), "any", 5);
         assertTrue(after.stream().noneMatch(hit -> "云端 Word".equals(hit.title())));
-        var remaining = CapabilityIndexStore.search(agentRoot, "链式生成 PPT", List.of(), "any", 5);
-        assertTrue(remaining.stream().anyMatch(hit -> hit.id().startsWith("pptx.")));
+        var remaining = CapabilityIndexStore.search(agentRoot, "skill creator", List.of(), "any", 5);
+        assertTrue(remaining.stream().anyMatch(hit -> "skill.skill-creator".equals(hit.id())));
+        var video = CapabilityIndexStore.search(agentRoot, "exportVideo", List.of(), "android", 5);
+        assertTrue(video.stream().anyMatch(hit -> "media.video".equals(hit.id())));
     }
 }

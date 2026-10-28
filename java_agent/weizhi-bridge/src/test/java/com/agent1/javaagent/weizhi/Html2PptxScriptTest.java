@@ -114,7 +114,7 @@ class Html2PptxScriptTest {
     @Test
     void packsPictureDeckFromWebViewShots(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
@@ -181,7 +181,7 @@ class Html2PptxScriptTest {
     @Test
     void returnsOverflowFromWebViewScan(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
@@ -225,7 +225,7 @@ class Html2PptxScriptTest {
     @Test
     void rejectsShotsWithoutImageMagic(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
@@ -247,7 +247,7 @@ class Html2PptxScriptTest {
     @Test
     void requiresHtmlBeforeWebView(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         AtomicInteger calls = new AtomicInteger();
@@ -269,7 +269,7 @@ class Html2PptxScriptTest {
     @Test
     void extractsGeometryThroughMockWebView(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
@@ -333,7 +333,7 @@ class Html2PptxScriptTest {
     @Test
     void rejectsGeometryWithoutSlides(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
@@ -354,7 +354,7 @@ class Html2PptxScriptTest {
     void extractsGeometryThroughRealChromium(@TempDir Path agentRoot) throws Exception {
         assumeTrue(CdpWebViewRuntime.isAvailable(), "需要本机 Chromium（CDP）");
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("geo-deck.html"), GEOMETRY_DECK_HTML);
@@ -417,7 +417,7 @@ class Html2PptxScriptTest {
     void rendersDeckThroughRealChromium(@TempDir Path agentRoot) throws Exception {
         assumeTrue(CdpWebViewRuntime.isAvailable(), "需要本机 Chromium（CDP）");
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
@@ -481,7 +481,7 @@ class Html2PptxScriptTest {
     @Test
     void rendersNativeDeckThroughMockWebView(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
@@ -529,7 +529,7 @@ class Html2PptxScriptTest {
     @Test
     void fallsBackToScreenshotWhenNativeFails(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
@@ -562,7 +562,7 @@ class Html2PptxScriptTest {
     @Test
     void rejectsUnknownRenderMode(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("deck.html"), DECK_HTML);
@@ -587,7 +587,7 @@ class Html2PptxScriptTest {
     void rendersNativeDeckThroughRealChromium(@TempDir Path agentRoot) throws Exception {
         assumeTrue(CdpWebViewRuntime.isAvailable(), "需要本机 Chromium（CDP）");
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("geo-deck.html"), GEOMETRY_DECK_HTML);
@@ -640,7 +640,7 @@ class Html2PptxScriptTest {
         String dir = System.getenv("HTML2PPTX_SAMPLE_DIR");
         assumeTrue(dir != null && !dir.isBlank(), "HTML2PPTX_SAMPLE_DIR not set");
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path out = Path.of(dir);
         Files.createDirectories(out);
         Files.writeString(out.resolve("sample-deck.html"), SAMPLE_DECK_HTML);
@@ -812,7 +812,7 @@ class Html2PptxScriptTest {
         assumeTrue(dir != null && !dir.isBlank(), "HTML2PPTX_SAMPLE_DIR not set");
         assumeTrue("1".equals(System.getenv("HTML2PPTX_COMPLEX_SAMPLE")), "复杂样例须显式开启");
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path out = Path.of(dir);
         Files.createDirectories(out);
         Files.writeString(out.resolve("complex-deck.html"), COMPLEX_DECK_HTML);
@@ -1076,7 +1076,7 @@ class Html2PptxScriptTest {
     @Test
     void exportsDeckPagesThroughMockWebView(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("deck.html"), DECK_HTML);

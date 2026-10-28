@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * 云端-only {@code weizhi:xlsx}：不经 classpath bundled，从仓内真源安装后跑读写与公式。
+ * 云端-only {@code weizhi:xlsx}：不经 classpath bundled，从固化测试 fixture 安装后跑读写与公式。
  */
 class XlsxOfficeIntegrationTest {
 
@@ -40,7 +40,7 @@ class XlsxOfficeIntegrationTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path home = WeizhiBundledPackages.weizhiHome(agentRoot);
         Files.createDirectories(home);
-        WeizhiSourcePackages.installCloudOnlyFromSource(home);
+        WeizhiTestPackages.installCloudOnlyFromSource(home);
 
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot, home);
         String js =
@@ -96,7 +96,7 @@ class XlsxOfficeIntegrationTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path home = WeizhiBundledPackages.weizhiHome(agentRoot);
         Files.createDirectories(home);
-        WeizhiSourcePackages.installFromSource(home, "xlsx");
+        WeizhiTestPackages.installFromSource(home, "xlsx");
 
         Path csv = workspace.resolve("data/sales.csv");
         Files.createDirectories(csv.getParent());
@@ -121,12 +121,12 @@ class XlsxOfficeIntegrationTest {
     }
 
     @Test
-    void cloudOnlyPackagesAreNotOnBundledList() {
-        assertTrue(WeizhiSourcePackages.isCloudOnly("xlsx"));
-        assertTrue(WeizhiSourcePackages.isCloudOnly("xlsx-build"));
+    void cloudOnlyFixtureNamesAreFixtureSubset() {
+        assertTrue(WeizhiTestPackages.CLOUD_ONLY_FIXTURE_NAMES.contains("xlsx"));
+        assertTrue(WeizhiTestPackages.CLOUD_ONLY_FIXTURE_NAMES.contains("xlsx-build"));
         assertTrue(
-            WeizhiBundledPackages.BUNDLED_PACKAGE_NAMES.stream().noneMatch(WeizhiSourcePackages::isCloudOnly),
-            "cloud-only xlsx must not be classpath-bundled"
+            WeizhiTestPackages.FIXTURE_PACKAGE_NAMES.containsAll(WeizhiTestPackages.CLOUD_ONLY_FIXTURE_NAMES),
+            "cloud-only fixture names must be part of fixture packages"
         );
     }
 
@@ -145,7 +145,7 @@ class XlsxOfficeIntegrationTest {
         AgentHomeBootstrap.ensure(agentRoot);
         Path home = WeizhiBundledPackages.weizhiHome(agentRoot);
         Files.createDirectories(home);
-        WeizhiSourcePackages.installCloudOnlyFromSource(home);
+        WeizhiTestPackages.installCloudOnlyFromSource(home);
 
         WeizhiScriptEngineFactory withRoot = engineWithRoot(agentRoot, home);
         String js =

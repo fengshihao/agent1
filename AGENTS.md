@@ -61,7 +61,7 @@ Cloud Agent 环境无 Android SDK 时：Java 单测 + `check-java-agent-static.s
 - 保持改动 **最小且聚焦**
 - 桌面官方支持 **macOS 与 Ubuntu**；工具改动需考虑跨平台（经典 bash 仍兼顾 Windows 时勿破坏）
 - 模型调用链改动须保持 **JSONL 事件字段** 不回退
-- **Package 与 Skill 分轨**（2026-10 起）：JS SDK 真源 [**agent1-skills**](https://github.com/fengshihao/agent1-skills) `packages-src/` + `skills-src/`；运行时 `weizhi-home` / `skills-home` + registry（`./scripts/pack-official-packages.sh` / `./scripts/pack-official-skills.sh`）。classpath 副本：`./scripts/sync-weizhi-packages-bundled.sh`、`./scripts/sync-skills-bundled.sh`。`find_caps` 仍检索 API/包/MCP。不要再往 `agent-home/skills` 加内置 skill（例外：`skill-creator`）。**Cursor 本地**：用根目录 **`agent1.code-workspace`** 同时打开 **agent1、agent1-skills、weizhi**（`./scripts/ensure-dev-repos.sh`），见 [docs/ai/WORKSPACE.md](docs/ai/WORKSPACE.md)
+- **内容源可插拔**（2026-10 起）：Skill / Weizhi Package 的内容源**不锁死官方仓**——官方默认 [**agent1-skills**](https://github.com/fengshihao/agent1-skills)（`packages-src/` + `skills-src/`，打包脚本在内容仓侧），贡献者可自建内容仓。agent1 **不依赖、不感知任何外部内容仓**，也**不把能上云的 Skill / Package 打进 jar/APK**（没网连不上模型，离线预装没有意义）。生产路径：`weizhi-home` / `skills-home` + registry 云装（`load_skill` / `WeizhiPackageSync.beforeEval`）。集成测试 fixture 固化在 `java_agent/weizhi-bridge/src/test/resources/weizhi-test-packages/` 与 `weizhi-test-skills/`。`find_caps` 仍检索 API/包/MCP。**Cursor 本地**：用根目录 **`agent1.code-workspace`** 同时打开 **agent1、weizhi**（`./scripts/ensure-dev-repos.sh`），见 [docs/ai/WORKSPACE.md](docs/ai/WORKSPACE.md)
 - **Android 分层**（强制）：见 [`.cursor/rules/android-layering.mdc`](.cursor/rules/android-layering.mdc)
   - `ui.view` 不做直接 IO；IO 在 `logic.data`
   - 包路径与目录一致；禁止下层依赖 `ui.*`

@@ -37,7 +37,7 @@
 | `shared/local/skills/` | 目录 | 晋升 / 本地 Skill |
 | `shared/local/scripts/` | 目录 | `promote_request` 留下的自有脚本。官方能力用 `weizhi:<name>` |
 
-bootstrap 从 classpath `agent-home` 补齐 HTML 模板。内置 Office / SVG 由 `WeizhiBundledPackages` 从 `agent-home/weizhi-packages` 装到 `weizhi-home`。
+bootstrap 从 classpath `agent-home` 补齐 HTML 模板。Office / SVG 等 Weizhi Package 不进 classpath，由 `WeizhiPackageSync.beforeEval` 从云端 registry 装到 `weizhi-home`。
 
 | 路径 | 何时出现 | 作用 |
 |------|----------|------|

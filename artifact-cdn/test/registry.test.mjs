@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
@@ -14,25 +13,19 @@ import { cardsForPackage, projectWeizhi, readPackageIdentity, sha256Hex } from "
 const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const artifactCdn = path.resolve(here, "..");
-const packagesRoot = (() => {
-  // packages-src 候选：env > CI 内嵌（agent1/agent1-skills）> 同级仓（../agent1-skills）。
-  const candidates = [
-    process.env.AGENT1_SKILLS_ROOT
-      ? path.resolve(process.env.AGENT1_SKILLS_ROOT, "packages-src")
-      : null,
-    path.resolve(artifactCdn, "../agent1-skills/packages-src"),
-    path.resolve(artifactCdn, "../../agent1-skills/packages-src"),
-  ].filter(Boolean);
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  return path.resolve(
-    artifactCdn,
-    "../agent_core/src/main/resources/agent-home/weizhi-packages",
-  );
-})();
+// fixture：仓内固化测试快照（weizhi-bridge test resources，无外部仓依赖）；
+// ARTIFACT_CDN_TEST_PACKAGES_ROOT 可覆盖。
+const packagesRoot = process.env.ARTIFACT_CDN_TEST_PACKAGES_ROOT
+  ? path.resolve(process.env.ARTIFACT_CDN_TEST_PACKAGES_ROOT)
+  : path.resolve(
+      artifactCdn,
+      "../java_agent/weizhi-bridge/src/test/resources/weizhi-test-packages",
+    );
+
+async function bundledPackageNames() {
+  const entries = await readdir(packagesRoot, { withFileTypes: true });
+  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+}
 
 function run(script, args, env = {}) {
   return new Promise((resolvePromise, reject) => {
@@ -168,21 +161,7 @@ test("pack weizhi packages, fetch the projection, reject a bad digest", async ()
     assert.equal(index.channel, "stable");
     assert.deepEqual(
       index.artifacts.map((item) => item.name).sort(),
-      [
-        "audio",
-        "docx",
-        "docx-build",
-        "docx-raw",
-        "html2pptx",
-        "image",
-        "pptx",
-        "pptx-build",
-        "svg-raster",
-        "xlsx",
-        "xlsx-build",
-        "xlsx-raw",
-        "chart",
-      ].sort(),
+      await bundledPackageNames(),
     );
     assert.ok(index.artifacts.every((item) => item.kind === "weizhi_package"));
     assert.equal(JSON.stringify(projection).includes('"kind"'), false);

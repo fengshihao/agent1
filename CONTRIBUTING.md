@@ -2,7 +2,7 @@
 
 感谢你愿意参与 `agent1` 的建设。
 
-**编码智能体（Cursor / Claude Code 等）**：优先读 [AGENTS.md](AGENTS.md)，并用 [docs/ai/START.md](docs/ai/START.md) 里的一句话准备环境。联调时用 [docs/ai/WORKSPACE.md](docs/ai/WORKSPACE.md) 打开 **`agent1.code-workspace`**（含 `agent1-skills`、`weizhi`）；Skill 勿长期手改 `skills-bundled/`。准备同级仓：`./scripts/ensure-dev-repos.sh`。
+**编码智能体（Cursor / Claude Code 等）**：优先读 [AGENTS.md](AGENTS.md)，并用 [docs/ai/START.md](docs/ai/START.md) 里的一句话准备环境。联调时用 [docs/ai/WORKSPACE.md](docs/ai/WORKSPACE.md) 打开 **`agent1.code-workspace`**（含 `weizhi`）。Skill / Package 能上云的不进 jar/APK；改内容去内容仓（官方默认 [agent1-skills](https://github.com/fengshihao/agent1-skills)，也可自建）。准备同级仓：`./scripts/ensure-dev-repos.sh`。
 
 ## 开发环境
 

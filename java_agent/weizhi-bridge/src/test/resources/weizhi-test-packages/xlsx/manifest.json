@@ -1,0 +1,6 @@
+{
+  "name": "xlsx",
+  "version": "1.5.0",
+  "entry": "xlsx.js",
+  "description": "Read/write Excel .xlsx: cells, dates, formulas (auto-cached evaluation), multi-level headers, pivot structure read-back, native charts, fidelity-preserving save. Cloud registry install."
+}

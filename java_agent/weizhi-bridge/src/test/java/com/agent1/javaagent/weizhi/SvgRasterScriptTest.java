@@ -44,6 +44,7 @@ class SvgRasterScriptTest {
     @Test
     void svgToImageWritesPngFromWebViewBase64(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiTestPackages.installFromSource(WeizhiBundledPackages.weizhiHome(agentRoot), "svg-raster");
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("icon.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>");
@@ -98,6 +99,7 @@ class SvgRasterScriptTest {
     @Test
     void svgToImageWritesJpegUsingSize(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiTestPackages.installFromSource(WeizhiBundledPackages.weizhiHome(agentRoot), "svg-raster");
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("mark.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>");
@@ -142,6 +144,7 @@ class SvgRasterScriptTest {
     @Test
     void svgToImageRejectsMissingSizeBeforeWebView(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
+        WeizhiTestPackages.installFromSource(WeizhiBundledPackages.weizhiHome(agentRoot), "svg-raster");
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         AtomicInteger calls = new AtomicInteger();

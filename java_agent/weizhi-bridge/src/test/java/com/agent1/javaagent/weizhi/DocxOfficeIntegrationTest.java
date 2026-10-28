@@ -35,8 +35,7 @@ class DocxOfficeIntegrationTest {
     @Test
     void markdownToDocxViaDocxJs(@TempDir Path agentRoot, @TempDir Path workspace) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
-        assumeTrue(WeizhiBundledPackages.isOfficeReady(agentRoot), "docx package not installed");
+        WeizhiTestPackages.syncFromFixture(agentRoot);
 
         Path md = workspace.resolve("notes/brief.md");
         Files.createDirectories(md.getParent());
@@ -64,8 +63,7 @@ class DocxOfficeIntegrationTest {
     @Test
     void markdownHeadingHierarchy(@TempDir Path agentRoot, @TempDir Path workspace) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
-        assumeTrue(WeizhiBundledPackages.isOfficeReady(agentRoot), "docx package not installed");
+        WeizhiTestPackages.syncFromFixture(agentRoot);
 
         Path md = workspace.resolve("notes/headings.md");
         Files.createDirectories(md.getParent());
