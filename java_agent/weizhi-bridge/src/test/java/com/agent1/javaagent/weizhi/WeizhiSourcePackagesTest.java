@@ -44,6 +44,6 @@ class WeizhiSourcePackagesTest {
     void resolvePackageSourcePointsAtWeizhiPackages() throws Exception {
         Path dir = WeizhiSourcePackages.resolvePackageSource("xlsx-build");
         assertTrue(Files.isRegularFile(dir.resolve("xlsx-build.js")));
-        assertTrue(dir.toString().contains("weizhi-packages"));
+        assertTrue(dir.toString().contains("packages-src"));
     }
 }

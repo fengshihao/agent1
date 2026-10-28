@@ -1,6 +1,0 @@
-{
-  "name": "xlsx-raw",
-  "version": "1.0.0",
-  "entry": "xlsx-raw.js",
-  "description": "Escape hatch: unpack / pack / validate .xlsx OOXML parts. Cloud registry install."
-}

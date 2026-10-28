@@ -4,7 +4,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-SRC_ROOT="${AGENT1_SKILLS_ROOT:-${ROOT}/../agent1-skills/skills-src}"
+SKILLS_REPO="$(cd "${AGENT1_SKILLS_REPO:-${ROOT}/../agent1-skills}" 2>/dev/null && pwd -P)" || SKILLS_REPO="${AGENT1_SKILLS_REPO:-${ROOT}/agent1-skills}"
+SRC_ROOT="${AGENT1_SKILLS_ROOT:-${SKILLS_REPO}/skills-src}"
 DEST="${ROOT}/agent_core/src/main/resources/agent-home/skills-bundled"
 
 if [[ ! -d "${SRC_ROOT}" ]]; then
