@@ -24,7 +24,7 @@ public final class HostWebRegistrySync {
         "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html?v=20251025b";
 
     public static final String DEFAULT_MD_SHELL_URL =
-        "https://agentone.guoyoutech.cn/host-web/molan-embed/1/shell.html?v=20251027b";
+        "https://agentone.guoyoutech.cn/host-web/molan-embed/1/shell.html?v=20261027c";
 
     static final String URL_ENV = "AGENT1_HOST_WEB_REGISTRY_URL";
     static final String ENV = "AGENT1_HOST_WEB_REGISTRY";

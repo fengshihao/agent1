@@ -10,12 +10,135 @@
   display: none !important;
 }
 
-.agent1-embed .app {
-  grid-template-columns: 1fr;
+/*
+ * 壳根节点同时带 .app 与 .agent1-embed。必须写成 .app.agent1-embed，
+ * 后代选择器 .agent1-embed .app 匹配不到，阅读区会留在 280px 侧栏列里。
+ */
+html[data-agent1-embed="1"],
+html[data-agent1-embed="1"] body {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.app.agent1-embed {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  gap: 0;
 }
 
 .agent1-embed .main {
-  min-height: 100dvh;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.agent1-embed .reader-body {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.agent1-embed .reader-header {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  overflow: visible;
+  background: var(--paper-lift);
+}
+
+/* 手机：标题一行，查找/编辑/主题/字体一行，滚动时顶栏留在视口内 */
+@media (max-width: 720px) {
+  .agent1-embed .reader-header {
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: center;
+    justify-content: flex-start;
+    row-gap: 2px;
+    column-gap: 6px;
+    min-height: 0;
+    padding: 8px 10px 6px;
+  }
+
+  .agent1-embed .reader-header > .molan-outline-prefs {
+    order: 0;
+  }
+
+  .agent1-embed .reader-title {
+    order: 1;
+    flex: 1 1 auto;
+  }
+
+  .agent1-embed .reader-title h2 {
+    font-size: 1.05rem;
+  }
+
+  .agent1-embed .reader-actions {
+    order: 2;
+    flex: 1 0 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-inline-start: 0;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 2px;
+    overflow: visible;
+  }
+
+  .agent1-embed .reader-actions .icon-btn,
+  .agent1-embed .reader-header > .molan-outline-prefs .icon-btn {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+  }
+
+  .agent1-embed .reader-actions .type-prefs {
+    margin-inline-start: 2px;
+  }
+
+  .agent1-embed .reader-actions .type-prefs::before {
+    display: none;
+  }
+
+  .agent1-embed .type-prefs,
+  .agent1-embed .header-prefs,
+  .agent1-embed .export-prefs {
+    position: static;
+  }
+
+  .agent1-embed .reader-header .type-menu,
+  .agent1-embed .reader-header .theme-menu,
+  .agent1-embed .reader-header .export-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    max-height: min(60dvh, calc(100dvh - 120px));
+    overflow: auto;
+    z-index: 20;
+  }
+
+  .agent1-embed .vditor-ir pre.vditor-reset,
+  .agent1-embed .vditor-wysiwyg pre.vditor-reset,
+  .agent1-embed .vditor-wysiwyg > .vditor-reset,
+  .agent1-embed .vditor-sv .vditor-reset,
+  .agent1-embed .vditor-preview .vditor-reset,
+  .agent1-embed #molanPreviewBody {
+    padding-left: 16px !important;
+    padding-right: 14px !important;
+  }
 }
 
 .agent1-embed .main.is-idle .reader-body {

@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const EMBED_VERSION = "1";
-const SHELL_VERSION_QUERY = "20251027b";
+const SHELL_VERSION_QUERY = "20261027c";
 
 function argValue(argv, name) {
   const i = argv.indexOf(name);
