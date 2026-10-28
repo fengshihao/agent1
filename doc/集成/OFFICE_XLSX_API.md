@@ -55,6 +55,26 @@ sh.addChart({
 sh.merge("A1:C1");
 ```
 
+## 公式求值与自校验（1.3.0 起）
+
+```javascript
+sh.setFormula("D2", "B2*(1+C2)");  // 省略缓存值 → 自动求值写 <v>；失败降级（Excel 打开重算）
+sh.evaluate("D2");                  // { ok, value, valueType } / { ok:false, error }
+sh.evaluate("E1");                 // 循环引用、未支持函数等会给出明确 error
+```
+
+支持：算术/比较/`&`、同表区域引用、`SUM/AVERAGE/MIN/MAX/COUNT/COUNTA/PRODUCT/IF/IFERROR/AND/OR/NOT/ROUND/ABS/SQRT/POWER/MOD/INT/CONCAT/CONCATENATE/LEN/LEFT/RIGHT/MID/UPPER/LOWER/TRIM`。跨表引用与未支持函数降级。
+
+## 图表读回（1.3.0 起）
+
+```javascript
+sh.getCharts();
+// [{ type: "bar", title: "月度", source: "read",
+//    series: [{ name, nameRef, categories, values }] }]
+```
+
+保真 save 后原图表 parts 逐字节保留；对已打开文件 `addChart` 仍会报错（用 `buildXlsx` 新建或 `xlsx-raw`）。
+
 ## 边界
 
 - 仅 `.xlsx`
