@@ -16,14 +16,16 @@ class WeizhiSourcePackagesTest {
     void installsXlsxFromRepoSource(@TempDir Path home) throws Exception {
         Files.createDirectories(home);
         String version = WeizhiSourcePackages.installFromSource(home, "xlsx");
-        assertEquals("1.4.0", version);
-        assertEquals("1.4.0", PackageInstaller.readIndex(home).get("xlsx"));
-        assertTrue(Files.isRegularFile(home.resolve("packages/xlsx@1.4.0/xlsx.js")));
-        assertTrue(Files.readString(home.resolve("packages/xlsx@1.4.0/xlsx.js")).contains("setFormula"));
-        assertTrue(Files.readString(home.resolve("packages/xlsx@1.4.0/xlsx.js")).contains("addChart"));
-        assertTrue(Files.readString(home.resolve("packages/xlsx@1.4.0/xlsx.js")).contains("patchSave"));
-        assertTrue(Files.readString(home.resolve("packages/xlsx@1.4.0/xlsx.js")).contains("evaluateFormula"));
-        assertTrue(Files.readString(home.resolve("packages/xlsx@1.4.0/xlsx.js")).contains("serialToDateValue"));
+        assertEquals("1.5.0", version);
+        assertEquals("1.5.0", PackageInstaller.readIndex(home).get("xlsx"));
+        assertTrue(Files.isRegularFile(home.resolve("packages/xlsx@1.5.0/xlsx.js")));
+        assertTrue(Files.readString(home.resolve("packages/xlsx@1.5.0/xlsx.js")).contains("setFormula"));
+        assertTrue(Files.readString(home.resolve("packages/xlsx@1.5.0/xlsx.js")).contains("addChart"));
+        assertTrue(Files.readString(home.resolve("packages/xlsx@1.5.0/xlsx.js")).contains("patchSave"));
+        assertTrue(Files.readString(home.resolve("packages/xlsx@1.5.0/xlsx.js")).contains("evaluateFormula"));
+        assertTrue(Files.readString(home.resolve("packages/xlsx@1.5.0/xlsx.js")).contains("serialToDateValue"));
+        assertTrue(Files.readString(home.resolve("packages/xlsx@1.5.0/xlsx.js")).contains("effectiveHeaders"));
+        assertTrue(Files.readString(home.resolve("packages/xlsx@1.5.0/xlsx.js")).contains("parsePivotTableXml"));
     }
 
     @Test

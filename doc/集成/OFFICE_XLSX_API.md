@@ -77,6 +77,21 @@ sh.getCharts();
 
 保真 save 后原图表 parts 逐字节保留；对已打开文件 `addChart` 仍会报错（用 `buildXlsx` 新建或 `xlsx-raw`）。
 
+## 多级表头与透视表（1.5.0 起）
+
+```javascript
+// 中国式合并表头展开：每列完整标签 + 数据起始格（行数按纵向合并自动探测，可显式指定）
+sh.effectiveHeaders();
+// [{ col:"A", label:"上半年 > 销售额", path:["上半年","销售额"], dataRef:"A3", headerRows:2 }, ...]
+sh.effectiveHeaders({ headerRows: 2 });
+
+// 透视表结构读回（数据值本身已在普通单元格里）：
+sh.getPivotTables();
+// [{ name, dataCaption, fields:["区域","产品","季度","销售额"],
+//    rowFields:["区域"], colFields:["季度"], pageFields:["产品"],
+//    dataFields:[{name:"求和项:销售额", field:"销售额", subtotal:"sum"}] }]
+```
+
 ## 边界
 
 - 仅 `.xlsx`
