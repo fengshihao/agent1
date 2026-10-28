@@ -11,30 +11,40 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class SkillsHomeInstallTest {
+/** skills-home 安装（模拟 registry 云装）+ skill 能力卡刷写。 */
+public class SkillsHomeInstallTest {
 
     @TempDir
     Path agentRoot;
 
     @Test
-    void bundledInstallWritesSkillsHomeAndCards() throws Exception {
+    void installedSkillWritesSkillsHomeAndCards() throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        SkillsBundledInstall.syncFromClasspath(agentRoot);
+        installFixtureSkill(agentRoot, "demo-skill", "renderDemo 正文");
 
-        Path skillFile = SkillsHomeInstaller.installedDir(agentRoot, "html2pptx").resolve("SKILL.md");
-        assertTrue(Files.isRegularFile(skillFile), "html2pptx SKILL should be in skills-home");
+        Path skillFile = SkillsHomeInstaller.installedDir(agentRoot, "demo-skill").resolve("SKILL.md");
+        assertTrue(Files.isRegularFile(skillFile), "demo-skill SKILL should be in skills-home");
 
+        SkillsCapabilitySync.syncCapabilityCards(agentRoot);
         List<CapabilityIndexStore.CapabilityHit> hits =
-            CapabilityIndexStore.search(agentRoot, "html2pptx", List.of(), "any", 8);
-        assertTrue(hits.stream().anyMatch(hit -> "skill.html2pptx".equals(hit.id())
+            CapabilityIndexStore.search(agentRoot, "demo-skill", List.of(), "any", 8);
+        assertTrue(hits.stream().anyMatch(hit -> "skill.demo-skill".equals(hit.id())
             && "skill".equals(hit.kind())));
 
-        AgentSkill pptx =
+        AgentSkill demo =
             new AgentSkillLoader().loadMerged(agentRoot, agentRoot).skills().stream()
-                .filter(s -> "pptx".equals(s.name()))
+                .filter(s -> "demo-skill".equals(s.name()))
                 .findFirst()
                 .orElseThrow();
-        assertEquals("skills_home", pptx.sourceLabel());
-        assertTrue(pptx.content().contains("renderPptx"));
+        assertEquals("skills_home", demo.sourceLabel());
+        assertTrue(demo.content().contains("renderDemo"));
+    }
+
+    public static void installFixtureSkill(Path agentRoot, String name, String body) throws Exception {
+        Path src = Files.createTempDirectory("skill-src-");
+        Files.writeString(
+            src.resolve("SKILL.md"),
+            "---\nname: " + name + "\ndescription: " + name + " 演示\n---\n\n" + body + "\n");
+        SkillsHomeInstaller.installFromDirectory(agentRoot, name, "1.0.0", src);
     }
 }

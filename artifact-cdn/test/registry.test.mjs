@@ -13,10 +13,14 @@ import { cardsForPackage, projectWeizhi, readPackageIdentity, sha256Hex } from "
 const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const artifactCdn = path.resolve(here, "..");
-// fixture：仓内 bundled 官方快照（repo 自有，无外部仓依赖）；ARTIFACT_CDN_TEST_PACKAGES_ROOT 可覆盖。
+// fixture：仓内固化测试快照（weizhi-bridge test resources，无外部仓依赖）；
+// ARTIFACT_CDN_TEST_PACKAGES_ROOT 可覆盖。
 const packagesRoot = process.env.ARTIFACT_CDN_TEST_PACKAGES_ROOT
   ? path.resolve(process.env.ARTIFACT_CDN_TEST_PACKAGES_ROOT)
-  : path.resolve(artifactCdn, "../agent_core/src/main/resources/agent-home/weizhi-packages");
+  : path.resolve(
+      artifactCdn,
+      "../java_agent/weizhi-bridge/src/test/resources/weizhi-test-packages",
+    );
 
 async function bundledPackageNames() {
   const entries = await readdir(packagesRoot, { withFileTypes: true });

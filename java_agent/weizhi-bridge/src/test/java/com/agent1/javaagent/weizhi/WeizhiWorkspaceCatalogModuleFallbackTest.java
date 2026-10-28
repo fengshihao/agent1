@@ -29,7 +29,7 @@ class WeizhiWorkspaceCatalogModuleFallbackTest {
     @Test
     void workspaceOrchestratorImportsWeizhiDocxPackage(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
 
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));

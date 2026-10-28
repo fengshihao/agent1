@@ -33,7 +33,7 @@
 
 Registry **定期更新**（ETag / If-None-Match）；Agent1 缓存建议：`{agentRoot}/sync/weizhi-package-registry.json`（或 `sync/remote/` 子目录）。
 
-内置包（APK assets / classpath）仍为**离线保底**；远程仅为增量与升级。
+能上云的 Package / Skill **不**进 jar/APK；生产全靠 registry 动态安装。
 
 ## 3.1 源码布局、版本与通道（约定）
 
@@ -41,7 +41,7 @@ Registry **定期更新**（ETag / If-None-Match）；Agent1 缓存建议：`{ag
 
 | 层 | 路径 / 形态 | 版本出现在哪 |
 |----|-------------|--------------|
-| **源码（仓内真源）** | `agent_core/.../agent-home/weizhi-packages/<name>/`（**路径不含版本**） | 仅 `manifest.json` 的 `version` |
+| **源码（内容仓）** | 官方默认 agent1-skills `packages-src/<name>/`（可插拔；**路径不含版本**） | 仅 `manifest.json` 的 `version` |
 | **运行时安装** | `<weizhi-home>/packages/<name>@<version>/` | 安装目录名带版本（多版本可并存、只升不降） |
 | **云端制品** | `packages/<name>/<version>/<name>-<version>.zip` | 对象路径带版本；**已上传 zip 只增不改** |
 
@@ -51,11 +51,11 @@ Registry **定期更新**（ETag / If-None-Match）；Agent1 缓存建议：`{ag
 
 | 通道 | 用途 | 客户端如何指过去 |
 |------|------|------------------|
-| 本地 bundled | 桌面 classpath 真源，零上传联调 | 默认；`source` 为内置安装 |
+| 本地 fixture | 仅集成测试 `weizhi-test-packages/` | 测试安装，不进生产产物 |
 | `staging` | 真机 / 灰度，不进现网指针 | `AGENT1_WEIZHI_PACKAGE_REGISTRY_URL` 指向 staging 清单（已支持）；日后可加 `CHANNEL` 配置少拼 URL |
 | `stable` | 现网 | 默认 `…/packages/registry/stable.json` |
 
-目标节奏：`改源码 → 桌面 bundled 测 → pack --channel staging 真机测 → 验收后再写 stable`。  
+目标节奏：`改内容仓源码 → 集成测试 fixture / 本地 registry 测 → pack --channel staging 真机测 → 验收后再写 stable`。  
 预发布 semver（`x.y.z-rc.N` / `-dev`）、清单文件名按 channel 拆分（`registry/<channel>.json`）、以及 `min_client_version` 见 [artifact-cdn/README.md](../../artifact-cdn/README.md) TODO——**实现通道时不要把版本重新绑回源码目录名**。
 
 `artifact-cdn/pack.mjs`：源目录名为 `<name>`，身份以 manifest 为准；仍兼容旧的 `<name>@<version>` 目录（须与 manifest 一致）。`--channel` 写入清单 JSON 的 `channel` 字段；清单文件名目前仍落 `stable.json`（按 channel 分文件属后续项）。
@@ -97,7 +97,7 @@ Registry URL（可配置，默认微智官方）
 
 1. 启动 / 定时 / Host 初始化：`RegistryClient.fetchAndCache(agentRoot)`。
 2. 将每条 package 写入能力索引（字段含 `id`、`title`、`summary`、`entry` 含 `weizhi:<name>`、`tags`、`platforms`）。
-3. 与现有 `office-api-cards.jsonl` / seed 关系：**内置条目可保留**；Registry 为权威增量源，避免双份真源长期分叉。
+3. Package 调用卡只在 registry 清单的 `cards[]`（打包时 `--cards artifact-cdn/office-api-cards.jsonl`）。classpath seed **不含**云端包卡；`WeizhiPackageSync.refreshIndex` 写入 `source=registry`。
 4. 可选：命中里标注 `installed: true/false`（仅 UI/调试，不强制进模型提示）。
 
 ### 5.2 run_js 透明 ensure

@@ -50,7 +50,7 @@ node pack.mjs \
   --root <内容仓>/packages-src \
   --kind weizhi_package \
   --base-url "$ARTIFACT_CDN_BASE_URL" \
-  --cards ../agent_core/src/main/resources/agent-home/capabilities/office-api-cards.jsonl
+  --cards ./office-api-cards.jsonl
 ```
 
 `--base-url` 是 CDN 上该前缀的公网根。清单里的 `artifact.url` 用它拼出来。本机试拉取时可以用 `http://127.0.0.1:<port>/`。非 loopback 必须是 `https`。
@@ -124,7 +124,7 @@ node pack.mjs \
   --root <内容仓>/packages-src \
   --kind weizhi_package \
   --base-url "$ARTIFACT_CDN_BASE_URL" \
-  --cards ../agent_core/src/main/resources/agent-home/capabilities/office-api-cards.jsonl
+  --cards ./office-api-cards.jsonl
 ```
 
 ## 公网主机
@@ -138,4 +138,4 @@ cd artifact-cdn
 node --test 'test/*.test.mjs'
 ```
 
-夹具默认使用仓内 `agent_core/.../agent-home/weizhi-packages` 官方预置快照（无外部仓依赖）；`ARTIFACT_CDN_TEST_PACKAGES_ROOT` 可覆盖。
+夹具默认使用仓内固化测试快照 `java_agent/weizhi-bridge/src/test/resources/weizhi-test-packages/`（无外部仓依赖）；`ARTIFACT_CDN_TEST_PACKAGES_ROOT` 可覆盖。

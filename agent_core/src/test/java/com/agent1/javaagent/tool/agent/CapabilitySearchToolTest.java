@@ -31,13 +31,13 @@ class CapabilitySearchToolTest {
         AgentHomeBootstrap.ensure(agentRoot);
         CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot, "android");
         ObjectNode params = new ObjectMapper().createObjectNode();
-        params.put("query", "markdown word docx");
+        params.put("query", "exportVideo tracks 剪辑");
         params.putArray("kinds").add("skill").add("builtin");
 
         ToolExecutionResult result = tool.execute("t-kinds", params, new CancellationToken(), u -> {
         });
 
-        assertTrue(result.getText().contains("markdownToDocx"));
+        assertTrue(result.getText().contains("exportVideo"));
         assertTrue(result.getText().contains("weizhi_package"));
     }
 
@@ -115,15 +115,14 @@ class CapabilitySearchToolTest {
         AgentHomeBootstrap.ensure(agentRoot);
         CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot, "android");
         ObjectNode params = new ObjectMapper().createObjectNode();
-        params.put("query", "markdown word docx");
+        params.put("query", "exportVideo tracks 剪辑");
 
         ToolExecutionResult result = tool.execute("t-long", params, new CancellationToken(), u -> {
         });
 
-        assertTrue(result.getText().contains("markdownToDocx"));
-        assertTrue(result.getText().contains("inputPath"));
-        assertTrue(result.getText().contains("from \"weizhi:docx\""));
-        assertFalse(result.getText().contains("from \"./docx.js\""));
+        assertTrue(result.getText().contains("exportVideo"));
+        assertTrue(result.getText().contains("tracks"));
+        assertTrue(result.getText().contains("weizhi:video"));
         assertTrue(result.getText().contains("不是 workspace 文件"));
         assertFalse(result.getText().contains("office-docx.md"));
         assertFalse(result.getText().contains("不必再 read_file"));

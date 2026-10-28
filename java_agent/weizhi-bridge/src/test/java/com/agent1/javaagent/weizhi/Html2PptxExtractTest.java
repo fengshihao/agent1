@@ -191,7 +191,7 @@ class Html2PptxExtractTest {
         assumeTrue(CdpWebViewRuntime.isAvailable(), "需要本机 Chromium（CDP）");
 
         AgentHomeBootstrap.ensure(agentRoot);
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
         Path workspace = agentRoot.resolve("ws");
         Files.createDirectories(workspace.resolve("jobs"));
         Files.writeString(workspace.resolve("extract-deck.html"), EXTRACT_DECK_HTML);

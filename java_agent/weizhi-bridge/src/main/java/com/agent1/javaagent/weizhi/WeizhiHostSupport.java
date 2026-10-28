@@ -2,13 +2,10 @@ package com.agent1.javaagent.weizhi;
 
 import com.agent1.javaagent.script.ScriptEngineFactory;
 import com.agent1.javaagent.tool.script.ExecuteScriptTool;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /** 从环境变量解析 Weizhi 仓库路径并尝试启用脚本引擎。 */
 public final class WeizhiHostSupport {
@@ -80,31 +77,7 @@ public final class WeizhiHostSupport {
             return Optional.empty();
         }
         WeizhiPackageSync.refreshIndexAsync(agentRoot);
-        installBundledAsync(agentRoot);
         return Optional.of(new WeizhiScriptEngineFactory(options, agentRoot));
-    }
-
-    /**
-     * 启动时后台装好内置包并刷随包 skill 卡，让第一次 run_js 之前的 find_caps 也能命中
-     * 包内 skill。engine open 时 {@code WeizhiBundledPackages} 还会幂等重装。
-     */
-    private static void installBundledAsync(Path agentRoot) {
-        if (agentRoot == null) {
-            return;
-        }
-        Thread thread = new Thread(
-            () -> {
-                try {
-                    WeizhiBundledPackages.syncFromClasspath(agentRoot);
-                } catch (IOException | RuntimeException e) {
-                    Logger.getLogger(WeizhiHostSupport.class.getName())
-                        .log(Level.WARNING, "install bundled packages failed", e);
-                }
-            },
-            "weizhi-bundled-install"
-        );
-        thread.setDaemon(true);
-        thread.start();
     }
 
     public static String platformLabel() {

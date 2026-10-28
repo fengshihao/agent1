@@ -27,7 +27,7 @@ http://127.0.0.1:5517/?file=/doc/<文件名>
 
 ## 与 Skill 的关系
 
-官方 Skill **`md-preview`**（官方内容源 [agent1-skills](https://github.com/fengshihao/agent1-skills) `skills-src/md-preview/`，可插拔）封装了这套用法，agent 通过 `load_skill(md-preview)` + `run_bash` 自主预览。内置副本位于 `agent_core/.../skills-bundled/md-preview/`（官方预置离线快照，手动维护）。
+官方 Skill **`md-preview`**（官方内容源 [agent1-skills](https://github.com/fengshihao/agent1-skills) `skills-src/md-preview/`，可插拔）封装了这套用法，agent 通过 `load_skill(md-preview)` + `run_bash` 自主预览（云端 registry，不进 jar/APK）。
 
 ## Android：embed 壳 + guoyoutech CDN + MolanHost 注入
 

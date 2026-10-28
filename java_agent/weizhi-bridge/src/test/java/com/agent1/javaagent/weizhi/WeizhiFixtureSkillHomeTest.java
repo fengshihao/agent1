@@ -17,17 +17,18 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 内置包安装后 skill 在 skills-home，不在 weizhi package 目录。 */
-class WeizhiBundledPackagesSkillTest {
+/** fixture 安装后 skill 在 skills-home，不在 weizhi package 目录（Skill 与 Package 分离）。 */
+class WeizhiFixtureSkillHomeTest {
 
     @Test
     void syncInstallsSkillsHomeNotPackageSkill(@TempDir Path agentRoot) throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
 
-        WeizhiBundledPackages.syncFromClasspath(agentRoot);
+        WeizhiTestPackages.syncFromFixture(agentRoot);
+        WeizhiTestSkills.syncFromFixture(agentRoot);
 
         Path packageSkill = WeizhiBundledPackages.weizhiHome(agentRoot)
-            .resolve("packages/html2pptx@" + WeizhiBundledPackages.bundledVersion("html2pptx"))
+            .resolve("packages/html2pptx@" + WeizhiTestPackages.fixtureVersion("html2pptx"))
             .resolve("SKILL.md");
         assertFalse(Files.exists(packageSkill), "package should not carry SKILL.md");
 
@@ -39,8 +40,6 @@ class WeizhiBundledPackagesSkillTest {
         assertTrue(hits.stream().anyMatch(hit -> "skill.html2pptx".equals(hit.id())
             && "skill".equals(hit.kind())
             && "skill:html2pptx".equals(hit.entry())));
-        assertTrue(hits.stream().anyMatch(hit -> "html2pptx.render".equals(hit.id())
-            && "weizhi_package".equals(hit.kind())));
 
         Path travelSkill = SkillsHomeInstaller.installedDir(agentRoot, "travel-itinerary").resolve("SKILL.md");
         assertTrue(Files.isRegularFile(travelSkill), "travel-itinerary in skills-home");

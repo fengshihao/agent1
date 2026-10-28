@@ -8,7 +8,7 @@ work/
   weizhi/           # QuickJS 引擎、Android 子工程、Caps
 ```
 
-Skill / Weizhi Package 的**内容源可插拔**：官方默认 [agent1-skills](https://github.com/fengshihao/agent1-skills)（`skills-src/`、`packages-src/`），贡献者可自建内容仓。agent1 **不依赖、不感知任何外部内容仓**——本仓的 `agent-home/skills-bundled/`、`agent-home/weizhi-packages/` 为**官方预置离线快照**（手动维护更新）；集成测试 fixture 固化在 `java_agent/weizhi-bridge/src/test/resources/weizhi-test-packages/`。需要编辑 Skill / Package 内容时，**在自己的内容仓里改**（官方内容请去 agent1-skills 开 PR），再用该仓的 pack 脚本 + 本仓 `artifact-cdn/` 通用工具上云。
+Skill / Weizhi Package 的**内容源可插拔**：官方默认 [agent1-skills](https://github.com/fengshihao/agent1-skills)（`skills-src/`、`packages-src/`），贡献者可自建内容仓。agent1 **不依赖、不感知任何外部内容仓**，也**不把能上云的内容打进 jar/APK**——生产靠 registry 云装。集成测试 fixture 固化在 `java_agent/weizhi-bridge/src/test/resources/weizhi-test-packages/` 与 `weizhi-test-skills/`。需要编辑 Skill / Package 内容时，**在自己的内容仓里改**（官方内容请去 agent1-skills 开 PR），再用该仓的 pack 脚本 + 本仓 `artifact-cdn/` 通用工具上云。
 
 ## 推荐做法
 
@@ -32,8 +32,8 @@ Skill / Weizhi Package 的**内容源可插拔**：官方默认 [agent1-skills](
    | 内容 | 编辑位置 | 说明 |
    |------|----------|------|
    | 引擎、Package 安装器、Android native | `weizhi/` | 联编 Android / Java；必要时 agent1 侧 PR |
-   | Skill 流程 / `SKILL.md` / `weizhi:<name>` JS 包 | 内容仓（官方默认 agent1-skills，可自建） | 上云用内容仓 pack 脚本 + 本仓 `artifact-cdn/` 通用工具 |
-   | `agent-home/skills-bundled/`、`agent-home/weizhi-packages/` | 本仓 | 官方预置**离线快照**；需要更新时从内容仓手动替换 |
+   | Skill 流程 / `SKILL.md` / `weizhi:<name>` JS 包 | 内容仓（官方默认 agent1-skills，可自建） | 上云用内容仓 pack 脚本 + 本仓 `artifact-cdn/` 通用工具；不进 agent1 jar/APK |
+   | 集成测试 fixture | `java_agent/weizhi-bridge/src/test/resources/weizhi-test-{packages,skills}/` | 仅测试用，不进生产产物 |
 
 4. 上云：内容仓侧 pack 脚本产出 `artifact-cdn/dist/`，再 `artifact-cdn/upload.sh`。
 
@@ -42,7 +42,7 @@ Skill / Weizhi Package 的**内容源可插拔**：官方默认 [agent1-skills](
 | 变量 | 含义 |
 |------|------|
 | `AGENT1_TEST_PACKAGES_ROOT` | weizhi-bridge 集成测试的 package 源目录（默认读固化 fixture `weizhi-test-packages/`） |
-| `ARTIFACT_CDN_TEST_PACKAGES_ROOT` | `artifact-cdn` 自测的包源目录（默认仓内 `agent-home/weizhi-packages/` 快照） |
+| `ARTIFACT_CDN_TEST_PACKAGES_ROOT` | `artifact-cdn` 自测的包源目录（默认 `weizhi-bridge` 测试 fixture） |
 | `WEIZHI_GIT_URL` / `WEIZHI_REPO_URL` | weizhi 克隆地址（默认 `fengshihao/weizhi`） |
 | `WEIZHI_DIR` | `ci-local.sh` 等覆盖 Weizhi 根目录 |
 

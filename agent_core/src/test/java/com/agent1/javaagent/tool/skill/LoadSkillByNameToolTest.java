@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
-import com.agent1.javaagent.skill.SkillsBundledInstall;
+import com.agent1.javaagent.skill.SkillsHomeInstallTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -16,14 +16,15 @@ class LoadSkillByNameToolTest {
     Path agentRoot;
 
     @Test
-    void loadsTravelItineraryAfterBundledInstall() throws Exception {
+    void loadsInstalledSkillFromSkillsHome() throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        SkillsBundledInstall.syncFromClasspath(agentRoot);
+        // 模拟 registry 云装后的 skills-home 状态（生产为 load_skill → SkillRegistryClient）
+        SkillsHomeInstallTest.installFixtureSkill(agentRoot, "travel-itinerary", "路书正文 load_skill");
         LoadSkillByNameTool tool = new LoadSkillByNameTool(agentRoot, agentRoot);
         String text = tool.load("travel-itinerary", null);
         assertTrue(text.contains("[skill] travel-itinerary loaded"), text);
         assertTrue(text.contains("skills_home"), text);
-        assertTrue(text.contains("load_skill"), text);
+        assertTrue(text.contains("路书正文"), text);
     }
 
     @Test
@@ -65,7 +66,7 @@ class LoadSkillByNameToolTest {
     @Test
     void localOverridesInstalledSkill() throws Exception {
         AgentHomeBootstrap.ensure(agentRoot);
-        SkillsBundledInstall.syncFromClasspath(agentRoot);
+        SkillsHomeInstallTest.installFixtureSkill(agentRoot, "travel-itinerary", "云端装的路书");
         writeLocalSkill("travel-itinerary", "本地改写版路书");
 
         LoadSkillByNameTool tool = new LoadSkillByNameTool(agentRoot, null);

@@ -1,8 +1,8 @@
 # chart.js — 图表 → PNG / SVG
 
-真源：`agent_core/.../weizhi-packages/chart/`。**云端 registry 交付**（不进桌面 BUNDLED / APK）。
+`weizhi:chart` 走云端 registry 交付（不进 jar/APK）。集成测试 fixture：`weizhi-bridge/src/test/resources/weizhi-test-packages/chart/`。
 
-Agent 发现面：`office-api-cards.jsonl` 的 `chart.render`。
+Agent 发现面：云端 registry 写入 find_caps 的 `chart.render`。
 
 ## 加载
 

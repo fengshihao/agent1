@@ -49,8 +49,8 @@ object WeizhiHostLoader {
     }
 
     /**
-     * 启动时后台装好内置包并刷随包 skill 卡，让第一次 run_js 之前的 find_caps 也能命中包内 skill。
-     * engine open 时 [WeizhiBundledInstall] 还会幂等重装。
+     * 启动时后台确保 weizhi-home 就绪、重刷已装 skill 能力卡并注册 docx 预览后端。
+     * Package/Skill 内容不预装（20-A 收口），靠 registry 云装。
      */
     private fun installBundledAsync(context: Context, agentRoot: Path) {
         Thread(

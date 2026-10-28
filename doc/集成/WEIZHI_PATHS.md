@@ -18,7 +18,7 @@
 | 项 | 位置 |
 |----|------|
 | `setFsRoot` | `WeizhiScriptEngine` / `WeizhiAndroidScriptEngineFactory` → 会话 workspace |
-| `setPackageRoot` | 桌面 `{agentRoot}/weizhi-home`；Android `WeizhiPackages.syncBundled` → `filesDir/weizhi-home` |
+| `setPackageRoot` | `{agentRoot}/weizhi-home`（Android：`filesDir/weizhi-home`）；包靠 registry 惰性安装 |
 | 官方包 | `import … from "weizhi:<name>"`。见 [WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md) |
 
 ## 验收

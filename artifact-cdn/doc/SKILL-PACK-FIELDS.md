@@ -26,7 +26,7 @@ skills-src/
       trip-pipeline.js
 ```
 
-**禁止**：在 `weizhi-packages/<name>/manifest.json` 里再写 `"skill": "SKILL.md"`（迁移后删除）。
+**禁止**：在 package `manifest.json` 里再写 `"skill": "SKILL.md"`（Skill 与 Package 分轨）。
 
 ---
 
