@@ -17,6 +17,8 @@ import { buildXlsx } from "weizhi:xlsx-build";
 
 `readXlsx` 打开的工作簿 `save` 时走**保真改写**（1.2.0）：只替换被编辑单元格的 XML 与 mergeCells/dimension，未编辑格的样式索引、公式缓存、列宽、冻结窗格、原图表与其它 parts 逐字节保留。不支持：对已打开文件 `addChart`（报错）、新增/删除/重命名 sheet。
 
+**日期可读化（1.4.0，默认开启）**：日期在 xlsx 里是数字序列值 + 样式表 numFmt；`readXlsx` 按 style → numFmt 判定后还原成 `"2026-10-27"` / `"2026-10-27 14:30:00"` / 纯时间 `"06:00:00"`（`type:"date"`）。内置日期格式 ID（14-22/27-36/45-47/50-58）与自定义 formatCode 均识别；`{dates: false}` 回到原始序列数字。写日期暂不支持样式注入——需要原生日期格式时写入后由用户在 Excel 中设定格式，或走 `xlsx-raw`。
+
 ```javascript
 const wb = readXlsx("in/sales.xlsx");
 const sh = wb.sheet("明细"); // 或 sheet(0)
