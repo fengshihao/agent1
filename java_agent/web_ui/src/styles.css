@@ -273,6 +273,60 @@ button {
   font-size: 12px;
 }
 
+.todo-panel {
+  max-width: min(720px, 92%);
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius);
+  background: var(--paper-lift);
+}
+
+.todo-panel-head {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 0.45rem;
+}
+
+.todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.todo-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.todo-item.done .todo-text {
+  color: var(--ink-muted);
+  text-decoration: line-through;
+}
+
+.todo-item.active .todo-status {
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+
+.todo-status {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.todo-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .tool-card {
   max-width: min(720px, 92%);
   margin: 0 0 0.75rem;

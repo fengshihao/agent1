@@ -557,6 +557,15 @@ function closeMoreMenu() {
   setState({ moreMenuOpen: false });
 }
 
+async function refreshSessionTodos(sessionId: string) {
+  try {
+    const todos = await api.fetchSessionTodos(sessionId);
+    setState({ sessionTodos: todos });
+  } catch {
+    setState({ sessionTodos: [] });
+  }
+}
+
 async function refreshAttachments(sessionId: string) {
   try {
     const attachments = await api.fetchAttachments(sessionId);
@@ -580,6 +589,7 @@ async function loadActiveTranscript(sessionId: string) {
     error: null,
   });
   await refreshAttachments(sessionId);
+  await refreshSessionTodos(sessionId);
 }
 
 async function bootstrap() {
@@ -657,6 +667,19 @@ function onAgentEvent(event: api.AgentEventDto) {
     case "TOOL_EXECUTION_END": {
       const toolCallId = String(event.payload.toolCallId || "");
       const ended = state.tools.find((t) => t.toolCallId === toolCallId);
+      const rawTodoList = event.payload.todoList;
+      const todoPatch = Array.isArray(rawTodoList)
+        ? {
+            sessionTodos: rawTodoList
+              .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
+              .map((row) => ({
+                id: String(row.id ?? ""),
+                content: String(row.content ?? ""),
+                status: String(row.status ?? ""),
+              }))
+              .filter((row) => row.id && row.content),
+          }
+        : {};
       const tools = state.tools.map((t) =>
         t.toolCallId === toolCallId
           ? {
@@ -668,7 +691,7 @@ function onAgentEvent(event: api.AgentEventDto) {
           : t,
       );
       const waiting = !!event.payload.stopRunWaitingUser;
-      setState({ tools, isRunning: !waiting && state.isRunning });
+      setState({ tools, isRunning: !waiting && state.isRunning, ...todoPatch });
       if (
         state.preview &&
         ended &&
@@ -691,6 +714,9 @@ function onAgentEvent(event: api.AgentEventDto) {
         isRunning: false,
         lastRunTokenSummary: buildRunTokenSummary(false),
       });
+      if (event.sessionId) {
+        void refreshSessionTodos(event.sessionId);
+      }
       void reloadAfterRun();
       break;
     default:
@@ -760,6 +786,34 @@ async function onSubmitAsk() {
   const text = formatAskReply(state.pendingAsk, state.askAnswers);
   setState({ pendingAsk: null, composer: text });
   await onSend();
+}
+
+function todoStatusLabel(status: string): string {
+  switch (status) {
+    case "in_progress":
+      return "进行中";
+    case "completed":
+      return "已完成";
+    case "pending":
+    default:
+      return "待办";
+  }
+}
+
+function renderTodoPanel(): string {
+  if (!state.sessionTodos.length) return "";
+  const rows = state.sessionTodos
+    .map((item) => {
+      const cls =
+        item.status === "completed"
+          ? "done"
+          : item.status === "in_progress"
+            ? "active"
+            : "";
+      return `<li class="todo-item ${cls}"><span class="todo-status">${escapeHtml(todoStatusLabel(item.status))}</span><span class="todo-text">${escapeHtml(item.content)}</span></li>`;
+    })
+    .join("");
+  return `<div class="todo-panel" aria-label="任务清单"><div class="todo-panel-head">任务清单</div><ul class="todo-list">${rows}</ul></div>`;
 }
 
 function renderBubble(line: ChatLine, sessionId: string | null): string {
@@ -1289,7 +1343,7 @@ function render() {
   const chatBody =
     state.lines.length === 0 && !state.streamingText && !state.isRunning
       ? `<div class="landing"><h2>Agent1</h2><p>生产力助手 · 与 Android 端同款纸本风格。左侧管理会话，下方输入开始对话。</p></div>`
-      : chatLinesHtml + runTokenRow + newTopicBtn + renderLiveTools() + renderAskPanel();
+      : `${renderTodoPanel()}${chatLinesHtml}${runTokenRow}${newTopicBtn}${renderLiveTools()}${renderAskPanel()}`;
 
   const usageFoot = usageFooterLine(state.usage);
 

@@ -45,8 +45,8 @@ import com.agent1.javaagent.tool.script.ExecuteScriptTool;
 import com.agent1.javaagent.workspace.WorkspaceTmpCleaner;
 import com.agent1.javaagent.coach.AgentCoachConfig;
 import com.agent1.javaagent.coach.ProductivityCoach;
-import com.agent1.javaagent.todo.TodoStore;
 import com.agent1.javaagent.tool.agent.AskUserTool;
+import com.agent1.javaagent.tool.agent.TodoReadTool;
 import com.agent1.javaagent.tool.agent.TodoWriteTool;
 import com.agent1.javaagent.tool.agent.CapabilitySearchTool;
 import com.agent1.javaagent.tool.agent.ListSessionsTool;
@@ -729,11 +729,8 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new ListSessionsTool(sessionStore, this::getActiveSessionId));
         tools.add(new ChatHistoryTool(() -> sessionStore.loadTranscript(sessionId)));
         tools.add(new AskUserTool());
-        tools.add(new TodoWriteTool(
-            sessionStore.sessionDir(sessionId),
-            agentRoot,
-            () -> applySystemPrompt(sessionId)
-        ));
+        tools.add(new TodoWriteTool(sessionStore.sessionDir(sessionId), agentRoot));
+        tools.add(new TodoReadTool(sessionStore.sessionDir(sessionId)));
         tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform, projectRoot));
         tools.addAll(AnnotatedTools.from(new LoadSkillByNameTool(agentRoot, projectRoot, workspace, skillRepositories)));
         if (runtimeConfig.isWebSearchConfigured()) {
@@ -787,13 +784,6 @@ public final class ProductivityAgentHost implements Closeable {
                 sessionEnvironmentSupplement,
                 environmentProvider
             );
-        TodoStore.LoadResult todos = new TodoStore(sessionStore.sessionDir(sessionId)).load();
-        if (todos.ok()) {
-            String section = todos.list().promptSection();
-            if (!section.isEmpty()) {
-                prompt = prompt + "\n\n" + section;
-            }
-        }
         runtime.setSystemPrompt(prompt);
     }
 

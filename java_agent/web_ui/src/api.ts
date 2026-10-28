@@ -93,6 +93,12 @@ export type AgentEventDto = {
   payload: Record<string, unknown>;
 };
 
+export type TodoItemDto = {
+  id: string;
+  content: string;
+  status: string;
+};
+
 async function parseJson<T>(res: Response): Promise<T> {
   const data = (await res.json()) as T & { error?: string };
   if (!res.ok) {
@@ -407,6 +413,13 @@ export async function fetchTranscript(sessionId: string): Promise<MessageDto[]> 
     await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/transcript`),
   );
   return data.messages;
+}
+
+export async function fetchSessionTodos(sessionId: string): Promise<TodoItemDto[]> {
+  const data = await parseJson<{ todos: TodoItemDto[] }>(
+    await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/todos`),
+  );
+  return data.todos ?? [];
 }
 
 export async function sendMessage(sessionId: string, text: string): Promise<void> {

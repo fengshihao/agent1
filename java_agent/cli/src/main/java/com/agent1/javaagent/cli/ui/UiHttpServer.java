@@ -557,6 +557,19 @@ public final class UiHttpServer implements AutoCloseable {
             sendJson(exchange, 200, body);
             return;
         }
+        if (parts.length == 2 && "todos".equals(parts[1]) && "GET".equalsIgnoreCase(method)) {
+            ObjectNode body = MAPPER.createObjectNode();
+            body.put("sessionId", sessionId);
+            ArrayNode arr = body.putArray("todos");
+            for (DesktopUiGateway.SessionTodoItem item : gateway.loadSessionTodos(sessionId)) {
+                ObjectNode node = arr.addObject();
+                node.put("id", item.id());
+                node.put("content", item.content());
+                node.put("status", item.status());
+            }
+            sendJson(exchange, 200, body);
+            return;
+        }
         if (parts.length == 2 && "brief".equals(parts[1]) && "GET".equalsIgnoreCase(method)) {
             String text = gateway.briefTranscript(sessionId);
             ObjectNode body = MAPPER.createObjectNode();

@@ -22,6 +22,7 @@ import com.agent1.javaagent.modelcatalog.RemoteModelOption;
 import com.agent1.javaagent.session.ProductivityAgentHost;
 import com.agent1.javaagent.session.SessionMeta;
 import com.agent1.javaagent.session.SessionSummaryService;
+import com.agent1.javaagent.todo.TodoStore;
 import com.agent1.javaagent.workspace.ArtifactLibrary;
 import com.agent1.javaagent.workspace.WorkspaceSandbox;
 import com.agent1.javaagent.tool.WorkspaceToolProvider;
@@ -287,6 +288,23 @@ public final class DesktopUiGateway implements Closeable {
 
     public List<AgentMessage> loadTranscript(String sessionId) {
         return execute(() -> ensureHost().loadTranscript(sessionId));
+    }
+
+    /** 当前会话任务清单（供 Web UI；清单不进系统提示）。 */
+    public List<SessionTodoItem> loadSessionTodos(String sessionId) {
+        return execute(() -> {
+            TodoStore.LoadResult loaded =
+                new TodoStore(new FileSessionStore(agentRoot).sessionDir(sessionId)).load();
+            if (!loaded.ok()) {
+                return List.of();
+            }
+            return loaded.list().items().stream()
+                .map(item -> new SessionTodoItem(item.id(), item.content(), item.status()))
+                .toList();
+        });
+    }
+
+    public record SessionTodoItem(String id, String content, String status) {
     }
 
     /** 全 agentRoot 累计用量（events.jsonl）。 */

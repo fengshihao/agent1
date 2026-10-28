@@ -306,6 +306,34 @@ class UiHttpServerTest {
         }
     }
 
+    @Test
+    void sessionTodosEndpointReadsTodosJson() throws Exception {
+        AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
+        LlmClient fake = (request, tools, streamListener, cancellationToken) ->
+            new AssistantResponse("ok", List.of());
+        DesktopUiGateway gateway = new DesktopUiGateway(
+            temp,
+            cfg -> new ProductivityAgentHost(temp, cfg, fake),
+            config
+        );
+        int port = freePort();
+        try (gateway; UiHttpServer server = new UiHttpServer(gateway, port)) {
+            server.start();
+            JsonNode created = postJson("http://127.0.0.1:" + port + "/api/sessions", "{}");
+            String sessionId = created.path("sessionId").asText();
+            Path todosFile = new FileSessionStore(temp).sessionDir(sessionId).resolve("todos.json");
+            Files.createDirectories(todosFile.getParent());
+            Files.writeString(
+                todosFile,
+                "{\"todos\":[{\"id\":\"a\",\"content\":\"写出大纲\",\"status\":\"in_progress\"}]}"
+            );
+            JsonNode body = getJson("http://127.0.0.1:" + port + "/api/sessions/" + sessionId + "/todos");
+            assertEquals(sessionId, body.path("sessionId").asText());
+            assertEquals(1, body.path("todos").size());
+            assertEquals("写出大纲", body.path("todos").get(0).path("content").asText());
+        }
+    }
+
     private static int freePort() throws Exception {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();

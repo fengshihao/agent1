@@ -16,6 +16,18 @@ class ProductivitySystemPromptBuilderTest {
     Path temp;
 
     @Test
+    void workflowMentionsTodoWriteAndRead() {
+        String direct = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), false);
+        assertTrue(direct.contains("todo_write"));
+        assertTrue(direct.contains("todo_read"));
+        assertTrue(direct.contains("单轮能直接做完的不必建"));
+        String script = new ProductivitySystemPromptBuilder()
+            .buildMainPrompt(temp.resolve("ws"), true);
+        assertTrue(script.contains("单轮能一段 run_js 做完的不必建"));
+    }
+
+    @Test
     void mentionsWebSearchOnlyWhenEnabled() {
         String off = new ProductivitySystemPromptBuilder()
             .buildMainPrompt(temp.resolve("ws"), false);
