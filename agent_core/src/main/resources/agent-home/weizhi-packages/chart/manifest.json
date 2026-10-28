@@ -1,6 +1,0 @@
-{
-  "name": "chart",
-  "version": "1.0.0",
-  "entry": "chart.js",
-  "description": "Render charts to workspace PNG/SVG via echarts (spec) or mermaid (diagram text), orchestrated in webview_exec. Cloud registry install."
-}
