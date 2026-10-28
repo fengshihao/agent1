@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>伊犁草原环线 · 八日自驾</title>
+<style>
+  :root {
+    --ink: #17211c;
+    --muted: #5d6a62;
+    --paper: #f3eee4;
+    --card: #fffdf8;
+    --lake: #1d5f73;
+    --gold: #b67832;
+    --line: rgba(23, 33, 28, .08);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "PingFang SC", "HarmonyOS Sans", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.6;
+  }
+  button, a { font-family: inherit; }
+  img { max-width: 100%; }
+  .hero {
+    position: relative;
+    height: 100svh;
+    min-height: 640px;
+    overflow: hidden;
+    background: #10211c;
+    color: #f7f2e8;
+  }
+  .hero img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 42%;
+    transform: scale(1.04);
+    animation: drift 22s ease-in-out alternate infinite;
+  }
+  @keyframes drift {
+    to { transform: scale(1.1) translate3d(-1.2%, -1%, 0); }
+  }
+  .hero-shade {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to top, rgba(7, 14, 12, .88) 0%, rgba(7, 14, 12, .42) 38%, rgba(7, 14, 12, .18) 100%);
+  }
+  .hero-copy {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: min(920px, 100%);
+    padding: 0 18px 22px;
+  }
+  .kicker {
+    margin: 0 0 10px;
+    font-size: 12px;
+    letter-spacing: .34em;
+    text-indent: .34em;
+    opacity: .86;
+  }
+  .hero h1 {
+    margin: 0;
+    font-family: "Songti SC", "STSong", "Noto Serif SC", "PingFang SC", serif;
+    font-size: clamp(46px, 12vw, 84px);
+    font-weight: 600;
+    line-height: .95;
+    letter-spacing: .04em;
+  }
+  .hero .sub {
+    max-width: 28em;
+    margin: 14px 0 0;
+    font-size: 15px;
+    line-height: 1.65;
+    color: rgba(247, 242, 232, .9);
+  }
+  .hero-place {
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    z-index: 1;
+    margin: 0;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(10, 16, 14, .38);
+    backdrop-filter: blur(8px);
+    font-size: 12px;
+    letter-spacing: .08em;
+  }
+  .wrap { width: min(920px, calc(100% - 28px)); margin: 0 auto; }
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .stat {
+    background: rgba(255, 252, 247, .14);
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 16px;
+    padding: 10px 12px;
+    text-align: left;
+    backdrop-filter: blur(10px);
+  }
+  .stat b {
+    display: block;
+    font-family: "Songti SC", "STSong", "Noto Serif SC", serif;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: #fff;
+  }
+  .stat span { display: block; margin-top: 2px; color: rgba(247, 242, 232, .78); font-size: 12px; }
+  .block { margin-top: 28px; }
+  .block h2 {
+    margin: 0 0 4px;
+    font-family: "Songti SC", "STSong", "Noto Serif SC", serif;
+    font-size: 28px;
+    font-weight: 600;
+  }
+  .lead { margin: 0 0 12px; color: var(--muted); font-size: 13.5px; }
+  .map-frame {
+    position: relative;
+    height: min(78vw, 520px);
+    min-height: 340px;
+    border-radius: 24px;
+    overflow: hidden;
+    background: #d5e3da;
+    box-shadow: 0 16px 40px rgba(20, 33, 28, .08);
+  }
+  .map-frame, #map { touch-action: none; }
+  #map { width: 100%; height: 100%; display: block; cursor: grab; }
+  #map.dragging { cursor: grabbing; }
+  .rose {
+    position: absolute; right: 14px; bottom: 14px; z-index: 2;
+    width: 58px; height: 62px; pointer-events: none;
+    filter: drop-shadow(0 2px 6px rgba(20, 33, 28, .18));
+  }
+  .rose svg { display: block; }
+  .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .mlabel {
+    position: absolute;
+    font-size: 12px;
+    font-weight: 650;
+    color: #1d332b;
+    white-space: nowrap;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(253, 251, 244, .92);
+    border: 1px solid rgba(29, 51, 43, .10);
+    box-shadow: 0 1px 5px rgba(20, 33, 28, .16);
+  }
+  .mlabel.on {
+    background: #1d332b;
+    color: #f9f6ec;
+    font-weight: 750;
+    border-color: transparent;
+  }
+  .mkm {
+    font-size: 10.5px;
+    font-weight: 750;
+    color: #fff;
+    padding: 2.5px 8px;
+    border-radius: 999px;
+    box-shadow: 0 2px 5px rgba(20, 33, 28, .22);
+    letter-spacing: .02em;
+  }
+  .leg-flow {
+    fill: none;
+    stroke: rgba(255, 255, 255, .65);
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-dasharray: 3 18;
+    animation: legFlow 1.1s linear infinite;
+  }
+  @keyframes legFlow { to { stroke-dashoffset: -21; } }
+  @media (prefers-reduced-motion: reduce) { .leg-flow { animation: none; opacity: 0; } }
+  .zoom {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .zoom button {
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 11px;
+    background: #fffdf8;
+    color: var(--ink);
+    font-size: 18px;
+    line-height: 1;
+    box-shadow: 0 4px 14px rgba(20, 33, 28, .08);
+  }
+  .zoom button.wide {
+    width: auto;
+    padding: 0 12px;
+    font-size: 12px;
+    letter-spacing: .08em;
+  }
+  .rail {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    margin: 22px -14px 0;
+    padding: 10px 14px;
+    background: rgba(243, 238, 228, .92);
+    backdrop-filter: blur(12px);
+    scrollbar-width: none;
+  }
+  .rail::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid transparent;
+    background: var(--card);
+    border-radius: 999px;
+    padding: 4px 12px 4px 4px;
+    color: var(--ink);
+    box-shadow: 0 1px 0 var(--line);
+  }
+  .chip img, .chip i {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #d5e3da;
+    display: block;
+  }
+  .chip i { font-style: normal; display: grid; place-items: center; color: #f7f2e8; background: #1d4f48; font-size: 12px; }
+  .chip b { display: block; font-size: 13px; line-height: 1.15; }
+  .chip small { display: block; color: var(--muted); font-size: 11px; }
+  .chip.on { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(182, 120, 50, .25); }
+  #day { scroll-margin-top: 78px; }
+  .day-layout { margin-top: 8px; }
+  .frame {
+    position: relative;
+    border-radius: 22px;
+    overflow: hidden;
+    background: #d7d1c4;
+    aspect-ratio: 16 / 10;
+  }
+  .frame img { width: 100%; height: 100%; object-fit: cover; object-position: center 36%; display: block; }
+  .cap {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    margin: 0;
+    padding: 36px 14px 12px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, .62));
+    color: white;
+    font-size: 13px;
+  }
+  .quiet {
+    display: flex;
+    align-items: flex-end;
+    background:
+      radial-gradient(90% 80% at 100% 0%, rgba(232, 176, 92, .9), transparent 55%),
+      linear-gradient(155deg, #14352f, #1c4f48 48%, #245f73);
+    color: #f6f1e7;
+  }
+  .quiet p {
+    margin: 0;
+    padding: 22px;
+    max-width: 14em;
+    font-family: "Songti SC", "STSong", "Noto Serif SC", serif;
+    font-size: 24px;
+    line-height: 1.35;
+  }
+  .arr, .dots { position: absolute; z-index: 1; }
+  .arr {
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 253, 248, .9);
+    color: var(--ink);
+    font-size: 22px;
+    line-height: 1;
+  }
+  .arr.prev { left: 10px; }
+  .arr.next { right: 10px; }
+  .dots { left: 0; right: 0; bottom: 36px; display: flex; justify-content: center; gap: 6px; }
+  .dots button {
+    width: 7px; height: 7px; border: 0; border-radius: 50%;
+    background: rgba(255, 255, 255, .5); padding: 0;
+  }
+  .dots button.on { background: white; transform: scale(1.25); }
+  .day-copy h3 {
+    margin: 14px 0 4px;
+    font-family: "Songti SC", "STSong", "Noto Serif SC", serif;
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  .theme { margin: 0; color: var(--gold); font-size: 14px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .meta span {
+    background: #efe8da;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12.5px;
+  }
+  .via { margin: 0 0 8px; color: var(--muted); font-size: 13.5px; }
+  .tl { list-style: none; margin: 8px 0 0; padding: 0; }
+  .tl li {
+    display: grid;
+    grid-template-columns: 58px 1fr;
+    gap: 10px;
+    padding: 9px 0;
+  }
+  .tl div { line-height: 1.55; }
+  .tl time { color: var(--gold); font-weight: 700; font-variant-numeric: tabular-nums; font-size: 13px; }
+  .pair { display: grid; gap: 8px; margin-top: 12px; }
+  .pair div { background: var(--card); border-radius: 16px; padding: 12px 14px; }
+  .pair h4 { margin: 0 0 4px; font-size: 12px; letter-spacing: .16em; color: var(--lake); }
+  .pair p { margin: 0; font-size: 14px; }
+  .tips { margin: 12px 0 0; padding-left: 18px; color: #2c3a34; font-size: 14px; }
+  .tips li { margin: 4px 0; }
+  .toc {
+    position: sticky; top: 0; z-index: 6;
+    display: flex; gap: 8px;
+    margin: 18px -14px 0; padding: 10px 14px;
+    background: rgba(243, 238, 228, .94);
+    backdrop-filter: blur(12px);
+  }
+  .toc a {
+    flex: 1; text-align: center; text-decoration: none;
+    color: var(--ink); background: var(--card);
+    border-radius: 999px; padding: 8px 0; font-size: 13px; font-weight: 650;
+  }
+  .toc a.on { background: #14241e; color: #f6f1e7; }
+  #sec-route, #sec-days, #sec-money, #sec-pack { scroll-margin-top: 58px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+  .legend i {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px;
+    box-shadow: 0 0 0 3px rgba(29,51,43,.06);
+  }
+  .legend button {
+    display: inline-flex; align-items: center;
+    border: 1px solid rgba(29,51,43,.09);
+    background: var(--card); color: var(--ink);
+    border-radius: 999px; padding: 6px 12px;
+    font-size: 12px; font-weight: 650;
+  }
+  .legend button.on { background: #1d332b; color: #f6f1e7; border-color: transparent; }
+  .day-layout { animation: dayIn .46s cubic-bezier(.2,.7,.2,1); }
+  @keyframes dayIn { from { opacity: 0; transform: translateX(36px); } to { opacity: 1; transform: none; } }
+  #pic { transition: opacity .5s ease, transform .65s cubic-bezier(.22,.8,.28,1); }
+  #pic.swap { opacity: 0; transform: scale(1.05) translateX(22px); }
+  .gos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  .go {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 48px;
+    border-radius: 999px;
+    background: #14241e;
+    color: #f6f1e7;
+    text-decoration: none;
+    font-weight: 650;
+    letter-spacing: .04em;
+  }
+  .go.baidu { background: #2b4c8a; }
+  .pack { display: grid; gap: 8px; }
+  .pack label {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--card); border-radius: 16px; padding: 12px 14px;
+  }
+  .pack input { width: 18px; height: 18px; margin-top: 3px; flex: 0 0 auto; }
+  .pack small { display: block; color: var(--gold); font-size: 11px; letter-spacing: .14em; }
+  .pack span { font-size: 14px; }
+  .pack label.done span { color: var(--muted); text-decoration: line-through; }
+  @media (prefers-reduced-motion: reduce) {
+    .day-layout, #pic { animation: none; transition: none; }
+  }
+  .money, .note-list { display: grid; gap: 8px; }
+  .row, .ticket {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 12px 14px;
+  }
+  .row { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .row b { font-weight: 600; }
+  .row span, .ticket .price { color: #2a3b34; }
+  .row em { font-style: normal; color: var(--muted); font-size: 12px; }
+  .row.sum { background: #14241e; color: #f6f1e7; }
+  .row.sum span, .row.sum em { color: rgba(246, 241, 231, .78); }
+  .ticket h3 { margin: 0 0 4px; font-size: 16px; }
+  .ticket .price { margin: 0; font-size: 14px; }
+  .ticket .note { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; }
+  .notes { margin: 0; padding-left: 18px; }
+  .notes li { margin: 6px 0; }
+  footer {
+    margin: 28px 0 48px;
+    color: #8b9188;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .lightbox[hidden] { display: none !important; }
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px 16px 32px;
+    background: rgba(8, 12, 11, .92);
+  }
+  .lightbox img { max-width: 100%; max-height: 78vh; object-fit: contain; border-radius: 12px; }
+  .lightbox p { margin: 0; color: #f3ecdf; font-size: 14px; text-align: center; }
+  .lb-x {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    border: 0;
+    background: transparent;
+    color: white;
+    font-size: 15px;
+  }
+  @media (min-width: 720px) {
+    .stats { grid-template-columns: repeat(4, 1fr); }
+  }
+  @media (min-width: 900px) {
+    .day-layout { display: grid; grid-template-columns: 1.15fr .85fr; gap: 26px; align-items: start; }
+    .frame { position: sticky; top: 84px; }
+    .pair { grid-template-columns: 1fr 1fr; }
+    .money, .note-list.tickets { grid-template-columns: 1fr 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero img { animation: none; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+<header class="hero">
+  <img id="heroImg" alt="">
+  <div class="hero-shade"></div>
+  <p class="hero-place" id="heroPlace"></p>
+  <div class="hero-copy">
+    <p class="kicker" id="kicker"></p>
+    <h1 id="title"></h1>
+    <p class="sub" id="sub"></p>
+    <section class="stats" id="stats"></section>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="toc" id="toc">
+    <a href="#sec-route">路线</a>
+    <a href="#sec-days">日程</a>
+    <a href="#sec-money">花费</a>
+    <a href="#sec-pack">清单</a>
+  </nav>
+
+  <section class="block" id="sec-route">
+    <h2>这一路</h2>
+    <p class="lead" id="mapHint">北在上方。每天一种颜色，曲线上标了公里。单指拖动，双指缩放。</p>
+    <div class="map-frame" id="frame">
+      <svg id="map" role="img" aria-label="伊犁八日自驾路线图"></svg>
+      <div class="labels" id="labels"></div>
+      <div class="rose" aria-hidden="true"><svg viewBox="0 0 64 68" width="58" height="62">
+        <text x="32" y="8" text-anchor="middle" font-size="9.5" font-weight="800" fill="#1d332b">北</text>
+        <circle cx="32" cy="39" r="20" fill="rgba(253,251,244,.9)" stroke="rgba(29,51,43,.18)" stroke-width="1"/>
+        <circle cx="32" cy="39" r="15.5" fill="none" stroke="rgba(29,51,43,.09)" stroke-width="1"/>
+        <path d="M32 39 L50 36.2 L33 41 Z M32 39 L14 36.2 L31 41 Z" fill="rgba(29,51,43,.28)"/>
+        <path d="M32 39 L32 63 L28 42 Z" fill="rgba(29,51,43,.28)"/>
+        <path d="M32 22 L36 39 L32 36.5 Z" fill="#b0543a"/>
+        <path d="M32 22 L28 39 L32 36.5 Z" fill="#8a3f2b"/>
+        <text x="55" y="41.5" text-anchor="middle" font-size="7" font-weight="700" fill="#41564d">东</text>
+        <text x="32" y="66.5" text-anchor="middle" font-size="7" font-weight="700" fill="#41564d">南</text>
+        <text x="9" y="41.5" text-anchor="middle" font-size="7" font-weight="700" fill="#41564d">西</text>
+      </svg></div>
+    </div>
+    <div class="zoom">
+      <button type="button" id="zin" aria-label="放大">+</button>
+      <button type="button" id="zout" aria-label="缩小">−</button>
+      <button type="button" id="zall" class="wide" aria-label="看完全程">全程</button>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="block" id="sec-days">
+    <h2>日程</h2>
+    <nav class="rail" id="rail" aria-label="八天"></nav>
+    <article id="day"></article>
+  </section>
+
+  <section class="block" id="sec-money">
+    <h2>钱怎么花</h2>
+    <p class="lead">两人合计。门票按 2025–2026 年公开价格，出发前再对一次。</p>
+    <div class="money" id="budget"></div>
+    <h2 style="margin-top:22px">门票和区间车</h2>
+    <div class="note-list tickets" id="tickets"></div>
+  </section>
+
+  <section class="block" id="sec-pack">
+    <h2>出发前</h2>
+    <p class="lead">勾过的会留在这台手机上。</p>
+    <div class="pack" id="pack"></div>
+    <ul class="notes" id="notes" style="margin-top:14px"></ul>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button type="button" class="lb-x" id="lbx">关闭</button>
+  <img id="lbimg" alt="">
+  <p id="lbcap"></p>
+</div>
+
+<script type="application/json" id="trip">{
+  "trip": {
+    "slug": "xinjiang-yili-8d",
+    "title": "伊犁草原环线",
+    "subtitle": "乌鲁木齐出发 · 赛里木湖—伊宁—昭苏—喀拉峻—那拉提—巴音布鲁克—独库公路 · 8天7晚自驾",
+    "dates": "2027年7—8月（草原旺季，日期可调）",
+    "people": "2人自驾（1名主驾）",
+    "start": "乌鲁木齐",
+    "totalKm": 2177,
+    "driveHours": 35,
+    "budgetPerPerson": "6300—7800 元（不含往返乌鲁木齐大交通）",
+    "style": "舒适型",
+    "bestTime": "7月上旬—8月中旬：草原最绿、独库全线通行、日照21:30后",
+    "oneLine": "用一条环线把「大西洋最后一滴眼泪」、雪山草原、八卦城和网红独库一次看完，每天开车 3—6 小时，日落都在风景里。",
+    "updated": "2026-10-27",
+    "disclaimer": "里程与耗时来自高德实测（独库公路段按通行季估算）；门票、区间车、路况为2025—2026年公开信息，出行前请复核。"
+  },
+  "days": [
+    {
+      "id": "d1",
+      "title": "第1天 · 乌鲁木齐 → 赛里木湖",
+      "theme": "一路向西，把日落留给湖",
+      "date": "D1",
+      "km": 577,
+      "hours": "6.5—7.5h",
+      "waypoints": [
+        { "name": "乌鲁木齐", "lng": 87.6168, "lat": 43.8256, "role": "起点" },
+        { "name": "乌苏（午餐加油）", "lng": 84.68, "lat": 44.42, "role": "途经" },
+        { "name": "精河", "lng": 82.9, "lat": 44.6, "role": "途经" },
+        { "name": "赛里木湖", "lng": 81.15, "lat": 44.6, "role": "终点" }
+      ],
+      "schedule": [
+        { "time": "08:30", "text": "乌市取车（提前一天线上办手续更省时），检查备胎、灭火器、充电线；加满油上连霍高速 G30。" },
+        { "time": "12:30", "text": "乌苏服务区午餐＋加油。这一段服务区间隔大，凡见加油站剩半箱就补。" },
+        { "time": "16:30", "text": "过精河，进入博尔塔拉，公路两侧开始出现戈壁—草原过渡带。" },
+        { "time": "18:30", "text": "抵达赛里木湖东门，办入园。自驾车可开进环湖公路（需另购车辆入园票）。" },
+        { "time": "20:30", "text": "东岸或北岸等日落，湖面会从蓝变金再变紫，21:30 后天才黑。" }
+      ],
+      "stay": "赛里木湖景区内民宿/毡房（贵但看日出方便），或清水河镇、博乐市（便宜 40 分钟车程）",
+      "food": "乌苏拌面、精河烤包子；湖边餐饮少且贵，建议自带水果和馕",
+      "tips": [
+        "第一天纯赶路，两位司机轮换，每 2 小时进服务区休息。",
+        "湖边海拔 2073 米，昼夜温差大，日落后 10℃ 以下，抓绒外套放手边。",
+        "湖区夜间限速严，别为拍星空开夜车下湖岸土路。"
+      ],
+      "images": [
+        { "path": "assets/sayram.jpg", "caption": "赛里木湖：夏天最蓝的那几天", "sourcePage": "https://cds.chinadaily.com.cn/dams/capital/image/202306/06/647e893fe4b0736d76f812ec_m.jpg" },
+        { "path": "assets/sayram2.jpg", "caption": "湖岸草原与雪山同框", "sourcePage": "https://paper.people.com.cn/rmrbhwb/images/2024-07/03/12/rmrbhwb2024070312p20_b.jpg" }
+      ]
+    },
+    {
+      "id": "d2",
+      "title": "第2天 · 赛里木湖环湖 → 果子沟 → 霍尔果斯 → 伊宁",
+      "theme": "一湖一桥一国门",
+      "date": "D2",
+      "km": 283,
+      "hours": "4h（含环湖 90km）",
+      "waypoints": [
+        { "name": "赛里木湖", "lng": 81.15, "lat": 44.6, "role": "起点" },
+        { "name": "果子沟大桥", "lng": 81.0, "lat": 44.4, "role": "途经" },
+        { "name": "霍尔果斯口岸", "lng": 80.42, "lat": 44.21, "role": "途经" },
+        { "name": "伊宁·六星街", "lng": 81.32, "lat": 43.92, "role": "终点" }
+      ],
+      "schedule": [
+        { "time": "07:30", "text": "湖边看日出（夏季约 06:40 天亮，太阳从山脊后出来）。" },
+        { "time": "09:00", "text": "环湖自驾：东门→点将台→西海草原→南门，约 90 公里，走走停停 3 小时。" },
+        { "time": "13:00", "text": "出南门下山，果子沟大桥观景台（36km）。桥面离谷底约 200 米，观景台拍全景最好。" },
+        { "time": "15:00", "text": "霍尔果斯（61km）：新国门景区、中哈合作中心免税店，逛 1.5—2 小时。" },
+        { "time": "18:30", "text": "到伊宁（96km），住六星街或喀赞其一带，晚上逛汉人街吃夜市。" }
+      ],
+      "stay": "伊宁六星街/喀赞其民宿（老院子改造，300—600 元）",
+      "food": "伊宁：手抓饭、烤包子、酸奶粽子、塔城风干肉；汉人街夜市 20:00 后最热闹",
+      "tips": [
+        "环湖公路单行段较多，按指示牌走，别逆向超车。",
+        "免税店需带身份证，购物额度按当日政策，液体类注意返程托运。",
+        "伊宁老城巷子窄，车停民宿外停车场，步行逛。"
+      ],
+      "images": [
+        { "path": "assets/guozigou.png", "caption": "果子沟大桥：深谷上的高架", "sourcePage": "https://p2.itc.cn/q_70/images03/20220211/da42b977e2ca429e99a837e186edf50f.png" }
+      ]
+    },
+    {
+      "id": "d3",
+      "title": "第3天 · 伊宁 → 薰衣草 → 伊昭公路 → 昭苏",
+      "theme": "翻乌孙山，进天马之乡",
+      "date": "D3",
+      "km": 272,
+      "hours": "4h",
+      "waypoints": [
+        { "name": "伊宁", "lng": 81.32, "lat": 43.92, "role": "起点" },
+        { "name": "霍城·薰衣草园", "lng": 80.88, "lat": 44.06, "role": "途经" },
+        { "name": "乌孙山垭口（伊昭公路）", "lng": 81.05, "lat": 43.55, "role": "途经" },
+        { "name": "昭苏", "lng": 81.13, "lat": 43.16, "role": "终点" }
+      ],
+      "schedule": [
+        { "time": "09:00", "text": "伊宁出发北行 46km 到霍城薰衣草园（解忧公主等），7月是二茬花期，成片但不如6月中下旬浓。" },
+        { "time": "11:30", "text": "回程接 S237 伊昭公路，翻乌孙山。全程 226 公里，弯多坡陡，3 小时车程配 1 小时拍照。" },
+        { "time": "14:00", "text": "半山牧场停车吃自带的馕和酸奶，这一段是整条路最出片的机位。" },
+        { "time": "17:30", "text": "进昭苏盆地：油菜花、麦田、天马。去天马文化园或马场看傍晚放马（约 19:00）。" }
+      ],
+      "stay": "昭苏县城（200—400 元，选择多）或夏塔方向农家乐",
+      "food": "昭苏：马肉纳仁、酸奶疙瘩、土豆炖牛肉；县城夜市烤羊肉串便宜",
+      "tips": [
+        "伊昭公路雨季有落石和临时管制，出发前查「新疆交警」路况；天黑前务必下山。",
+        "薰衣草园门票几十元，花期过后可跳过，直接走伊昭。",
+        "昭苏海拔 2000 米左右，晚上凉，7月也要外套。"
+      ],
+      "images": [
+        { "path": "assets/zhaosu.jpg", "caption": "昭苏：油菜花、麦浪和天马", "sourcePage": "https://pica.zhimg.com/v2-dc6eb9586ba45ac8ff496f767df876ee_1440w.jpg" }
+      ]
+    },
+    {
+      "id": "d4",
+      "title": "第4天 · 昭苏 → 夏塔 → 特克斯八卦城",
+      "theme": "冰川河谷与八卦城夜色",
+      "date": "D4",
+      "km": 185,
+      "hours": "3.5h",
+      "waypoints": [
+        { "name": "昭苏", "lng": 81.13, "lat": 43.16, "role": "起点" },
+        { "name": "夏塔景区", "lng": 80.66, "lat": 42.75, "role": "途经" },
+        { "name": "特克斯·八卦城", "lng": 81.84, "lat": 43.22, "role": "终点" }
+      ],
+      "schedule": [
+        { "time": "08:30", "text": "从昭苏出发 75km 到夏塔（约 1.5 小时），一路沿特克斯河。" },
+        { "time": "10:00", "text": "夏塔：区间车进沟＋木栈道徒步，往返 2—3 小时，尽头是木扎尔特冰川雪峰。" },
+        { "time": "14:00", "text": "出景区午餐（沟口农家乐手抓肉）。" },
+        { "time": "16:00", "text": "驱车 110km 到特克斯（约 2 小时），傍晚登八卦城观景塔看八条街放射状散开。" },
+        { "time": "20:30", "text": "八卦城美食街：烤全羊、马肠子、椒麻鸡。" }
+      ],
+      "stay": "特克斯县城（250—450 元），八卦城步行圈内最方便",
+      "food": "特克斯：椒麻鸡、马肠子、酸奶；夏塔沟口农家乐手抓肉",
+      "tips": [
+        "夏塔天气变化快，带雨衣和抓绒；徒步不走到冰川脚下（需向导）。",
+        "八卦城观景塔日落前 1 小时上去，白天拍不出放射感。",
+        "特克斯到喀拉峻明早走，别提前赶夜路。"
+      ],
+      "images": [
+        { "path": "assets/xiata.jpg", "caption": "夏塔古道：雪山、河谷、草甸", "sourcePage": "https://apple-trip.com/wp-content/uploads/2025/05/%E5%A4%8F%E5%A1%94.jpg" },
+        { "path": "assets/tekesi.jpg", "caption": "特克斯八卦城：八街放射", "sourcePage": "https://www.xinjiang.gov.cn/xinjiang/uploadfiles/2019112818144325336a.jpg" }
+      ]
+    },
+    {
+      "id": "d5",
+      "title": "第5天 · 特克斯 → 喀拉峻 → 那拉提",
+      "theme": "在立体草原上滚一上午",
+      "date": "D5",
+      "km": 220,
+      "hours": "5h",
+      "waypoints": [
+        { "name": "特克斯", "lng": 81.84, "lat": 43.22, "role": "起点" },
+        { "name": "喀拉峻草原", "lng": 82.02, "lat": 43.06, "role": "途经" },
+        { "name": "巩留", "lng": 82.22, "lat": 43.48, "role": "途经" },
+        { "name": "那拉提镇", "lng": 84.005, "lat": 43.32, "role": "终点" }
+      ],
+      "schedule": [
+        { "time": "08:00", "text": "特克斯出发 35km 到喀拉峻游客中心，换区间车进东喀拉峻。" },
+        { "time": "09:30", "text": "鲜花台、五花草甸、猎鹰台：草原像起伏的绒毯铺到雪山脚下，玩到 13:30。" },
+        { "time": "14:00", "text": "回特克斯午餐后出发，经巩留走 G218，185km 约 4 小时到那拉提。" },
+        { "time": "18:30", "text": "到那拉提镇，安顿后去镇边草坡看日落，镇上吃大盘鸡。" }
+      ],
+      "stay": "那拉提镇（旺季 400—800 元，提前订；镇内步行可到景区西门）",
+      "food": "那拉提镇：大盘鸡、烤羊排、马奶酒；镇上超市补水和水果",
+      "tips": [
+        "喀拉峻核心区禁自驾，门票＋区间车约 200 元上下，按当日公示。",
+        "喀拉峻比镇上凉 5℃，风大，带防风外套和帽子。",
+        "那拉提自驾入园要提前 7 天在景区公众号抢名额（每天限 300 辆），抢不到就停景区外坐区间车。"
+      ],
+      "images": [
+        { "path": "assets/kalajun.jpg", "caption": "喀拉峻：立体草原与花甸", "sourcePage": "https://www.qt83.com/upfile/2023/04/1681787200341.jpg" },
+        { "path": "assets/kalajun2.jpg", "caption": "草浪一直铺到雪山脚下", "sourcePage": "https://apple-trip.com/wp-content/uploads/2025/06/7-2-1024x683.jpg" }
+      ]
+    },
+    {
+      "id": "d6",
+      "title": "第6天 · 那拉提 → 巴音布鲁克",
+      "theme": "九曲十八弯的日落",
+      "date": "D6",
+      "km": 130,
+      "hours": "3h",
+      "waypoints": [
+        { "name": "那拉提镇", "lng": 84.005, "lat": 43.32, "role": "起点" },
+        { "name": "巩乃斯河谷", "lng": 84.4, "lat": 43.43, "role": "途经" },
+        { "name": "巴音布鲁克", "lng": 84.15, "lat": 43.03, "role": "终点" }
+      ],
+      "schedule": [
+        { "time": "08:30", "text": "进那拉提景区：先空中草原（乘区间车到雪莲谷），再河谷草原。玩到 13:00。" },
+        { "time": "14:00", "text": "出发巴音布鲁克：130km，沿巩乃斯河谷，一路雪山夹道，约 3 小时。" },
+        { "time": "18:00", "text": "到巴音布鲁克镇办入住，买门票＋区间车进景区看天鹅湖。" },
+        { "time": "20:30", "text": "九曲十八弯观景台等日落（夏季日落约 21:40），开都河拐出九个太阳。看完回镇上 23:00 左右。" }
+      ],
+      "stay": "巴音布鲁克镇（350—700 元，旺季紧张，务必提前订）",
+      "food": "镇上：烤羊腿、蒙古奶茶、纳仁；观日落回得晚，备点干粮",
+      "tips": [
+        "巴音布鲁克海拔 2500 米，风大且冷，日落时只有几度，羽绒服或冲锋衣必备。",
+        "景区末班区间车按日落时间发车，出景区别错过。",
+        "那拉提自驾票 48 小时 300 元/人，若只玩半天，买门票＋区间车更划算。"
+      ],
+      "images": [
+        { "path": "assets/nalati.jpg", "caption": "那拉提：空中草原", "sourcePage": "https://q6.itc.cn/images01/20250527/1c20fdadff83476f817637d2db9b3cee.jpeg" },
+        { "path": "assets/bayinbuluke.jpg", "caption": "巴音布鲁克：九曲十八弯", "sourcePage": "https://www.chinatravel.tw/uploads/attractions/jiuqushibawan-bayinbuluke-03.jpg" }
+      ]
+    },
+    {
+      "id": "d7",
+      "title": "第7天 · 巴音布鲁克 → 独库公路北段 → 独山子",
+      "theme": "一天翻三座达坂",
+      "date": "D7",
+      "km": 250,
+      "hours": "6h",
+      "waypoints": [
+        { "name": "巴音布鲁克", "lng": 84.15, "lat": 43.03, "role": "起点" },
+        { "name": "乔尔玛（烈士纪念碑）", "lng": 84.4, "lat": 43.58, "role": "途经" },
+        { "name": "独山子大峡谷", "lng": 84.85, "lat": 44.28, "role": "途经" },
+        { "name": "独山子", "lng": 84.9, "lat": 44.33, "role": "终点" }
+      ],
+      "schedule": [
+        { "time": "08:30", "text": "巴音布鲁克出发上 G217 北行，过巴音沟后进入连续爬坡。" },
+        { "time": "11:00", "text": "乔尔玛：烈士纪念碑和0公里碑，短暂停留。这一段有高山草甸和雪墙遗迹。" },
+        { "time": "13:00", "text": "翻玉希莫勒盖达坂（约3000米）、哈希勒根隧道，观景台看回头弯。" },
+        { "time": "16:30", "text": "出山到独山子大峡谷：天山融水切出的百米深谷，栈道走近看，日落时岩壁发红。" },
+        { "time": "19:00", "text": "进独山子城区住宿，吃沙湾大盘鸡。" }
+      ],
+      "stay": "独山子区或奎屯市（200—400 元，选择多）",
+      "food": "独山子：沙湾大盘鸡（老店多）、烤包子；镇上加油站配套齐全",
+      "tips": [
+        "独库公路每年 6 月中至 10 月初通行（2025 年 5 月 31 日通车、10 月中旬封闭），7—8 月正常但遇雨雪、落石会临时管制，出发前查「平安独库」公众号。",
+        "全程限速 40—60，弯道禁止超车，油量低于半箱就在巴音布鲁克或乔尔玛加。",
+        "上行下行的货车多，会车留足距离；山里无信号，提前下载离线地图。"
+      ],
+      "images": [
+        { "path": "assets/duku.jpg", "caption": "独库公路：盘山与达坂", "sourcePage": "https://dimg04.c-ctrip.com/images/1mf3a12000ou8f2fg199D_W_640_0_Q90.jpg" }
+      ]
+    },
+    {
+      "id": "d8",
+      "title": "第8天 · 独山子 → 乌鲁木齐",
+      "theme": "收尾与还车",
+      "date": "D8",
+      "km": 260,
+      "hours": "3h",
+      "waypoints": [
+        { "name": "独山子", "lng": 84.9, "lat": 44.33, "role": "起点" },
+        { "name": "沙湾", "lng": 85.62, "lat": 44.33, "role": "途经" },
+        { "name": "乌鲁木齐", "lng": 87.6168, "lat": 43.8256, "role": "终点" }
+      ],
+      "schedule": [
+        { "time": "09:00", "text": "独山子出发，走 G30 连霍高速回乌市，260km 约 3 小时。" },
+        { "time": "10:30", "text": "沙湾服务区停一下：买真空装大盘鸡、椒麻鸡带走。" },
+        { "time": "12:30", "text": "到乌市还车（提前 1 小时到，拍一圈车身照片留证）。" },
+        { "time": "14:00", "text": "若航班在晚上：国际大巴扎、新疆博物馆（需预约）二选一。" }
+      ],
+      "stay": "返程日",
+      "food": "乌市：抓饭、丸子汤、烤包子；机场附近有大盘鸡连锁",
+      "tips": [
+        "还车前加满油并按合同保留小票，避免加收服务费。",
+        "旺季乌市机场安检排队久，国内航班提前 2 小时到。",
+        "大件行李（薰衣草精油、马奶酒）注意托运规定。"
+      ],
+      "images": []
+    }
+  ],
+  "budget": [
+    { "item": "租车（SUV，8天）", "amount": "4200—5600 元", "perPerson": "2100—2800" },
+    { "item": "油费（约 2180km）", "amount": "1500—1700 元", "perPerson": "750—850" },
+    { "item": "过路费", "amount": "400 元左右", "perPerson": "200" },
+    { "item": "住宿 7 晚（旺季）", "amount": "2800—4000 元", "perPerson": "1400—2000" },
+    { "item": "门票＋区间车", "amount": "约 2200 元", "perPerson": "1100" },
+    { "item": "餐饮（8天）", "amount": "2400—3000 元", "perPerson": "1200—1500" },
+    { "item": "杂项（保险、停车、购物）", "amount": "800 元", "perPerson": "400" },
+    { "item": "合计", "amount": "1.4—1.6 万元（2人）", "perPerson": "6300—7800" }
+  ],
+  "tickets": [
+    { "name": "赛里木湖", "price": "门票＋区间车约 145 元/人；自驾入园门票约 35 元/人＋车辆票另计", "note": "自驾可进环湖公路，湖边住宿另算" },
+    { "name": "那拉提", "price": "门票约 95 元，区间车另计；自驾票约 300 元/人（48 小时）", "note": "自驾名额每天约 300 辆，提前 7 天公众号预约" },
+    { "name": "喀拉峻", "price": "门票＋区间车约 200 元/人", "note": "核心区禁自驾" },
+    { "name": "夏塔", "price": "门票＋区间车约 120 元/人", "note": "徒步到冰川需向导" },
+    { "name": "巴音布鲁克", "price": "门票约 48 元＋区间车约 90 元", "note": "看日落注意末班车" },
+    { "name": "独山子大峡谷", "price": "约 40 元/人", "note": "玻璃栈道等另收费" },
+    { "name": "霍尔果斯国门", "price": "约 30—60 元/人", "note": "免税店需身份证" }
+  ],
+  "notes": [
+    "7—8 月是伊犁旺季：那拉提、巴音布鲁克的住宿提前 3—4 周订，价格能差一倍。",
+    "新疆与内地有约 2 小时「作息差」：9 点吃早饭、14 点午饭、21 点晚饭、22 点天黑，行程按这个节奏排。",
+    "全程手机信号在独库、伊昭、夏塔沟内有盲区，出发前下载离线地图与歌单。",
+    "加油站刷身份证进站，主驾随身带身份证、驾驶证、行驶证。",
+    "限速多、区间测速多，全程按标志走；草原土路雨后打滑，不要为拍照驶离公路。",
+    "行李：防晒（帽子、墨镜、防晒霜）、抓绒/薄羽绒、雨衣、常用药（肠胃、晕车、高原反应）、充电宝、车载充电器。",
+    "独库公路通行期 6 月中—10 月初，遇雨雪临时封路，出发前关注「平安独库」公众号与新疆交警路况。"
+  ],
+  "sources": [
+    "高德地图驾车路径规划（本次实测里程与耗时）",
+    "新疆维吾尔自治区人民政府网：独库公路通行时间一般在每年 6 月中旬至 10 月初",
+    "百度百科·独库公路：2025 年 5 月 31 日正式通车",
+    "携程攻略：那拉提自驾票预约制、每车 300 辆/天",
+    "2025 年公开票务信息：赛里木湖、那拉提、喀拉峻门票与区间车价格"
+  ]
+}</script>
+<script>
+const TRIP = JSON.parse(document.getElementById("trip").textContent);
+const DROP = new Set(["assets/zhaosu.jpg"]);
+TRIP.days.forEach((day) => {
+  day.images = (day.images || []).filter((img) => img && img.path && !DROP.has(img.path));
+});
+
+const VIEW_W = 1000;
+const VIEW_H = 640;
+const svg = document.getElementById("map");
+const frame = document.getElementById("frame");
+const labelLayer = document.getElementById("labels");
+let vb = { x: 0, y: 0, w: VIEW_W, h: VIEW_H };
+let active = 0;
+let places = [];
+let anim = 0;
+let photo = 0;
+let suppressClick = false;
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+function shortName(name) {
+  return String(name || "").split("（")[0].split("(")[0].trim();
+}
+function mapName(name) {
+  return shortName(name).split("·")[0].trim();
+}
+function textWidth(text) {
+  if (!textWidth.ctx) {
+    const canvas = document.createElement("canvas");
+    textWidth.ctx = canvas.getContext("2d");
+  }
+  textWidth.ctx.font = "650 12px PingFang SC, sans-serif";
+  return Math.ceil(textWidth.ctx.measureText(text).width) + 8;
+}
+function appRouteUri(waypoints) {
+  const enc = encodeURIComponent;
+  const s = waypoints[0];
+  const e = waypoints[waypoints.length - 1];
+  const via = waypoints.slice(1, -1).slice(0, 16);
+  const q = [
+    "sourceApplication=agent1",
+    "slat=" + s.lat, "slon=" + s.lng, "sname=" + enc(s.name || "起点"),
+    "dlat=" + e.lat, "dlon=" + e.lng, "dname=" + enc(e.name || "终点"),
+    "dev=0", "t=0"
+  ];
+  if (via.length) {
+    q.push("vian=" + via.length);
+    q.push("vialons=" + via.map((p) => p.lng).join("|"));
+    q.push("vialats=" + via.map((p) => p.lat).join("|"));
+    q.push("vianames=" + via.map((p) => enc(p.name || "途经")).join("|"));
+  }
+  return "amapuri://route/plan/?" + q.join("&");
+}
+function baiduRouteUri(waypoints) {
+  const enc = encodeURIComponent;
+  const s = waypoints[0];
+  const e = waypoints[waypoints.length - 1];
+  const via = waypoints.slice(1, -1).slice(0, 5);
+  let url = "baidumap://map/direction?coord_type=gcj02&mode=driving&src=andr.agent1.roadbook";
+  url += "&origin=name:" + enc(s.name || "起点") + "|latlng:" + s.lat + "," + s.lng;
+  url += "&destination=name:" + enc(e.name || "终点") + "|latlng:" + e.lat + "," + e.lng;
+  if (via.length) {
+    url += "&viaPoints=" + enc(JSON.stringify({
+      viaPoints: via.map((p) => ({ name: p.name || "途经", lat: String(p.lat), lng: String(p.lng) }))
+    }));
+  }
+  return url;
+}
+const COLORS = ["#e08a3c", "#2f8f8f", "#8e6bbf", "#c2587e", "#d96136", "#4e8a3c", "#3c5c98", "#8a6b2e"];
+let isolate = true;
+let segs = [];
+let legPaths = [];
+function havKm(a, b) {
+  const r = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * r;
+  const dLng = (b.lng - a.lng) * r;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+function curvePath(pts) {
+  if (!pts.length) return "";
+  if (pts.length === 1) return "M " + pts[0].x.toFixed(1) + " " + pts[0].y.toFixed(1);
+  if (pts.length === 2) {
+    const a = pts[0], b = pts[1];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const bow = Math.min(70, len * 0.24);
+    const cx = (a.x + b.x) / 2 - dy / len * bow;
+    const cy = (a.y + b.y) / 2 + dx / len * bow;
+    return "M " + a.x.toFixed(1) + " " + a.y.toFixed(1) + " Q " + cx.toFixed(1) + " " + cy.toFixed(1) + " " + b.x.toFixed(1) + " " + b.y.toFixed(1);
+  }
+  let d = "M " + pts[0].x.toFixed(1) + " " + pts[0].y.toFixed(1);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += " C " + c1x.toFixed(1) + " " + c1y.toFixed(1) + " " + c2x.toFixed(1) + " " + c2y.toFixed(1) + " " + p2.x.toFixed(1) + " " + p2.y.toFixed(1);
+  }
+  return d;
+}
+
+function buildGeo() {
+  let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  TRIP.days.forEach((day) => day.waypoints.forEach((p) => {
+    minLng = Math.min(minLng, p.lng); maxLng = Math.max(maxLng, p.lng);
+    minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat);
+  }));
+  const dlng = (maxLng - minLng) * 0.1;
+  const dlat = (maxLat - minLat) * 0.14;
+  minLng -= dlng; maxLng += dlng; minLat -= dlat; maxLat += dlat;
+  const pad = 28;
+  const sx = (VIEW_W - pad * 2) / (maxLng - minLng);
+  const sy = (VIEW_H - pad * 2) / (maxLat - minLat);
+  return function xy(lng, lat) {
+    return { x: pad + (lng - minLng) * sx, y: pad + (maxLat - lat) * sy, sx, sy };
+  };
+}
+const xy = buildGeo();
+
+function drawMap() {
+  segs = [];
+  const curves = TRIP.days.map((day, di) => {
+    const pts = day.waypoints.map((p) => xy(p.lng, p.lat));
+    const weights = [];
+    let sum = 0;
+    for (let j = 0; j < day.waypoints.length - 1; j++) {
+      const h = havKm(day.waypoints[j], day.waypoints[j + 1]);
+      weights.push(h);
+      sum += h;
+    }
+    const total = Number(day.km) || Math.round(sum);
+    for (let j = 0; j < pts.length - 1; j++) {
+      segs.push({
+        day: di,
+        x: (pts[j].x + pts[j + 1].x) / 2,
+        y: (pts[j].y + pts[j + 1].y) / 2,
+        km: sum > 0 ? Math.max(1, Math.round(total * weights[j] / sum)) : 0,
+        color: COLORS[di % COLORS.length]
+      });
+    }
+    return curvePath(pts);
+  });
+  legPaths = curves;
+  const lake = xy(81.16, 44.58);
+  const grass = xy(84.15, 43.12);
+  const paths = curves.map((d, i) =>
+    '<path class="leg" data-day="' + i + '" d="' + d + '" fill="none" stroke="' + COLORS[i % COLORS.length] + '" stroke-width="7.5" stroke-linecap="round"/>'
+  ).join("");
+  const casings = curves.map((d) =>
+    '<path d="' + d + '" fill="none" stroke="#f9f6ec" stroke-width="17" stroke-linecap="round" opacity=".92"/>'
+  ).join("");
+  const contours =
+    '<g fill="none" stroke="rgba(29,51,43,.05)" stroke-width="1.4">' +
+    '<path d="M 40 90 Q 160 40 300 130 T 470 110"/>' +
+    '<path d="M 60 140 Q 180 92 310 178 T 480 158"/>' +
+    '<path d="M 520 560 Q 640 500 760 560 T 930 540"/>' +
+    '<path d="M 540 596 Q 660 540 780 596 T 950 576"/>' +
+    '</g>';
+  const seen = new Set();
+  places = [];
+  TRIP.days.forEach((day, di) => {
+    day.waypoints.forEach((p, wi) => {
+      const key = p.lng.toFixed(2) + "," + p.lat.toFixed(2);
+      const hit = places.find((x) => x.key === key);
+      if (hit) {
+        if (!hit.days.includes(di)) hit.days.push(di);
+        return;
+      }
+      if (seen.has(key)) return;
+      seen.add(key);
+      const q = xy(p.lng, p.lat);
+      places.push({
+        key,
+        name: mapName(p.name),
+        x: q.x,
+        y: q.y,
+        days: [di],
+        endpoint: wi === 0 || wi === day.waypoints.length - 1
+      });
+    });
+  });
+  const dots = places.map((p, i) =>
+    '<circle class="dot" data-i="' + i + '" data-days="' + p.days.join(",") + '" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" fill="#14352f" stroke="#f7f4ec" stroke-width="2.5"/>'
+  ).join("");
+  svg.setAttribute("viewBox", "0 0 " + VIEW_W + " " + VIEW_H);
+  svg.innerHTML =
+    '<defs><linearGradient id="land" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0" stop-color="#e7f1ea"/><stop offset=".55" stop-color="#d5e4d6"/><stop offset="1" stop-color="#eadcc4"/>' +
+    '</linearGradient>' +
+    '<filter id="softshadow" x="-20%" y="-20%" width="140%" height="140%">' +
+    '<feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#1d332b" flood-opacity=".22"/></filter></defs>' +
+    '<rect width="' + VIEW_W + '" height="' + VIEW_H + '" fill="url(#land)"/>' +
+    contours +
+    '<ellipse cx="' + grass.x.toFixed(1) + '" cy="' + grass.y.toFixed(1) + '" rx="' + (grass.sx * 0.95).toFixed(1) + '" ry="' + (grass.sy * 0.28).toFixed(1) + '" fill="rgba(86,138,72,.16)"/>' +
+    '<ellipse cx="' + lake.x.toFixed(1) + '" cy="' + lake.y.toFixed(1) + '" rx="' + (lake.sx * 0.38).toFixed(1) + '" ry="' + (lake.sy * 0.15).toFixed(1) + '" fill="rgba(30,132,168,.55)"/>' +
+    '<g filter="url(#softshadow)">' + casings + paths + '</g><path id="legFlow" class="leg-flow"/>' + dots;
+  apply();
+}
+
+function apply() {
+  svg.setAttribute("viewBox", vb.x + " " + vb.y + " " + vb.w + " " + vb.h);
+  placeLabels();
+}
+function paint() {
+  svg.querySelectorAll(".leg").forEach((path) => {
+    const day = Number(path.dataset.day);
+    const on = !isolate || day === active;
+    path.setAttribute("stroke", COLORS[day % COLORS.length]);
+    path.setAttribute("stroke-width", day === active ? "10" : "7.5");
+    path.setAttribute("opacity", on ? "1" : ".3");
+  });
+  const flow = document.getElementById("legFlow");
+  if (flow) {
+    flow.setAttribute("d", legPaths[active] || "");
+    flow.style.opacity = isolate ? "1" : "0";
+  }
+  svg.querySelectorAll(".dot").forEach((dot) => {
+    const days = dot.dataset.days.split(",").map(Number);
+    const on = days.includes(active);
+    dot.setAttribute("r", on ? "8" : "5.5");
+    dot.setAttribute("fill", on ? COLORS[active % COLORS.length] : "#14352f");
+  });
+  placeLabels();
+}
+function toScreen(x, y) {
+  const pt = svg.createSVGPoint();
+  pt.x = x;
+  pt.y = y;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  const s = pt.matrixTransform(ctm);
+  const rect = frame.getBoundingClientRect();
+  return { x: s.x - rect.left, y: s.y - rect.top };
+}
+function toUser(clientX, clientY) {
+  const pt = svg.createSVGPoint();
+  pt.x = clientX;
+  pt.y = clientY;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  return pt.matrixTransform(ctm.inverse());
+}
+function placeLabels() {
+  const rect = frame.getBoundingClientRect();
+  if (!rect.width) return;
+  const ranked = places.map((p, i) => ({ p, i }))
+    .sort((a, b) => {
+      const as = (a.p.days.includes(active) ? 0 : 2) + (a.p.endpoint ? 0 : 1);
+      const bs = (b.p.days.includes(active) ? 0 : 2) + (b.p.endpoint ? 0 : 1);
+      return as - bs;
+    });
+  const placed = [];
+  const html = [];
+  const showMinor = vb.w < 760;
+  ranked.forEach(({ p }) => {
+    if (!p.endpoint && !p.days.includes(active) && !showMinor) return;
+    const s = toScreen(p.x, p.y);
+    if (!s || s.x < -20 || s.y < -20 || s.x > rect.width + 20 || s.y > rect.height + 20) return;
+    const w = textWidth(p.name) + 20;
+    const h = 22;
+    const options = [
+      { x: s.x - w / 2, y: s.y - h - 12 },
+      { x: s.x + 12, y: s.y - h / 2 },
+      { x: s.x - w - 12, y: s.y - h / 2 },
+      { x: s.x - w / 2, y: s.y + 14 },
+      { x: s.x - w / 2, y: s.y - h - 30 },
+      { x: s.x + 12, y: s.y - h - 20 }
+    ];
+    let box = null;
+    for (const op of options) {
+      const candidate = { x: op.x, y: op.y, w, h };
+      const inside = candidate.x > 4 && candidate.y > 4 && candidate.x + w < rect.width - 4 && candidate.y + h < rect.height - 4;
+      const hit = placed.some((q) => !(candidate.x + w < q.x - 4 || q.x + q.w < candidate.x - 4 || candidate.y + h < q.y - 3 || q.y + q.h < candidate.y - 3));
+      if (inside && !hit) { box = candidate; break; }
+    }
+    if (!box) return;
+    placed.push(box);
+    const on = p.days.includes(active) ? " on" : "";
+    html.push('<span class="mlabel' + on + '" style="left:' + box.x.toFixed(1) + 'px;top:' + box.y.toFixed(1) + 'px">' + esc(p.name) + '</span>');
+  });
+  segs.forEach((seg) => {
+    if (isolate && seg.day !== active && vb.w > 720) return;
+    const s = toScreen(seg.x, seg.y);
+    if (!s) return;
+    const text = seg.km + " km";
+    const w = textWidth(text) + 18;
+    const h = 18;
+    const box = { x: s.x - w / 2, y: s.y + 8, w, h };
+    const inside = box.x > 2 && box.y > 2 && box.x + w < rect.width - 2 && box.y + h < rect.height - 2;
+    const hit = placed.some((q) => !(box.x + w < q.x - 2 || q.x + q.w < box.x - 2 || box.y + h < q.y - 2 || q.y + q.h < box.y - 2));
+    if (!inside || hit) return;
+    placed.push(box);
+    html.push('<span class="mlabel mkm" style="left:' + box.x.toFixed(1) + 'px;top:' + box.y.toFixed(1) + 'px;background:' + seg.color + '">' + text + '</span>');
+  });
+  labelLayer.innerHTML = html.join("");
+}
+function zoomFrom(base, ux, uy, factor) {
+  const w0 = base.w;
+  let w = Math.max(150, Math.min(VIEW_W * 1.25, w0 * factor));
+  const used = w / w0;
+  const h = base.h * used;
+  const fx = (ux - base.x) / base.w;
+  const fy = (uy - base.y) / base.h;
+  vb = { x: ux - fx * w, y: uy - fy * h, w, h };
+  apply();
+}
+function animateTo(target) {
+  cancelAnimationFrame(anim);
+  const from = { ...vb };
+  const t0 = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - t0) / 340);
+    const e = 1 - Math.pow(1 - t, 3);
+    vb = {
+      x: from.x + (target.x - from.x) * e,
+      y: from.y + (target.y - from.y) * e,
+      w: from.w + (target.w - from.w) * e,
+      h: from.h + (target.h - from.h) * e
+    };
+    apply();
+    if (t < 1) anim = requestAnimationFrame(step);
+  };
+  anim = requestAnimationFrame(step);
+}
+function dayView(i) {
+  const pts = TRIP.days[i].waypoints.map((p) => xy(p.lng, p.lat));
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  pts.forEach((p) => {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+  });
+  let w = Math.max(120, maxX - minX);
+  let h = Math.max(90, maxY - minY);
+  const padX = w * 0.55 + 70;
+  const padY = h * 0.7 + 60;
+  let x = minX - padX;
+  let y = minY - padY;
+  w += padX * 2;
+  h += padY * 2;
+  const aspect = VIEW_W / VIEW_H;
+  if (w / h < aspect) {
+    const nw = h * aspect;
+    x -= (nw - w) / 2;
+    w = nw;
+  } else {
+    const nh = w / aspect;
+    y -= (nh - h) / 2;
+    h = nh;
+  }
+  w = Math.max(w, 220);
+  h = w / aspect;
+  if (w >= VIEW_W * 0.98) return { x: 0, y: 0, w: VIEW_W, h: VIEW_H };
+  return { x, y, w, h };
+}
+
+function endName(day) {
+  const wps = day.waypoints || [];
+  return shortName((wps[wps.length - 1] || {}).name || day.date);
+}
+function renderShell() {
+  document.getElementById("heroImg").src = "assets/bayinbuluke.jpg";
+  document.getElementById("heroImg").alt = "巴音布鲁克，九曲十八弯日落";
+  document.getElementById("heroPlace").textContent = "封面 · 巴音布鲁克";
+  document.getElementById("kicker").textContent = "新疆 · 伊犁 · 八日自驾";
+  document.getElementById("title").textContent = TRIP.trip.title;
+  document.getElementById("sub").textContent = TRIP.trip.oneLine;
+  const stats = [
+    [TRIP.days.length + " 天", "乌鲁木齐进出"],
+    [TRIP.trip.totalKm + " 公里", "全程自驾"],
+    ["约 " + TRIP.trip.driveHours + " 小时", "两人轮流开"],
+    ["六千到八千", "人均，不含机票"]
+  ];
+  document.getElementById("stats").innerHTML = stats.map((s) =>
+    '<div class="stat"><b>' + esc(s[0]) + '</b><span>' + esc(s[1]) + '</span></div>'
+  ).join("");
+  document.getElementById("rail").innerHTML = TRIP.days.map((day, i) => {
+    const img = (day.images[0] || {}).path;
+    const face = img
+      ? '<img alt="" src="' + esc(img) + '">'
+      : '<i>' + (i + 1) + '</i>';
+    return '<button type="button" class="chip" data-i="' + i + '">' + face +
+      '<span><b>' + esc(day.date || ("D" + (i + 1))) + '</b><small>' + esc(endName(day)) + '</small></span></button>';
+  }).join("");
+  document.getElementById("budget").innerHTML = (TRIP.budget || []).map((row) => {
+    const sum = row.item === "合计" ? " sum" : "";
+    return '<div class="row' + sum + '"><b>' + esc(row.item) + '</b><span>' + esc(row.amount) +
+      (row.perPerson ? ' <em>人均 ' + esc(row.perPerson) + '</em>' : '') + '</span></div>';
+  }).join("");
+  document.getElementById("tickets").innerHTML = (TRIP.tickets || []).map((row) =>
+    '<article class="ticket"><h3>' + esc(row.name) + '</h3><p class="price">' + esc(row.price) +
+    '</p><p class="note">' + esc(row.note || "") + '</p></article>'
+  ).join("");
+  document.getElementById("notes").innerHTML = (TRIP.notes || []).map((n) => '<li>' + esc(n) + '</li>').join("");
+  document.getElementById("legend").innerHTML = TRIP.days.map((day, i) =>
+    '<button type="button" data-i="' + i + '"><i style="background:' + COLORS[i % COLORS.length] + '"></i>' +
+    esc(day.date || ("D" + (i + 1))) + " · " + esc(String(day.km)) + " km</button>"
+  ).join("");
+  renderPack();
+  const src = (TRIP.sources || []).map((s) => esc(s)).join("；");
+  document.getElementById("foot").innerHTML = esc(TRIP.trip.disclaimer || "") + (src ? "<br>" + src : "");
+}
+
+function renderDay(i) {
+  const day = TRIP.days[i];
+  photo = 0;
+  const root = document.getElementById("day");
+  const imgs = day.images || [];
+  let frameHtml;
+  if (!imgs.length) {
+    frameHtml = '<div class="frame quiet"><p>' + esc(day.theme || day.title) + '</p></div>';
+  } else {
+    const arrows = imgs.length > 1
+      ? '<button type="button" class="arr prev" data-dir="-1" aria-label="上一张">‹</button>' +
+        '<button type="button" class="arr next" data-dir="1" aria-label="下一张">›</button>' +
+        '<div class="dots">' + imgs.map((_, n) => '<button type="button" data-n="' + n + '"' + (n === 0 ? ' class="on"' : '') + ' aria-label="第' + (n + 1) + '张"></button>').join("") + '</div>'
+      : "";
+    frameHtml = '<div class="frame" id="framePic">' +
+      '<img id="pic" alt="' + esc(imgs[0].caption || "") + '" src="' + esc(imgs[0].path) + '">' +
+      '<p class="cap" id="picCap">' + esc(imgs[0].caption || "") + '</p>' + arrows + '</div>';
+  }
+  const via = (day.waypoints || []).map((p) => shortName(p.name)).join(" → ");
+  const tl = (day.schedule || []).map((item) =>
+    '<li><time>' + esc(item.time) + '</time><div>' + esc(item.text) + '</div></li>'
+  ).join("");
+  const tips = (day.tips || []).map((t) => '<li>' + esc(t) + '</li>').join("");
+  root.innerHTML =
+    '<div class="day-layout">' + frameHtml +
+    '<div class="day-copy"><h3>' + esc(day.title) + '</h3><p class="theme">' + esc(day.theme || "") + '</p>' +
+    '<div class="meta"><span>' + esc(String(day.km)) + ' 公里</span><span>车程 ' + esc(day.hours || "") + '</span></div>' +
+    '<p class="via">' + esc(via) + '</p><ul class="tl">' + tl + '</ul>' +
+    '<div class="pair"><div><h4>住</h4><p>' + esc(day.stay || "") + '</p></div><div><h4>吃</h4><p>' + esc(day.food || "") + '</p></div></div>' +
+    (tips ? '<ul class="tips">' + tips + '</ul>' : '') +
+    '</div></div>';
+  if ((day.waypoints || []).length >= 2) {
+    const row = document.createElement("div");
+    row.className = "gos";
+    [["高德导航", appRouteUri(day.waypoints), "amap"], ["百度导航", baiduRouteUri(day.waypoints), "baidu"]].forEach((item) => {
+      const a = document.createElement("a");
+      a.className = "go " + item[2];
+      a.href = item[1];
+      a.textContent = item[0];
+      row.appendChild(a);
+    });
+    root.querySelector(".day-copy").appendChild(row);
+  }
+  bindGallery(imgs);
+}
+
+function showPhoto(imgs) {
+  const img = document.getElementById("pic");
+  const cap = document.getElementById("picCap");
+  if (!img || !imgs[photo]) return;
+  img.classList.add("swap");
+  window.setTimeout(() => {
+    img.src = imgs[photo].path;
+    img.alt = imgs[photo].caption || "";
+    if (cap) cap.textContent = imgs[photo].caption || "";
+    requestAnimationFrame(() => img.classList.remove("swap"));
+  }, 180);
+  document.querySelectorAll(".dots button").forEach((btn, n) => btn.classList.toggle("on", n === photo));
+}
+function bindGallery(imgs) {
+  const pic = document.getElementById("pic");
+  if (!pic || imgs.length < 1) return;
+  let startX = 0;
+  let startY = 0;
+  pic.addEventListener("click", () => {
+    if (suppressClick) { suppressClick = false; return; }
+    openLight(imgs[photo]);
+  });
+  const box = document.getElementById("framePic");
+  box.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+  box.addEventListener("touchend", (e) => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (Math.abs(dx) < 36 || Math.abs(dx) < Math.abs(dy)) return;
+    suppressClick = true;
+    photo = (photo + (dx < 0 ? 1 : imgs.length - 1)) % imgs.length;
+    showPhoto(imgs);
+  });
+  box.querySelectorAll(".arr").forEach((btn) => btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const dir = Number(btn.dataset.dir);
+    photo = (photo + dir + imgs.length) % imgs.length;
+    showPhoto(imgs);
+  }));
+  box.querySelectorAll(".dots button").forEach((btn) => btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    photo = Number(btn.dataset.n);
+    showPhoto(imgs);
+  }));
+}
+function openLight(img) {
+  const box = document.getElementById("lightbox");
+  document.getElementById("lbimg").src = img.path;
+  document.getElementById("lbimg").alt = img.caption || "";
+  document.getElementById("lbcap").textContent = img.caption || "";
+  box.hidden = false;
+}
+function closeLight() { document.getElementById("lightbox").hidden = true; }
+
+function selectDay(i, source) {
+  active = i;
+  isolate = true;
+  document.querySelectorAll(".chip").forEach((btn) => btn.classList.toggle("on", Number(btn.dataset.i) === i));
+  const on = document.querySelector('.chip[data-i="' + i + '"]');
+  if (on && source !== "init") on.scrollIntoView({ inline: "center", block: "nearest" });
+  renderDay(i);
+  paint();
+  const day = TRIP.days[i];
+  const hint = (day.date || "") + " · " + shortName(day.waypoints[0].name) + " → " + endName(day) + " · " + day.km + " 公里";
+  document.querySelectorAll(".legend button").forEach((btn) => btn.classList.toggle("on", Number(btn.dataset.i) === i));
+  if (source === "init") {
+    document.getElementById("mapHint").textContent = "北在上方。每天一种颜色，曲线旁是公里。单指拖动，双指缩放。";
+  } else {
+    document.getElementById("mapHint").textContent = "正在看 " + hint;
+    animateTo(dayView(i));
+  }
+  if (source === "map" || source === "legend") {
+    document.getElementById("sec-days").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+document.getElementById("rail").addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  selectDay(Number(btn.dataset.i), "rail");
+});
+document.getElementById("zin").addEventListener("click", () => {
+  cancelAnimationFrame(anim);
+  zoomFrom(vb, vb.x + vb.w / 2, vb.y + vb.h / 2, 0.78);
+});
+document.getElementById("zout").addEventListener("click", () => {
+  cancelAnimationFrame(anim);
+  zoomFrom(vb, vb.x + vb.w / 2, vb.y + vb.h / 2, 1.28);
+});
+document.getElementById("zall").addEventListener("click", () => {
+  isolate = false;
+  paint();
+  animateTo({ x: 0, y: 0, w: VIEW_W, h: VIEW_H });
+  document.getElementById("mapHint").textContent = "全程 " + TRIP.trip.totalKm + " 公里。点图例或某一天，只看那天的曲线。";
+});
+document.getElementById("legend").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  selectDay(Number(btn.dataset.i), "legend");
+});
+document.getElementById("lbx").addEventListener("click", closeLight);
+document.getElementById("lightbox").addEventListener("click", (e) => {
+  if (e.target.id === "lightbox" || e.target.id === "lbx") closeLight();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeLight();
+  if (e.key === "ArrowRight") selectDay(Math.min(TRIP.days.length - 1, active + 1), "key");
+  if (e.key === "ArrowLeft") selectDay(Math.max(0, active - 1), "key");
+});
+
+svg.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  cancelAnimationFrame(anim);
+  const u = toUser(e.clientX, e.clientY);
+  if (!u) return;
+  zoomFrom(vb, u.x, u.y, e.deltaY > 0 ? 1.12 : 0.9);
+}, { passive: false });
+
+let drag = null;
+let dragMoved = false;
+let pinch = null;
+const ptrs = new Map();
+function endPtr(e) {
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinch = null;
+  if (ptrs.size === 0) {
+    drag = null;
+    svg.classList.remove("dragging");
+  } else if (ptrs.size === 1) {
+    const left = [...ptrs.values()][0];
+    const ctm = svg.getScreenCTM();
+    drag = { x: left.x, y: left.y, vb: { ...vb }, sx: ctm ? ctm.a : 1, sy: ctm ? ctm.d : 1 };
+  }
+}
+svg.addEventListener("pointerdown", (e) => {
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  try { svg.setPointerCapture(e.pointerId); } catch (err) {}
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  cancelAnimationFrame(anim);
+  if (ptrs.size >= 2) {
+    drag = null;
+    const arr = [...ptrs.values()];
+    const mid = { x: (arr[0].x + arr[1].x) / 2, y: (arr[0].y + arr[1].y) / 2 };
+    const u = toUser(mid.x, mid.y);
+    pinch = {
+      dist: Math.hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y),
+      vb: { ...vb },
+      ux: u ? u.x : vb.x + vb.w / 2,
+      uy: u ? u.y : vb.y + vb.h / 2
+    };
+    return;
+  }
+  const ctm = svg.getScreenCTM();
+  drag = { x: e.clientX, y: e.clientY, vb: { ...vb }, sx: ctm ? ctm.a : 1, sy: ctm ? ctm.d : 1 };
+  dragMoved = false;
+  svg.classList.add("dragging");
+});
+svg.addEventListener("pointermove", (e) => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size >= 2 && pinch) {
+    const arr = [...ptrs.values()];
+    const dist = Math.hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y);
+    if (pinch.dist > 0 && dist > 0) zoomFrom(pinch.vb, pinch.ux, pinch.uy, pinch.dist / dist);
+    return;
+  }
+  if (!drag) return;
+  if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 5) dragMoved = true;
+  vb = {
+    x: drag.vb.x - (e.clientX - drag.x) / drag.sx,
+    y: drag.vb.y - (e.clientY - drag.y) / drag.sy,
+    w: drag.vb.w,
+    h: drag.vb.h
+  };
+  apply();
+});
+svg.addEventListener("pointerup", endPtr);
+svg.addEventListener("pointercancel", endPtr);
+svg.addEventListener("click", (e) => {
+  if (dragMoved) { dragMoved = false; return; }
+  const rect = frame.getBoundingClientRect();
+  let best = -1;
+  let bestD = 26;
+  places.forEach((p, i) => {
+    const s = toScreen(p.x, p.y);
+    if (!s) return;
+    const d = Math.hypot(s.x - (e.clientX - rect.left), s.y - (e.clientY - rect.top));
+    if (d < bestD) { bestD = d; best = i; }
+  });
+  if (best >= 0) selectDay(places[best].days[0], "map");
+});
+
+const PACK = [
+  ["证件", "身份证、驾驶证随身。还车时对一下行驶证和加油小票。"],
+  ["先订", "那拉提、巴音布鲁克的住宿提前 3–4 周。那拉提自驾名额提前 7 天在公众号抢。"],
+  ["路况", "出发前看「平安独库」和新疆交警。伊昭公路遇雨可能临时管制。"],
+  ["衣物", "防晒帽、墨镜、防晒霜，再加一件抓绒或薄羽绒、一件雨衣。巴音布鲁克日落只有几度。"],
+  ["车上", "备胎、灭火器、充电线、离线地图。油量低于半箱就加。"],
+  ["药品", "肠胃药、晕车药、创可贴。"],
+  ["进景区", "景区和加油站可能要看身份证。液体伴手礼留意返程托运。"]
+];
+const PACK_KEY = "agent1-pack-xinjiang-yili-8d";
+function renderPack() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(PACK_KEY) || "{}"); } catch (e) {}
+  document.getElementById("pack").innerHTML = PACK.map((row, i) =>
+    '<label class="' + (saved[i] ? "done" : "") + '"><input type="checkbox" data-i="' + i + '"' +
+    (saved[i] ? " checked" : "") + '><div><small>' + esc(row[0]) + '</small><span>' + esc(row[1]) + '</span></div></label>'
+  ).join("");
+}
+document.getElementById("pack").addEventListener("change", (e) => {
+  if (e.target.type !== "checkbox") return;
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(PACK_KEY) || "{}"); } catch (err) {}
+  saved[e.target.dataset.i] = e.target.checked;
+  localStorage.setItem(PACK_KEY, JSON.stringify(saved));
+  e.target.closest("label").classList.toggle("done", e.target.checked);
+});
+
+renderShell();
+drawMap();
+selectDay(0, "init");
+window.addEventListener("resize", () => placeLabels());
+const tocLinks = [...document.querySelectorAll("#toc a")];
+function markToc() {
+  let current = tocLinks[0];
+  tocLinks.forEach((a) => {
+    const sec = document.querySelector(a.getAttribute("href"));
+    if (sec && sec.getBoundingClientRect().top < 96) current = a;
+  });
+  tocLinks.forEach((a) => a.classList.toggle("on", a === current));
+}
+window.addEventListener("scroll", markToc, { passive: true });
+markToc();
+</script>
+</body>
+</html>
