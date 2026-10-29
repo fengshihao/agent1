@@ -327,6 +327,66 @@ button {
   min-width: 0;
 }
 
+.reasoning-live {
+  max-width: min(720px, 92%);
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--radius);
+  background: var(--paper-lift);
+  border: 1px dashed var(--hairline-strong);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+}
+
+.reasoning-live-label {
+  display: inline-block;
+  font-weight: 600;
+  margin-right: 0.35rem;
+  color: var(--ink-muted);
+}
+
+.run-status-line {
+  max-width: min(720px, 92%);
+  margin: 0 0 0.5rem;
+  font-size: 12px;
+}
+
+.tool-trace-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: min(60vh, 520px);
+  overflow: auto;
+}
+
+.tool-trace-item {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.75rem;
+  background: #fff;
+}
+
+.tool-trace-item.err {
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--hairline));
+}
+
+.tool-trace-pre {
+  margin: 0.35rem 0 0;
+  padding: 0.4rem 0.5rem;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--paper-deep);
+  border-radius: 6px;
+  max-height: 160px;
+  overflow: auto;
+}
+
 .tool-card {
   max-width: min(720px, 92%);
   margin: 0 0 0.75rem;

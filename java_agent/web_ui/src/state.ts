@@ -91,6 +91,7 @@ export type AppState = {
   showFailedLogs: boolean;
   failedLogs: FailedToolDto[];
   failedLogsScopeSession: boolean;
+  showToolTracePanel: boolean;
   moreMenuOpen: boolean;
   showAbout: boolean;
   aboutLoading: boolean;
@@ -168,6 +169,7 @@ export function createInitialState(): AppState {
     showFailedLogs: false,
     failedLogs: [],
     failedLogsScopeSession: true,
+    showToolTracePanel: false,
     moreMenuOpen: false,
     showAbout: false,
     aboutLoading: false,

@@ -16,6 +16,11 @@
 - `DesktopUiGateway.loadSessionTodos` · `UiHttpServer` `/todos` · `UiEventCodec` `todoList`
 - `java_agent/web_ui` 清单面板
 
+## 主聊天 vs 调试（Web）
+
+- **主聊天**：用户 / 助手正文；有清单时显示任务清单；运行中保留 **reasoning 流式「思考」条** 与「正在调用工具…」，**不**展开工具参数与回执。
+- **更多 → 工具调用详情（调试）**：本会话 transcript 中的工具行 + 当前 run 的 `tools` 列表。
+
 ## 后续（待观察）
 
 - ops、交付点收尾、Android Compose 清单卡（若与 Web 不同步）
