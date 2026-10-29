@@ -12,7 +12,7 @@ usage() {
 用法: ./build-android-agent.sh [--release]
 
   （默认）Debug：assembleDebug
-  --release     Release（R8 + 独立签名，见 android_agent/run_release.sh）
+  --release     Release（R8，签名与 Debug 相同，见 android_agent/run_release.sh）
 
 等价于 android_agent/run_debug.sh 或 run_release.sh。
 EOF

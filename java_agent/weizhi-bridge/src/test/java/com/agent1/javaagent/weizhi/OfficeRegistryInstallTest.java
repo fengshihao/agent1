@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.agent1.javaagent.agent.AgentHomeBootstrap;
 import com.agent1.javaagent.capability.CapabilityIndexStore;
+import com.agent1.javaagent.config.OfficialCdn;
 import com.weizhi.packages.PackageInstaller;
-import com.weizhi.packages.PackageRegistryClient;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -21,7 +21,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** 不拷贝内置包，从 agentone.guoyoutech.cn 安装 docx / pptx 后再执行。 */
+/** 不拷贝内置包，从配置的官方 CDN registry 安装 docx / pptx 后再执行。 */
 class OfficeRegistryInstallTest {
 
     @BeforeAll
@@ -31,6 +31,7 @@ class OfficeRegistryInstallTest {
             repo = WeizhiHostSupport.defaultWeizhiRepo();
         }
         assumeTrue(WeizhiJniBootstrap.tryLoad(repo), "libweizhijni not built");
+        assumeTrue(OfficialCdn.isConfigured(), "AGENT1_CDN_HOST / AGENT1_CDN_BASE_URL not set");
         assumeTrue(registryReady(), "package registry unreachable");
     }
 
@@ -123,7 +124,7 @@ class OfficeRegistryInstallTest {
     private static boolean registryReady() {
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) URI.create(PackageRegistryClient.DEFAULT_REGISTRY_URL)
+            connection = (HttpURLConnection) URI.create(OfficialCdn.packagesRegistryUrl())
                 .toURL()
                 .openConnection();
             connection.setConnectTimeout(5_000);

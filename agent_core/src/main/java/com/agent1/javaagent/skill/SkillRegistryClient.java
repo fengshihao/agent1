@@ -1,5 +1,6 @@
 package com.agent1.javaagent.skill;
 
+import com.agent1.javaagent.config.OfficialCdn;
 import com.agent1.javaagent.util.PathIo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,8 +28,9 @@ import java.util.logging.Logger;
  */
 public final class SkillRegistryClient {
 
-    public static final String DEFAULT_REGISTRY_URL = "https://agentone.guoyoutech.cn/registry/stable.json";
-    public static final String OFFICIAL_HOST = "agentone.guoyoutech.cn";
+    public static String defaultRegistryUrl() {
+        return OfficialCdn.genericRegistryUrl();
+    }
 
     public static final String ENV_REGISTRY_URL = "AGENT1_SKILL_REGISTRY_URL";
     public static final String ENV_DISABLED = "AGENT1_SKILL_REGISTRY";
@@ -145,7 +147,7 @@ public final class SkillRegistryClient {
         if (!prop.isEmpty()) {
             return prop;
         }
-        return DEFAULT_REGISTRY_URL;
+        return defaultRegistryUrl();
     }
 
     static boolean disabled() {
@@ -236,7 +238,8 @@ public final class SkillRegistryClient {
         }
         String registry = registryUrl();
         String registryHost = URI.create(registry).getHost();
-        if (host.equals(OFFICIAL_HOST) || (registryHost != null && host.equals(registryHost))) {
+        if (OfficialCdn.isAllowedHost(host)
+            || (registryHost != null && host.equalsIgnoreCase(registryHost))) {
             return;
         }
         boolean loopback = "localhost".equals(host) || "127.0.0.1".equals(host);

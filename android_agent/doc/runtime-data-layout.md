@@ -14,9 +14,9 @@
 
 代码入口：`ProductivityGatewayProvider.agentRoot()`、`SessionWorkspacePaths.agentRoot()`。
 
-首次使用生产力 Gateway（打开聊天等）时构造 `ProductivityAgentHost` → `AgentHomeBootstrap.ensure($AGENT)`。集成 Weizhi（`WEIZHI_INTEGRATED=true`）时，Package / Skill 均走**云端 registry 动态拉取**（APK 不预装能上云的内容）：首次 `run_js` 时 `WeizhiPackageSync.beforeEval` 按源里 import 的 `weizhi:<name>` 从 `https://agentone.guoyoutech.cn/packages/registry/stable.json` ensure 下载安装到 `$FILES/weizhi-home`；Skill 由 `load_skill` 经 registry 云装。需要设备联网。
+首次使用生产力 Gateway（打开聊天等）时构造 `ProductivityAgentHost` → `AgentHomeBootstrap.ensure($AGENT)`。集成 Weizhi（`WEIZHI_INTEGRATED=true`）时，Package / Skill 均走**云端 registry 动态拉取**（APK 不预装能上云的内容）：首次 `run_js` 时 `WeizhiPackageSync.beforeEval` 按源里 import 的 `weizhi:<name>` 从 `https://$AGENT1_CDN_HOST/packages/registry/stable.json` ensure 下载安装到 `$FILES/weizhi-home`；Skill 由 `load_skill` 经 registry 云装。需要设备联网。主机由 `OfficialCdn` / `BuildConfig.AGENT1_CDN_HOST` 配置。
 
-**宿主 Web 静态资源**（docx/md 预览壳、web_lib 卡片）同样**不随 APK**：`HostWebRegistrySync` / `WebLibRegistrySync` 拉 `https://agentone.guoyoutech.cn/host-web/registry/stable.json` 与 `web-libs/registry/stable.json`，缓存见 `$AGENT/runtime/host-web-stable.json`。预览 WebView 使用 `loadUrl(registry 中的 shell)`。`webview_exec` 无头沙箱引导页（`weizhi-web`）协议与 weizhi 版本绑定，仍随 APK assets（`src/weizhi/assets/weizhi-web/`），不上云。
+**宿主 Web 静态资源**（docx/md 预览壳、web_lib 卡片）同样**不随 APK**：`HostWebRegistrySync` / `WebLibRegistrySync` 拉 `https://$AGENT1_CDN_HOST/host-web/registry/stable.json` 与 `web-libs/registry/stable.json`，缓存见 `$AGENT/runtime/host-web-stable.json`。预览 WebView 使用 `loadUrl(registry 中的 shell)`。`webview_exec` 无头沙箱引导页（`weizhi-web`）协议与 weizhi 版本绑定，仍随 APK assets（`src/weizhi/assets/weizhi-web/`），不上云。
 
 ## $FILES 根下（App 壳层，非 agent1）
 

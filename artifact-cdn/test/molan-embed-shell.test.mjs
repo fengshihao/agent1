@@ -33,7 +33,7 @@ test("md preview shell cache buster matches the registry fallback", async () => 
   const pack = await readFile(path.join(cdn, "pack-molan-embed.mjs"), "utf8");
   const manifest = await readFile(path.join(cdn, "host-web/manifest.source.json"), "utf8");
   const java = await readFile(
-    path.join(repo, "agent_core/src/main/java/com/agent1/javaagent/catalog/HostWebRegistrySync.java"),
+    path.join(repo, "agent_core/src/main/java/com/agent1/javaagent/config/OfficialCdn.java"),
     "utf8",
   );
   assert.match(pack, new RegExp(`SHELL_VERSION_QUERY = "${SHELL_V}"`));

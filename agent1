@@ -22,6 +22,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=scripts/proxy-env.sh
 source "${SCRIPT_DIR}/scripts/proxy-env.sh"
+# shellcheck source=scripts/cdn-env.sh
+source "${SCRIPT_DIR}/scripts/cdn-env.sh"
 REPO_ROOT="${SCRIPT_DIR}"
 # shellcheck source=scripts/ensure-agent1-java.sh
 source "${SCRIPT_DIR}/scripts/ensure-agent1-java.sh"
@@ -44,6 +46,7 @@ agent1 — 生产力助手 CLI
   QWEN_API_KEY / DASHSCOPE_API_KEY   模型密钥
   QWEN_MODEL / OPENAI_MODEL          模型名（默认 qwen3.7-flash）
   AGENT1_AGENT_ROOT                  数据目录（默认 ./.agent1）
+  AGENT1_CDN_HOST / AGENT1_CDN_BASE_URL  官方制品 CDN（也可放 artifact-cdn/cdn.local.env）
   AGENT1_PROJECT_ROOT                项目根（默认 .agent1 父目录，用于 .claude/skills）
   AGENT1_UI_PORT                     Web UI 端口（默认 17831）
   AGENT1_CHROMIUM_PATH               webview_exec 使用的 Chrome/Chromium 可执行文件

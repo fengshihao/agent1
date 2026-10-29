@@ -1,6 +1,6 @@
 # 自进化 Agent — 规划索引
 
-> **2026-10 现状**：官方 JS 已是 Weizhi Package，清单在 `https://agentone.guoyoutech.cn/packages/registry/stable.json`。`run_js` 前按 `weizhi:<name>` 安装。模型工具 `catalog_install` / `catalog_sync_status` 已删除。引擎不使用 `setScriptFolder` / `loadScript`。下文是当时的设计记录。桌面 `./agent1 sync` 仍可用于 native 等 catalog 条目。
+> **2026-10 现状**：官方 JS 已是 Weizhi Package，清单在 `https://$AGENT1_CDN_HOST/packages/registry/stable.json`。`run_js` 前按 `weizhi:<name>` 安装。模型工具 `catalog_install` / `catalog_sync_status` 已删除。引擎不使用 `setScriptFolder` / `loadScript`。下文是当时的设计记录。桌面 `./agent1 sync` 仍可用于 native 等 catalog 条目。
 
 > 状态：**讨论稿**（2026-09-27 起）。先对齐目录与权限，再分阶段实现代码。
 

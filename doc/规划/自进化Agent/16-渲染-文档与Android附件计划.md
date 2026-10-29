@@ -3,7 +3,7 @@
 > 承接用户方向：去掉 Android 内置 canvas-draw skill；**SVG → WebView 栅格化 PNG**；Markdown→DOC；Mermaid / Three.js 等 **CDN 缓存 + 双运行时**；聊天里 **工作区文件可点打开 + 系统分享**。  
 > **每条交付必须带自动化测试**（JVM 单测 / Android instrumented / 仓库脚本，不依赖真实 LLM）。
 
-> **Weizhi Word（docx.js）**：[weizhi#8](https://github.com/fengshihao/weizhi/issues/8) → 真源 [AGENT1_DOCX_INTEGRATION.md](https://github.com/fengshihao/weizhi/blob/master/docs/AGENT1_DOCX_INTEGRATION.md)；Agent1 入口 [`doc/集成/WEIZHI_DOCX.md`](../../集成/WEIZHI_DOCX.md)。**不再**规划 Java `host.office.*`。
+> **Weizhi Word（docx.js）**：[weizhi#8](https://github.com/fengshihao/weizhi/issues/8) → 真源 [AGENT1_DOCX_INTEGRATION.md](https://github.com/fengshihao/weizhi/blob/master/docs/AGENT1_DOCX_INTEGRATION.md)。Agent1 只负责 `weizhi:docx` 的云端安装（见 [WEIZHI_PACKAGE_REGISTRY.md](../../集成/WEIZHI_PACKAGE_REGISTRY.md)）。**不再**规划 Java `host.office.*`。
 
 关联：`android_agent/.../WorkspaceMarkdown.kt`、`ChatTranscriptFormatting.kt`、`WeizhiAgentTools.kt`、`dev/catalog-sample/`、REQ-040～052（脚本）、REQ-060（catalog/js_lib）。
 

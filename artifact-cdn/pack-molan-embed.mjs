@@ -7,6 +7,8 @@ import { copyFile, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { applyCdnPlaceholder, resolveCdnBaseUrl } from "./lib/cdn-base-url.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const EMBED_VERSION = "1";
 const SHELL_VERSION_QUERY = "20261027c";
@@ -61,7 +63,8 @@ async function main() {
   const destDir = path.join(outRoot, "host-web", "molan-embed", EMBED_VERSION);
   const manifestPath =
     argValue(process.argv, "--manifest") || path.join(here, "host-web", "manifest.source.json");
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const baseUrlArg = resolveCdnBaseUrl(argValue(process.argv, "--base-url"));
+  const manifest = JSON.parse(applyCdnPlaceholder(await readFile(manifestPath, "utf8"), baseUrlArg));
   const shellPublished = manifest?.md_preview?.shell;
   if (!shellPublished || typeof shellPublished !== "string") {
     throw new Error("manifest.source.json missing md_preview.shell");

@@ -1,9 +1,6 @@
 .venv/
 logs/
 
-# 本地 clone 的内容仓（如 agent1-skills；仅便利，非构建/CI 依赖；勿嵌套提交）
-agent1-skills/
-
 # macOS / 本地桌面 UI 打包产物（勿提交）
 .DS_Store
 dist/

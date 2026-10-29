@@ -11,6 +11,8 @@ cd "${REPO_ROOT}"
 source "${REPO_ROOT}/scripts/ensure-agent1-java.sh"
 ensure_agent1_java || true
 
+bash "${REPO_ROOT}/scripts/check-no-internal-cdn-host.sh"
+
 GRADLE=(./java_agent/gradlew --no-daemon -p java_agent)
 if [ -d "${REPO_ROOT}/weizhi" ]; then
   "${GRADLE[@]}" :core:pmdMain :core:spotbugsMain :cli:pmdMain :cli:spotbugsMain

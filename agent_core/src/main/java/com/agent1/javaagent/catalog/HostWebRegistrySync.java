@@ -1,5 +1,6 @@
 package com.agent1.javaagent.catalog;
 
+import com.agent1.javaagent.config.OfficialCdn;
 import com.agent1.javaagent.util.PathIo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,15 +17,17 @@ import java.util.logging.Logger;
 /** 宿主 WebView 依赖清单（仅 shell URL；vendor 在发布时 baked 进 shell.html），APK 不内置 JS。 */
 public final class HostWebRegistrySync {
 
-    public static final String OFFICIAL_HOST = WebLibRegistrySync.OFFICIAL_HOST;
-    public static final String DEFAULT_REGISTRY_URL =
-        "https://agentone.guoyoutech.cn/host-web/registry/stable.json";
+    public static String defaultRegistryUrl() {
+        return OfficialCdn.hostWebRegistryUrl();
+    }
 
-    public static final String DEFAULT_SHELL_URL =
-        "https://agentone.guoyoutech.cn/host-web/shell/docx-preview/1/shell.html?v=20251025b";
+    public static String defaultShellUrl() {
+        return OfficialCdn.docxPreviewShellUrl();
+    }
 
-    public static final String DEFAULT_MD_SHELL_URL =
-        "https://agentone.guoyoutech.cn/host-web/molan-embed/1/shell.html?v=20261027c";
+    public static String defaultMdShellUrl() {
+        return OfficialCdn.molanEmbedShellUrl();
+    }
 
     static final String URL_ENV = "AGENT1_HOST_WEB_REGISTRY_URL";
     static final String ENV = "AGENT1_HOST_WEB_REGISTRY";
@@ -78,7 +81,7 @@ public final class HostWebRegistrySync {
                 // fall through
             }
         }
-        return new DocxPreviewUrls(DEFAULT_SHELL_URL);
+        return new DocxPreviewUrls(defaultShellUrl());
     }
 
     public static MdPreviewUrls mdPreviewUrls(Path agentRoot) {
@@ -90,7 +93,7 @@ public final class HostWebRegistrySync {
                 // fall through
             }
         }
-        return new MdPreviewUrls(DEFAULT_MD_SHELL_URL);
+        return new MdPreviewUrls(defaultMdShellUrl());
     }
 
     static Path cachePath(Path agentRoot) {
@@ -138,7 +141,7 @@ public final class HostWebRegistrySync {
         }
         JsonNode block = root.path("md_preview");
         if (!block.isObject() || block.path("shell").asText("").isBlank()) {
-            return new MdPreviewUrls(DEFAULT_MD_SHELL_URL);
+            return new MdPreviewUrls(defaultMdShellUrl());
         }
         String shell = requireHttpsUrl(block.path("shell").asText(""), "md_preview.shell");
         return new MdPreviewUrls(shell);
@@ -172,7 +175,7 @@ public final class HostWebRegistrySync {
             throw new IOException(field + " must be https");
         }
         String host = uri.getHost() == null ? "" : uri.getHost();
-        if (!OFFICIAL_HOST.equalsIgnoreCase(host)) {
+        if (!OfficialCdn.isAllowedHost(host)) {
             throw new IOException(field + " host not allowed: " + host);
         }
         if (uri.getUserInfo() != null || uri.getRawFragment() != null) {
@@ -184,7 +187,7 @@ public final class HostWebRegistrySync {
     static URI registryUri() {
         String raw = System.getenv(URL_ENV);
         if (raw == null || raw.isBlank()) {
-            raw = DEFAULT_REGISTRY_URL;
+            raw = defaultRegistryUrl();
         }
         URI uri;
         try {
@@ -194,7 +197,7 @@ public final class HostWebRegistrySync {
         }
         String scheme = uri.getScheme() == null ? "" : uri.getScheme();
         String host = uri.getHost() == null ? "" : uri.getHost();
-        boolean loopback = "127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host);
+        boolean loopback = OfficialCdn.isLoopback(host);
         if ("http".equalsIgnoreCase(scheme) && !loopback) {
             throw new IllegalArgumentException("host-web registry http only allowed for loopback");
         }
@@ -204,7 +207,7 @@ public final class HostWebRegistrySync {
         if (uri.getUserInfo() != null || uri.getRawQuery() != null || uri.getRawFragment() != null) {
             throw new IllegalArgumentException("host-web registry must not contain credentials, query, or hash");
         }
-        if (!loopback && !OFFICIAL_HOST.equalsIgnoreCase(host)) {
+        if (!OfficialCdn.isAllowedHost(host)) {
             throw new IllegalArgumentException("host-web registry host not allowed: " + host);
         }
         return uri;

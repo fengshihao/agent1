@@ -202,7 +202,7 @@ depends_mcp: gaode
   "catalog_line": "…",
   "depends_weizhi": ["travel-itinerary"],
   "artifact": {
-    "url": "https://agentone.guoyoutech.cn/skills/travel-itinerary/1.0.0/travel-itinerary-1.0.0.zip",
+    "url": "https://$AGENT1_CDN_HOST/skills/travel-itinerary/1.0.0/travel-itinerary-1.0.0.zip",
     "sha256": "…",
     "size": 12345
   }
@@ -227,7 +227,7 @@ depends_mcp: gaode
 
 ```bash
 cd artifact-cdn
-export ARTIFACT_CDN_BASE_URL=https://agentone.guoyoutech.cn/
+export ARTIFACT_CDN_BASE_URL="$AGENT1_CDN_BASE_URL"
 node pack-skill.mjs --root ./skills-src --base-url "$ARTIFACT_CDN_BASE_URL"
 ```
 

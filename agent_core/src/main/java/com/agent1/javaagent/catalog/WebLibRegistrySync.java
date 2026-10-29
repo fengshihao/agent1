@@ -2,6 +2,7 @@ package com.agent1.javaagent.catalog;
 
 import com.agent1.javaagent.capability.CapabilityIndexStore;
 import com.agent1.javaagent.capability.CapabilityRecord;
+import com.agent1.javaagent.config.OfficialCdn;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -23,9 +24,14 @@ import java.util.logging.Logger;
 public final class WebLibRegistrySync {
 
     public static final String SOURCE = "web_lib";
-    public static final String DEFAULT_REGISTRY_URL =
-        "https://agentone.guoyoutech.cn/web-libs/registry/stable.json";
-    public static final String OFFICIAL_HOST = "agentone.guoyoutech.cn";
+
+    public static String defaultRegistryUrl() {
+        return OfficialCdn.webLibsRegistryUrl();
+    }
+
+    public static String officialHost() {
+        return OfficialCdn.host();
+    }
 
     static final String ENV = "AGENT1_WEB_LIB_REGISTRY";
     static final String URL_ENV = "AGENT1_WEB_LIB_REGISTRY_URL";
@@ -98,7 +104,7 @@ public final class WebLibRegistrySync {
     static URI registryUri() {
         String raw = System.getenv(URL_ENV);
         if (raw == null || raw.isBlank()) {
-            raw = DEFAULT_REGISTRY_URL;
+            raw = defaultRegistryUrl();
         }
         URI uri;
         try {
@@ -108,7 +114,7 @@ public final class WebLibRegistrySync {
         }
         String scheme = uri.getScheme() == null ? "" : uri.getScheme();
         String host = uri.getHost() == null ? "" : uri.getHost();
-        boolean loopback = "127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host);
+        boolean loopback = OfficialCdn.isLoopback(host);
         if ("http".equalsIgnoreCase(scheme) && !loopback) {
             throw new IllegalArgumentException("web lib registry http only allowed for loopback");
         }
@@ -118,7 +124,7 @@ public final class WebLibRegistrySync {
         if (uri.getUserInfo() != null || uri.getRawQuery() != null || uri.getRawFragment() != null) {
             throw new IllegalArgumentException("web lib registry must not contain credentials, query, or hash");
         }
-        if (!loopback && !OFFICIAL_HOST.equalsIgnoreCase(host)) {
+        if (!OfficialCdn.isAllowedHost(host)) {
             throw new IllegalArgumentException("web lib registry host not allowed: " + host);
         }
         return uri;

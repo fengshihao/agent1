@@ -8,7 +8,7 @@ work/
   weizhi/           # QuickJS 引擎、Android 子工程、Caps
 ```
 
-Skill / Weizhi Package 的**内容源可插拔**：官方默认 [agent1-skills](https://github.com/fengshihao/agent1-skills)（`skills-src/`、`packages-src/`），贡献者可自建内容仓。agent1 **不依赖、不感知任何外部内容仓**，也**不把能上云的内容打进 jar/APK**——生产靠 registry 云装。集成测试 fixture 固化在 `java_agent/weizhi-bridge/src/test/resources/weizhi-test-packages/` 与 `weizhi-test-skills/`。需要编辑 Skill / Package 内容时，**在自己的内容仓里改**（官方内容请去 agent1-skills 开 PR），再用该仓的 pack 脚本 + 本仓 `artifact-cdn/` 通用工具上云。
+Skill / Weizhi Package **不进 jar/APK**——生产靠 registry 云装（`load_skill` / `WeizhiPackageSync.beforeEval`）。集成测试 fixture 固化在 `java_agent/weizhi-bridge/src/test/resources/weizhi-test-packages/` 与 `weizhi-test-skills/`。上云用本仓 `artifact-cdn/` 的 pack / upload 工具，指向任意源目录即可。
 
 ## 推荐做法
 
@@ -25,17 +25,17 @@ Skill / Weizhi Package 的**内容源可插拔**：官方默认 [agent1-skills](
    - 文件：`agent1/agent1.code-workspace`
    - Cursor / VS Code：**File → Open Workspace from File…**
 
-   侧栏应有两个根：**agent1**、**weizhi**。若要同时编辑某个内容仓（如 agent1-skills），把它 clone 到同级目录后自行加入 workspace，agent1 的构建与 CI 不需要它。
+   侧栏应有两个根：**agent1**、**weizhi**。
 
 3. **改哪里**
 
    | 内容 | 编辑位置 | 说明 |
    |------|----------|------|
    | 引擎、Package 安装器、Android native | `weizhi/` | 联编 Android / Java；必要时 agent1 侧 PR |
-   | Skill 流程 / `SKILL.md` / `weizhi:<name>` JS 包 | 内容仓（官方默认 agent1-skills，可自建） | 上云用内容仓 pack 脚本 + 本仓 `artifact-cdn/` 通用工具；不进 agent1 jar/APK |
+   | Skill 流程 / `SKILL.md` / `weizhi:<name>` JS 包 | 云端 registry | 不进 agent1 jar/APK；测试用仓内 fixture |
    | 集成测试 fixture | `java_agent/weizhi-bridge/src/test/resources/weizhi-test-{packages,skills}/` | 仅测试用，不进生产产物 |
 
-4. 上云：内容仓侧 pack 脚本产出 `artifact-cdn/dist/`，再 `artifact-cdn/upload.sh`。
+4. 上云：`artifact-cdn` 的 pack 脚本产出 `dist/`，再 `upload.sh`。
 
 ## 路径与环境变量
 
@@ -50,4 +50,4 @@ Gradle 会按顺序查找 **`../../weizhi`**（同级）与 **`../weizhi`**（�
 
 ## Cloud Agent
 
-默认只检出 agent1。要改 weizhi 时，在会话里克隆对应仓或设置上述环境变量；**PR 通常分仓提交**（agent1 / weizhi 各开；内容仓自管）。
+默认只检出 agent1。要改 weizhi 时，在会话里克隆对应仓或设置上述环境变量；**PR 通常分仓提交**（agent1 / weizhi 各开）。

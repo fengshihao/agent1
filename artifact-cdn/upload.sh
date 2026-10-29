@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
 # 作用
-#   把 artifact-cdn/dist 拷到国优服务器的站点根。
+#   把 artifact-cdn/dist 拷到站点根。
 #   先传全部 zip，再覆盖两份清单。不负责安装，也不区分 kind。
 # 配置
 #   同目录 cdn.local.env（勿提交）或环境变量：
-#   ARTIFACT_CDN_BASE_URL、ARTIFACT_CDN_SSH、ARTIFACT_CDN_REMOTE_DIR
+#   AGENT1_CDN_BASE_URL / ARTIFACT_CDN_BASE_URL、ARTIFACT_CDN_SSH、ARTIFACT_CDN_REMOTE_DIR
 #   UPLOAD_DRY_RUN=1 只打印 scp，不连服务器。
 # 站点根布局（与 dist 相同）
 #   registry/stable.json
@@ -28,8 +28,18 @@ if [[ "${ARTIFACT_CDN_SKIP_LOCAL_ENV:-}" != "1" && -f "${ENV_FILE}" ]]; then
   set +a
 fi
 
-: "${ARTIFACT_CDN_BASE_URL:=https://agentone.guoyoutech.cn/}"
-SSH_TARGET="${ARTIFACT_CDN_SSH:-root@49.232.7.38}"
+if [[ -z "${ARTIFACT_CDN_BASE_URL:-}" && -n "${AGENT1_CDN_BASE_URL:-}" ]]; then
+  ARTIFACT_CDN_BASE_URL="${AGENT1_CDN_BASE_URL}"
+fi
+if [[ -z "${ARTIFACT_CDN_BASE_URL:-}" ]]; then
+  echo "set AGENT1_CDN_BASE_URL or ARTIFACT_CDN_BASE_URL（或 artifact-cdn/cdn.local.env）" >&2
+  exit 1
+fi
+if [[ -z "${ARTIFACT_CDN_SSH:-}" ]]; then
+  echo "set ARTIFACT_CDN_SSH（或 artifact-cdn/cdn.local.env）" >&2
+  exit 1
+fi
+SSH_TARGET="${ARTIFACT_CDN_SSH}"
 REMOTE_DIR="${ARTIFACT_CDN_REMOTE_DIR:-/var/www/agentone}"
 
 if [[ ! "${SSH_TARGET}" =~ ^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+$ ]]; then

@@ -83,8 +83,19 @@ android {
         versionName = agent1VersionName()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        fun envOrProp(name: String, default: String = ""): String =
-            providers.gradleProperty(name).orElse(System.getenv(name) ?: default).get().replace("\"", "\\\"")
+        val localProps = Properties()
+        rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use {
+            localProps.load(it)
+        }
+
+        fun envOrProp(name: String, default: String = ""): String {
+            val fromLocal = localProps.getProperty(name)?.trim().orEmpty()
+            if (fromLocal.isNotEmpty()) {
+                return fromLocal.replace("\"", "\\\"")
+            }
+            return providers.gradleProperty(name).orElse(System.getenv(name) ?: default).get()
+                .replace("\"", "\\\"")
+        }
 
         val qwenApiKey = envOrProp("QWEN_API_KEY", envOrProp("DASHSCOPE_API_KEY"))
         val qwenBaseUrl = envOrProp(
@@ -102,6 +113,11 @@ android {
         buildConfigField("String", "DASHSCOPE_API_KEY", "\"$dashscopeApiKey\"")
         buildConfigField("String", "DASHSCOPE_BASE_URL", "\"$dashscopeBaseUrl\"")
         buildConfigField("boolean", "WEIZHI_INTEGRATED", weizhiIntegrated.toString())
+        val cdnHost = envOrProp(
+            "AGENT1_CDN_HOST",
+            envOrProp("AGENT1_CDN_BASE_URL", envOrProp("agent1.cdn.host")),
+        )
+        buildConfigField("String", "AGENT1_CDN_HOST", "\"$cdnHost\"")
     }
 
     signingConfigs {
@@ -136,8 +152,8 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            // 本机有 release-signing.properties 时用独立 release 签名。
-            // CI 没有这份私钥，退回仓库内共用 debug 签名，打出来的 Release 仍可安装。
+            // 当前本机与 CI 都用仓库内 debug.keystore。
+            // 以后若放了 release-signing.properties，才改用独立 release 签名。
             signingConfig = if (releaseSigningPropertiesFile.isFile) {
                 signingConfigs.getByName("release")
             } else {

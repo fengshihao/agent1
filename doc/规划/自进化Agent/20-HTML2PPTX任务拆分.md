@@ -19,7 +19,7 @@
 
 - `html2pptx@0.1.0` 截图模式包 + 图片自动内联 + 图片预检报错
 - `html2pptx` skill（内置形态，T0 会迁包化）、能力卡 `html2pptx.render`（kind 自动 `weizhi_package`）
-- 系统提示词路由、Android 资产同步、`doc/集成/HTML2PPTX.md`
+- 系统提示词路由、Android 资产同步
 - 修复桌面 CDP 两个既有缺陷：`DesktopBootstrapAssets` 资产路径失效（weizhi-web 已迁入 agent1）、分块回执双重投递
 - 视觉验收 4/4 通过；对比样例在 `out-samples/`（已 gitignore）
 
@@ -37,7 +37,7 @@
 - 刷卡调用点三处：桌面 `WeizhiBundledPackages.syncFromClasspath`（engine open 幂等重装后）、registry `WeizhiPackageSync.beforeEval`（`ensureInstalled` 实际装了包才刷）、Android `WeizhiBundledInstall.syncBundled`（engine init + 宿主启动后台线程，与 engine open 共用锁防并发重装）。
 - 桌面/Android 启动各加了后台「装内置包 + 刷卡」线程，闭合**首次 run_js 之前 find_caps 查不到包内 skill** 的空窗（对齐 web_lib 卡启动即有的行为）。
 - **坑**：weizhi 桥的 `EnsureResult` 是 public 字段（`ensured.installed`），不是 record 访问器，写法要看本地 weizhi 树。seed 重建会清掉 `package_skill` 行，但每次 engine open 都会补回；云端 registry 的 html2pptx 条目发布前，`beforeEval` 对它走 offline-fallback（本地已装即放行），不会降级。
-- **待办（发布侧）**：~~`artifact-cdn` 需 `pack.mjs + upload.sh` 重打 html2pptx@0.2.0（含 SKILL.md）并更新云端 stable.json~~ **已完成（2026-10-18）**：html2pptx@0.2.0（含 T8 最新 js+SKILL，51KB）已 pack + upload 上云，`https://agentone.guoyoutech.cn/packages/html2pptx/0.2.0/` 可下载、sha256 与清单一致，云端 registry 七包齐。**Android/agent_core 内置 assets 保留**（离线与首启兜底，云端是更新通道——删 assets 需改安装链路且失离线能力，收益仅省几百 KB，不做）。
+- **待办（发布侧）**：~~`artifact-cdn` 需 `pack.mjs + upload.sh` 重打 html2pptx@0.2.0（含 SKILL.md）并更新云端 stable.json~~ **已完成（2026-10-18）**：html2pptx@0.2.0（含 T8 最新 js+SKILL，51KB）已 pack + upload 上云，`https://$AGENT1_CDN_HOST/packages/html2pptx/0.2.0/` 可下载、sha256 与清单一致，云端 registry 七包齐。**Android/agent_core 内置 assets 保留**（离线与首启兜底，云端是更新通道——删 assets 需改安装链路且失离线能力，收益仅省几百 KB，不做）。
 
 ### T1 — DOM 几何提取器（PR2 核心，纯增量）
 
@@ -76,7 +76,7 @@
 - 映射规则：EMU=px×9525、字号 px×0.75 磅、≥600 记 bold、start/center/end→l/ctr/r、行距→`spcPct`、字体族拆 latin+ea；圆角块→`roundRect`（adj=圆角/min(w,h)×100000 封顶 50000，四角不等取最大）；linear 渐变→`gradFill`（CSS 角度→OOXML `ang=(θ-90°)×60000`）、radial 退化首色 alpha 近似；四边同宽同色→`a:ln`，否则逐边细色条（卡片彩色上边框）；阴影→`outerShdw` 近似并记 `needsScreenshot`；PNG data URI→`p:pic`，svg→媒体件+`asvg:svgBlip`+1×1 透明 PNG 兜底；`https://`/`imgOmitted`/不支持 mime 不出图，记 `needsScreenshot`（T4 区域截图输入）。
 - **去重**：行内元素（em/span/svg text）文本是祖先 textRuns 子串且 rect 被包含时跳过——extractor 会把行内元素同时作为独立元素下发（T2 已记录），不去重会同一文字画两遍。
 - 测试 `Html2PptxNativeGeneratorTest`（需 `libweizhijni`，无 Chrome/webview）：①fixture→pptx 全链路（slide XML 断言渐变角度/双色、roundRect adj 折算、EMU/字号/行距、上边框色条、outerShdw、svgBlip+rels+Content_Types、PNG 魔数与兜底件、em 斜体去重、span 合并、needsScreenshot 记 shadow）②默认输出名与内联缺 output 报错 ③远程/超限图片不出 `p:pic` 只记 needsScreenshot。已进 `e2e-self-evolve-smoke.sh`。
-- Android assets 同步（`android_agent/.../weizhi-packages/html2pptx@0.2.0/html2pptx.js` 与 agent_core 逐字节一致）；映射规则文档化进 `doc/集成/HTML2PPTX.md`。
+- Android assets 同步（`android_agent/.../weizhi-packages/html2pptx@0.2.0/html2pptx.js` 与 agent_core 逐字节一致）。
 
 ### T4 — `renderHtmlDeck` mode:"native" 集成
 
@@ -131,7 +131,7 @@
 - `exportDeckPages({htmlPath, outputDir, scale, format})`：截图链路逐页落 `<dir>/page-N.png` 不组 pptx——预览/指点修改的视觉载体（桌面/Android 通用），也可作插文档图片页。mock 测试 `exportsDeckPagesThroughMockWebView`。
 - SKILL.md 重写为工作流驱动：①deck.html 资产化（workspace 根、不清理）②exportDeckPages 预览 ③指点修改循环（用户说「第 N 页左上大标题」→ 定位 section.slide + 语义 class → edit_file → 再预览）④确认后导出（截图默认/native 可选）。
 - SKILL 页型骨架（8 种：封面/KPI/图文/时间线/表格/图表/引言/结尾，各给 class 约定与关键 CSS）+ 硬性约束（禁 transform/animation/filter/mix-blend/多列；阴影一档；表格 ≤5 列；每页元素 ≤40）——**生成侧收口**，模型从骨架起步改内容，天然不跑偏。
-- `doc/集成/HTML2PPTX.md` 补工作流与 exportDeckPages。
+- 工作流与 exportDeckPages 写入 Skill（包 API 文档不在本仓）。
 
 **状态**：完成（commit 见 git log：feat(office): HTML 源工作流）
 **未做（后续候选）**：T9 页级降级+预检+editable 比例；云端导出管线（PDF/Word/Keynote）；预览交互化（Android WebView 内嵌所见即所得）。
@@ -144,7 +144,7 @@
 - 删 `android_agent/.../assets/weizhi-packages/`（7 包）与 `scripts/build-weizhi-bundled-packages.sh`（同步脚本退役，发布走 `artifact-cdn` pack/upload）。
 - 安装链路本就已就绪：`WeizhiPackageSync.beforeEval` 在首次 `run_js` 按源里 import 的 `weizhi:<name>` 从 registry ensure；`WeizhiPackages.syncBundled` 对空 assets 优雅降级（no-op 返回 home 路径），Kotlin 侧零代码改动（注释更新）。
 - `OfficeCatalogInstrumentedTest` 改造为**云端动态安装**验收（独立 agentRoot + beforeEval ensure，需真机联网）——正好覆盖「动态更新」链路。
-- 文档同步：runtime-data-layout / WEIZHI_CATALOG_MODULES / WEIZHI_DOCX / WEIZHI_PPTX / OFFICE_*_API / HTML2PPTX。
+- 文档同步：runtime-data-layout / WEIZHI_CATALOG_MODULES。
 - 注意：桌面 classpath 内置保留（离线开发体验）。**离线语义澄清**（用户复核）：`run_js` 本身零网络依赖（无 weizhi import 直接放行；import 的包本地已装走 offline-fallback 放行）；唯一失败组合是「import 本地未装的包 + 无网」，而 Android 上 `run_js` 只由模型工具环触发、无网时模型不可达——**实际不存在离线退化场景**。`find_caps` 的 office 卡来自 agent-home capabilities 不受影响。
 - 验证：`publish-java-agent-core.sh`（core 发 mavenLocal + Android compileDebugKotlin 过）、`check-android-agent-static/layering` 全过；真机 `connectedDebugAndroidTest` 待跑（需设备+网络）。
 

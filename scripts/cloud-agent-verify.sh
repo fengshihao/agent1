@@ -16,6 +16,7 @@ echo ""
 
 export AGENT1_SKIP_GRADLE=1
 
+bash "${REPO_ROOT}/scripts/check-no-internal-cdn-host.sh"
 bash "${REPO_ROOT}/check-android-agent-layering.sh"
 python3 "${REPO_ROOT}/android_agent/scripts/check_android_main_thread_gateway.py" --self-test
 python3 "${REPO_ROOT}/android_agent/scripts/check_android_main_thread_gateway.py"

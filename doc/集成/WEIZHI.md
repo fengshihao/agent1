@@ -42,6 +42,6 @@ Agent1 **不实现** JS 运行时和设备 Caps。二者通过 **`java_agent/wei
 - Weizhi 集成指南：[weizhi `docs/INTEGRATION_FOR_AI.md`](https://github.com/fengshihao/weizhi/blob/master/docs/INTEGRATION_FOR_AI.md)
 - Agent1 双端能力表：[CLI与Android-Agent能力对照.md](../CLI与Android-Agent能力对照.md)
 - 路径策略（fs / import / 工具环 / Caps）：[WEIZHI_PATHS.md](./WEIZHI_PATHS.md)（[agent1#72](https://github.com/fengshihao/agent1/issues/72)）
-- **Weizhi Package**（内置 docx / pptx 等，`import … from "weizhi:<name>"`）：[WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md)、[WEIZHI_DOCX.md](./WEIZHI_DOCX.md)、[WEIZHI_PPTX.md](./WEIZHI_PPTX.md)、[WEIZHI_GREP_GLOB_SANDBOX.md](./WEIZHI_GREP_GLOB_SANDBOX.md)
+- **Weizhi Package**（`import … from "weizhi:<name>"`，云端 registry 动态安装）：[WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md)、[WEIZHI_GREP_GLOB_SANDBOX.md](./WEIZHI_GREP_GLOB_SANDBOX.md)
 - **weizhi:video**（随 `:weizhi-video` AAR，video@0.6.0；v2 时间线关键帧 / crossfade）：[WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md) video 例外段；规格真源 [weizhi `docs/video-timeline-v2.md`](https://github.com/fengshihao/weizhi/blob/master/docs/video-timeline-v2.md)（[agent1#101](https://github.com/fengshihao/agent1/issues/101)）
 - **官方 Registry**（微智客户端已实现，发布在 `artifact-cdn/`）：[WEIZHI_PACKAGE_REGISTRY.md](./WEIZHI_PACKAGE_REGISTRY.md)

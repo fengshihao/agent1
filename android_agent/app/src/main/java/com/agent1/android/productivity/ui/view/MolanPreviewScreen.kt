@@ -90,7 +90,7 @@ private val MOLAN_INJECT_DIAG_JS =
 
 /**
  * 墨览 Markdown 内置预览：embed shell 在 APK（assets），vditor 与 molan 运行时走
- * guoyoutech CDN；md 文本经 [MOLAN_BRIDGE_NAME] 桥注入 [window.MolanHost]。
+ * 官方 CDN（{@code OfficialCdn}）；md 文本经 [MOLAN_BRIDGE_NAME] 桥注入 [window.MolanHost]。
  *
  * 打开即阅读（纸面视图）；文件变更后经 [WorkspaceFileWatcher] 自动重渲染。
  * 预览为只读语义：墨览内的保存是下载副本，不写回 workspace。
