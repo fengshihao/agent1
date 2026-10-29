@@ -12,7 +12,7 @@ internal data class SessionTodoRecord(
 /** 读取 {@code sessions/<id>/todos.json}（与 core {@link TodoStore} 同格式）。 */
 object SessionTodoStore {
 
-    fun load(sessionDir: Path): List<SessionTodoRecord> {
+    internal fun load(sessionDir: Path): List<SessionTodoRecord> {
         val loaded = TodoStore(sessionDir).load()
         if (!loaded.ok()) return emptyList()
         return loaded.list().items().map { item ->
