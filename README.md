@@ -69,6 +69,7 @@ export DASHSCOPE_API_KEY="your-key"   # 或 ALIBABA_API_KEY / OPENAI_API_KEY / Q
 
 ```bash
 ./publish-java-agent-core.sh      # 发布 java-agent-core 到本地 Maven
+./publish-weizhi-bridge.sh        # 发布 weizhi-bridge（+ core）到 local-maven / mavenLocal
 ./build-android-agent.sh          # Debug 构建，需 adb；Release 加 --release
 ```
 

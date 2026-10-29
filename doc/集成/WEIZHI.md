@@ -37,6 +37,14 @@ Agent1 **不实现** JS 运行时和设备 Caps。二者通过 **`java_agent/wei
 - 构建含 `weizhi-bridge` 的 CLI；`WeizhiJniBootstrap` 成功后才有完整脚本环
 - `AGENT1_SCRIPT_ENGINE=off` 可关闭脚本引擎
 
+**成品包（给内容仓 / 外部 JVM 测试）**
+
+```bash
+./publish-weizhi-bridge.sh
+```
+
+发布 `com.agent1:weizhi-bridge:0.1.0-SNAPSHOT` 到 `java_agent/build/local-maven` 与 `mavenLocal`（POM 带上 `java-agent-core`）。JAR 里含 Weizhi Java 与桥接代码，**不含** `libweizhijni`；跑脚本仍要本机 weizhi native。
+
 ## 进一步阅读
 
 - Weizhi 集成指南：[weizhi `docs/INTEGRATION_FOR_AI.md`](https://github.com/fengshihao/weizhi/blob/master/docs/INTEGRATION_FOR_AI.md)
