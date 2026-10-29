@@ -63,3 +63,14 @@ tasks.register("publishCoreToLocalRepo") {
     description = "Publish java-agent-core to local project maven repo"
     dependsOn(":core:publishMavenJavaPublicationToLocalRepoRepository")
 }
+
+tasks.register("publishWeizhiBridgeToLocalRepo") {
+    group = "publishing"
+    description = "Publish weizhi-bridge and java-agent-core to local-maven + mavenLocal"
+    dependsOn(
+        ":core:publishMavenJavaPublicationToLocalRepoRepository",
+        ":core:publishToMavenLocal",
+        ":weizhi-bridge:publishMavenJavaPublicationToLocalRepoRepository",
+        ":weizhi-bridge:publishToMavenLocal",
+    )
+}

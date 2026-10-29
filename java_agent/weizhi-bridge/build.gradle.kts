@@ -1,5 +1,6 @@
 plugins {
     `java-library`
+    `maven-publish`
 }
 
 group = "com.agent1"
@@ -19,6 +20,7 @@ java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(17))
     }
+    withSourcesJar()
 }
 
 dependencies {
@@ -34,7 +36,6 @@ sourceSets {
         java {
             srcDir(weizhiRepo.resolve("java"))
             srcDir("src/shared/java")
-            srcDir("src/main/java")
         }
     }
 }
@@ -44,4 +45,27 @@ tasks.test {
     val nativeDir = weizhiRepo.resolve("build")
     jvmArgs("-Djava.library.path=${nativeDir.absolutePath}")
     environment("AGENT1_WEIZHI_REPO", weizhiRepo.absolutePath)
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+            artifactId = "weizhi-bridge"
+            pom {
+                name.set("weizhi-bridge")
+                description.set(
+                    "Agent1 Weizhi 脚本桥：WeizhiScriptEngine、Package 安装、桌面 webview_exec。" +
+                        "JAR 不含 libweizhijni，运行时需 weizhi native。",
+                )
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "localRepo"
+            url = rootProject.layout.buildDirectory.dir("local-maven").get().asFile.toURI()
+        }
+        mavenLocal()
+    }
 }

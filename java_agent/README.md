@@ -97,6 +97,22 @@ gradle -p java_agent publishCoreToLocalRepo
 
 默认发布路径：`java_agent/build/local-maven`（artifact: `com.agent1:java-agent-core:0.1.0-SNAPSHOT`）。
 
+发布脚本桥（含 core 传递依赖；JAR **不含** `libweizhijni`）：
+
+```bash
+./publish-weizhi-bridge.sh
+# 或：gradle -p java_agent publishWeizhiBridgeToLocalRepo
+```
+
+制品：`com.agent1:weizhi-bridge:0.1.0-SNAPSHOT`（`local-maven` + `mavenLocal`）。内容仓测试可：
+
+```kotlin
+repositories { mavenLocal() }
+dependencies { testImplementation("com.agent1:weizhi-bridge:0.1.0-SNAPSHOT") }
+```
+
+运行时设置 `AGENT1_WEIZHI_REPO` 与 `-Djava.library.path=<weizhi>/build`。
+
 一键发布并验证 Android 编译：
 
 ```bash
