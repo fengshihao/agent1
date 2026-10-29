@@ -6,6 +6,8 @@ import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { applyCdnPlaceholder, resolveCdnBaseUrl } from "./lib/cdn-base-url.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 function argValue(argv, name) {
@@ -65,7 +67,8 @@ async function main() {
   const outDir = argValue(process.argv, "--out") || path.join(here, "dist");
   const sourcePath =
     argValue(process.argv, "--manifest") || path.join(here, "host-web", "manifest.source.json");
-  const manifest = JSON.parse(await readFile(sourcePath, "utf8"));
+  const baseUrl = resolveCdnBaseUrl(argValue(process.argv, "--base-url"));
+  const manifest = JSON.parse(applyCdnPlaceholder(await readFile(sourcePath, "utf8"), baseUrl));
   if (manifest.schema_version !== 1) {
     throw new Error("schema_version must be 1");
   }

@@ -1,8 +1,8 @@
 # 通用制品 CDN
 
-这个目录是发布侧，不是 Agent 运行时。它把一个源目录打成 zip，计算 sha256，写进清单，再用 SSH 拷到国优服务器的网站根。下载工具只负责把 zip 取回来并校验，不负责安装。公网只能下载，不能上传。
+这个目录是发布侧，不是 Agent 运行时。它把一个源目录打成 zip，计算 sha256，写进清单，再用 SSH 拷到站点根。下载工具只负责把 zip 取回来并校验，不负责安装。公网只能下载，不能上传。主机由 `AGENT1_CDN_BASE_URL` / `ARTIFACT_CDN_BASE_URL` 配置，见 [WEIZHI_HOST.md](WEIZHI_HOST.md)。
 
-微智 JS 包是 `kind=weizhi_package`。官方 **Weizhi Package** 与 **Skill** 的内容源**可插拔**：官方默认 [**agent1-skills**](https://github.com/fengshihao/agent1-skills)（`packages-src/`、`skills-src/`），打包脚本在内容仓侧（`scripts/pack-*.mjs`），贡献者可自建内容仓。本目录提供**通用** `pack.mjs` / `fetch.mjs` / `upload.sh` 工具，指向任意内容源目录即可。字段见 [agent1-skills/doc/SKILL-PACK-FIELDS.md](https://github.com/fengshihao/agent1-skills/blob/main/doc/SKILL-PACK-FIELDS.md)（本目录 `doc/SKILL-PACK-FIELDS.md` 为历史副本）。产物含 `packages/registry/stable.json`、`skills/registry/stable.json` 与合并进 `dist/registry/stable.json` 的条目。
+微智 JS 包是 `kind=weizhi_package`。本目录提供通用 `pack.mjs` / `fetch.mjs` / `upload.sh`，把任意源目录打成 zip 并写清单。字段见 [doc/SKILL-PACK-FIELDS.md](doc/SKILL-PACK-FIELDS.md)。产物含 `packages/registry/stable.json`、`skills/registry/stable.json` 与合并进 `dist/registry/stable.json` 的条目。
 
 不进入 `java_agent` / `android_agent` 的 Gradle，也不进入 `./scripts/ci-local.sh`。
 
@@ -43,11 +43,10 @@ zip 根就是源目录里的文件（含 `manifest.json`），不套一层父目
 
 ```bash
 cd artifact-cdn
-export ARTIFACT_CDN_BASE_URL=https://agentone.guoyoutech.cn/
-# 官方内容源在 agent1-skills 仓（可插拔：--root 指向任意内容仓的 packages-src）
-#   官方推荐：在 agent1-skills 仓用其 scripts/pack-*.mjs 打包后，再用本目录 upload.sh 上传
+export ARTIFACT_CDN_BASE_URL="$AGENT1_CDN_BASE_URL"   # 或 source cdn.local.env
+# --root 指向待打包的包源目录（每子目录一个 <name>）
 node pack.mjs \
-  --root <内容仓>/packages-src \
+  --root <package-src-dir> \
   --kind weizhi_package \
   --base-url "$ARTIFACT_CDN_BASE_URL" \
   --cards ./office-api-cards.jsonl
@@ -65,7 +64,7 @@ node pack.mjs \
 
 ```bash
 cd artifact-cdn
-node pack-web-libs.mjs --base-url "${ARTIFACT_CDN_BASE_URL:-https://agentone.guoyoutech.cn/}"
+node pack-web-libs.mjs --base-url "$ARTIFACT_CDN_BASE_URL"
 ```
 
 输出：
@@ -75,7 +74,7 @@ node pack-web-libs.mjs --base-url "${ARTIFACT_CDN_BASE_URL:-https://agentone.guo
 | `dist/web-libs/registry/stable.json` | `find_caps` 卡片；`entry` 为两行：`URL`（库）、`壳`（官方 HTML URL，运行时 GET） |
 | `dist/web-libs/templates/*.html` | 可热更的薄壳静态文件 |
 
-由 `upload.sh` 上传模板与清单。core 侧 `WebLibRegistrySync` 默认读 `https://agentone.guoyoutech.cn/web-libs/registry/stable.json`，失败时保留已有卡片。薄壳**仅**从 `壳` URL 拉取，客户端不预置 HTML 模板。
+由 `upload.sh` 上传模板与清单。core 侧 `WebLibRegistrySync` 默认读 `$AGENT1_CDN_BASE_URL/web-libs/registry/stable.json`，失败时保留已有卡片。薄壳**仅**从 `壳` URL 拉取，客户端不预置 HTML 模板。
 
 ## 校验下载
 
@@ -95,7 +94,7 @@ node fetch.mjs \
 
 ## 上传
 
-`./upload.sh` 用本机 SSH 密钥把 `dist/` 拷到 `root@49.232.7.38:/var/www/agentone`。没有公网上传接口。
+`./upload.sh` 用本机 SSH 密钥把 `dist/` 拷到 `ARTIFACT_CDN_SSH` 上的 `ARTIFACT_CDN_REMOTE_DIR`。没有公网上传接口。生产值只放 `cdn.local.env`。
 
 ```bash
 cd artifact-cdn
@@ -117,11 +116,11 @@ cd artifact-cdn
   web-libs/registry/stable.json
 ```
 
-微智读的是 `https://agentone.guoyoutech.cn/packages/registry/stable.json`。通用清单在 `https://agentone.guoyoutech.cn/registry/stable.json`。打包时加上 `--cards`，把 find_caps 卡片写进对应包的 `cards`。每个包名只保留当前版本，索引按这份清单替换 `source=registry` 的行。
+微智读的是 `$AGENT1_CDN_BASE_URL/packages/registry/stable.json`。通用清单在 `$AGENT1_CDN_BASE_URL/registry/stable.json`。打包时加上 `--cards`，把 find_caps 卡片写进对应包的 `cards`。每个包名只保留当前版本，索引按这份清单替换 `source=registry` 的行。
 
 ```bash
 node pack.mjs \
-  --root <内容仓>/packages-src \
+  --root <package-src-dir> \
   --kind weizhi_package \
   --base-url "$ARTIFACT_CDN_BASE_URL" \
   --cards ./office-api-cards.jsonl
@@ -129,7 +128,7 @@ node pack.mjs \
 
 ## 公网主机
 
-微智 `PackageRegistryClient` 的默认清单和 `OFFICIAL_HOST` 已是 `agentone.guoyoutech.cn`。见 [WEIZHI_HOST.md](WEIZHI_HOST.md)。
+Agent1 侧默认清单主机见 [WEIZHI_HOST.md](WEIZHI_HOST.md)（`OfficialCdn` / `AGENT1_CDN_HOST`）。
 
 ## 自测
 

@@ -1,5 +1,6 @@
 package com.agent1.javaagent.skill;
 
+import com.agent1.javaagent.config.OfficialCdn;
 import com.agent1.javaagent.util.PathIo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,8 +20,10 @@ import java.util.logging.Logger;
 public final class SkillCatalogSync {
 
     public static final String ENV_CATALOG_URL = "AGENT1_SKILL_CATALOG_URL";
-    public static final String DEFAULT_CATALOG_URL =
-        "https://agentone.guoyoutech.cn/skills/registry/stable.json";
+
+    public static String defaultCatalogUrl() {
+        return OfficialCdn.skillsRegistryUrl();
+    }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Logger LOG = Logger.getLogger(SkillCatalogSync.class.getName());
@@ -94,7 +97,7 @@ public final class SkillCatalogSync {
         if (!prop.isEmpty()) {
             return prop;
         }
-        return DEFAULT_CATALOG_URL;
+        return defaultCatalogUrl();
     }
 
     private static String fetch(String url) throws IOException {

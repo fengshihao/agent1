@@ -34,18 +34,16 @@ chmod +x run_debug.sh   # 首次可选
 
 等价于依次执行 `./gradlew :app:assembleDebug`、`adb install -r app/build/outputs/apk/debug/agent1-android-debug.apk`、启动 `com.agent1.android` 的主界面。
 
-### Release（R8 混淆 + 独立签名）
+### Release（R8 混淆，签名与 Debug 相同）
 
 ```bash
-chmod +x run_release.sh bin/init-release-keystore   # 首次可选
 ./run_release.sh
 ```
 
 或在仓库根目录：`./build-android-agent.sh --release`
 
-- 首次会生成 **`release.keystore`** 与 **`release-signing.properties`**（已 gitignore，与 debug 签名分离；默认密码可通过 `RELEASE_STORE_PASSWORD` / `RELEASE_KEY_PASSWORD` 覆盖）。
-- 仅编译、不装设备：`./bin/init-release-keystore && ./gradlew :app:assembleRelease` → `app/build/outputs/apk/release/agent1-android-release.apk`；混淆映射见 `app/build/outputs/mapping/release/mapping.txt`。
-- Release 与 Debug **签名不同**：无法直接覆盖安装，需 `adb uninstall com.agent1.android` 后再装 Release。
+- 签名用仓库内 **`debug.keystore`**，与 Debug / CI 包可以互相覆盖安装。独立 release 签名以后再接。
+- 仅编译、不装设备：`./gradlew :app:assembleRelease` → `app/build/outputs/apk/release/agent1-android-release.apk`；混淆映射见 `app/build/outputs/mapping/release/mapping.txt`。
 
 ### 覆盖安装与 versionCode（含 GitHub Actions CI 包）
 
@@ -96,6 +94,7 @@ chmod +x run-connected-tests.sh   # 首次可选
 ```properties
 DASHSCOPE_API_KEY=your_key_here
 DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+AGENT1_CDN_HOST=your.cdn.host
 ```
 
 `app/build.gradle.kts` 会把这两个值注入到 `BuildConfig`（可选，便于开发机打包）。

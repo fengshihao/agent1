@@ -6,11 +6,10 @@
 
 | 构建类型 | 签名来源 | 说明 |
 |----------|----------|------|
-| Debug | 仓库内 `android_agent/debug.keystore` | 团队共用，CI Debug/无 release 配置的 Release 均用此 keystore，可互相覆盖安装 |
-| Release（本机） | `android_agent/release-signing.properties` | 复制 [release-signing.properties.example](../release-signing.properties.example) 或执行 `./bin/init-release-keystore` |
-| Release（CI） | 无 `release-signing.properties` 时退回 **debug keystore** | 与 Debug CI 包同签名；R8 仍开启 |
+| Debug | 仓库内 `android_agent/debug.keystore` | 团队共用，可互相覆盖安装 |
+| Release（本机与 CI） | 同一把 `debug.keystore` | R8 仍开启。独立 release 签名以后再接 |
 
-`release-signing.properties` 已 gitignore，勿提交。字段：`storeFile`（相对 `android_agent/`）、`keyAlias`、`storePassword`、`keyPassword`。
+本机 `./run_release.sh` 不再生成 `release.keystore`。`release-signing.properties` 与 `release.keystore` 仍 gitignore。以后若要换独立签名，再放这两份文件（字段见 [release-signing.properties.example](../release-signing.properties.example)）；没有该文件时 Release 继续用 debug 钥匙。
 
 ## versionCode / versionName
 

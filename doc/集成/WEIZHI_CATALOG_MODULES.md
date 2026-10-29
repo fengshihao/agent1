@@ -11,9 +11,9 @@ Weizhi 主干已移除 **`setScriptFolder` / `import "leaf.js"`**，官方 JS �
 | `setFsRoot` | 会话 workspace |
 | `setPackageRoot` | 桌面 / Android：`{agentRoot}/weizhi-home`（仅确保目录；包由 `WeizhiPackageSync.beforeEval` 从 registry 惰性安装） |
 
-官方 Office / SVG 等 JS 包**不进 jar/APK**（没网连不上模型，离线预装没有意义）。首次 `run_js` 由 `WeizhiPackageSync.beforeEval` 按源里 `import "weizhi:<name>"` 从云端 registry（`agentone.guoyoutech.cn`）ensure。发布走内容仓 pack 脚本 + 本仓 `artifact-cdn` 的 `pack.mjs + upload.sh`。源码 / 运行时 / 通道分层见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
+官方 Office / SVG 等 JS 包**不进 jar/APK**（没网连不上模型，离线预装没有意义）。首次 `run_js` 由 `WeizhiPackageSync.beforeEval` 按源里 `import "weizhi:<name>"` 从云端 registry（`OfficialCdn` / `AGENT1_CDN_HOST`）ensure。发布走本仓 `artifact-cdn` 的 `pack.mjs + upload.sh`。源码 / 运行时 / 通道分层见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
 
-集成测试用固化 fixture（`WeizhiTestPackages` / `WeizhiTestSkills`）。API 见 [OFFICE_XLSX_API.md](./OFFICE_XLSX_API.md) 等。
+集成测试用固化 fixture（`WeizhiTestPackages` / `WeizhiTestSkills`）。包/Skill 的 API 与工作流不在本仓，运行时靠 `find_caps` / `load_skill`。
 
 **例外——video（issue #98 交付模型，[#101](https://github.com/fengshihao/agent1/issues/101) 升至 0.6.0）**：`weizhi:video`（**video@0.6.0**）与插件 SO（`libweizhivideo.so` / `libweizhitranscode.so`）强版本耦合，**不上云 registry**，随 `:weizhi-video` AAR 原子交付进 APK（SO 走 jniLibs、JS 包走 AAR assets，`WeizhiPackages.syncBundled` 自动安装）；引擎侧 `WeizhiVideo.install(engine)` 注册插件。桌面无 MediaCodec，`ensureNative` 报 unsupported 属预期。
 
@@ -57,19 +57,19 @@ await exportVideo({
 
 ## 官方 Skill（与 Package 分轨，2026-10 起）
 
-- **Package** 只放 SDK 级 JS（`weizhi:<name>`）；**Skill** 为 `SKILL.md` + 可选脚本。内容源**可插拔**（官方默认 [agent1-skills](https://github.com/fengshihao/agent1-skills) `skills-src/`，可自建内容仓），上云用内容仓 pack 脚本 + 本仓 `artifact-cdn/` 通用工具。**不**把能上云的 Skill / Package 打进 jar/APK。
+- **Package** 只放 SDK 级 JS（`weizhi:<name>`）；**Skill** 为 `SKILL.md` + 可选脚本。上云用 `artifact-cdn/` 通用工具。**不**把能上云的 Skill / Package 打进 jar/APK。
 - 运行时目录 `<agentRoot>/skills-home/`；`load_skill` / 云端 `SkillRegistryClient`（统一 `registry/stable.json` 里 `kind=skill`）安装 zip。
 - `SkillsCapabilitySync` 写 `kind=skill` 卡（`source=skills_home`）；系统提示词注入 `skills/registry/stable.json` 渲染的目录；工作流：**先 `load_skill`，无匹配再 `find_caps`**。
 - 遗留：`PackageSkills` 仍解析旧包 manifest 的 `"skill"` 字段（新官方包不再使用）。内置例外：`skill-creator`（classpath bundled）。
 
 ## 集成测
 
-- `DocxOfficeIntegrationTest` / `PptxOfficeIntegrationTest` / `XlsxOfficeIntegrationTest`（`:weizhi-bridge:test`，需 `libweizhijni`；xlsx 从仓内真源安装）
+- `DocxOfficeIntegrationTest` / `PptxOfficeIntegrationTest` / `XlsxOfficeIntegrationTest`（`:weizhi-bridge:test`，需 `libweizhijni`；xlsx 从仓内 fixture 安装）
 - `OfficeCatalogInstrumentedTest`（Android 真机，云端 registry 动态安装，需联网）
 - `VideoExportInstrumentedTest`（Android 真机，AAR assets 离线装包：v1 remux 掐头去尾 + v2 image 主轨 scale 关键帧，无需联网）
-- 剪辑工作流 Skill：`video-edit`（官方内容源 [agent1-skills/skills-src/video-edit](https://github.com/fengshihao/agent1-skills)；云端 registry + `load_skill`，不进 APK）
+- 剪辑工作流 Skill：`video-edit`（云端 registry + `load_skill`，不进 APK）
 
 ## 关联
 
-- [WEIZHI.md](./WEIZHI.md)、[agent1#89](https://github.com/fengshihao/agent1/issues/89)、[agent1#98](https://github.com/fengshihao/agent1/issues/98)、[agent1#101](https://github.com/fengshihao/agent1/issues/101)
-- [WEIZHI_DOCX.md](./WEIZHI_DOCX.md)、[WEIZHI_PPTX.md](./WEIZHI_PPTX.md)
+- [WEIZHI.md](./WEIZHI.md)、[WEIZHI_PACKAGE_REGISTRY.md](./WEIZHI_PACKAGE_REGISTRY.md)
+- [agent1#89](https://github.com/fengshihao/agent1/issues/89)、[agent1#98](https://github.com/fengshihao/agent1/issues/98)、[agent1#101](https://github.com/fengshihao/agent1/issues/101)

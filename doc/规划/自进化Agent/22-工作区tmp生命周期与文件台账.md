@@ -6,7 +6,7 @@
 > 用户提议：coach 环节要求 AI 任务结束删 tmp + 从任务开始记录生成文件清单/总空间、结束时反馈给 AI。
 > 本文档记录提议与评估结论，**后续单开 session 设计实现**。
 
-关联：[10-运行时钩子与Coach提示.md](./10-运行时钩子与Coach提示.md)、`doc/集成/HTML2PPTX.md`、
+关联：[10-运行时钩子与Coach提示.md](./10-运行时钩子与Coach提示.md)、
 `java_agent/doc/runtime-data-layout.md`（workspace/tmp 约定）。
 
 ## 状态图例

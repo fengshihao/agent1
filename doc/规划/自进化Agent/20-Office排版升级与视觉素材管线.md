@@ -125,7 +125,7 @@ renderChart({ lib: "echarts" | "mermaid", spec | text, width, height, scale: 2, 
 
 每 PR 遵循仓库惯例：Java 侧改动带 JUnit；JS 包带魔数/结构校验测；`./scripts/ci-local.sh fast` 门禁。
 
-**落地进度**：PR1 已完成——`html2pptx@0.1.0` 截图模式包（含 workspace 图片自动内联）、`html2pptx` skill 与能力卡、系统提示词路由、`Html2PptxScriptTest`（mock 编排 + 真 Chromium 端到端 + `HTML2PPTX_SAMPLE_DIR` 样例对比）、`doc/集成/HTML2PPTX.md`；顺手修复桌面 CDP 两个既有缺陷（weizhi-web 资产迁移后 `DesktopBootstrapAssets` 路径失效、分块回执双重投递 seq 重复）。PR2（DOM 几何提取器）未开始。
+**落地进度**：PR1 已完成——`html2pptx@0.1.0` 截图模式包（含 workspace 图片自动内联）、`html2pptx` skill 与能力卡、系统提示词路由、`Html2PptxScriptTest`（mock 编排 + 真 Chromium 端到端 + `HTML2PPTX_SAMPLE_DIR` 样例对比）；顺手修复桌面 CDP 两个既有缺陷（weizhi-web 资产迁移后 `DesktopBootstrapAssets` 路径失效、分块回执双重投递 seq 重复）。PR2（DOM 几何提取器）未开始。
 
 ---
 

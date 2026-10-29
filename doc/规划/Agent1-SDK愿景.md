@@ -80,5 +80,5 @@ Weizhi 的 `android.*` 等 **不是** LLM 的 `@Tool` 列表项；仅在 **脚�
 
 - [17-能力检索-capability-search.md](./自进化Agent/17-能力检索-capability-search.md) — 编程智能体下的能力发现
 - [07-系统提示词与环境摘要.md](./自进化Agent/07-系统提示词与环境摘要.md) — 提示词分层
-- [WEIZHI 集成入口](../集成/WEIZHI_DOCX.md) — docx / 脚本目录
+- [WEIZHI 集成入口](../集成/WEIZHI.md) — 脚本引擎与宿主分界
 - Android 参考：`ProductivityAgentGateway`、`WeizhiHostLoader`

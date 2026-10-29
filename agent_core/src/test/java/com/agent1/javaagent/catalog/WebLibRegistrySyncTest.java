@@ -56,8 +56,9 @@ class WebLibRegistrySyncTest {
 
     @Test
     void officialUrlIsHttpsOnTheOfficialHost() {
-        assertEquals("https", WebLibRegistrySync.DEFAULT_REGISTRY_URL.startsWith("https://") ? "https" : "other");
-        assertTrue(WebLibRegistrySync.DEFAULT_REGISTRY_URL.contains(WebLibRegistrySync.OFFICIAL_HOST));
-        assertTrue(WebLibRegistrySync.DEFAULT_REGISTRY_URL.endsWith("/web-libs/registry/stable.json"));
+        String url = WebLibRegistrySync.defaultRegistryUrl();
+        assertTrue(url.startsWith("https://"));
+        assertTrue(url.contains(WebLibRegistrySync.officialHost()));
+        assertTrue(url.endsWith("/web-libs/registry/stable.json"));
     }
 }

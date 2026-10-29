@@ -11,7 +11,7 @@ import java.io.File
 data class MolanPreviewState(
     val file: File? = null,
     val error: String? = null,
-    val shellUrl: String = HostWebRegistrySync.DEFAULT_MD_SHELL_URL,
+    val shellUrl: String = HostWebRegistrySync.defaultMdShellUrl(),
 )
 
 /**

@@ -1,7 +1,7 @@
 # Weizhi 官方 Package Registry（方案）
 
 > **状态：微智下载客户端已实现。桌面和 Android 在执行含 `weizhi:` 的脚本前调用 `ensureInstalled`，并把清单里的当前卡片写入 find_caps（`source=registry`）。**  
-> 官方清单：`https://agentone.guoyoutech.cn/packages/registry/stable.json`（发布目录见仓库 `artifact-cdn/`）。  
+> 官方清单：`https://$AGENT1_CDN_HOST/packages/registry/stable.json`（发布目录见仓库 `artifact-cdn/`；主机由 `OfficialCdn` 配置）。  
 > 每个 `name` 在清单里只有当前一行。换版本是改这一行；find_caps 不保留上一版的卡片。  
 > 前置：[WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md)（#89 已合：内置 `weizhi:<name>` + `setPackageRoot`）  
 > 微智规格：[WEIZHI_PACKAGES.md](https://github.com/fengshihao/weizhi/blob/master/docs/WEIZHI_PACKAGES.md)
@@ -41,7 +41,7 @@ Registry **定期更新**（ETag / If-None-Match）；Agent1 缓存建议：`{ag
 
 | 层 | 路径 / 形态 | 版本出现在哪 |
 |----|-------------|--------------|
-| **源码（内容仓）** | 官方默认 agent1-skills `packages-src/<name>/`（可插拔；**路径不含版本**） | 仅 `manifest.json` 的 `version` |
+| **源码** | pack `--root` 下 `<name>/`（**路径不含版本**） | 仅 `manifest.json` 的 `version` |
 | **运行时安装** | `<weizhi-home>/packages/<name>@<version>/` | 安装目录名带版本（多版本可并存、只升不降） |
 | **云端制品** | `packages/<name>/<version>/<name>-<version>.zip` | 对象路径带版本；**已上传 zip 只增不改** |
 
@@ -55,7 +55,7 @@ Registry **定期更新**（ETag / If-None-Match）；Agent1 缓存建议：`{ag
 | `staging` | 真机 / 灰度，不进现网指针 | `AGENT1_WEIZHI_PACKAGE_REGISTRY_URL` 指向 staging 清单（已支持）；日后可加 `CHANNEL` 配置少拼 URL |
 | `stable` | 现网 | 默认 `…/packages/registry/stable.json` |
 
-目标节奏：`改内容仓源码 → 集成测试 fixture / 本地 registry 测 → pack --channel staging 真机测 → 验收后再写 stable`。  
+目标节奏：`改源码 → 集成测试 fixture / 本地 registry 测 → pack --channel staging 真机测 → 验收后再写 stable`。  
 预发布 semver（`x.y.z-rc.N` / `-dev`）、清单文件名按 channel 拆分（`registry/<channel>.json`）、以及 `min_client_version` 见 [artifact-cdn/README.md](../../artifact-cdn/README.md) TODO——**实现通道时不要把版本重新绑回源码目录名**。
 
 `artifact-cdn/pack.mjs`：源目录名为 `<name>`，身份以 manifest 为准；仍兼容旧的 `<name>@<version>` 目录（须与 manifest 一致）。`--channel` 写入清单 JSON 的 `channel` 字段；清单文件名目前仍落 `stable.json`（按 channel 分文件属后续项）。
@@ -79,9 +79,10 @@ Registry URL（可配置，默认微智官方）
 - 安装目标为 **`weizhi-home/packages/`**，不是 `shared/catalog/scripts/`。
 - 能力检索走 **find_caps** 的 `weizhi_package`（或等价 kind）。模型工具 `catalog_install` / `catalog_sync_status` 已删除；官方包在 `run_js` 前安装。桌面 `./agent1 sync` 仍服务 native 等 catalog 条目。
 
-**配置（Agent1 覆盖，Weizhi 提供默认 URL 常量）**：
+**配置（全局 CDN + 可选覆盖）**：
 
-- 环境变量：`AGENT1_WEIZHI_PACKAGE_REGISTRY_URL`（**已实现**，`WeizhiPackageSync.registryUrl()`）
+- 全局：`AGENT1_CDN_BASE_URL` / `AGENT1_CDN_HOST`（`OfficialCdn`，packages/skills/web-libs/host-web 共用）
+- 仅 Weizhi 包清单：`AGENT1_WEIZHI_PACKAGE_REGISTRY_URL`（**已实现**，`WeizhiPackageSync.registryUrl()`）
 - 系统属性：`agent1.weizhi.package.registry.url`（测试用，同上优先级在环境变量之后）
 - 或 `agent.manifest.json` 新字段（与 `AGENT1_CATALOG_MANIFEST_URL` 并列，未实现）
 

@@ -8,11 +8,13 @@ import com.agent1.android.productivity.logic.business.DiagnosticExport
 import com.agent1.android.productivity.logic.business.i18n.AppLocalization
 import com.agent1.android.productivity.logic.data.AndroidCapabilityDatabase
 import com.agent1.javaagent.capability.CapabilityIndexStore
+import com.agent1.javaagent.config.OfficialCdn
 
 class Agent1Application : Application() {
     override fun onCreate() {
         super.onCreate()
         AppLocalization.attach(this)
+        OfficialCdn.configure(BuildConfig.AGENT1_CDN_HOST)
         CapabilityIndexStore.setDatabaseOpener { path -> AndroidCapabilityDatabase.open(path) }
         AppFileLog.install(this)
         BootTrace.mark(this, "Application.onCreate")

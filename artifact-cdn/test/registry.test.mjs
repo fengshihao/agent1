@@ -315,14 +315,16 @@ test("upload prints zips before indexes and refuses loopback urls", async () => 
       "--kind",
       "weizhi_package",
       "--base-url",
-      "https://agentone.guoyoutech.cn/",
+      "https://cdn.example.test/",
       "--out",
       dist,
     ]);
     const dry = await runAllowFail("bash", [path.join(artifactCdn, "upload.sh")], {
       ARTIFACT_CDN_SKIP_LOCAL_ENV: "1",
       ARTIFACT_CDN_DIST: dist,
-      ARTIFACT_CDN_BASE_URL: "https://agentone.guoyoutech.cn/",
+      ARTIFACT_CDN_BASE_URL: "https://cdn.example.test/",
+      ARTIFACT_CDN_SSH: "user@cdn.example.test",
+      ARTIFACT_CDN_REMOTE_DIR: "/var/www/agentone",
       UPLOAD_DRY_RUN: "1",
     });
     assert.equal(dry.code, 0, dry.stderr);
@@ -332,7 +334,7 @@ test("upload prints zips before indexes and refuses loopback urls", async () => 
     assert.ok(lines.slice(0, firstIndex).every((line) => line.includes(".zip")));
     assert.match(lines[firstIndex], /registry\/stable\.json/);
     assert.match(lines[lines.length - 1], /packages\/registry\/stable\.json/);
-    assert.match(lines[0], /root@49\.232\.7\.38:\/var\/www\/agentone\/packages\//);
+    assert.match(lines[0], /user@cdn\.example\.test:\/var\/www\/agentone\/packages\//);
 
     await run("pack.mjs", [
       "--root",
@@ -348,6 +350,8 @@ test("upload prints zips before indexes and refuses loopback urls", async () => 
       ARTIFACT_CDN_SKIP_LOCAL_ENV: "1",
       ARTIFACT_CDN_DIST: local,
       ARTIFACT_CDN_BASE_URL: "http://127.0.0.1:9/",
+      ARTIFACT_CDN_SSH: "user@cdn.example.test",
+      ARTIFACT_CDN_REMOTE_DIR: "/var/www/agentone",
       UPLOAD_DRY_RUN: "1",
     });
     assert.notEqual(refused.code, 0);
@@ -369,11 +373,11 @@ test("web lib cards pack into their own registry and upload ships it last", asyn
       "--kind",
       "weizhi_package",
       "--base-url",
-      "https://agentone.guoyoutech.cn/",
+      "https://cdn.example.test/",
       "--out",
       dist,
     ]);
-    const { stdout } = await run("pack-web-libs.mjs", ["--out", dist]);
+    const { stdout } = await run("pack-web-libs.mjs", ["--out", dist, "--base-url", "https://cdn.example.test/"]);
     assert.match(stdout, /web-libs\/registry\/stable\.json cards=\d+/);
 
     const registry = JSON.parse(
@@ -387,7 +391,7 @@ test("web lib cards pack into their own registry and upload ships it last", asyn
       assert.match(card.id, /^web_lib\./);
       assert.match(card.entry, /https:\/\//);
       assert.match(card.entry, /^URL https:\/\//m);
-      assert.match(card.entry, /\n壳 https:\/\/agentone\.guoyoutech\.cn\/web-libs\/templates\//);
+      assert.match(card.entry, /\n壳 https:\/\/cdn\.example\.test\/web-libs\/templates\//);
       assert.doesNotMatch(card.entry, /<!DOCTYPE|<html/i);
     }
     const templateCount = (
@@ -398,7 +402,9 @@ test("web lib cards pack into their own registry and upload ships it last", asyn
     const dry = await runAllowFail("bash", [path.join(artifactCdn, "upload.sh")], {
       ARTIFACT_CDN_SKIP_LOCAL_ENV: "1",
       ARTIFACT_CDN_DIST: dist,
-      ARTIFACT_CDN_BASE_URL: "https://agentone.guoyoutech.cn/",
+      ARTIFACT_CDN_BASE_URL: "https://cdn.example.test/",
+      ARTIFACT_CDN_SSH: "user@cdn.example.test",
+      ARTIFACT_CDN_REMOTE_DIR: "/var/www/agentone",
       UPLOAD_DRY_RUN: "1",
     });
     assert.equal(dry.code, 0, dry.stderr);

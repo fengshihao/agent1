@@ -107,6 +107,7 @@ CI 在 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)：`java-test`、`q
 | `DASHSCOPE_API_KEY` / `ALIBABA_API_KEY` / `OPENAI_API_KEY` | 模型 API Key |
 | `ALIBABA_BASE_URL` / `OPENAI_BASE_URL` | OpenAI 兼容基地址 |
 | `AGENT1_AGENT_ROOT` | 会话与日志数据根（桌面生产力路径） |
+| `AGENT1_CDN_HOST` / `AGENT1_CDN_BASE_URL` | 官方制品 CDN（packages / skills / web-libs / host-web）；未配置时占位主机，见 `OfficialCdn` |
 | `AGENT1_SCRIPT_TIMEOUT_MS` 等 | 脚本与运行时限额，见 `AgentRuntimeDefaults` |
 
 运行时数据目录：[桌面生产力](java_agent/doc/runtime-data-layout.md) · [Android App](android_agent/doc/runtime-data-layout.md)。

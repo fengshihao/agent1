@@ -2,7 +2,7 @@
 # 一键：Release（R8 混淆 + 资源压缩）编译 → adb 覆盖安装 → 启动 MainActivity
 # 用法：在 android_agent 目录  ./run_release.sh
 #       或在仓库根目录  ./build-android-agent.sh --release
-# 首次会自动 ./bin/init-release-keystore 生成本地 release 签名（与 debug 分离）。
+# 签名与 Debug 相同，使用仓库内 debug.keystore。独立 release 签名以后再接。
 
 set -euo pipefail
 
@@ -16,11 +16,6 @@ ACTIVITY=".MainActivity"
 if [[ "$(adb get-state 2>/dev/null || true)" != "device" ]]; then
   echo "错误：未检测到可用设备。请连接手机并执行 adb devices 确认状态为 device。" >&2
   exit 1
-fi
-
-if [[ ! -f "$ROOT_DIR/release.keystore" ]] || [[ ! -f "$ROOT_DIR/release-signing.properties" ]]; then
-  echo "==> 0/4 初始化 Release 签名（release.keystore）"
-  "$ROOT_DIR/bin/init-release-keystore"
 fi
 
 echo "==> 1/4 发布 java-agent-core 到本地 Maven"
@@ -44,9 +39,9 @@ if [[ -f "$MAPPING" ]]; then
   echo "    ProGuard mapping: $MAPPING"
 fi
 
-echo "==> 3/4 安装 APK（Release 签名，与 Debug 不同包签名时需先卸载旧包）"
+echo "==> 3/4 安装 APK（与 Debug 同一把 debug.keystore，可覆盖安装）"
 if ! adb install -r -d "$APK_PATH"; then
-  echo "提示：若此前装的是 Debug 包，请先 adb uninstall $APP_ID 再重试。" >&2
+  echo "提示：覆盖失败时可先 adb uninstall $APP_ID 再重试。" >&2
   exit 1
 fi
 

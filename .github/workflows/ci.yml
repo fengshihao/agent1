@@ -34,6 +34,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
 
       - name: Run tests (Weizhi optional)
+        env:
+          AGENT1_CDN_HOST: ${{ secrets.AGENT1_CDN_HOST }}
+          AGENT1_CDN_BASE_URL: ${{ secrets.AGENT1_CDN_BASE_URL }}
         run: |
           set -euo pipefail
           WEIZHI_DIR="${GITHUB_WORKSPACE}/weizhi"
@@ -156,12 +159,16 @@ jobs:
         working-directory: android_agent
         env:
           DASHSCOPE_API_KEY: ""
+          AGENT1_CDN_HOST: ${{ secrets.AGENT1_CDN_HOST }}
+          AGENT1_CDN_BASE_URL: ${{ secrets.AGENT1_CDN_BASE_URL }}
         run: ./gradlew --no-daemon :app:testDebugUnitTest
 
       - name: Assemble Debug APK (no API key baked in)
         working-directory: android_agent
         env:
           DASHSCOPE_API_KEY: ""
+          AGENT1_CDN_HOST: ${{ secrets.AGENT1_CDN_HOST }}
+          AGENT1_CDN_BASE_URL: ${{ secrets.AGENT1_CDN_BASE_URL }}
           # GITHUB_RUN_NUMBER 由 Actions 注入；Gradle 用于单调 versionCode（见 app/build.gradle.kts）
         run: |
           ./gradlew --no-daemon :app:assembleDebug
@@ -184,6 +191,8 @@ jobs:
         env:
           DASHSCOPE_API_KEY: ""
           QWEN_API_KEY: ""
+          AGENT1_CDN_HOST: ${{ secrets.AGENT1_CDN_HOST }}
+          AGENT1_CDN_BASE_URL: ${{ secrets.AGENT1_CDN_BASE_URL }}
         run: |
           set -euo pipefail
           ./gradlew --no-daemon :app:assembleRelease

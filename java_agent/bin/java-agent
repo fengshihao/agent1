@@ -4,6 +4,9 @@ set -euo pipefail
 # 本脚本在 java_agent/bin/，工程根目录为其上一级（含 settings.gradle.kts、gradlew）
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 PROJECT_DIR="$(cd "${BIN_DIR}/.." && pwd -P)"
+REPO_ROOT="$(cd "${PROJECT_DIR}/.." && pwd -P)"
+# shellcheck source=../../scripts/cdn-env.sh
+source "${REPO_ROOT}/scripts/cdn-env.sh"
 JAR_PATH="${PROJECT_DIR}/cli/build/libs/cli-0.1.0-SNAPSHOT-all.jar"
 
 # ---- 统一提示：缺依赖时给出「缺什么 / 为什么 / 怎么办」，便于用户与 AI 快速定位 ----

@@ -10,7 +10,7 @@ import java.io.File
 data class DocxPreviewState(
     val file: File? = null,
     val error: String? = null,
-    val shellUrl: String = HostWebRegistrySync.DEFAULT_SHELL_URL,
+    val shellUrl: String = HostWebRegistrySync.defaultShellUrl(),
 )
 
 class DocxPreviewViewModel(

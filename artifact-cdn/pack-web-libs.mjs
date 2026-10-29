@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { SCHEMA_VERSION, loadCards, writeJson } from "./lib/registry.mjs";
+import { resolveCdnBaseUrl } from "./lib/cdn-base-url.mjs";
 import {
   normalizeWebLibCard,
   publishWebLibTemplates,
@@ -12,7 +13,6 @@ import {
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_TEMPLATES = path.join(here, "web-libs", "templates");
-const DEFAULT_BASE_URL = "https://agentone.guoyoutech.cn/";
 
 export async function packWebLibs({ cardsPath, outDir, templatesDir, baseUrl }) {
   const raw = loadCards(await readFile(cardsPath, "utf8")).filter((card) => card.kind === "web_lib");
@@ -37,7 +37,7 @@ export async function packWebLibs({ cardsPath, outDir, templatesDir, baseUrl }) 
   }
 
   const resolvedTemplates = templatesDir || DEFAULT_TEMPLATES;
-  const resolvedBase = baseUrl || process.env.ARTIFACT_CDN_BASE_URL || DEFAULT_BASE_URL;
+  const resolvedBase = resolveCdnBaseUrl(baseUrl);
   await publishWebLibTemplates(normalized, resolvedTemplates, outDir);
   const cards = registryCardsFromNormalized(normalized, resolvedBase);
 

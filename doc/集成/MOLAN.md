@@ -27,9 +27,9 @@ http://127.0.0.1:5517/?file=/doc/<文件名>
 
 ## 与 Skill 的关系
 
-官方 Skill **`md-preview`**（官方内容源 [agent1-skills](https://github.com/fengshihao/agent1-skills) `skills-src/md-preview/`，可插拔）封装了这套用法，agent 通过 `load_skill(md-preview)` + `run_bash` 自主预览（云端 registry，不进 jar/APK）。
+Skill **`md-preview`** 封装了这套用法，agent 通过 `load_skill(md-preview)` + `run_bash` 自主预览（云端 registry，不进 jar/APK）。
 
-## Android：embed 壳 + guoyoutech CDN + MolanHost 注入
+## Android：embed 壳 + 官方 CDN + MolanHost 注入
 
 与 docx 预览同轨（`artifact-cdn/host-web`）。Android **不打包** vditor 大库（约 8.8MB）也 **不打包** 壳 HTML；首装需联网。
 

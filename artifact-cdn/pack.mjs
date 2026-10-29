@@ -214,9 +214,9 @@ async function main() {
       "usage: node pack.mjs --root <packages 父目录，子目录为 name> --kind <weizhi_package|skill> --base-url <公网根> [--out dist] [--channel stable] [--cards <jsonl>]",
     );
   }
-  const baseUrl = args["base-url"] || process.env.ARTIFACT_CDN_BASE_URL;
+  const baseUrl = args["base-url"] || process.env.ARTIFACT_CDN_BASE_URL || process.env.AGENT1_CDN_BASE_URL;
   if (!baseUrl) {
-    throw new Error("set --base-url or ARTIFACT_CDN_BASE_URL");
+    throw new Error("set --base-url or AGENT1_CDN_BASE_URL / ARTIFACT_CDN_BASE_URL");
   }
   const outDir = path.resolve(
     args.out || path.join(path.dirname(fileURLToPath(import.meta.url)), "dist"),

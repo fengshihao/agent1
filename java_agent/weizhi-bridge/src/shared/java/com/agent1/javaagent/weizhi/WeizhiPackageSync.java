@@ -2,6 +2,7 @@ package com.agent1.javaagent.weizhi;
 
 import com.agent1.javaagent.capability.CapabilityIndexStore;
 import com.agent1.javaagent.capability.CapabilityRecord;
+import com.agent1.javaagent.config.OfficialCdn;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weizhi.packages.PackageInstaller;
@@ -29,8 +30,8 @@ import java.util.regex.Pattern;
  *
  * <p>版本策略：registry 只升不降——本地已装版本高于清单版本时保留本地，
  * 不会发生「清单 0.2.0 覆盖本地 0.2.1」的回退。
- * registry 地址可用 {@code AGENT1_WEIZHI_PACKAGE_REGISTRY_URL} 环境变量或
- * {@code agent1.weizhi.package.registry.url} 系统属性覆盖（本地/测试 registry）；
+ * 默认清单来自 {@link OfficialCdn}；可用 {@code AGENT1_WEIZHI_PACKAGE_REGISTRY_URL}
+ * 或 {@code agent1.weizhi.package.registry.url} 覆盖（本地/测试 registry）。
  * 覆盖时 zip 白名单自动加入该地址的 host，缓存写到独立文件不污染生产缓存。
  */
 public final class WeizhiPackageSync {
@@ -235,7 +236,7 @@ public final class WeizhiPackageSync {
         return out;
     }
 
-    /** registry 地址：环境变量 → 系统属性（测试用）→ SDK 默认生产地址。 */
+    /** registry 地址：环境变量 → 系统属性（测试用）→ {@link OfficialCdn}。 */
     static String registryUrl() {
         String env = System.getenv(ENV_URL);
         if (env != null && !env.isBlank()) {
@@ -245,25 +246,36 @@ public final class WeizhiPackageSync {
         if (prop != null && !prop.isBlank()) {
             return prop.trim();
         }
-        return PackageRegistryClient.DEFAULT_REGISTRY_URL;
+        return OfficialCdn.packagesRegistryUrl();
     }
 
-    /** 自定义 registry 地址时把该 host 加进 zip 白名单（SDK 默认只放行官方 host）。 */
+    /** zip 白名单：官方 CDN 主机，自定义 registry 时再加该 host（不依赖 weizhi 源码里的默认域名）。 */
     static List<String> registryHosts() {
-        String url = registryUrl();
-        if (url.equals(PackageRegistryClient.DEFAULT_REGISTRY_URL)) {
-            return null;
+        LinkedHashSet<String> hosts = new LinkedHashSet<>();
+        hosts.add(OfficialCdn.host());
+        try {
+            String host = URI.create(registryUrl()).getHost();
+            if (host != null && !host.isBlank()) {
+                hosts.add(host);
+            }
+        } catch (IllegalArgumentException ignored) {
+            // SDK 随后会校验 URL
         }
-        String host = URI.create(url).getHost();
-        if (host == null || host.isBlank() || host.equals(PackageRegistryClient.OFFICIAL_HOST)) {
-            return null;
+        return List.copyOf(hosts);
+    }
+
+    static boolean usingCustomRegistryUrl() {
+        String env = System.getenv(ENV_URL);
+        if (env != null && !env.isBlank()) {
+            return true;
         }
-        return List.of(host, PackageRegistryClient.OFFICIAL_HOST);
+        String prop = System.getProperty(PROP_URL);
+        return prop != null && !prop.isBlank();
     }
 
     /** 自定义 registry 用独立缓存文件，避免测试清单覆盖生产缓存。 */
     static Path registryCacheFile(Path home) {
-        if (registryHosts() == null) {
+        if (!usingCustomRegistryUrl()) {
             return null;
         }
         return home.resolve("registry-cache-custom.json");

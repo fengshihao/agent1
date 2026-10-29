@@ -18,10 +18,10 @@ test("normalize legacy fat entry and build slim registry entry", () => {
   const entry = buildWebLibEntry(
     normalized.lib_url,
     normalized.template,
-    "https://agentone.guoyoutech.cn/",
+    "https://cdn.example.test/",
   );
   assert.match(entry, /^URL https:\/\/cdn\.jsdelivr\.net\//);
-  assert.match(entry, /\n壳 https:\/\/agentone\.guoyoutech\.cn\/web-libs\/templates\/mermaid\.html$/);
+  assert.match(entry, /\n壳 https:\/\/cdn\.example\.test\/web-libs\/templates\/mermaid\.html$/);
   assert.doesNotMatch(entry, /路径 shared\/catalog\/templates\//);
   assert.doesNotMatch(entry, /<!DOCTYPE/);
 });
