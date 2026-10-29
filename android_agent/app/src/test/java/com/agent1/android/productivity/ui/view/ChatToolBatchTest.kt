@@ -73,6 +73,17 @@ class ChatToolBatchTest {
     }
 
     @Test
+    fun mainChatPieces_hidesToolsButKeepsReasoning() {
+        val pieces = listOf(
+            TurnPiece.Reasoning("r", "想一下", false),
+            TurnPiece.Tool(ToolBatchEntry("1", "todo_write", "", true, false, "ok", emptyList())),
+        )
+        val shown = ChatToolBatch.mainChatPieces(pieces)
+        assertEquals(1, shown.size)
+        assertTrue(shown[0] is TurnPiece.Reasoning)
+    }
+
+    @Test
     fun failureMarkComesFromTheToolFlagNotTheWording() {
         val flagged = ToolBatchEntry(
             key = "u1",

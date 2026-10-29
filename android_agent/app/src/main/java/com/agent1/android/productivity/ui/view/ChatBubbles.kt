@@ -271,8 +271,11 @@ internal fun TurnActivityBubble(
     stateKey: String,
     pieces: List<TurnPiece>,
     runInProgress: Boolean = false,
+    hiddenToolsInProgress: Boolean = false,
 ) {
-    if (pieces.isEmpty() && !runInProgress) return
+    val displayPieces = ChatToolBatch.mainChatPieces(pieces)
+    val showCard = displayPieces.isNotEmpty() || runInProgress || hiddenToolsInProgress
+    if (!showCard) return
     var expanded by rememberSaveable(stateKey) { mutableStateOf(false) }
     val bubbles = chatBubbleColors()
     val failed = pieces.any { it is TurnPiece.Tool && ChatToolBatch.showsFailure(it.entry) }
@@ -298,7 +301,11 @@ internal fun TurnActivityBubble(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    ChatToolBatch.title(pieces),
+                    when {
+                        displayPieces.isNotEmpty() -> ChatToolBatch.title(displayPieces)
+                        hiddenToolsInProgress -> "正在调用工具…"
+                        else -> ChatToolBatch.title(pieces)
+                    },
                     style = MaterialTheme.typography.titleSmall,
                     color = if (failed) {
                         MaterialTheme.colorScheme.error
@@ -317,7 +324,9 @@ internal fun TurnActivityBubble(
                     )
                 }
             }
-            val detail = ChatToolBatch.detail(pieces)
+            val detail = ChatToolBatch.detail(
+                if (displayPieces.isNotEmpty()) displayPieces else pieces,
+            )
             if (detail.isNotBlank()) {
                 Text(
                     detail,
@@ -330,7 +339,7 @@ internal fun TurnActivityBubble(
             }
             AnimatedVisibility(visible = expanded) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    pieces.forEach { piece ->
+                    displayPieces.forEach { piece ->
                         when (piece) {
                             is TurnPiece.Reasoning -> {
                                 CollapsibleReasoningBlock(

@@ -177,6 +177,16 @@ internal fun ChatMessageList(
             .nestedScroll(followConnection),
         contentPadding = PaddingValues(top = topContentPadding, bottom = 8.dp, start = 8.dp, end = 8.dp),
     ) {
+        if (state.sessionTodos.isNotEmpty()) {
+            item(key = "session-todos") {
+                ChatSessionTodoPanel(
+                    todos = state.sessionTodos,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                )
+            }
+        }
         items(
             count = lazyRows.size,
             key = { index -> lazyRows[index].key },
@@ -223,9 +233,15 @@ internal fun ChatMessageList(
                         )
                     }
                     is ChatLazyRow.TurnActivity -> {
+                        val hiddenTools = state.isRunning &&
+                            state.runTimeline.any {
+                                it is com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem.ToolPart &&
+                                    !it.finished
+                            }
                         TurnActivityBubble(
                             stateKey = row.key,
                             pieces = row.pieces,
+                            hiddenToolsInProgress = hiddenTools,
                         )
                     }
                 }
@@ -260,10 +276,16 @@ internal fun ChatMessageList(
                         )
                     }
                     is RunTimelineRow.Activity -> {
+                        val hiddenTools = state.isRunning &&
+                            state.runTimeline.any {
+                                it is com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem.ToolPart &&
+                                    !it.finished
+                            }
                         TurnActivityBubble(
                             stateKey = row.key,
                             pieces = row.pieces,
                             runInProgress = state.isRunning,
+                            hiddenToolsInProgress = hiddenTools,
                         )
                     }
                 }

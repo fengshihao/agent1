@@ -55,6 +55,7 @@ fun ProductivityHome(
     /** 打开产物库；sessionId 为空表示当前没有活动会话（落位页）。 */
     onOpenArtifacts: (sessionId: String) -> Unit = { _ -> },
     onOpenAbout: () -> Unit = {},
+    onOpenToolTrace: (String) -> Unit = { _ -> },
 ) {
     val listState by sessionListViewModel.state.collectAsState()
     val context = LocalContext.current
@@ -228,6 +229,7 @@ fun ProductivityHome(
                 onOpenHtmlPreview = onOpenHtmlPreview,
                 onOpenArtifacts = { onOpenArtifacts(sessionId) },
                 onOpenAbout = onOpenAbout,
+                onOpenToolTrace = { onOpenToolTrace(sessionId) },
                 onSessionFreshness = reportSessionFreshness,
             )
         }
@@ -248,6 +250,7 @@ private fun ChatPane(
     onOpenHtmlPreview: (sessionId: String, relativePath: String) -> Unit,
     onOpenArtifacts: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenToolTrace: () -> Unit,
     onSessionFreshness: (loading: Boolean, fresh: Boolean) -> Unit,
 ) {
     val viewModel: ChatViewModel = viewModel(
@@ -265,7 +268,7 @@ private fun ChatPane(
         onOpenSystemPrompt = onOpenSystemPrompt,
         onOpenArtifacts = onOpenArtifacts,
         onOpenAbout = onOpenAbout,
-        // 会话工作区路径由 sessionId 在预览路由内解析，这里只需注入当前会话 id。
+        onOpenToolTrace = onOpenToolTrace,
         onOpenInApp = { relativePath -> onOpenHtmlPreview(sessionId, relativePath) },
         onSessionFreshness = onSessionFreshness,
     )
