@@ -86,14 +86,26 @@ public final class SkillRegistryClient {
                 if (cmp >= 0) {
                     Path dir = SkillsHomeInstaller.installedDir(agentRoot, trimmed);
                     if (dir != null && Files.isRegularFile(dir.resolve("SKILL.md"))) {
-                        unchanged.add(trimmed);
+                        if (SkillsHomeInstaller.hasMatchingArtifactSha(dir, row.sha256)) {
+                            unchanged.add(trimmed);
+                            continue;
+                        }
+                        byte[] zip = downloadArtifact(row);
+                        verifySha256(zip, row.sha256);
+                        if (SkillsHomeInstaller.installMatchesZip(dir, zip)) {
+                            SkillsHomeInstaller.writeArtifactSha(dir, row.sha256);
+                            unchanged.add(trimmed);
+                            continue;
+                        }
+                        SkillsHomeInstaller.installFromZip(agentRoot, row.name, row.version, zip, row.sha256);
+                        installed.add(trimmed);
                         continue;
                     }
                 }
             }
             byte[] zip = downloadArtifact(row);
             verifySha256(zip, row.sha256);
-            SkillsHomeInstaller.installFromZip(agentRoot, row.name, row.version, zip);
+            SkillsHomeInstaller.installFromZip(agentRoot, row.name, row.version, zip, row.sha256);
             installed.add(trimmed);
         }
         if (!installed.isEmpty()) {
