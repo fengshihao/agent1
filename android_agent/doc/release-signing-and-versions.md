@@ -21,8 +21,23 @@
 
 本地号段（1 万+）通常低于 CI（10 万+）。从 CI 包降级装本地 debug 需 `adb install -r -d`，或提高本地 `VERSION_CODE`。
 
+## 官方 CDN（BuildConfig）
+
+源码不写生产 CDN 域名。Release / Debug APK 在编译时把主机写入 `BuildConfig.AGENT1_CDN_HOST`，启动时 `OfficialCdn.configure(...)`。未配置时使用占位 `cdn.example.test`，云装 registry / docx·md 预览壳不可用。
+
+| 场景 | 配置方式 |
+|------|----------|
+| **GitHub Actions 产物 APK** | 仓库 Settings → Secrets → Actions：`AGENT1_CDN_HOST`（推荐）和/或 `AGENT1_CDN_BASE_URL`（`https://$AGENT1_CDN_HOST/`）。见 `.github/workflows/ci.yml` 的 `android-assemble-debug` job。 |
+| **本机 `./run_debug.sh` / `./run_release.sh`** | 仓库根 `artifact-cdn/cdn.local.env`（从 `cdn.local.env.example` 复制，已 gitignore）；脚本会 `source scripts/cdn-env.sh`。或 `android_agent/local.properties` 写同名键。 |
+| **桌面 `./agent1`** | 同上 `cdn.local.env`（`agent1` 入口已自动加载）。 |
+| **artifact-cdn 上传** | 同一 `cdn.local.env` 另配 `ARTIFACT_CDN_SSH`、`ARTIFACT_CDN_REMOTE_DIR`。 |
+
+Gradle 读取顺序见 `app/build.gradle.kts`：`local.properties` → Gradle 属性 → 环境变量。`AGENT1_CDN_HOST` 优先于 `AGENT1_CDN_BASE_URL`（完整 URL 也可，由 `OfficialCdn` 解析 host）。
+
+更多路径说明：[artifact-cdn/WEIZHI_HOST.md](../../artifact-cdn/WEIZHI_HOST.md)。
+
 ## 相关文件
 
 - `android_agent/debug.keystore` — 共用 debug 证书（密码 `android`）
 - `android_agent/.gitignore` — `release-signing.properties`、`release.keystore`
-- `.github/workflows/ci.yml` — 注入 `GITHUB_RUN_NUMBER`，checkout `fetch-depth: 0`
+- `.github/workflows/ci.yml` — 注入 `GITHUB_RUN_NUMBER`、checkout `fetch-depth: 0`；Android 构建注入 `AGENT1_CDN_*` Secrets

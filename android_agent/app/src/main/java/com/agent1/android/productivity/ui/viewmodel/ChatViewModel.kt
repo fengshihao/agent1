@@ -28,6 +28,10 @@ import com.agent1.android.productivity.logic.business.ProductivityGatewayProvide
 import com.agent1.android.productivity.logic.business.SessionAccessibleFilesStore
 import com.agent1.android.productivity.logic.business.SessionAttachmentLimits
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
+import com.agent1.android.productivity.logic.business.SessionTodoAccess
+import com.agent1.android.productivity.logic.business.SessionTodoItem
+import com.agent1.javaagent.tool.agent.TodoReadTool
+import com.agent1.javaagent.tool.agent.TodoWriteTool
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.i18n.AppLocalization
 import com.agent1.android.R
@@ -208,6 +212,9 @@ class ChatViewModel(
                     ),
                 )
             }
+            val todos = withContext(Dispatchers.IO) {
+                SessionTodoAccess.loadFromSessionDir(sessionTodoDir())
+            }
             val pendingForm = built.pending?.let { initialAskUserForm(it) }
             _state.value = _state.value.copy(
                 lines = built.lines,
@@ -221,6 +228,7 @@ class ChatViewModel(
                 workspacePath = wsPath,
                 transcriptLoadError = null,
                 pendingAskUser = pendingForm,
+                sessionTodos = todos,
             )
         } catch (e: Exception) {
             _state.value = _state.value.copy(
@@ -613,6 +621,10 @@ class ChatViewModel(
                     ),
                     pendingAskUser = pending?.let { initialAskUserForm(it) } ?: _state.value.pendingAskUser,
                 )
+                payload.result?.details?.let { SessionTodoAccess.parseTodoListFromToolDetails(it) }?.let { todos ->
+                    _state.value = _state.value.copy(sessionTodos = todos)
+                }
+                reloadSessionTodosAfterTodoTool(payload.toolCallId)
             }
             AgentEventType.TURN_END -> {
                 if (_state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()) {
@@ -663,6 +675,7 @@ class ChatViewModel(
                     content = display.summary,
                     reasoning = ChatTranscriptFormatting.truncateForUiDisplay(reasoningContent, 8_000),
                     isTool = true,
+                    hideInChat = HIDE_TOOLS_IN_MAIN_CHAT,
                     toolName = call?.name ?: AppLocalization.getString(R.string.run_tool_default_name),
                     toolArgsPreview = call?.argumentsJson?.trim()?.take(220),
                     toolFinished = true,
@@ -943,6 +956,26 @@ class ChatViewModel(
         return SessionWorkspacePaths.workspaceRoot(appContext, sessionId)?.toAbsolutePath()?.toString().orEmpty()
     }
 
+    private fun sessionTodoDir(): java.nio.file.Path =
+        SessionWorkspacePaths.agentRoot(appContext).resolve("sessions").resolve(sessionId)
+
+    private fun reloadSessionTodosAfterTodoTool(toolCallId: String) {
+        val toolName = _state.value.runTimeline
+            .filterIsInstance<ChatRunTimelineItem.ToolPart>()
+            .lastOrNull { it.toolCallId == toolCallId }
+            ?.toolName
+            ?: return
+        if (toolName != TodoWriteTool.TOOL_NAME && toolName != TodoReadTool.TOOL_NAME) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val todos = SessionTodoAccess.loadFromSessionDir(sessionTodoDir())
+            withContext(Dispatchers.Main) {
+                _state.value = _state.value.copy(sessionTodos = todos)
+            }
+        }
+    }
+
     private fun attachmentImportUserMessage(
         importedCount: Int,
         skippedBySessionLimit: Int,
@@ -981,5 +1014,6 @@ class ChatViewModel(
     companion object {
         private const val STREAM_FLUSH_MS = 80L
         private const val SETUP_KEY_AUTOSAVE_MS = 350L
+        private const val HIDE_TOOLS_IN_MAIN_CHAT = true
     }
 }

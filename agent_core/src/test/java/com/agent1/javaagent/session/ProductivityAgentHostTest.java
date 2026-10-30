@@ -297,6 +297,7 @@ class ProductivityAgentHostTest {
             assertTrue(bridge.exposedNames().contains("extra_search"));
             assertTrue(bridge.exposedNames().contains("read_file"));
             assertTrue(bridge.exposedNames().contains("todo_write"));
+            assertTrue(bridge.exposedNames().contains("todo_read"));
             assertTrue(bridge.exposedNames().contains("read_url"));
             assertFalse(bridge.exposedNames().contains("run_js"));
             assertEquals("hit", bridge.call("extra_search", java.util.Map.of()));
@@ -305,7 +306,7 @@ class ProductivityAgentHostTest {
     }
 
     @Test
-    void injectsOpenTodosIntoSystemPrompt() throws Exception {
+    void staticTodoMaintenanceInPromptWithoutDynamicList() throws Exception {
         LlmClient fake = (request, tools, streamListener, cancellationToken) ->
             new AssistantResponse("ok", List.of());
         AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
@@ -317,13 +318,15 @@ class ProductivityAgentHostTest {
             );
             host.runUserMessage("继续");
             String prompt = host.activeSystemPrompt();
-            assertTrue(prompt.contains("当前任务清单"));
-            assertTrue(prompt.contains("写出大纲"));
+            assertTrue(prompt.contains("todo_write"));
+            assertTrue(prompt.contains("todo_read"));
+            assertFalse(prompt.contains("当前任务清单"));
+            assertFalse(prompt.contains("写出大纲"));
         }
     }
 
     @Test
-    void completedTodosAreNotInjected() throws Exception {
+    void completedTodosOnDiskDoNotAppearInSystemPrompt() throws Exception {
         LlmClient fake = (request, tools, streamListener, cancellationToken) ->
             new AssistantResponse("ok", List.of());
         AgentRuntimeConfig config = AgentRuntimeConfig.builder().apiKey("test-key").build();
@@ -335,6 +338,7 @@ class ProductivityAgentHostTest {
             );
             host.runUserMessage("继续");
             assertFalse(host.activeSystemPrompt().contains("当前任务清单"));
+            assertFalse(host.activeSystemPrompt().contains("写出大纲"));
         }
     }
 

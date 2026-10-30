@@ -8,6 +8,7 @@ import com.agent1.android.productivity.logic.business.UserAttachmentMessageSuffi
 import com.agent1.android.productivity.logic.business.SessionAccessibleFilesStore
 import com.agent1.android.productivity.logic.business.UsageOverview
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
+import com.agent1.android.productivity.logic.business.SessionTodoItem
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
 
@@ -161,6 +162,7 @@ data class ChatUiState(
     val pendingAskUser: AskUserFormState? = null,
     /** 上一轮 Run 结束后的 token / 缓存统计；运行中不展示。 */
     val lastRunTokenSummary: RunTokenSummary? = null,
+    val sessionTodos: List<SessionTodoItem> = emptyList(),
 )
 
 /** 当前会话还没有可展示的对话内容。加载中或正在跑都不算。 */

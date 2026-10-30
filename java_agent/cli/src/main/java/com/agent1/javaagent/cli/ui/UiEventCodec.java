@@ -6,6 +6,7 @@ import com.agent1.javaagent.event.EventPayloads;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.model.ToolCall;
 import com.agent1.javaagent.tool.ToolExecutionResult;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -96,6 +97,10 @@ public final class UiEventCodec {
                     node.put("resultText", preview(result.getText(), RESULT_PREVIEW_LIMIT));
                     node.put("stopRunWaitingUser", result.stopRunWaitingUser());
                     node.put("toolError", result.isError());
+                    JsonNode details = result.getDetails();
+                    if (details != null && "todo_list".equals(details.path("kind").asText("")) && details.has("todos")) {
+                        node.set("todoList", details.get("todos"));
+                    }
                 }
             }
             case TURN_START -> {

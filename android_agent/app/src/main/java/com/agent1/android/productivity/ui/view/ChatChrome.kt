@@ -154,6 +154,7 @@ internal fun ChatMoreMenu(
     onExportDiagnostics: () -> Unit,
     onOpenSystemPrompt: (() -> Unit)? = null,
     onBrief: (() -> Unit)? = null,
+    onOpenToolTrace: (() -> Unit)? = null,
     onOpenAbout: () -> Unit = {},
 ) {
     Box {
@@ -186,6 +187,12 @@ internal fun ChatMoreMenu(
                 MoreMenuRow(stringResource(R.string.menu_session_brief), AgentIcons.Description, enabled = !exportInProgress) {
                     onDismiss()
                     onBrief()
+                }
+            }
+            if (onOpenToolTrace != null) {
+                MoreMenuRow(stringResource(R.string.menu_tool_trace), Icons.Filled.Search) {
+                    onDismiss()
+                    onOpenToolTrace()
                 }
             }
             MoreMenuRow(

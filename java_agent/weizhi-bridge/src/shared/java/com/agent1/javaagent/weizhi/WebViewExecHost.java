@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * 在 weizhi {@code webview_exec} 外包一层：换成一份模型可见说明，
@@ -60,7 +61,67 @@ public final class WebViewExecHost {
     /** writeFile 同时 return 的短元数据（页清单/overflow）允许保留的最大字符数。 */
     static final int KEEP_VALUE_MAX_CHARS = 64 * 1024;
 
+    /** 自动把顶层 await 包进 async IIFE 时写入回执 {@code note}，并给 coach 识别。 */
+    public static final String AUTO_ASYNC_WRAP_NOTE =
+        "宿主已把顶层 await 自动包成 return (async () => { ... })() 再执行；"
+            + "下次请直接这样写，不要在 webview_exec 的 code 里裸用 await。";
+
+    private static final Pattern AWAIT_WORD = Pattern.compile("\\bawait\\b");
+
     private WebViewExecHost() {
+    }
+
+    /** {@link #prepareRuntime(String)} 的结果：runtimeCode 可直接丢给 WebView。 */
+    public static final class RuntimePrep {
+        public final String code;
+        public final boolean autoAsyncWrapped;
+
+        RuntimePrep(String code, boolean autoAsyncWrapped) {
+            this.code = code;
+            this.autoAsyncWrapped = autoAsyncWrapped;
+        }
+    }
+
+    /**
+     * 执行前的唯一入口：先给用户 code 补 async IIFE（若有顶层 await），再注入 writeFile。
+     * 必须先包装用户代码。{@link #rewriteCode} 外层已是 {@code return (async …)}，
+     * 若先 rewrite 再检测 await，会误判「已经包过」而把裸 await 送进 {@code new Function}。
+     */
+    public static RuntimePrep prepareRuntime(String userCode) {
+        WrapResult wrapped = wrapTopLevelAwait(userCode);
+        return new RuntimePrep(rewriteCode(wrapped.code), wrapped.autoAsyncWrapped);
+    }
+
+    /**
+     * 用户 code 含 {@code await} 且尚未 {@code return (async …)} 时，包一层 async IIFE。
+     */
+    public static WrapResult wrapTopLevelAwait(String code) {
+        if (code == null || code.isEmpty()) {
+            return new WrapResult(code, false);
+        }
+        if (returnsAsyncWrapper(code) || !containsAwait(code)) {
+            return new WrapResult(code, false);
+        }
+        return new WrapResult("return (async () => {\n" + code + "\n})();", true);
+    }
+
+    static boolean returnsAsyncWrapper(String code) {
+        String trimmed = code.stripLeading();
+        return trimmed.startsWith("return (async") || trimmed.startsWith("return(async");
+    }
+
+    static boolean containsAwait(String code) {
+        return AWAIT_WORD.matcher(code).find();
+    }
+
+    public static final class WrapResult {
+        public final String code;
+        public final boolean autoAsyncWrapped;
+
+        WrapResult(String code, boolean autoAsyncWrapped) {
+            this.code = code;
+            this.autoAsyncWrapped = autoAsyncWrapped;
+        }
     }
 
     public static String augmentDescription(String description) {
@@ -123,10 +184,13 @@ public final class WebViewExecHost {
               try {
                 value = await eval(__code);
               } catch (e) {
-                if (e instanceof SyntaxError) {
+                if (!(e instanceof SyntaxError)) throw e;
+                try {
                   value = await (new Function('input', 'loadWasm', 'writeFile', '"use strict";\\n' + __code))(input, loadWasm, writeFile);
-                } else {
-                  throw e;
+                } catch (e2) {
+                  if (!(e2 instanceof SyntaxError)) throw e2;
+                  var AsyncFn = Object.getPrototypeOf(async function(){}).constructor;
+                  value = await (new AsyncFn('input', 'loadWasm', 'writeFile', '"use strict";\\n' + __code))(input, loadWasm, writeFile);
                 }
               }
               if (__writes.length) {

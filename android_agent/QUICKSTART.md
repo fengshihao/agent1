@@ -97,6 +97,8 @@ DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 AGENT1_CDN_HOST=your.cdn.host
 ```
 
+- **官方 CDN**（云装包 / 预览壳）：复制 `artifact-cdn/cdn.local.env.example` → `artifact-cdn/cdn.local.env`，填写 `AGENT1_CDN_HOST`（或 `AGENT1_CDN_BASE_URL`）。`./run_debug.sh` / `./run_release.sh` 会自动加载。细则见 [doc/release-signing-and-versions.md](doc/release-signing-and-versions.md)。
+
 `app/build.gradle.kts` 会把这两个值注入到 `BuildConfig`（可选，便于开发机打包）。
 
 **推荐**：安装 APK 后在 App 内打开 **「模型」→ 模型配置**，填写 API Key、Base URL，点 **从网络拉取模型** 选择模型并保存。配置加密存在本机，无需把 Key 打进 APK。

@@ -78,6 +78,8 @@
     <string name="menu_system_prompt">系统提示词</string>
     <string name="menu_session_brief">会话简报</string>
     <string name="menu_diagnostic_pack">诊断包</string>
+    <string name="menu_tool_trace">工具调用详情（调试）</string>
+    <string name="tool_trace_hint">主聊天仅展示助手回复与任务清单；此处为完整工具参数与回执。</string>
     <string name="menu_diagnostic_packing">正在打包…</string>
     <string name="menu_about">关于</string>
     <string name="menu_mcp_web_search">MCP 与联网搜索</string>

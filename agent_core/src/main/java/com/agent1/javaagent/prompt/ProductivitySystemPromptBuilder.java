@@ -37,6 +37,7 @@ public final class ProductivitySystemPromptBuilder {
         3. 其余：先对照下方「官方 Skill 目录」；有匹配则 load_skill 读剧本并按其中步骤做；没有合适 Skill 再 find_caps 一次（query 写全 API/工具），按调用示例做，不要猜。然后用尽量少的步骤一次做完。
         4. 完成后输出 markdown 总结，描述产出物路径；再给出下一步建议。
         文档和可视化先写结构化源（Markdown、Mermaid 或 JSON），再按第 3 步选路出成品。
+        5. 跨多轮、步骤较多的任务：先用 todo_write 建短清单（≤8 项），每完成一步更新状态；需要看当前清单时用 todo_read。单轮能直接做完的不必建。
         """.trim();
 
     static final String WORKFLOW_WITH_SCRIPT = """
@@ -47,6 +48,7 @@ public final class ProductivitySystemPromptBuilder {
         3. 其余（目标清晰的复杂任务）：先对照下方「官方 Skill 目录」；命中则 load_skill 按剧本执行（剧本需要 API 时按其指引查）；未命中则先用 find_caps 查 JS API 和工具（query 写全本任务要用的能力），再一次性写代码到文件，用一段 run_js 串行完成整件事，不逐步执行。
         4. 完成后输出 markdown 总结，描述产出物路径；再给出下一步建议。
         文档和可视化先写结构化源（Markdown、Mermaid 或 JSON），再按第 3 步选路出成品。
+        5. 跨多轮、步骤较多的任务：先用 todo_write 建短清单（≤8 项），每完成一步更新状态；需要看当前清单时用 todo_read。单轮能一段 run_js 做完的不必建。
         """.trim();
 
     /** 仅 scriptHostTools（Weizhi $tools 桥）时追加到工作流程段；细则在 run_js 工具说明。 */

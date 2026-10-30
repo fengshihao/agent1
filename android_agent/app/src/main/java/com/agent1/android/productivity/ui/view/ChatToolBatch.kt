@@ -44,6 +44,15 @@ internal sealed class RunTimelineRow {
 }
 
 internal object ChatToolBatch {
+
+    /** 主聊天不展示工具链；完整记录在「工具调用详情（调试）」页。 */
+    internal const val HIDE_TOOLS_IN_MAIN_CHAT: Boolean = true
+
+    internal fun mainChatPieces(pieces: List<TurnPiece>): List<TurnPiece> {
+        if (!HIDE_TOOLS_IN_MAIN_CHAT) return pieces
+        return pieces.filterNot { it is TurnPiece.Tool }
+    }
+
     fun fromLine(line: ChatLine): ToolBatchEntry = ToolBatchEntry(
         key = line.stableKey.ifBlank { line.toolName ?: "tool" },
         toolName = line.toolName ?: "工具",

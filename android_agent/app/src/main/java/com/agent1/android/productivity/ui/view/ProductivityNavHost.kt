@@ -53,6 +53,7 @@ private object Routes {
     const val CAPABILITIES = "capabilities"
     const val ABOUT = "about"
     const val PROMPT = "system-prompt/{sessionId}"
+    const val TOOL_TRACE = "tool-trace/{sessionId}"
     /** sessionId 为 "-" 表示无活动会话（落位页进入，禁用「插入会话」）。 */
     const val ARTIFACTS = "artifact-library/{sessionId}"
 
@@ -134,6 +135,13 @@ private fun PersistentChatLayer(
             nav.navigate("artifact-library/${Uri.encode(id)}")
         }
     }
+    val openToolTrace = remember(nav) {
+        { sessionId: String ->
+            if (sessionId.isNotBlank()) {
+                nav.navigate("tool-trace/${Uri.encode(sessionId)}")
+            }
+        }
+    }
     ProductivityHome(
         sessionListViewModel = sessionListViewModel,
         onOpenSettings = openSettings,
@@ -143,6 +151,7 @@ private fun PersistentChatLayer(
         onOpenHtmlPreview = openHtmlPreview,
         onOpenArtifacts = openArtifacts,
         onOpenAbout = openAbout,
+        onOpenToolTrace = openToolTrace,
     )
 }
 
@@ -269,6 +278,18 @@ private fun ProductivityOverlayNav(
                 )
                 SystemPromptScreen(
                     viewModel = vm,
+                    onBack = { nav.popBackStack() },
+                )
+            }
+        }
+        composable(
+            route = Routes.TOOL_TRACE,
+            arguments = listOf(navArgument("sessionId") { type = NavType.StringType }),
+        ) { entry ->
+            NavPage {
+                val sessionId = entry.arguments?.getString("sessionId").orEmpty()
+                ToolTraceScreen(
+                    sessionId = sessionId,
                     onBack = { nav.popBackStack() },
                 )
             }

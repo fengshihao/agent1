@@ -201,6 +201,10 @@ async function openFailedLogsPanel() {
   }
 }
 
+function openToolTracePanel() {
+  setState({ showToolTracePanel: true, moreMenuOpen: false });
+}
+
 function showToast(message: string) {
   setState({ toast: message });
   window.setTimeout(() => {
@@ -557,6 +561,15 @@ function closeMoreMenu() {
   setState({ moreMenuOpen: false });
 }
 
+async function refreshSessionTodos(sessionId: string) {
+  try {
+    const todos = await api.fetchSessionTodos(sessionId);
+    setState({ sessionTodos: todos });
+  } catch {
+    setState({ sessionTodos: [] });
+  }
+}
+
 async function refreshAttachments(sessionId: string) {
   try {
     const attachments = await api.fetchAttachments(sessionId);
@@ -580,6 +593,7 @@ async function loadActiveTranscript(sessionId: string) {
     error: null,
   });
   await refreshAttachments(sessionId);
+  await refreshSessionTodos(sessionId);
 }
 
 async function bootstrap() {
@@ -657,6 +671,19 @@ function onAgentEvent(event: api.AgentEventDto) {
     case "TOOL_EXECUTION_END": {
       const toolCallId = String(event.payload.toolCallId || "");
       const ended = state.tools.find((t) => t.toolCallId === toolCallId);
+      const rawTodoList = event.payload.todoList;
+      const todoPatch = Array.isArray(rawTodoList)
+        ? {
+            sessionTodos: rawTodoList
+              .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
+              .map((row) => ({
+                id: String(row.id ?? ""),
+                content: String(row.content ?? ""),
+                status: String(row.status ?? ""),
+              }))
+              .filter((row) => row.id && row.content),
+          }
+        : {};
       const tools = state.tools.map((t) =>
         t.toolCallId === toolCallId
           ? {
@@ -668,7 +695,7 @@ function onAgentEvent(event: api.AgentEventDto) {
           : t,
       );
       const waiting = !!event.payload.stopRunWaitingUser;
-      setState({ tools, isRunning: !waiting && state.isRunning });
+      setState({ tools, isRunning: !waiting && state.isRunning, ...todoPatch });
       if (
         state.preview &&
         ended &&
@@ -691,6 +718,9 @@ function onAgentEvent(event: api.AgentEventDto) {
         isRunning: false,
         lastRunTokenSummary: buildRunTokenSummary(false),
       });
+      if (event.sessionId) {
+        void refreshSessionTodos(event.sessionId);
+      }
       void reloadAfterRun();
       break;
     default:
@@ -762,7 +792,60 @@ async function onSubmitAsk() {
   await onSend();
 }
 
+function todoStatusLabel(status: string): string {
+  switch (status) {
+    case "in_progress":
+      return "进行中";
+    case "completed":
+      return "已完成";
+    case "pending":
+    default:
+      return "待办";
+  }
+}
+
+function renderTodoPanel(): string {
+  if (!state.sessionTodos.length) return "";
+  const rows = state.sessionTodos
+    .map((item) => {
+      const cls =
+        item.status === "completed"
+          ? "done"
+          : item.status === "in_progress"
+            ? "active"
+            : "";
+      return `<li class="todo-item ${cls}"><span class="todo-status">${escapeHtml(todoStatusLabel(item.status))}</span><span class="todo-text">${escapeHtml(item.content)}</span></li>`;
+    })
+    .join("");
+  return `<div class="todo-panel" aria-label="任务清单"><div class="todo-panel-head">任务清单</div><ul class="todo-list">${rows}</ul></div>`;
+}
+
+/** 主聊天默认不展示工具链；调试页单独看。 */
+function toolsHiddenInMainChat(): boolean {
+  return true;
+}
+
+function collectToolTraceEntries(): ToolPart[] {
+  const fromHistory: ToolPart[] = [];
+  for (const line of state.lines) {
+    if (line.role !== "tool") continue;
+    fromHistory.push({
+      id: line.id,
+      toolCallId: line.id,
+      toolName: line.toolName || "tool",
+      argsPreview: line.toolName === "result" ? "" : line.content,
+      resultSummary: line.toolName === "result" ? line.content : undefined,
+      error: line.error,
+      running: false,
+    });
+  }
+  return [...fromHistory, ...state.tools];
+}
+
 function renderBubble(line: ChatLine, sessionId: string | null): string {
+  if (line.role === "tool" && toolsHiddenInMainChat()) {
+    return "";
+  }
   if (line.role === "tool") {
     const body = sessionId
       ? formatBubbleContentHtml(line.content, sessionId) + extraPlainImageHtml(line.content, sessionId)
@@ -778,6 +861,23 @@ function renderBubble(line: ChatLine, sessionId: string | null): string {
 
 function renderLiveTools(): string {
   if (!state.tools.length && !state.streamingText && !state.streamingReasoning) return "";
+
+  if (toolsHiddenInMainChat()) {
+    const chunks: string[] = [];
+    if (state.streamingReasoning) {
+      chunks.push(
+        `<div class="reasoning-live"><span class="reasoning-live-label">思考</span>${escapeHtml(state.streamingReasoning)}</div>`,
+      );
+    }
+    if (state.tools.some((t) => t.running)) {
+      chunks.push(`<div class="run-status-line muted">正在调用工具…</div>`);
+    }
+    if (state.streamingText) {
+      chunks.push(`<div class="bubble assistant"><div class="bubble-text">${escapeHtml(state.streamingText)}</div></div>`);
+    }
+    return chunks.join("");
+  }
+
   const rows = state.tools
     .map((t) => {
       const status = t.running ? "进行中…" : t.error ? "失败" : "完成";
@@ -816,6 +916,31 @@ function renderAskPanel(): string {
     .join("");
   return `<div class="ask-panel"><h3>请回答后继续</h3>${qs}
     <button type="button" class="primary-btn" id="ask-submit">提交回答</button></div>`;
+}
+
+function renderToolTracePanel(): string {
+  if (!state.showToolTracePanel) return "";
+  const entries = collectToolTraceEntries();
+  const rows = entries
+    .map((t) => {
+      const status = t.running ? "进行中" : t.error ? "失败" : "完成";
+      return `<li class="tool-trace-item ${t.error ? "err" : ""}">
+        <div><strong>${escapeHtml(t.toolName)}</strong> · ${status}</div>
+        ${t.argsPreview ? `<pre class="tool-trace-pre">${escapeHtml(t.argsPreview)}</pre>` : ""}
+        ${t.resultSummary ? `<pre class="tool-trace-pre">${escapeHtml(t.resultSummary)}</pre>` : ""}
+      </li>`;
+    })
+    .join("");
+  return `<div class="overlay" id="tool-trace-overlay">
+    <div class="overlay-panel usage-panel wide-panel">
+      <h2>工具调用详情（调试）</h2>
+      <p class="muted">主聊天仅展示助手回复与任务清单；完整工具链在此查看（含 reasoning 流式内容请在运行时的「思考」条查看）。</p>
+      <ul class="tool-trace-list">${rows || "<li class='muted'>（本会话尚无工具记录）</li>"}</ul>
+      <div class="panel-actions">
+        <button type="button" class="primary-btn" id="tool-trace-close">关闭</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderCapabilityHit(hit: api.CapabilityHitDto): string {
@@ -1115,6 +1240,7 @@ function renderMoreMenu(): string {
     <button type="button" class="more-menu-item" data-more-action="system-prompt">系统提示词</button>
     <button type="button" class="more-menu-item" data-more-action="brief">会话简报</button>
     <button type="button" class="more-menu-item" data-more-action="diagnostics">诊断包</button>
+    <button type="button" class="more-menu-item" data-more-action="tool-trace">工具调用详情（调试）</button>
     <button type="button" class="more-menu-item" data-more-action="failed">失败工具调用</button>
     <button type="button" class="more-menu-item" data-more-action="about">关于</button>
   </div>`;
@@ -1289,7 +1415,7 @@ function render() {
   const chatBody =
     state.lines.length === 0 && !state.streamingText && !state.isRunning
       ? `<div class="landing"><h2>Agent1</h2><p>生产力助手 · 与 Android 端同款纸本风格。左侧管理会话，下方输入开始对话。</p></div>`
-      : chatLinesHtml + runTokenRow + newTopicBtn + renderLiveTools() + renderAskPanel();
+      : `${renderTodoPanel()}${chatLinesHtml}${runTokenRow}${newTopicBtn}${renderLiveTools()}${renderAskPanel()}`;
 
   const usageFoot = usageFooterLine(state.usage);
 
@@ -1372,6 +1498,7 @@ function render() {
     ${renderToolsPanel()}
     ${renderUsagePanel()}
     ${renderFailedLogsPanel()}
+    ${renderToolTracePanel()}
     ${renderAboutPanel()}
     ${renderCapabilitiesPanel()}
     ${renderArtifactsPanel()}
@@ -1415,6 +1542,12 @@ function bindEvents() {
   document.getElementById("failed-logs-overlay")?.addEventListener("click", (ev) => {
     if (ev.target === ev.currentTarget) setState({ showFailedLogs: false });
   });
+  document.getElementById("tool-trace-close")?.addEventListener("click", () =>
+    setState({ showToolTracePanel: false }),
+  );
+  document.getElementById("tool-trace-overlay")?.addEventListener("click", (ev) => {
+    if (ev.target === ev.currentTarget) setState({ showToolTracePanel: false });
+  });
   document.getElementById("btn-more")?.addEventListener("click", (ev) => {
     ev.stopPropagation();
     setState({ moreMenuOpen: !state.moreMenuOpen });
@@ -1449,6 +1582,9 @@ function bindEvents() {
           break;
         case "failed":
           void openFailedLogsPanel();
+          break;
+        case "tool-trace":
+          openToolTracePanel();
           break;
         case "about":
           void openAboutPanel();

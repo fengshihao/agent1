@@ -16,9 +16,9 @@ object ProductivityToolCapabilities {
     }
 
     fun detailBullets(): List<String> = buildList {
-        add("read_file · write_file · edit_file · list_dir · chat_history · read_url · web_search · todo_write")
+        add("read_file · write_file · edit_file · list_dir · chat_history · read_url · web_search · todo_write · todo_read")
         add("媒体：weizhi:image / weizhi:video（probe/抽帧/抽音轨/剪辑，AAR）/ weizhi:audio")
-        add("todo_write：会话短清单，跨轮记住计划；空数组清空")
+        add("todo_write：会话短清单，整表替换；todo_read：按需读清单。清单不进系统提示；空数组清空")
         add("web_search：Tavily（在模型配置中填写 Web Search Key 后生效）")
         if (weizhiIntegrated) {
             add("run_js（Weizhi 脚本，\$tools 桥接）；文档等功能写在包里，例如 import from \"weizhi:docx\"")

@@ -8,6 +8,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
+# shellcheck source=../scripts/cdn-env.sh
+source "${REPO_ROOT}/scripts/cdn-env.sh"
 APK_PATH="$ROOT_DIR/app/build/outputs/apk/debug/agent1-android-debug.apk"
 APP_ID="com.agent1.android"
 ACTIVITY=".MainActivity"

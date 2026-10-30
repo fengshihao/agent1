@@ -33,6 +33,12 @@ export type ToolPart = {
   running: boolean;
 };
 
+export type TodoItem = {
+  id: string;
+  content: string;
+  status: string;
+};
+
 export type AppState = {
   sessions: SessionMeta[];
   activeSessionId: string | null;
@@ -41,6 +47,7 @@ export type AppState = {
   streamingText: string;
   streamingReasoning: string;
   tools: ToolPart[];
+  sessionTodos: TodoItem[];
   isRunning: boolean;
   pendingAsk: AskRequest | null;
   askAnswers: Record<string, string>;
@@ -84,6 +91,7 @@ export type AppState = {
   showFailedLogs: boolean;
   failedLogs: FailedToolDto[];
   failedLogsScopeSession: boolean;
+  showToolTracePanel: boolean;
   moreMenuOpen: boolean;
   showAbout: boolean;
   aboutLoading: boolean;
@@ -117,6 +125,7 @@ export function createInitialState(): AppState {
     streamingText: "",
     streamingReasoning: "",
     tools: [],
+    sessionTodos: [],
     isRunning: false,
     pendingAsk: null,
     askAnswers: {},
@@ -160,6 +169,7 @@ export function createInitialState(): AppState {
     showFailedLogs: false,
     failedLogs: [],
     failedLogsScopeSession: true,
+    showToolTracePanel: false,
     moreMenuOpen: false,
     showAbout: false,
     aboutLoading: false,
