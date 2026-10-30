@@ -58,14 +58,12 @@ fun HostCapabilitySettingsScreen(
                 title = stringResource(R.string.host_caps_location),
                 description = stringResource(R.string.host_caps_location_hint),
                 checked = state.locationEnabled,
-                enabled = false,
                 onCheckedChange = viewModel::setLocationEnabled,
             )
             CapabilityToggleRow(
                 title = stringResource(R.string.host_caps_contacts),
                 description = stringResource(R.string.host_caps_contacts_hint),
                 checked = state.contactsEnabled,
-                enabled = false,
                 onCheckedChange = viewModel::setContactsEnabled,
             )
             Text(

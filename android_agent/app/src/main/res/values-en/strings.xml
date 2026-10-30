@@ -166,9 +166,9 @@
     <string name="host_caps_calendar">Calendar</string>
     <string name="host_caps_calendar_hint">When on, run_js may use android.calendar to list or create events (permissions + confirm).</string>
     <string name="host_caps_location">Location</string>
-    <string name="host_caps_location_hint">Coming soon.</string>
+    <string name="host_caps_location_hint">When on, run_js may call android.location.getCurrent (confirm + location permission).</string>
     <string name="host_caps_contacts">Contacts</string>
-    <string name="host_caps_contacts_hint">Coming soon.</string>
+    <string name="host_caps_contacts_hint">When on, android.contacts.search finds contacts (phones masked by default; confirm required).</string>
     <string name="host_caps_footer">When off, APIs return capability_disabled without silent access.</string>
     <string name="host_confirm_title">Confirm</string>
     <string name="host_confirm_ok">Allow</string>
