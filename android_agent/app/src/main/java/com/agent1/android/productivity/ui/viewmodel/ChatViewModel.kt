@@ -30,6 +30,8 @@ import com.agent1.android.productivity.logic.business.SessionAttachmentLimits
 import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.SessionTodoAccess
 import com.agent1.android.productivity.logic.business.SessionTodoItem
+import com.agent1.javaagent.tool.agent.TodoReadTool
+import com.agent1.javaagent.tool.agent.TodoWriteTool
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.i18n.AppLocalization
 import com.agent1.android.R
@@ -622,6 +624,7 @@ class ChatViewModel(
                 payload.result?.details?.let { SessionTodoAccess.parseTodoListFromToolDetails(it) }?.let { todos ->
                     _state.value = _state.value.copy(sessionTodos = todos)
                 }
+                reloadSessionTodosAfterTodoTool(payload.toolCallId)
             }
             AgentEventType.TURN_END -> {
                 if (_state.value.streamingText.isEmpty() && _state.value.streamingReasoning.isEmpty()) {
@@ -955,6 +958,23 @@ class ChatViewModel(
 
     private fun sessionTodoDir(): java.nio.file.Path =
         SessionWorkspacePaths.agentRoot(appContext).resolve("sessions").resolve(sessionId)
+
+    private fun reloadSessionTodosAfterTodoTool(toolCallId: String) {
+        val toolName = _state.value.runTimeline
+            .filterIsInstance<ChatRunTimelineItem.ToolPart>()
+            .lastOrNull { it.toolCallId == toolCallId }
+            ?.toolName
+            ?: return
+        if (toolName != TodoWriteTool.TOOL_NAME && toolName != TodoReadTool.TOOL_NAME) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val todos = SessionTodoAccess.loadFromSessionDir(sessionTodoDir())
+            withContext(Dispatchers.Main) {
+                _state.value = _state.value.copy(sessionTodos = todos)
+            }
+        }
+    }
 
     private fun attachmentImportUserMessage(
         importedCount: Int,

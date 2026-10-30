@@ -4,6 +4,7 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -161,32 +162,34 @@ internal fun ChatMessageList(
         return
     }
     val showEmptyHint = visibleLines.isEmpty() &&
+        state.sessionTodos.isEmpty() &&
         state.runTimeline.isEmpty() &&
         state.streamingText.isEmpty() &&
         state.streamingReasoning.isEmpty() &&
         !state.isRunning &&
         !state.inlineApiSetupVisible
-    if (showEmptyHint) {
-        EmptyChatHint(modifier)
-        return
-    }
-    LazyColumn(
-        state = listState,
-        modifier = modifier
-            .padding(horizontal = 4.dp)
-            .nestedScroll(followConnection),
-        contentPadding = PaddingValues(top = topContentPadding, bottom = 8.dp, start = 8.dp, end = 8.dp),
-    ) {
+    Column(modifier = modifier.fillMaxSize()) {
         if (state.sessionTodos.isNotEmpty()) {
-            item(key = "session-todos") {
-                ChatSessionTodoPanel(
-                    todos = state.sessionTodos,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp),
-                )
-            }
+            ChatSessionTodoPanel(
+                todos = state.sessionTodos,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            )
         }
+        if (showEmptyHint) {
+            EmptyChatHint(Modifier.weight(1f))
+            return@Column
+        }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp)
+                .nestedScroll(followConnection),
+            contentPadding = PaddingValues(top = topContentPadding, bottom = 8.dp, start = 8.dp, end = 8.dp),
+        ) {
         items(
             count = lazyRows.size,
             key = { index -> lazyRows[index].key },
@@ -344,6 +347,7 @@ internal fun ChatMessageList(
                 )
             }
         }
+    }
     }
 }
 

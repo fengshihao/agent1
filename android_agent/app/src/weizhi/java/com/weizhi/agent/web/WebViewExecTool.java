@@ -122,9 +122,8 @@ public class WebViewExecTool {
             inputB64 = Base64.getEncoder().encodeToString(bytes);
         }
 
-        // 注入 writeFile：WebView 内登记路径+Base64，宿主 materialize 解码落盘。
-        code = WebViewExecHost.rewriteCode(code);
-        WebViewTask.PreparedCode prepared = WebViewTask.prepareCode(code);
+        // 先给用户 code 补 async IIFE，再注入 writeFile。顺序不能反。
+        WebViewExecHost.RuntimePrep prepared = WebViewExecHost.prepareRuntime(code);
         code = prepared.code;
         if (prepared.autoAsyncWrapped) {
             WebLog.i("webview_exec auto-wrapped code with async IIFE (await detected)");
@@ -213,8 +212,8 @@ public class WebViewExecTool {
         }
         if (autoAsyncWrapped) {
             note = note == null
-                ? WebViewTask.AUTO_ASYNC_WRAP_NOTE
-                : note + " " + WebViewTask.AUTO_ASYNC_WRAP_NOTE;
+                ? WebViewExecHost.AUTO_ASYNC_WRAP_NOTE
+                : note + " " + WebViewExecHost.AUTO_ASYNC_WRAP_NOTE;
         }
         return note;
     }
