@@ -1,6 +1,8 @@
 package com.agent1.android
 
 import android.app.AlertDialog
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -27,11 +29,26 @@ import java.util.concurrent.atomic.AtomicReference
 class MainActivity : ComponentActivity(), ProductivityActivityBridge {
 
     private val pendingPermissions = AtomicReference<CompletableFuture<Map<String, Boolean>>?>(null)
+    private val pendingDocumentTree = AtomicReference<CompletableFuture<String?>?>(null)
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { result ->
         pendingPermissions.getAndSet(null)?.complete(result)
+    }
+
+    private val documentTreeLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) {
+            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            try {
+                contentResolver.takePersistableUriPermission(uri, flags)
+            } catch (_: SecurityException) {
+                // Session-scoped access may still work without persistable grant.
+            }
+        }
+        pendingDocumentTree.getAndSet(null)?.complete(uri?.toString())
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -119,6 +136,30 @@ class MainActivity : ComponentActivity(), ProductivityActivityBridge {
         } catch (_: Exception) {
             pendingPermissions.compareAndSet(future, null)
             permissions.associateWith { false }
+        }
+    }
+
+    override fun pickDocumentTree(): String? {
+        if (isFinishing || isDestroyed) {
+            return null
+        }
+        if (!HostUiBridge.confirm(getString(R.string.host_pick_directory_confirm))) {
+            return null
+        }
+        val future = CompletableFuture<String?>()
+        runOnUiThread {
+            if (isFinishing || isDestroyed) {
+                future.complete(null)
+                return@runOnUiThread
+            }
+            pendingDocumentTree.set(future)
+            documentTreeLauncher.launch(null)
+        }
+        return try {
+            future.get(120, TimeUnit.SECONDS)
+        } catch (_: Exception) {
+            pendingDocumentTree.compareAndSet(future, null)
+            null
         }
     }
 

@@ -51,8 +51,8 @@ Android 上「文件」至少有三类来源，权限与工具链不同，不宜
 
 | 能力 | Android API | Weizhi Caps | Agent1 现状 |
 |------|-------------|-------------|-------------|
-| **确认对话框** | `AlertDialog` 等 | `android.ui.confirm` | ⚠️ 已装 Caps，但 Confirmer 默认 **自动 true**（不弹窗） |
-| **选目录（整棵树）** | `ACTION_OPEN_DOCUMENT_TREE` + 持久 URI 权限 | `android.files.pickDirectory`，后续 `files.*` 走 SAF | ❌ 未接 `directoryPicker` |
+| **确认对话框** | `AlertDialog` 等 | `android.ui.confirm` | ✅ `HostUiBridge` + `MainActivity`（Weizhi confirmer 已接线） |
+| **选目录（整棵树）** | `ACTION_OPEN_DOCUMENT_TREE` + 持久 URI 权限 | `android.files.pickDirectory`，后续 `files.*` 走 SAF | ✅ `directoryPicker` → `HostUiBridge.pickDocumentTree` |
 | **选单个或多个文件** | `ACTION_OPEN_DOCUMENT` / `GetContent` | **无独立 Caps**；需宿主实现 | ❌ |
 | **选相册图片** | `PickVisualMedia` / `ACTION_PICK` + 权限 | **无**；可宿主复制进 workspace | ❌ |
 | **保存到系统（导出）** | `ACTION_CREATE_DOCUMENT` | **无**；可宿主从 workspace 弹出 | ❌ |
@@ -74,7 +74,8 @@ Weizhi 的设计是：**Caps 暴露脚本可调用的 op**，**Activity 与 Resu
 ## 3. 与「微智 / Weizhi」集成的边界
 
 - **编进 APK（`WEIZHI_INTEGRATED=true`）**：Caps 的 JS 面，加上 `agent_core` 里的 grep / bash 等工具注册；不等于系统 UI 自动可用。
-- **默认应有、但 Agent1 仍缺宿主接线**：真 `ui.confirm`、`files.pickDirectory`、Android 13+ 通知权限（`reminders`）、脚本 `fetch`（`enableFetch`）。
+- **默认应有、但 Agent1 仍缺宿主接线**：单文件/相册选择器、接收 `ACTION_SEND` 入站分享（见 §2.2）。
+- **2026-10 PR #114 已接线**：真 `ui.confirm`、`files.pickDirectory`（SAF）、`android.calendar/location/contacts` 原生扩展、`android.reminders` 产品闸 + Android 13+ `POST_NOTIFICATIONS`；脚本 `fetch` 已在 `WeizhiAndroidScriptEngineFactory.enableFetch()`。
 - **Weizhi 未提供、需 Agent1 自己加 Caps 或纯宿主 API**：Toast、按包名打开微信、单文件/相册选择器、接收 `ACTION_SEND`。
 
 ---

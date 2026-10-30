@@ -17,6 +17,7 @@ class HostCapabilitySettingsCoordinator(context: Context) {
         calendarEnabled = prefs.isCalendarEnabled(),
         locationEnabled = prefs.isLocationEnabled(),
         contactsEnabled = prefs.isContactsEnabled(),
+        remindersEnabled = prefs.isRemindersEnabled(),
     )
 
     fun setCalendarEnabled(enabled: Boolean) {
@@ -33,10 +34,16 @@ class HostCapabilitySettingsCoordinator(context: Context) {
         prefs.setContactsEnabled(enabled)
         _state.value = load()
     }
+
+    fun setRemindersEnabled(enabled: Boolean) {
+        prefs.setRemindersEnabled(enabled)
+        _state.value = load()
+    }
 }
 
 data class HostCapabilitySettingsState(
     val calendarEnabled: Boolean = false,
     val locationEnabled: Boolean = false,
     val contactsEnabled: Boolean = false,
+    val remindersEnabled: Boolean = false,
 )

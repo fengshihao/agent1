@@ -3,6 +3,7 @@ package com.agent1.android.productivity.logic.business.platform
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.content.ContextCompat
 import com.agent1.android.productivity.logic.data.AndroidCalendarAccess
 import com.agent1.android.productivity.logic.data.AndroidContactsAccess
@@ -103,6 +104,8 @@ object Agent1NativeCapsExtension {
                 "calendar.create" -> handleCreate(context, prefs, calendar, args)
                 "location.getCurrent" -> handleLocation(context, prefs, location, args)
                 "contacts.search" -> handleContactsSearch(context, prefs, contacts, args)
+                "reminders.schedule", "reminders.cancel", "reminders.fire" ->
+                    handleReminders(context, prefs, op, args, inner, argsJson)
                 else -> inner?.call(argsJson) ?: MiniJson.error("unsupported: $op")
             }
         } catch (e: Exception) {
@@ -213,6 +216,41 @@ object Agent1NativeCapsExtension {
             return jsonError("denied", "User declined contacts search")
         }
         return contacts.search(query, limit, withPhones, unmask).toString()
+    }
+
+    private fun handleReminders(
+        context: Context,
+        prefs: HostCapabilityPreferences,
+        op: String,
+        args: Map<String, Any>,
+        inner: WeizhiEngine.HostCall?,
+        argsJson: String,
+    ): String {
+        if (!prefs.isRemindersEnabled()) {
+            return jsonError("capability_disabled", "Reminders are off in Agent1 settings")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ensurePermissions(context, Manifest.permission.POST_NOTIFICATIONS)?.let { return it }
+        }
+        if (op == "reminders.schedule") {
+            val title = MiniJson.str(args, "title")
+            val body = MiniJson.str(args, "body")
+            val msg = buildString {
+                append("助手将安排一条通知提醒")
+                if (title.isNotBlank()) {
+                    append("：")
+                    append(title)
+                }
+                if (body.isNotBlank()) {
+                    append("\n")
+                    append(body)
+                }
+            }
+            if (!HostUiBridge.confirm(msg)) {
+                return jsonError("denied", "User declined reminder schedule")
+            }
+        }
+        return inner?.call(argsJson) ?: MiniJson.error("unsupported: $op")
     }
 
     private fun ensurePermissions(context: Context, vararg permissions: String): String? {

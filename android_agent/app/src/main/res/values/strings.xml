@@ -173,6 +173,9 @@
     <string name="host_caps_location_hint">开启后，脚本可通过 android.location.getCurrent 读取当前位置（需确认与定位权限）。</string>
     <string name="host_caps_contacts">通讯录</string>
     <string name="host_caps_contacts_hint">开启后，脚本可通过 android.contacts.search 搜索联系人（默认脱敏电话，需确认）。</string>
+    <string name="host_caps_reminders">通知提醒</string>
+    <string name="host_caps_reminders_hint">开启后，脚本可通过 android.reminders.schedule 安排本地通知（Android 13+ 需通知权限）。</string>
+    <string name="host_pick_directory_confirm">助手将打开系统界面，请选择一个文件夹供脚本只读/读写（Storage Access Framework）。</string>
     <string name="host_caps_footer">关闭某项后，run_js 内相关 API 会返回 capability_disabled，不会静默访问数据。</string>
     <string name="host_confirm_title">请确认</string>
     <string name="host_confirm_ok">允许</string>

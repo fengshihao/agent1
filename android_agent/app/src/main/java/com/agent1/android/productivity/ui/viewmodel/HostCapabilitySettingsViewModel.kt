@@ -16,4 +16,6 @@ class HostCapabilitySettingsViewModel(
     fun setLocationEnabled(enabled: Boolean) = coordinator.setLocationEnabled(enabled)
 
     fun setContactsEnabled(enabled: Boolean) = coordinator.setContactsEnabled(enabled)
+
+    fun setRemindersEnabled(enabled: Boolean) = coordinator.setRemindersEnabled(enabled)
 }

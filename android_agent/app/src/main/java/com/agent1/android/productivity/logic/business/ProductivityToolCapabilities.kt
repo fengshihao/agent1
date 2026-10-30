@@ -22,7 +22,7 @@ object ProductivityToolCapabilities {
         add("web_search：Tavily（在模型配置中填写 Web Search Key 后生效）")
         if (weizhiIntegrated) {
             add("run_js（Weizhi 脚本，\$tools 桥接）；文档等功能写在包里，例如 import from \"weizhi:docx\"")
-            add("android.calendar / android.location / android.contacts（设备能力页开启 + 系统权限；run_js 内调用）")
+            add("android.calendar / location / contacts；android.reminders（设备能力闸）；android.files.pickDirectory（SAF）")
             add("grep · glob · zip · bash · load_skill")
             add("WebView 工具 · MCP（侧栏配置 HTTP，脚本里 \$mcp.名称.工具）")
         } else {

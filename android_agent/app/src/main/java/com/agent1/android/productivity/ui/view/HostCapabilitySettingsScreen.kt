@@ -1,5 +1,9 @@
 package com.agent1.android.productivity.ui.view
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +33,11 @@ fun HostCapabilitySettingsScreen(
     onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        viewModel.setRemindersEnabled(granted)
+    }
     Column(modifier = Modifier.fillMaxSize()) {
         AgentTopBar(
             title = stringResource(R.string.host_caps_settings_title),
@@ -65,6 +74,22 @@ fun HostCapabilitySettingsScreen(
                 description = stringResource(R.string.host_caps_contacts_hint),
                 checked = state.contactsEnabled,
                 onCheckedChange = viewModel::setContactsEnabled,
+            )
+            CapabilityToggleRow(
+                title = stringResource(R.string.host_caps_reminders),
+                description = stringResource(R.string.host_caps_reminders_hint),
+                checked = state.remindersEnabled,
+                onCheckedChange = { enabled ->
+                    if (!enabled) {
+                        viewModel.setRemindersEnabled(false)
+                        return@CapabilityToggleRow
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        viewModel.setRemindersEnabled(true)
+                    }
+                },
             )
             Text(
                 text = stringResource(R.string.host_caps_footer),

@@ -25,10 +25,17 @@ class HostCapabilityPreferences(context: Context) {
         prefs.edit().putBoolean(KEY_CONTACTS, enabled).apply()
     }
 
+    fun isRemindersEnabled(): Boolean = prefs.getBoolean(KEY_REMINDERS, false)
+
+    fun setRemindersEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_REMINDERS, enabled).apply()
+    }
+
     companion object {
         private const val PREFS = "agent1_host_capabilities"
         private const val KEY_CALENDAR = "calendar"
         private const val KEY_LOCATION = "location"
         private const val KEY_CONTACTS = "contacts"
+        private const val KEY_REMINDERS = "reminders"
     }
 }

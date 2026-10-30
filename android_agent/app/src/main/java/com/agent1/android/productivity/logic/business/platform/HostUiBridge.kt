@@ -28,10 +28,19 @@ object HostUiBridge {
         val bridge = bridgeRef ?: return permissions.associateWith { false }
         return bridge.requestPermissions(permissions)
     }
+
+    /** SAF 选目录树；取消或失败返回 null。 */
+    fun pickDocumentTree(): String? {
+        val bridge = bridgeRef ?: return null
+        return bridge.pickDocumentTree()
+    }
 }
 
 interface ProductivityActivityBridge {
     fun confirm(message: String): Boolean
 
     fun requestPermissions(permissions: Array<String>): Map<String, Boolean>
+
+    /** content URI 字符串，供 {@code android.files.pickDirectory}。 */
+    fun pickDocumentTree(): String?
 }

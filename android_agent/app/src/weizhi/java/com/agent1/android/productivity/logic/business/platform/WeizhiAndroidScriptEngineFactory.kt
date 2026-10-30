@@ -51,6 +51,7 @@ class WeizhiAndroidScriptEngineFactory(
             engine.enableFetch()
             val session = AndroidCaps.Session(appContext, workspaceFile)
             session.confirmer = PlatformHost.Confirmer { message -> confirmer(message) }
+            session.directoryPicker = PlatformHost.DirectoryPicker { HostUiBridge.pickDocumentTree() }
             session.launchIntent = true
             session.launchShareSheet = true
             AndroidCaps.install(engine, session)
