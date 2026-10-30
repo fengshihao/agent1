@@ -8,6 +8,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
+# shellcheck source=../scripts/cdn-env.sh
+source "${REPO_ROOT}/scripts/cdn-env.sh"
 APK_PATH="$ROOT_DIR/app/build/outputs/apk/release/agent1-android-release.apk"
 MAPPING="$ROOT_DIR/app/build/outputs/mapping/release/mapping.txt"
 APP_ID="com.agent1.android"
