@@ -37,11 +37,12 @@ import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.agent1.android.productivity.logic.business.AgentAppLinks
 import com.agent1.android.productivity.logic.business.WorkspaceFileActions
-import com.agent1.android.productivity.logic.business.McpSettingsCoordinator
+import com.agent1.android.productivity.logic.business.HostCapabilitySettingsCoordinator
 import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
 import com.agent1.android.productivity.ui.viewmodel.ArtifactLibraryViewModel
 import com.agent1.android.productivity.ui.viewmodel.CapabilitySearchViewModel
 import com.agent1.android.productivity.ui.viewmodel.McpSettingsViewModel
+import com.agent1.android.productivity.ui.viewmodel.HostCapabilitySettingsViewModel
 import com.agent1.android.productivity.ui.viewmodel.ModelSettingsViewModel
 import com.agent1.android.productivity.ui.viewmodel.SessionListViewModel
 import com.agent1.android.productivity.ui.viewmodel.SystemPromptViewModel
@@ -49,6 +50,7 @@ import com.agent1.android.productivity.ui.viewmodel.SystemPromptViewModel
 private object Routes {
     const val HOME = "home"
     const val SETTINGS = "model-settings"
+    const val HOST_CAPS = "host-capabilities"
     const val MCP = "mcp-settings"
     const val CAPABILITIES = "capabilities"
     const val ABOUT = "about"
@@ -117,6 +119,7 @@ private fun PersistentChatLayer(
     val openSettings = remember(nav) { { nav.navigate(Routes.SETTINGS) } }
     val openMcp = remember(nav) { { nav.navigate(Routes.MCP) } }
     val openCapabilities = remember(nav) { { nav.navigate(Routes.CAPABILITIES) } }
+    val openHostCaps = remember(nav) { { nav.navigate(Routes.HOST_CAPS) } }
     val openAbout = remember(nav) { { nav.navigate(Routes.ABOUT) } }
     val openSystemPrompt = remember(nav) {
         { sessionId: String ->
@@ -152,6 +155,7 @@ private fun PersistentChatLayer(
         onOpenArtifacts = openArtifacts,
         onOpenAbout = openAbout,
         onOpenToolTrace = openToolTrace,
+        onOpenHostCaps = openHostCaps,
     )
 }
 
@@ -215,6 +219,18 @@ private fun ProductivityOverlayNav(
                     factory = simpleFactory { McpSettingsViewModel(coordinator, modelSettings) },
                 )
                 McpSettingsScreen(
+                    viewModel = vm,
+                    onBack = { nav.popBackStack() },
+                )
+            }
+        }
+        composable(Routes.HOST_CAPS) {
+            NavPage {
+                val coordinator = remember(appContext) { HostCapabilitySettingsCoordinator(appContext) }
+                val vm: HostCapabilitySettingsViewModel = viewModel(
+                    factory = simpleFactory { HostCapabilitySettingsViewModel(coordinator) },
+                )
+                HostCapabilitySettingsScreen(
                     viewModel = vm,
                     onBack = { nav.popBackStack() },
                 )

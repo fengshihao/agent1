@@ -56,6 +56,7 @@ fun ProductivityHome(
     onOpenArtifacts: (sessionId: String) -> Unit = { _ -> },
     onOpenAbout: () -> Unit = {},
     onOpenToolTrace: (String) -> Unit = { _ -> },
+    onOpenHostCaps: () -> Unit = {},
 ) {
     val listState by sessionListViewModel.state.collectAsState()
     val context = LocalContext.current
@@ -213,6 +214,7 @@ fun ProductivityHome(
                 onExportDiagnostics = { sessionListViewModel.exportDiagnostics(context) },
                 onOpenArtifacts = { onOpenArtifacts("") },
                 onOpenAbout = onOpenAbout,
+                onOpenHostCaps = onOpenHostCaps,
                 modelLabel = composerModelLabel(listState.configSummary),
             )
         } else {
@@ -230,6 +232,7 @@ fun ProductivityHome(
                 onOpenArtifacts = { onOpenArtifacts(sessionId) },
                 onOpenAbout = onOpenAbout,
                 onOpenToolTrace = { onOpenToolTrace(sessionId) },
+                onOpenHostCaps = onOpenHostCaps,
                 onSessionFreshness = reportSessionFreshness,
             )
         }
@@ -251,6 +254,7 @@ private fun ChatPane(
     onOpenArtifacts: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenToolTrace: () -> Unit,
+    onOpenHostCaps: () -> Unit,
     onSessionFreshness: (loading: Boolean, fresh: Boolean) -> Unit,
 ) {
     val viewModel: ChatViewModel = viewModel(
@@ -269,6 +273,8 @@ private fun ChatPane(
         onOpenArtifacts = onOpenArtifacts,
         onOpenAbout = onOpenAbout,
         onOpenToolTrace = onOpenToolTrace,
+        onOpenHostCaps = onOpenHostCaps,
+        // 会话工作区路径由 sessionId 在预览路由内解析，这里只需注入当前会话 id。
         onOpenInApp = { relativePath -> onOpenHtmlPreview(sessionId, relativePath) },
         onSessionFreshness = onSessionFreshness,
     )
