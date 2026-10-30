@@ -41,9 +41,9 @@ Android 上「文件」至少有三类来源，权限与工具链不同，不宜
 
 | 能力 | 典型场景 | 实现方式 | Agent1 现状 |
 |------|----------|----------|-------------|
-| **接收单文件/多文件分享** | 微信 → 「用 Agent1 打开」 | Activity `intent-filter`：`ACTION_SEND` / `SEND_MULTIPLE`，`mimeType`；`onCreate`/`onNewIntent` 读 `EXTRA_STREAM` | ❌ Manifest 未声明 |
-| **接收文本分享** | 分享链接/段落 | `ACTION_SEND` `text/plain` | ❌ |
-| **导入到 Session** | 复制到 workspace 或登记 URI | 宿主 `logic.business`：`ImportSharedFilesUseCase`（规划） | ❌ |
+| **接收单文件/多文件分享** | 微信 → 「用 Agent1 打开」 | Activity `intent-filter`：`ACTION_SEND` / `SEND_MULTIPLE`，`mimeType`；`onCreate`/`onNewIntent` 读 `EXTRA_STREAM` | ✅ `MainActivity` + `IncomingShareIntentParser` |
+| **接收文本分享** | 分享链接/段落 | `ACTION_SEND` `text/plain` | ✅ `EXTRA_TEXT` → `imports/shared-text-*.txt` |
+| **导入到 Session** | 复制到 workspace 或登记 URI | 宿主 `ProductivityAgentGateway.importIncomingShare` | ✅ 复制到 `imports/` + 可访问列表 |
 
 推荐产品路径：**入站不直接让模型读 content URI**，而是宿主 **复制到 workspace 子目录**（如 `imports/`）或 **登记到 Session 可访问列表** 并写 sidecar 元数据（原名、MIME、导入时间）。
 
@@ -74,9 +74,9 @@ Weizhi 的设计是：**Caps 暴露脚本可调用的 op**，**Activity 与 Resu
 ## 3. 与「微智 / Weizhi」集成的边界
 
 - **编进 APK（`WEIZHI_INTEGRATED=true`）**：Caps 的 JS 面，加上 `agent_core` 里的 grep / bash 等工具注册；不等于系统 UI 自动可用。
-- **默认应有、但 Agent1 仍缺宿主接线**：单文件/相册选择器、接收 `ACTION_SEND` 入站分享（见 §2.2）。
-- **2026-10 PR #114 已接线**：真 `ui.confirm`、`files.pickDirectory`（SAF）、`android.calendar/location/contacts` 原生扩展、`android.reminders` 产品闸 + Android 13+ `POST_NOTIFICATIONS`；脚本 `fetch` 已在 `WeizhiAndroidScriptEngineFactory.enableFetch()`。
-- **Weizhi 未提供、需 Agent1 自己加 Caps 或纯宿主 API**：Toast、按包名打开微信、单文件/相册选择器、接收 `ACTION_SEND`。
+- **默认应有、但 Agent1 仍缺宿主接线**：单文件/相册选择器。
+- **2026-10 PR #114 已接线**：真 `ui.confirm`、`files.pickDirectory`（SAF）、`android.calendar/location/contacts`（含 calendar update/delete）、`ACTION_SEND` 入站分享 → `imports/`、`android.reminders` 产品闸 + Android 13+ `POST_NOTIFICATIONS`；脚本 `fetch` 已在 `WeizhiAndroidScriptEngineFactory.enableFetch()`。
+- **Weizhi 未提供、需 Agent1 自己加 Caps 或纯宿主 API**：Toast、按包名打开微信、单文件/相册选择器。
 
 ---
 
@@ -217,7 +217,7 @@ sessions/<sessionId>/
 | S3 | `session-meta.json` + 环境段注入 | 新 Session 首轮 prompt 含列表 |
 | S3b | **AI 询问 + 助手消息下「选择文件」**（通道 A）+ 提示词约定 | Mock：assistant 含请求 → UI 显示按钮 → 选后列表与 user 消息更新 |
 | S3c | （可选）`request_user_files` 工具 + run 续跑（通道 B） | instrumented：tool pending → picker → tool result 含 paths |
-| S4 | `ACTION_SEND` 入站 + 「导入当前 Session」 | 微信分享 → imports |
+| S4 | `ACTION_SEND` 入站 + 「导入当前 Session」 | 微信分享 → imports | ✅ |
 | S5 | `extraReadRoot` 与 SAF 树只读 grep/read（可选） | 大目录不复制，只读检索 |
 
 ---

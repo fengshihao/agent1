@@ -88,4 +88,14 @@ class WorkspaceFileImportTest {
         assertNull(result)
         assertTrue(!Files.exists(workspace.resolve("imports").resolve("big.bin")))
     }
+
+    @Test
+    fun writeSharedTextToImports_createsTxtUnderImports() {
+        val workspace = Files.createTempDirectory("ws-share-text")
+        val result = WorkspaceFileImport.writeSharedTextToImports(workspace, "line1\nline2")
+        assertNotNull(result)
+        assertTrue(result!!.workspaceRelativePath.startsWith("imports/shared-text-"))
+        assertTrue(result.workspaceRelativePath.endsWith(".txt"))
+        assertTrue(Files.isRegularFile(workspace.resolve(result.workspaceRelativePath)))
+    }
 }

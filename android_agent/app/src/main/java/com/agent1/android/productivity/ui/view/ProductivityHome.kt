@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.agent1.android.productivity.logic.business.IncomingSharePayload
+import com.agent1.android.productivity.logic.business.IncomingShareQueue
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.SessionListViewModel
 import com.agent1.javaagent.session.SessionMeta
@@ -70,6 +72,7 @@ fun ProductivityHome(
     var createRequested by rememberSaveable { mutableStateOf(false) }
     var sessionLoading by remember { mutableStateOf(false) }
     var sessionFresh by remember { mutableStateOf(false) }
+    var pendingIncomingShare by remember { mutableStateOf<IncomingSharePayload?>(null) }
     val reportSessionFreshness = remember {
         { loading: Boolean, fresh: Boolean ->
             if (sessionLoading != loading) sessionLoading = loading
@@ -109,6 +112,12 @@ fun ProductivityHome(
                 activeSessionId = meta.sessionId
                 activeTitle = meta.title.ifBlank { defaultChatTitle() }
             }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        IncomingShareQueue.updates.collect {
+            IncomingShareQueue.poll()?.let { pendingIncomingShare = it }
         }
     }
 
@@ -222,6 +231,8 @@ fun ProductivityHome(
                 appContext = appContext,
                 sessionId = sessionId,
                 title = activeTitle,
+                incomingSharePayload = pendingIncomingShare,
+                onIncomingShareConsumed = { pendingIncomingShare = null },
                 onOpenDrawer = { toggleDrawer() },
                 onNewChat = { newChat() },
                 onOpenSettings = onOpenSettings,
@@ -244,6 +255,8 @@ private fun ChatPane(
     appContext: Context,
     sessionId: String,
     title: String,
+    incomingSharePayload: IncomingSharePayload? = null,
+    onIncomingShareConsumed: () -> Unit = {},
     onOpenDrawer: () -> Unit,
     onNewChat: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -261,6 +274,11 @@ private fun ChatPane(
         key = "chat-$sessionId",
         factory = simpleViewModelFactory { ChatViewModel(appContext, sessionId, title) },
     )
+    LaunchedEffect(incomingSharePayload) {
+        val payload = incomingSharePayload ?: return@LaunchedEffect
+        viewModel.importIncomingShareFromHost(payload)
+        onIncomingShareConsumed()
+    }
     ChatScreen(
         viewModel = viewModel,
         title = title,

@@ -50,6 +50,22 @@ object Agent1NativeCapsExtension {
         location: spec.location != null ? String(spec.location) : '',
         allDay: !!spec.allDay
       });
+    },
+    update: function(spec){
+      spec = spec || {};
+      return capCall('calendar.update', {
+        id: spec.id,
+        title: spec.title != null ? String(spec.title) : '',
+        start: spec.start != null ? String(spec.start) : '',
+        end: spec.end != null ? String(spec.end) : '',
+        notes: spec.notes != null ? String(spec.notes) : null,
+        location: spec.location != null ? String(spec.location) : null,
+        allDay: spec.allDay
+      });
+    },
+    delete: function(spec){
+      spec = spec || {};
+      return capCall('calendar.delete', { id: spec.id });
     }
   };
   android.location = {
@@ -102,6 +118,8 @@ object Agent1NativeCapsExtension {
             when (op) {
                 "calendar.list" -> handleList(context, prefs, calendar, args)
                 "calendar.create" -> handleCreate(context, prefs, calendar, args)
+                "calendar.update" -> handleUpdate(context, prefs, calendar, args)
+                "calendar.delete" -> handleDelete(context, prefs, calendar, args)
                 "location.getCurrent" -> handleLocation(context, prefs, location, args)
                 "contacts.search" -> handleContactsSearch(context, prefs, contacts, args)
                 "reminders.schedule", "reminders.cancel", "reminders.fire" ->
@@ -170,6 +188,84 @@ object Agent1NativeCapsExtension {
             return jsonError("denied", "User declined calendar create")
         }
         return calendar.createEvent(title, start, end, notes, loc, allDay).toString()
+    }
+
+    private fun handleUpdate(
+        context: Context,
+        prefs: HostCapabilityPreferences,
+        calendar: AndroidCalendarAccess,
+        args: Map<String, Any>,
+    ): String {
+        if (!prefs.isCalendarEnabled()) {
+            return jsonError("capability_disabled", "Calendar access is off in Agent1 settings")
+        }
+        ensurePermissions(context, Manifest.permission.READ_CALENDAR)?.let { return it }
+        ensurePermissions(context, Manifest.permission.WRITE_CALENDAR)?.let { return it }
+        val id = eventIdFrom(args) ?: return jsonError("bad_argument", "id is required")
+        val title = optionalStr(args, "title")
+        val start = optionalStr(args, "start")
+        val end = optionalStr(args, "end")
+        val notes = if (args.containsKey("notes")) MiniJson.str(args, "notes") else null
+        val loc = if (args.containsKey("location")) MiniJson.str(args, "location") else null
+        val allDay = when {
+            !args.containsKey("allDay") -> null
+            args["allDay"] == true || "true" == args["allDay"]?.toString() -> true
+            else -> false
+        }
+        val confirmMsg = buildString {
+            append("助手将修改系统日历事件 #")
+            append(id)
+            if (!title.isNullOrBlank()) {
+                append("：\n")
+                append(title)
+            }
+            if (!start.isNullOrBlank()) {
+                append("\n开始：")
+                append(start)
+            }
+            if (!end.isNullOrBlank()) {
+                append("\n结束：")
+                append(end)
+            }
+        }
+        if (!HostUiBridge.confirm(confirmMsg)) {
+            return jsonError("denied", "User declined calendar update")
+        }
+        return calendar.updateEvent(id, title, start, end, notes, loc, allDay).toString()
+    }
+
+    private fun handleDelete(
+        context: Context,
+        prefs: HostCapabilityPreferences,
+        calendar: AndroidCalendarAccess,
+        args: Map<String, Any>,
+    ): String {
+        if (!prefs.isCalendarEnabled()) {
+            return jsonError("capability_disabled", "Calendar access is off in Agent1 settings")
+        }
+        ensurePermissions(context, Manifest.permission.READ_CALENDAR)?.let { return it }
+        ensurePermissions(context, Manifest.permission.WRITE_CALENDAR)?.let { return it }
+        val id = eventIdFrom(args) ?: return jsonError("bad_argument", "id is required")
+        if (!HostUiBridge.confirm("助手将删除系统日历事件 #$id。")) {
+            return jsonError("denied", "User declined calendar delete")
+        }
+        return calendar.deleteEvent(id).toString()
+    }
+
+    private fun eventIdFrom(args: Map<String, Any>): Long? {
+        val raw = args["id"] ?: return null
+        return when (raw) {
+            is Number -> raw.toLong()
+            else -> raw.toString().toLongOrNull()
+        }
+    }
+
+    private fun optionalStr(args: Map<String, Any>, key: String): String? {
+        if (!args.containsKey(key)) {
+            return null
+        }
+        val value = MiniJson.str(args, key)
+        return value.takeIf { it.isNotEmpty() }
     }
 
     private fun handleLocation(

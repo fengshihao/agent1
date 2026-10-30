@@ -53,6 +53,30 @@ object WorkspaceFileImport {
         return BatchResult(imported, rejectedOversized)
     }
 
+    /** 分享纯文本时写入 `imports/shared-text-<ts>.txt`。 */
+    fun writeSharedTextToImports(workspaceRoot: Path, text: String): Result? {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) {
+            return null
+        }
+        val importsDir = workspaceRoot.resolve(IMPORT_DIR)
+        Files.createDirectories(importsDir)
+        val root = workspaceRoot.toAbsolutePath().normalize()
+        val baseName = "shared-text-${System.currentTimeMillis()}.txt"
+        val target = uniqueFile(importsDir, sanitizeFileName(baseName))
+        val normalized = target.toAbsolutePath().normalize()
+        if (!normalized.startsWith(root)) {
+            return null
+        }
+        val bytes = trimmed.toByteArray(Charsets.UTF_8)
+        if (bytes.size > SessionAttachmentLimits.MAX_FILE_BYTES) {
+            return null
+        }
+        Files.write(normalized, bytes)
+        val relative = root.relativize(normalized).toString().replace('\\', '/')
+        return Result(relative, target.fileName.toString())
+    }
+
     /**
      * 从本地已存在的文件（如其他会话的 AI 产物）复制进 `workspace/imports/`，
      * 与系统选择器导入同一落点与命名规则，使「插入会话」与底部附件按钮效果一致。

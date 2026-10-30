@@ -169,6 +169,49 @@ class ProductivityAgentGateway(
     }
 
     /**
+     * 处理「分享到 Agent1」：文件复制到 imports/，纯文本写入 imports/*.txt，更新可访问列表。
+     */
+    fun importIncomingShare(sessionId: String, payload: IncomingSharePayload): IncomingShareImportResult = execute {
+        if (payload.isEmpty()) {
+            return@execute IncomingShareImportResult(emptyList(), 0, null)
+        }
+        val agentHost = ensureHost()
+        prepareSession(sessionId)
+        val workspace = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
+            ?: throw IllegalStateException("workspace missing for session $sessionId")
+        var rejected = 0
+        val imported = mutableListOf<WorkspaceFileImport.Result>()
+        if (payload.fileUris.isNotEmpty()) {
+            val batch = WorkspaceFileImport.copyContentUrisToWorkspace(appContext, workspace, payload.fileUris)
+            rejected = batch.rejectedOversized
+            imported.addAll(batch.imported)
+        }
+        var textPath: String? = null
+        val sharedText = payload.sharedText
+        if (!sharedText.isNullOrBlank()) {
+            WorkspaceFileImport.writeSharedTextToImports(workspace, sharedText)?.let { imported.add(it) }
+        }
+        if (imported.isNotEmpty()) {
+            SessionAccessibleFilesStore.addEntries(
+                appContext,
+                sessionId,
+                imported.map { it.workspaceRelativePath },
+                imported.map { it.displayName },
+            )
+            textPath = imported.firstOrNull { it.workspaceRelativePath.contains("shared-text") }?.workspaceRelativePath
+            agentHost.setSessionEnvironmentSupplement(
+                SessionAccessibleFilesStore.formatForSystemPrompt(appContext, sessionId),
+            )
+            agentHost.switchSession(sessionId)
+        }
+        IncomingShareImportResult(
+            workspaceRelativePaths = imported.map { it.workspaceRelativePath },
+            rejectedOversizedCount = rejected,
+            sharedTextPath = textPath,
+        )
+    }
+
+    /**
      * 把其他会话的 AI 产物复制进当前会话 `workspace/imports/`（产物库「插入会话」），
      * 登记与提示注入与 [importUserPickedFiles] 完全一致，不触发 LLM。
      */

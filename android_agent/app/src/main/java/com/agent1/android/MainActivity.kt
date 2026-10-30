@@ -18,6 +18,8 @@ import com.agent1.android.llm.BootTrace
 import com.agent1.android.llm.CrashReporter
 import com.agent1.android.productivity.logic.business.CrashLogAccess
 import com.agent1.android.productivity.logic.business.CrashLogSnapshot
+import com.agent1.android.productivity.logic.business.IncomingShareIntentParser
+import com.agent1.android.productivity.logic.business.IncomingShareQueue
 import com.agent1.android.productivity.logic.business.platform.HostUiBridge
 import com.agent1.android.productivity.logic.business.platform.ProductivityActivityBridge
 import com.agent1.android.productivity.ui.view.ProductivityNavHost
@@ -66,6 +68,7 @@ class MainActivity : ComponentActivity(), ProductivityActivityBridge {
                 return
             }
             openMainCompose()
+            deliverIncomingShareIntent(intent)
         } catch (t: Throwable) {
             AppFileLog.e(TAG, "onCreate failed", t)
             CrashReporter.recordHandledFailure(this, "MainActivity.onCreate", t)
@@ -90,6 +93,12 @@ class MainActivity : ComponentActivity(), ProductivityActivityBridge {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        deliverIncomingShareIntent(intent)
+    }
+
+    private fun deliverIncomingShareIntent(intent: Intent?) {
+        val payload = IncomingShareIntentParser.parse(intent) ?: return
+        IncomingShareQueue.offer(payload)
     }
 
     override fun confirm(message: String): Boolean {
