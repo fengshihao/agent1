@@ -2,6 +2,30 @@
  * Agent1 Android WebView：读 Kotlin 桥注入 Markdown，重渲染时强制覆盖磁盘变更。
  */
 (function () {
+  function fixEmbedViewportHeight() {
+    var h = window.innerHeight;
+    if (h < 50) return;
+    var header = document.querySelector(".agent1-embed .reader-header");
+    var top = header ? Math.ceil(header.getBoundingClientRect().height) : 64;
+    if (top < 48) top = 64;
+    if (top > h - 80) top = Math.max(48, h - 80);
+    document.documentElement.style.setProperty("--agent1-reader-top", top + "px");
+    document.documentElement.style.setProperty("--agent1-menu-max", Math.max(240, h - top - 16) + "px");
+    var rb = document.getElementById("readerBody");
+    if (rb) {
+      rb.style.top = top + "px";
+      rb.style.bottom = "0px";
+      rb.style.height = (h - top) + "px";
+    }
+  }
+
+  window.addEventListener("resize", fixEmbedViewportHeight);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", fixEmbedViewportHeight);
+  } else {
+    fixEmbedViewportHeight();
+  }
+
   function showError(msg) {
     var el = document.getElementById("agent1MdError");
     if (!el) return;
@@ -57,12 +81,34 @@
         showError("墨览注入失败（文档可能为空）");
         return;
       }
-      /* vditor 初始化可能较慢；先去掉宿主转圈，避免一直 loading */
-      setTimeout(revealEmbed, 800);
-      setTimeout(revealEmbed, 4000);
+      waitForPreviewPaint(150);
     } catch (e) {
       showError(String(e && e.message ? e.message : e));
     }
+  }
+
+  function previewPainted() {
+    var rb = document.getElementById("readerBody");
+    var body = document.getElementById("molanPreviewBody");
+    if (!body || body.innerHTML.length < 20) return false;
+    var h = rb ? rb.getBoundingClientRect().height : body.getBoundingClientRect().height;
+    return h > 120;
+  }
+
+  function waitForPreviewPaint(triesLeft) {
+    fixEmbedViewportHeight();
+    if (previewPainted()) {
+      revealEmbed();
+      return;
+    }
+    if (triesLeft <= 0) {
+      showError("Markdown 预览渲染失败，请检查网络后重试");
+      revealEmbed();
+      return;
+    }
+    setTimeout(function () {
+      waitForPreviewPaint(triesLeft - 1);
+    }, 100);
   }
 
   function signalHostContentReady() {
@@ -73,6 +119,7 @@
   }
 
   function revealEmbed() {
+    fixEmbedViewportHeight();
     document.documentElement.classList.remove("agent1-boot");
     document.documentElement.classList.add("agent1-ready");
     signalHostContentReady();

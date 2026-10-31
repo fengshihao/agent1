@@ -24,9 +24,16 @@ test("embed css pins a two-row header on a phone width", async () => {
   assert.match(css, /\.app\.agent1-embed\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.doesNotMatch(css, /\.agent1-embed \.app\s*\{/);
   assert.match(css, /@media \(max-width: 720px\)/);
-  assert.match(css, /\.agent1-embed \.reader-header\s*\{[^}]*position:\s*sticky/);
+  assert.match(css, /\.agent1-embed \.reader-header\s*\{[^}]*position:\s*fixed/);
   assert.match(css, /\.agent1-embed \.reader-actions\s*\{[^}]*flex-wrap:\s*wrap/);
   assert.match(css, /\.agent1-embed \.reader-actions\s*\{[^}]*flex:\s*1 0 100%/);
+});
+
+test("embed css uses fixed reader layout for WebView height collapse", async () => {
+  const css = await readFile(path.join(cdn, "host-web/molan-embed/agent1-embed.css"), "utf8");
+  assert.match(css, /\.agent1-embed \.reader-body[\s\S]*position:\s*fixed/);
+  assert.match(css, /#molanPreviewBody[\s\S]*position:\s*fixed/);
+  assert.match(css, /--agent1-menu-max/);
 });
 
 test("md preview shell cache buster matches the registry fallback", async () => {

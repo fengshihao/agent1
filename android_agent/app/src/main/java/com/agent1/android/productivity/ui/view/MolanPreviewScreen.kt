@@ -54,6 +54,8 @@ private data class MolanInjectDiag(
     val shellErr: String,
     val r: String,
     val ready: Boolean,
+    val htmlLen: Int,
+    val bodyH: Int,
 )
 
 /** [WebView.evaluateJavascript] 回调里是 JSON 编码字符串，不能直接用 contains 匹配。 */
@@ -75,6 +77,8 @@ private fun parseMolanInjectDiag(raw: String?): MolanInjectDiag? {
             shellErr = o.optString("shellErr"),
             r = o.optString("r"),
             ready = o.optBoolean("ready"),
+            htmlLen = o.optInt("htmlLen"),
+            bodyH = o.optInt("bodyH"),
         )
     } catch (_: Exception) {
         null
@@ -84,13 +88,17 @@ private fun parseMolanInjectDiag(raw: String?): MolanInjectDiag? {
 private val MOLAN_INJECT_DIAG_JS =
     "(function(){var el=document.getElementById('agent1MdError');" +
         "var shellErr=(el&&!el.hidden)?String(el.textContent||''):'';" +
-        "var r=window.__agent1MolanRenderFromBridge?window.__agent1MolanRenderFromBridge():'no-fn';" +
+        "var body=document.getElementById('molanPreviewBody');" +
+        "var rb=document.getElementById('readerBody');" +
+        "var htmlLen=body?body.innerHTML.length:0;" +
+        "var bodyH=rb?Math.round(rb.getBoundingClientRect().height):" +
+        "(body?Math.round(body.getBoundingClientRect().height):0);" +
         "var ready=!!(window.MolanHost&&window.MolanHost.isReady&&window.MolanHost.isReady());" +
-        "return JSON.stringify({shellErr:shellErr,r:r,ready:ready});})()"
+        "return JSON.stringify({shellErr:shellErr,r:'diag',ready:ready,htmlLen:htmlLen,bodyH:bodyH});})()"
 
 /**
- * 墨览 Markdown 内置预览：embed shell 在 APK（assets），vditor 与 molan 运行时走
- * 官方 CDN（{@code OfficialCdn}）；md 文本经 [MOLAN_BRIDGE_NAME] 桥注入 [window.MolanHost]。
+ * 墨览 Markdown 内置预览：embed shell 走官方 CDN（{@code OfficialCdn}）；
+ * md 文本经 [MOLAN_BRIDGE_NAME] 桥注入 [window.MolanHost]。
  *
  * 打开即阅读（纸面视图）；文件变更后经 [WorkspaceFileWatcher] 自动重渲染。
  * 预览为只读语义：墨览内的保存是下载副本，不写回 workspace。
@@ -131,8 +139,12 @@ fun MolanPreviewScreen(
                 rendering = false
                 return@post
             }
-            if (diag.r == "ok" || diag.ready) {
-                AppFileLog.i("MolanPreview", "dismiss spinner inject r=${diag.r} ready=${diag.ready}")
+            val painted = diag.htmlLen > 20 && diag.bodyH > 120
+            if (painted) {
+                AppFileLog.i(
+                    "MolanPreview",
+                    "dismiss spinner htmlLen=${diag.htmlLen} bodyH=${diag.bodyH}",
+                )
                 rendering = false
             }
         }
@@ -263,8 +275,8 @@ fun MolanPreviewScreen(
                                         @JavascriptInterface
                                         fun onContentReady() {
                                             mainHandler.post {
-                                                AppFileLog.i("MolanPreview", "dismiss spinner onContentReady")
-                                                rendering = false
+                                                AppFileLog.i("MolanPreview", "onContentReady")
+                                                webView?.let { logMolanInject(it, 400L) }
                                             }
                                         }
                                     },
