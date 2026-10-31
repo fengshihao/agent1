@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "docx_preview": {
-    "shell": "{CDN}/host-web/shell/docx-preview/1/shell.html?v=20251025b",
+    "shell": "{CDN}/host-web/shell/docx-preview/1/shell.html?v=20261031b",
     "jszip": "{CDN}/host-web/vendor/jszip/3.10.1/jszip.min.js",
-    "docx_preview": "{CDN}/host-web/vendor/docx-preview/0.4.1/docx-preview.min.js"
+    "docx_preview": "{CDN}/host-web/vendor/docx-preview/0.4.1/docx-preview.min.js?v=20261031a"
   },
   "md_preview": {
     "shell": "{CDN}/host-web/molan-embed/1/shell.html?v=20261027c"

@@ -26,9 +26,11 @@ jszip / docx-preview **不**进 registry（已 bake 进 docx shell）。
 
 **服务器缓存策略**（nginx）：`/host-web/` 版本目录 `immutable`（30 天），`/host-web/registry/` `no-cache`；改壳时 bump `manifest` / `SHELL_VERSION_QUERY` 的 `?v=`（shell 与 molan/agent1 的 css/js 一并带版本，避免 WebView 粘住旧资源）。
 
+只改了预览壳时，不要跑全量 `./upload.sh`（它还要求 packages / skills 清单和 zip）。
+
 ```bash
 cd artifact-cdn && npm run pack-host-web
-./upload.sh
+./upload-host-web.sh
 ```
 
 见 [README.md](../README.md) 与 [doc/集成/MOLAN.md](../../doc/集成/MOLAN.md)。

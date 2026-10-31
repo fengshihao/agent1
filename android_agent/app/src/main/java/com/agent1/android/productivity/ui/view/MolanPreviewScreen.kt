@@ -9,6 +9,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -40,6 +41,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.agent1.android.llm.AppFileLog
 import com.agent1.android.productivity.logic.business.HtmlPreviewNavigation
 import com.agent1.android.productivity.logic.business.MolanPreviewFileReader
+import com.agent1.android.productivity.logic.business.MolanPreviewImages
+import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.WorkspaceFileWatcher
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
@@ -159,8 +162,13 @@ fun MolanPreviewScreen(
         }, delayMs)
     }
 
+    fun rewriteLocalImages(view: WebView?) {
+        view?.evaluateJavascript(MolanPreviewImages.rewriteJs(relativePath), null)
+    }
+
     fun afterPageReady(view: WebView) {
         rerender(view)
+        rewriteLocalImages(view)
         logMolanInject(view, 1_500L)
         logMolanInject(view, 4_000L)
         mainHandler.postDelayed({
@@ -245,6 +253,7 @@ fun MolanPreviewScreen(
                         factory = { ctx ->
                             val docAbsolutePath = file.absolutePath
                             val displayName = relativePath.substringAfterLast('/').ifEmpty { "document.md" }
+                            val workspaceRoot = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
                             WebView(ctx).apply {
                                 setBackgroundColor(Color.parseColor("#141C18"))
                                 settings.javaScriptEnabled = true
@@ -276,7 +285,10 @@ fun MolanPreviewScreen(
                                         fun onContentReady() {
                                             mainHandler.post {
                                                 AppFileLog.i("MolanPreview", "onContentReady")
-                                                webView?.let { logMolanInject(it, 400L) }
+                                                webView?.let {
+                                                    rewriteLocalImages(it)
+                                                    logMolanInject(it, 400L)
+                                                }
                                             }
                                         }
                                     },
@@ -292,6 +304,16 @@ fun MolanPreviewScreen(
                                     }
                                 }
                                 webViewClient = object : WebViewClient() {
+                                    override fun shouldInterceptRequest(
+                                        view: WebView,
+                                        request: WebResourceRequest,
+                                    ): WebResourceResponse? {
+                                        return interceptPreviewWorkspace(
+                                            workspaceRoot,
+                                            request.url?.toString(),
+                                        )
+                                    }
+
                                     override fun shouldOverrideUrlLoading(
                                         view: WebView,
                                         request: WebResourceRequest,

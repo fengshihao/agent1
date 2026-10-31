@@ -1372,17 +1372,18 @@ button {
 .preview-media {
   flex: 1;
   min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: auto;
+  position: relative;
+  overflow: hidden;
   background: var(--paper);
-  padding: 1rem;
 }
 
 .preview-media img {
-  max-width: 100%;
-  max-height: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 2rem);
+  max-height: calc(100% - 2rem);
   object-fit: contain;
 }
 

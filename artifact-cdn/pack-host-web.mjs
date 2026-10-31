@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { applyCdnPlaceholder, resolveCdnBaseUrl } from "./lib/cdn-base-url.mjs";
+import { patchDocxPreviewBundle } from "./lib/patch-docx-preview.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -30,7 +31,8 @@ async function copyVendor(outDir) {
   await mkdir(path.dirname(jszipDest), { recursive: true });
   await mkdir(path.dirname(docxDest), { recursive: true });
   await copyFile(jszipSrc, jszipDest);
-  await copyFile(docxSrc, docxDest);
+  const docxJs = patchDocxPreviewBundle(await readFile(docxSrc, "utf8"));
+  await writeFile(docxDest, docxJs);
 }
 
 async function bakeShell(outDir, manifest) {

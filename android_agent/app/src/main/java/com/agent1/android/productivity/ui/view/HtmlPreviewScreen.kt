@@ -6,6 +6,7 @@ import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -69,6 +70,8 @@ import com.agent1.javaagent.html.inspect.HtmlInspectScript
 import com.agent1.javaagent.html.inspect.InspectFeedbackComposer
 import com.agent1.javaagent.html.inspect.InspectedElement
 import com.agent1.android.productivity.logic.business.HtmlPreviewNavigation
+import com.agent1.android.productivity.logic.business.PreviewWorkspaceResources
+import com.agent1.android.productivity.logic.business.SessionWorkspacePaths
 import com.agent1.android.productivity.logic.business.UserFacingError
 import com.agent1.android.productivity.logic.business.WorkspaceFileWatcher
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
@@ -389,10 +392,9 @@ fun HtmlPreviewScreen(
                         WebView(ctx).apply {
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
-                            // app 私有目录内 file:// 加载需显式允许（API 30+ 默认 false）。
-                            settings.allowFileAccess = true
-                            // allowFileAccessFromFileURLs / allowUniversalAccessFromFileURLs
-                            // 保持默认 false：file:// 页面不得读任意文件与跨源。
+                            // 页面走 https://appassets.androidplatform.net/ ，相对资源由拦截器读 workspace。
+                            // 不打开 file://，也不放行 allowFileAccessFromFileURLs。
+                            val workspaceRoot = SessionWorkspacePaths.workspaceRoot(appContext, sessionId)
                             addJavascriptInterface(
                                 object : Any() {
                                     // JS 桥线程回调 → 主线程更新 Compose 状态。
@@ -423,6 +425,16 @@ fun HtmlPreviewScreen(
                                 )
                             }
                             webViewClient = object : WebViewClient() {
+                                override fun shouldInterceptRequest(
+                                    view: WebView,
+                                    request: WebResourceRequest,
+                                ): WebResourceResponse? {
+                                    return interceptPreviewWorkspace(
+                                        workspaceRoot,
+                                        request.url?.toString(),
+                                    )
+                                }
+
                                 override fun shouldOverrideUrlLoading(
                                     view: WebView,
                                     request: WebResourceRequest,
@@ -464,7 +476,7 @@ fun HtmlPreviewScreen(
                                     }
                                 }
                             }
-                            loadUrl(file.toURI().toString())
+                            loadUrl(PreviewWorkspaceResources.documentUrl(relativePath))
                             webView = this
                             webViewHost = HtmlPreviewWebViewHost(this)
                         }
