@@ -108,7 +108,7 @@ public final class SkillsHomeInstaller {
             return false;
         }
         try {
-            String got = Files.readString(marker).trim().toLowerCase(Locale.ROOT);
+            String got = PathIo.readString(marker).trim().toLowerCase(Locale.ROOT);
             return got.equals(expectedSha256.trim().toLowerCase(Locale.ROOT));
         } catch (IOException e) {
             return false;
