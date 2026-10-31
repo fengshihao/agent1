@@ -49,7 +49,9 @@ fun HostCapabilitySettingsScreen(
                     onClick = onBack,
                 )
             },
+            actions = {},
         )
+        AgentHairline()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

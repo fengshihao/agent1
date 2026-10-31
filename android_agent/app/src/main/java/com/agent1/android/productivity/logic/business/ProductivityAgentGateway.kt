@@ -169,7 +169,7 @@ class ProductivityAgentGateway(
     }
 
     /**
-     * 处理「分享到 Agent1」：文件复制到 imports/，纯文本写入 imports/*.txt，更新可访问列表。
+     * 处理「分享到 Agent1」：文件复制到 imports/，纯文本写入 imports 下的 .txt 文件，更新可访问列表。
      */
     fun importIncomingShare(sessionId: String, payload: IncomingSharePayload): IncomingShareImportResult = execute {
         if (payload.isEmpty()) {

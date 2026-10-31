@@ -8,6 +8,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
+# shellcheck source=../scripts/proxy-env.sh
+source "${REPO_ROOT}/scripts/proxy-env.sh"
 # shellcheck source=../scripts/cdn-env.sh
 source "${REPO_ROOT}/scripts/cdn-env.sh"
 APK_PATH="$ROOT_DIR/app/build/outputs/apk/release/agent1-android-release.apk"
@@ -29,7 +31,14 @@ echo "==> 1/4 发布 java-agent-core 到本地 Maven"
 echo "==> 2/4 编译 Release APK（minify + shrinkResources）"
 (
   cd "$ROOT_DIR"
-  ./gradlew :app:assembleRelease
+  if [[ "${AGENT1_GRADLE_NEED_STOP:-}" == "1" ]]; then
+    ./gradlew --stop >/dev/null 2>&1 || true
+  fi
+  if [[ "${AGENT1_NO_PROXY:-}" == "1" || "${AGENT1_GRADLE_NEED_STOP:-}" == "1" ]]; then
+    ./gradlew --no-daemon :app:assembleRelease
+  else
+    ./gradlew :app:assembleRelease
+  fi
 )
 
 if [[ ! -f "$APK_PATH" ]]; then
