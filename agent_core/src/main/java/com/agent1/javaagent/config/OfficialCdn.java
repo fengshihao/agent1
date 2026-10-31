@@ -28,7 +28,7 @@ public final class OfficialCdn {
     public static final String WEB_LIBS_REGISTRY_PATH = "web-libs/registry/stable.json";
     public static final String HOST_WEB_REGISTRY_PATH = "host-web/registry/stable.json";
     public static final String DOCX_PREVIEW_SHELL_PATH =
-        "host-web/shell/docx-preview/1/shell.html?v=20261031b";
+        "host-web/shell/docx-preview/1/shell.html?v=20261031c";
     public static final String MOLAN_EMBED_SHELL_PATH =
         "host-web/molan-embed/1/shell.html?v=20261027c";
 
