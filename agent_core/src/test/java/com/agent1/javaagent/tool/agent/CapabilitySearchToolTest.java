@@ -219,6 +219,34 @@ class CapabilitySearchToolTest {
         assertFalse(text.contains("city"));
     }
 
+    @Test
+    void hidesImageSearchCardWhenWebSearchOff() throws Exception {
+        Path agentRoot = temp.resolve("agentRootWebOff");
+        AgentHomeBootstrap.ensure(agentRoot);
+        CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot, "android", null, false, false);
+        ObjectNode params = new ObjectMapper().createObjectNode();
+        params.put("query", "image_search 配图");
+        ToolExecutionResult result = tool.execute("t-web-off", params, new CancellationToken(), u -> {
+        });
+        assertFalse(result.getText().contains("$tools.image_search"), result.getText());
+        assertTrue(result.getText().contains("未启用"), result.getText());
+        assertFalse(result.getText().contains("用更短的关键词"), result.getText());
+    }
+
+    @Test
+    void gaodeMissTellsModelToSkip() throws Exception {
+        Path agentRoot = temp.resolve("agentRootGaode");
+        AgentHomeBootstrap.ensure(agentRoot);
+        CapabilitySearchTool tool = new CapabilitySearchTool(agentRoot, "android");
+        ObjectNode params = new ObjectMapper().createObjectNode();
+        params.put("query", "gaode 高德地图 mcp");
+        ToolExecutionResult result = tool.execute("t-gaode", params, new CancellationToken(), u -> {
+        });
+        assertTrue(result.getText().contains("未启用 MCP"), result.getText());
+        assertTrue(result.getText().contains("不要调用 $mcp.gaode"), result.getText());
+        assertFalse(result.getText().contains("用更短的关键词"), result.getText());
+    }
+
     private static String schema(String field) {
         return "{\"type\":\"object\",\"properties\":{\""
             + field

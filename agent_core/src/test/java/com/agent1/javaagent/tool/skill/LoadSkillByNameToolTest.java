@@ -7,6 +7,7 @@ import com.agent1.javaagent.agent.AgentHomeBootstrap;
 import com.agent1.javaagent.skill.SkillsHomeInstallTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -73,6 +74,33 @@ class LoadSkillByNameToolTest {
         String text = tool.load("travel-itinerary", null);
         assertTrue(text.contains("(source: local)"), text);
         assertTrue(text.contains("本地改写版路书"), text);
+    }
+
+    @Test
+    void prefacesWhenSkillNeedsUnconfiguredTools() throws Exception {
+        writeLocalSkill(
+            "road",
+            """
+            ---
+            name: road
+            description: 路书
+            ---
+
+            用 $mcp.gaode.maps_geo 查坐标，再用 image_search 配图。
+            """
+        );
+        LoadSkillByNameTool tool = new LoadSkillByNameTool(agentRoot, null);
+        tool.setOptionalCapabilities(false, Set.of());
+        String text = tool.load("road", null);
+        assertTrue(text.startsWith("[host]"), text);
+        assertTrue(text.contains("image_search"), text);
+        assertTrue(text.contains("gaode"), text);
+        assertTrue(text.indexOf("[host]") < text.indexOf("[skill]"), text);
+
+        LoadSkillByNameTool ready = new LoadSkillByNameTool(agentRoot, null);
+        ready.setOptionalCapabilities(true, Set.of("gaode"));
+        String plain = ready.load("road", null);
+        assertFalse(plain.contains("[host]"), plain);
     }
 
     @Test

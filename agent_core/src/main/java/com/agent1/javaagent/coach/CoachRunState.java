@@ -11,6 +11,7 @@ public final class CoachRunState {
     private int libHuntCoachCount;
     private int deckHtmlReadyCoachCount;
     private boolean findCapsHintAfterApiError;
+    private int unavailableCoachCount;
 
     public void clear() {
         scriptFailureCounts.clear();
@@ -21,6 +22,13 @@ public final class CoachRunState {
         libHuntCoachCount = 0;
         deckHtmlReadyCoachCount = 0;
         findCapsHintAfterApiError = false;
+        unavailableCoachCount = 0;
+    }
+
+    /** @return 本 Run 内因「工具未配置」追加 coach 的次数 */
+    public int recordUnavailableCoach() {
+        unavailableCoachCount++;
+        return unavailableCoachCount;
     }
 
     /** @return 本 Run 内是否已因 API 报错提示过 find_caps */

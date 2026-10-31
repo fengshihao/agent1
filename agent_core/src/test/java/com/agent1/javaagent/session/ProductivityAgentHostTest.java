@@ -20,6 +20,7 @@ import com.agent1.javaagent.script.MutableScriptToolBridge;
 import com.agent1.javaagent.model.ToolCall;
 import com.agent1.javaagent.tool.AgentTool;
 import com.agent1.javaagent.tool.DelegatingAgentTool;
+import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.agent.AskUserTool;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -183,7 +184,7 @@ class ProductivityAgentHostTest {
     }
 
     @Test
-    void registersCoreToolsWithoutRetiredCatalogInstall() {
+    void registersCoreToolsWithoutRetiredCatalogInstall() throws Exception {
         java.util.concurrent.atomic.AtomicReference<List<String>> toolNames =
             new java.util.concurrent.atomic.AtomicReference<>();
         LlmClient fake = (request, tools, streamListener, cancellationToken) -> {
@@ -211,6 +212,16 @@ class ProductivityAgentHostTest {
             assertFalse(toolNames.get().contains("image_search"));
             assertFalse(toolNames.get().contains("web_search"));
             assertFalse(host.runtime().getStateSnapshot().getSystemPrompt().contains("web_search"));
+            AgentTool findCaps = host.runtime().getTools().stream()
+                .filter(tool -> "find_caps".equals(tool.name()))
+                .findFirst()
+                .orElseThrow();
+            ObjectNode query = new ObjectMapper().createObjectNode();
+            query.put("query", "image_search 配图");
+            ToolExecutionResult caps = findCaps.execute("caps", query, new CancellationToken(), update -> {
+            });
+            assertFalse(caps.getText().contains("$tools.image_search"), caps.getText());
+            assertTrue(caps.getText().contains("未启用"), caps.getText());
         }
     }
 

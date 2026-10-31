@@ -15,6 +15,8 @@ import com.agent1.javaagent.log.EventJsonlRetention;
 import com.agent1.javaagent.log.EventJsonlWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.agent1.javaagent.mcp.McpCapabilitySync;
+import com.agent1.javaagent.mcp.McpServerRecord;
+import com.agent1.javaagent.mcp.McpServersFile;
 import com.agent1.javaagent.log.RunLogContext;
 import com.agent1.javaagent.model.AgentMessage;
 import com.agent1.javaagent.prompt.DesktopEnvironmentProvider;
@@ -72,6 +74,7 @@ import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -706,6 +709,16 @@ public final class ProductivityAgentHost implements Closeable {
         refreshMcpIndex();
     }
 
+    private Set<String> enabledMcpServerNames() {
+        Set<String> names = new LinkedHashSet<>();
+        for (McpServerRecord server : McpServersFile.load(agentRoot)) {
+            if (server.enabled() && server.name() != null && !server.name().isBlank()) {
+                names.add(server.name());
+            }
+        }
+        return Set.copyOf(names);
+    }
+
     /** 配置了 MCP 时，把工具名写入 find_caps。缓存有效则不访问网络。 */
     private void refreshMcpIndex() {
         try {
@@ -731,8 +744,24 @@ public final class ProductivityAgentHost implements Closeable {
         tools.add(new AskUserTool());
         tools.add(new TodoWriteTool(sessionStore.sessionDir(sessionId), agentRoot));
         tools.add(new TodoReadTool(sessionStore.sessionDir(sessionId)));
-        tools.add(new CapabilitySearchTool(agentRoot, capabilitySearchPlatform, projectRoot));
-        tools.addAll(AnnotatedTools.from(new LoadSkillByNameTool(agentRoot, projectRoot, workspace, skillRepositories)));
+        tools.add(new CapabilitySearchTool(
+            agentRoot,
+            capabilitySearchPlatform,
+            projectRoot,
+            false,
+            runtimeConfig.isWebSearchConfigured()
+        ));
+        LoadSkillByNameTool loadSkill = new LoadSkillByNameTool(
+            agentRoot,
+            projectRoot,
+            workspace,
+            skillRepositories
+        );
+        loadSkill.setOptionalCapabilities(
+            runtimeConfig.isWebSearchConfigured(),
+            enabledMcpServerNames()
+        );
+        tools.addAll(AnnotatedTools.from(loadSkill));
         if (runtimeConfig.isWebSearchConfigured()) {
             tools.add(new WebSearchTool(
                 runtimeConfig.getWebSearchApiKey(),

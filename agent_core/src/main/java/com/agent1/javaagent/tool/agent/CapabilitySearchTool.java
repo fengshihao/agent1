@@ -4,6 +4,7 @@ import com.agent1.javaagent.capability.CapabilityIndexStore;
 import com.agent1.javaagent.core.CancellationToken;
 import com.agent1.javaagent.mcp.McpSchemaBrief;
 import com.agent1.javaagent.tool.AgentTool;
+import com.agent1.javaagent.tool.OptionalCapabilityHints;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.ToolUpdateListener;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,6 +29,8 @@ public final class CapabilitySearchTool implements AgentTool {
     private final Path projectRoot;
     /** 仅能力检索 UI 需要按 kind 筛选；模型工具默认全量检索。 */
     private final boolean applyKindFilter;
+    /** 未配置 Tavily Key 时不把 image_search 卡片交给模型。 */
+    private final boolean webSearchConfigured;
 
     /** 单测等场景：不按平台过滤（等同 any）。 */
     public CapabilitySearchTool(Path agentRoot) {
@@ -48,10 +51,21 @@ public final class CapabilitySearchTool implements AgentTool {
         Path projectRoot,
         boolean applyKindFilter
     ) {
+        this(agentRoot, hostPlatform, projectRoot, applyKindFilter, true);
+    }
+
+    public CapabilitySearchTool(
+        Path agentRoot,
+        String hostPlatform,
+        Path projectRoot,
+        boolean applyKindFilter,
+        boolean webSearchConfigured
+    ) {
         this.agentRoot = agentRoot.toAbsolutePath().normalize();
         this.hostPlatform = normalizeHostPlatform(hostPlatform);
         this.projectRoot = projectRoot == null ? null : projectRoot.toAbsolutePath().normalize();
         this.applyKindFilter = applyKindFilter;
+        this.webSearchConfigured = webSearchConfigured;
     }
 
     @Override
@@ -116,9 +130,21 @@ public final class CapabilitySearchTool implements AgentTool {
         int limit = Math.min(Math.max(parameters == null ? 8 : parameters.path("limit").asInt(8), 1), 20);
 
         List<CapabilityIndexStore.CapabilityHit> hits = new ArrayList<>();
+        boolean removedWebSearch = false;
+        boolean gaodeHit = false;
+        boolean gaodeAsked = OptionalCapabilityHints.queryLooksLikeGaode(query);
         for (CapabilityIndexStore.CapabilityHit hit : filterOutSkills(
             CapabilityIndexStore.search(agentRoot, query, kinds, hostPlatform, 20)
         )) {
+            if (gaodeAsked && OptionalCapabilityHints.hitIsGaode(
+                hit.id(), hit.title(), hit.entry(), hit.summary()
+            )) {
+                gaodeHit = true;
+            }
+            if (!webSearchConfigured && OptionalCapabilityHints.IMAGE_SEARCH_CARD_ID.equals(hit.id())) {
+                removedWebSearch = true;
+                continue;
+            }
             if (hits.size() >= limit) {
                 break;
             }
@@ -126,6 +152,12 @@ public final class CapabilitySearchTool implements AgentTool {
         }
 
         if (hits.isEmpty()) {
+            if (gaodeAsked && !gaodeHit) {
+                return ToolExecutionResult.text(OptionalCapabilityHints.gaodeMissMessage());
+            }
+            if (removedWebSearch || (!webSearchConfigured && OptionalCapabilityHints.queryLooksLikeWebSearch(query))) {
+                return ToolExecutionResult.text(OptionalCapabilityHints.webSearchMissMessage());
+            }
             return ToolExecutionResult.text(
                 "未找到匹配「" + query + "」的能力条目。用更短的关键词再搜一次。"
             );
@@ -141,6 +173,12 @@ public final class CapabilitySearchTool implements AgentTool {
                 mcpDetails++;
             }
             appendIndexHit(text, details, hit, withParams);
+        }
+        if (removedWebSearch) {
+            text.append(OptionalCapabilityHints.webSearchFootnote()).append('\n');
+        }
+        if (gaodeAsked && !gaodeHit) {
+            text.append(OptionalCapabilityHints.gaodeFootnote()).append('\n');
         }
         ObjectNode root = MAPPER.createObjectNode();
         root.set("hits", details);

@@ -2,6 +2,7 @@ package com.agent1.javaagent.coach;
 
 import com.agent1.javaagent.script.ScriptEvalFrame;
 import com.agent1.javaagent.script.ScriptFailureFormatter;
+import com.agent1.javaagent.tool.OptionalCapabilityHints;
 import com.agent1.javaagent.tool.ToolExecutionResult;
 import com.agent1.javaagent.tool.script.InlineScriptSpill;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -61,6 +62,17 @@ public final class ProductivityCoach {
         String advice = null;
 
         String text = result.getText();
+        if (OptionalCapabilityHints.looksLikeUnavailable(toolName, text)) {
+            // 未配置的工具失败后不要再走 script.api_error（那会让模型去 find_caps 重试）。
+            if (runState.recordUnavailableCoach() <= 3) {
+                return ToolExecutionResult.text(appendCoach(
+                    text,
+                    "capability.unavailable",
+                    OptionalCapabilityHints.failureAdvice(toolName, text)
+                ));
+            }
+            return result;
+        }
         if (text != null && text.contains(OUTSIDE_MARKER)) {
             hookId = "path.outside_attempt";
             advice =

@@ -405,6 +405,41 @@ class ProductivityCoachTest {
     }
 
     @Test
+    void unavailableToolSkipsInsteadOfFindCaps() {
+        ProductivityCoach coach = new ProductivityCoach();
+        String caught = "{\"t1\":\"count8 fail: unsupported: $tools.image_search (not in js exposed whitelist)\"}";
+        ToolExecutionResult out = coach.maybeAugment("run_js", MAPPER.createObjectNode(), ToolExecutionResult.text(caught), false);
+        assertTrue(out.getText().contains("[coach] capability.unavailable"));
+        assertTrue(out.getText().contains("不要重试"));
+        assertTrue(out.getText().contains("image_search"));
+        assertFalse(out.getText().contains("script.api_error"));
+    }
+
+    @Test
+    void unknownMcpServerSaysSkip() {
+        ProductivityCoach coach = new ProductivityCoach();
+        String fail = "{\"ok\":false,\"message\":\"Error: unknown MCP server: gaode\"}";
+        ToolExecutionResult out = coach.maybeAugment("run_js", MAPPER.createObjectNode(), ToolExecutionResult.text(fail), false);
+        assertTrue(out.getText().contains("[coach] capability.unavailable"));
+        assertTrue(out.getText().contains("gaode"));
+        assertTrue(out.getText().contains("估算"));
+        assertFalse(out.getText().contains("script.api_error"));
+    }
+
+    @Test
+    void missingOuterWebSearchToolSaysSkip() {
+        ProductivityCoach coach = new ProductivityCoach();
+        ToolExecutionResult out = coach.maybeAugment(
+            "image_search",
+            MAPPER.createObjectNode(),
+            ToolExecutionResult.text("Tool not found: image_search"),
+            true
+        );
+        assertTrue(out.getText().contains("[coach] capability.unavailable"));
+        assertTrue(out.getText().contains("Web 搜索"));
+    }
+
+    @Test
     void looksLikeDeckHtml_requiresSlideClass() {
         assertTrue(ProductivityCoach.looksLikeDeckHtml(
             "deck.html", "<section class=\"slide\">x</section>"));

@@ -13,6 +13,10 @@ class ScriptApiErrorHintsTest {
             "{\"ok\":false,\"message\":\"Error: bad argument: buildJob: overlapping clips\"}"
         ));
         assertFalse(ScriptApiErrorHints.looksLikeApiOrPackageError("require is not defined"));
+        assertFalse(ScriptApiErrorHints.looksLikeApiOrPackageError(
+            "Error: unsupported: $tools.image_search (not in js exposed whitelist)"
+        ));
+        assertFalse(ScriptApiErrorHints.looksLikeApiOrPackageError("Error: unknown MCP server: gaode"));
         assertFalse(ScriptApiErrorHints.looksLikeApiOrPackageError("工具执行超时"));
     }
 }

@@ -5,12 +5,14 @@ import com.agent1.javaagent.skill.Skill;
 import com.agent1.javaagent.skill.SkillRepository;
 import com.agent1.javaagent.skill.SkillsHomeSkillRepository;
 import com.agent1.javaagent.skill.SkillsRegistryInstall;
+import com.agent1.javaagent.tool.OptionalCapabilityHints;
 import com.agent1.javaagent.tool.anno.Tool;
 import com.agent1.javaagent.tool.anno.ToolParam;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * {@code load_skill}：按名加载 Skill（默认 SKILL.md 剧本；{@code path} 可读 skill 内资源）。
@@ -30,6 +32,10 @@ public final class LoadSkillByNameTool {
 
     private final Path agentRoot;
     private final List<Source> sources;
+    /** 为 false 时不改写剧本（单测与未接线的宿主）。 */
+    private boolean announceOptionalGaps;
+    private boolean webSearchConfigured = true;
+    private Set<String> enabledMcpServers = Set.of();
 
     public LoadSkillByNameTool(Path agentRoot, Path projectRoot) {
         this(agentRoot, projectRoot, null, List.of());
@@ -47,6 +53,16 @@ public final class LoadSkillByNameTool {
     ) {
         this.agentRoot = agentRoot == null ? null : agentRoot.toAbsolutePath().normalize();
         this.sources = buildSources(this.agentRoot, projectRoot, workspaceRoot, hostRepositories);
+    }
+
+    /**
+     * 剧本点名了未配置的 Web 搜索或 MCP 时，在正文前说明跳过。
+     * {@code enabledMcpServers} 是已启用的服务器名。
+     */
+    public void setOptionalCapabilities(boolean webSearchConfigured, Set<String> enabledMcpServers) {
+        this.announceOptionalGaps = true;
+        this.webSearchConfigured = webSearchConfigured;
+        this.enabledMcpServers = enabledMcpServers == null ? Set.of() : Set.copyOf(enabledMcpServers);
     }
 
     private static List<Source> buildSources(
@@ -171,9 +187,26 @@ public final class LoadSkillByNameTool {
             if (body == null || body.isBlank()) {
                 body = source.repo().readResource(skillName, SKILL_MD);
             }
-            return "[skill] " + skill.getId() + " loaded (source: " + source.label() + ")\n\n" + body;
+            return withGapPreface(
+                body,
+                "[skill] " + skill.getId() + " loaded (source: " + source.label() + ")\n\n" + body
+            );
         }
         String text = source.repo().readResource(skillName, resource);
-        return "[skill] " + skill.getId() + " " + resource + " (source: " + source.label() + ")\n\n" + text;
+        return withGapPreface(
+            text,
+            "[skill] " + skill.getId() + " " + resource + " (source: " + source.label() + ")\n\n" + text
+        );
+    }
+
+    private String withGapPreface(String body, String loaded) {
+        if (!announceOptionalGaps) {
+            return loaded;
+        }
+        String preface = OptionalCapabilityHints.skillPreface(body, webSearchConfigured, enabledMcpServers);
+        if (preface.isEmpty()) {
+            return loaded;
+        }
+        return preface + "\n" + loaded;
     }
 }

@@ -1,6 +1,7 @@
 package com.agent1.javaagent.coach;
 
 import com.agent1.javaagent.script.ScriptFailureFormatter;
+import com.agent1.javaagent.tool.OptionalCapabilityHints;
 
 /** run_js 调用 Package / 宿主 API 失败时，提示用 find_caps 核对签名（非语法类错误）。 */
 public final class ScriptApiErrorHints {
@@ -24,6 +25,9 @@ public final class ScriptApiErrorHints {
             return false;
         }
         if (CatalogMissingNativeHints.looksLikeMissingNative(toolResultText)) {
+            return false;
+        }
+        if (OptionalCapabilityHints.looksLikeUnavailable(null, toolResultText)) {
             return false;
         }
         if (ScriptFailureFormatter.looksLikeFailureJson(toolResultText)) {
