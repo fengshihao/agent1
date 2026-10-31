@@ -91,7 +91,6 @@ fun ChatScreen(
     /** 打开产物库（顶栏文件夹，位于「更多」左侧）。 */
     onOpenArtifacts: () -> Unit,
     onOpenAbout: () -> Unit = {},
-    onOpenToolTrace: () -> Unit = {},
     onOpenHostCaps: () -> Unit = {},
     /** 传入且文件可内置预览（html）时，点「打开」走 app 内预览路由。 */
     onOpenInApp: ((String) -> Unit)? = null,
@@ -112,6 +111,7 @@ fun ChatScreen(
     var input by rememberSaveable { mutableStateOf("") }
     var moreMenu by rememberSaveable { mutableStateOf(false) }
     var attachmentSheetVisible by rememberSaveable { mutableStateOf(false) }
+    var traceSheetVisible by rememberSaveable { mutableStateOf(false) }
     var attachmentAssistantHint by remember { mutableStateOf<UserFileRequestMarkers.Hint?>(null) }
     val pickFilesLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
@@ -178,7 +178,7 @@ fun ChatScreen(
                                 onOpenSystemPrompt = onOpenSystemPrompt,
                                 onBrief = { viewModel.exportBriefTranscript(context) },
                                 onExportDiagnostics = { viewModel.exportDiagnostics(context) },
-                                onOpenToolTrace = onOpenToolTrace,
+                                onOpenToolTrace = { traceSheetVisible = true },
                                 onOpenAbout = onOpenAbout,
                                 onOpenHostCaps = onOpenHostCaps,
                             )
@@ -246,6 +246,7 @@ fun ChatScreen(
                         topContentPadding = 16.dp,
                         onSetupKeyDraftChange = viewModel::onSetupKeyDraftChange,
                         onSubmitSetupKey = viewModel::applySetupKey,
+                        onOpenTrace = { traceSheetVisible = true },
                     )
                     pendingAsk?.let { form ->
                         AskUserFormPanel(
@@ -336,6 +337,11 @@ fun ChatScreen(
                     attachmentAssistantHint = null
                 }
             },
+        )
+        RunTraceSheet(
+            visible = traceSheetVisible,
+            state = state,
+            onDismiss = { traceSheetVisible = false },
         )
     }
 }

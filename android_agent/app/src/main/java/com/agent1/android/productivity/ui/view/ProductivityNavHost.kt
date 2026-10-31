@@ -139,13 +139,6 @@ private fun PersistentChatLayer(
             nav.navigate("artifact-library/${Uri.encode(id)}")
         }
     }
-    val openToolTrace = remember(nav) {
-        { sessionId: String ->
-            if (sessionId.isNotBlank()) {
-                nav.navigate("tool-trace/${Uri.encode(sessionId)}")
-            }
-        }
-    }
     ProductivityHome(
         sessionListViewModel = sessionListViewModel,
         onOpenSettings = openSettings,
@@ -155,7 +148,6 @@ private fun PersistentChatLayer(
         onOpenHtmlPreview = openHtmlPreview,
         onOpenArtifacts = openArtifacts,
         onOpenAbout = openAbout,
-        onOpenToolTrace = openToolTrace,
         onOpenHostCaps = openHostCaps,
     )
 }

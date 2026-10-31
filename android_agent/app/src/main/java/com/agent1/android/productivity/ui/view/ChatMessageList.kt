@@ -49,10 +49,14 @@ internal fun ChatMessageList(
     topContentPadding: Dp = 8.dp,
     onSetupKeyDraftChange: (String) -> Unit = {},
     onSubmitSetupKey: () -> Unit = {},
+    onOpenTrace: () -> Unit = {},
 ) {
     val visibleLines = state.lines.filterNot { it.hideInChat }
     val lazyRows = remember(visibleLines, state.workspacePath) {
         ChatLazyRowExpansion.expandTranscriptLines(visibleLines, state.workspacePath)
+    }
+    val chatRows = remember(lazyRows) {
+        lazyRows.filterNot { it is ChatLazyRow.TurnActivity }
     }
     val offerNewTopic = remember(
         visibleLines,
@@ -72,12 +76,12 @@ internal fun ChatMessageList(
     val tailAssistant = remember(visibleLines) {
         ChatNewTopicPrompt.tailAssistantLine(state.lines)
     }
-    val newTopicLazyIndex = remember(lazyRows, tailAssistant, offerNewTopic) {
+    val newTopicLazyIndex = remember(chatRows, tailAssistant, offerNewTopic) {
         if (!offerNewTopic || tailAssistant == null) {
             -1
         } else {
             val key = tailAssistant.stableKey
-            lazyRows.indexOfLast { row ->
+            chatRows.indexOfLast { row ->
                 row is ChatLazyRow.Message &&
                     row.line.role == "assistant" &&
                     row.line.stableKey == key &&
@@ -90,7 +94,19 @@ internal fun ChatMessageList(
             items = state.runTimeline,
             streamingReasoning = state.streamingReasoning,
             isRunning = state.isRunning,
-        )
+        ).filterNot { it is RunTimelineRow.Activity }
+    }
+    val marqueeText = remember(state.runTimeline, state.streamingReasoning, state.isRunning) {
+        if (!state.isRunning) {
+            ""
+        } else {
+            val activity = ChatToolBatch.groupTimeline(
+                items = state.runTimeline,
+                streamingReasoning = state.streamingReasoning,
+                isRunning = true,
+            ).filterIsInstance<RunTimelineRow.Activity>().firstOrNull()
+            ChatToolBatch.marqueePage(activity?.pieces.orEmpty())
+        }
     }
     val listState = rememberLazyListState()
     val followTail = remember(state.sessionId) { mutableStateOf(true) }
@@ -121,8 +137,8 @@ internal fun ChatMessageList(
     LaunchedEffect(state.isRunning) {
         if (state.isRunning) followTail.value = true
     }
-    LaunchedEffect(state.sessionId, state.isLoadingTranscript, lazyRows.size) {
-        if (state.isLoadingTranscript || didAnchor.value || lazyRows.isEmpty()) return@LaunchedEffect
+    LaunchedEffect(state.sessionId, state.isLoadingTranscript, chatRows.size) {
+        if (state.isLoadingTranscript || didAnchor.value || chatRows.isEmpty()) return@LaunchedEffect
         repeat(8) {
             val count = listState.layoutInfo.totalItemsCount
             if (count > 0) {
@@ -138,10 +154,11 @@ internal fun ChatMessageList(
     LaunchedEffect(
         followTail.value,
         didAnchor.value,
-        lazyRows.size,
+        chatRows.size,
         state.runTimeline.size,
         state.streamingText,
         state.streamingReasoning,
+        marqueeText,
         state.isRunning,
         state.inlineApiSetupVisible,
     ) {
@@ -162,21 +179,12 @@ internal fun ChatMessageList(
         return
     }
     val showEmptyHint = visibleLines.isEmpty() &&
-        state.sessionTodos.isEmpty() &&
         state.runTimeline.isEmpty() &&
         state.streamingText.isEmpty() &&
         state.streamingReasoning.isEmpty() &&
         !state.isRunning &&
         !state.inlineApiSetupVisible
     Column(modifier = modifier.fillMaxSize()) {
-        if (state.sessionTodos.isNotEmpty()) {
-            ChatSessionTodoPanel(
-                todos = state.sessionTodos,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            )
-        }
         if (showEmptyHint) {
             EmptyChatHint(Modifier.weight(1f))
             return@Column
@@ -188,13 +196,18 @@ internal fun ChatMessageList(
                 .fillMaxWidth()
                 .padding(horizontal = 4.dp)
                 .nestedScroll(followConnection),
-            contentPadding = PaddingValues(top = topContentPadding, bottom = 8.dp, start = 8.dp, end = 8.dp),
+            contentPadding = PaddingValues(
+                top = topContentPadding,
+                bottom = if (state.isRunning) 72.dp else 8.dp,
+                start = 8.dp,
+                end = 8.dp,
+            ),
         ) {
         items(
-            count = lazyRows.size,
-            key = { index -> lazyRows[index].key },
+            count = chatRows.size,
+            key = { index -> chatRows[index].key },
         ) { index ->
-            val row = lazyRows[index]
+            val row = chatRows[index]
             val messageTightTop = (row as? ChatLazyRow.Message)?.tightTop
             val gapAbove = ChatListLazyItemGap.shouldPadTop(index, messageTightTop)
             Column(
@@ -235,18 +248,7 @@ internal fun ChatMessageList(
                             relativePath = row.relativePath,
                         )
                     }
-                    is ChatLazyRow.TurnActivity -> {
-                        val hiddenTools = state.isRunning &&
-                            state.runTimeline.any {
-                                it is com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem.ToolPart &&
-                                    !it.finished
-                            }
-                        TurnActivityBubble(
-                            stateKey = row.key,
-                            pieces = row.pieces,
-                            hiddenToolsInProgress = hiddenTools,
-                        )
-                    }
+                    is ChatLazyRow.TurnActivity -> Unit
                 }
             }
         }
@@ -258,7 +260,7 @@ internal fun ChatMessageList(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .chatListGapAbove(index > 0 || lazyRows.isNotEmpty()),
+                    .chatListGapAbove(index > 0 || chatRows.isNotEmpty()),
             ) {
                 when (row) {
                     is RunTimelineRow.Assistant -> {
@@ -278,19 +280,7 @@ internal fun ChatMessageList(
                             showReasoning = false,
                         )
                     }
-                    is RunTimelineRow.Activity -> {
-                        val hiddenTools = state.isRunning &&
-                            state.runTimeline.any {
-                                it is com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem.ToolPart &&
-                                    !it.finished
-                            }
-                        TurnActivityBubble(
-                            stateKey = row.key,
-                            pieces = row.pieces,
-                            runInProgress = state.isRunning,
-                            hiddenToolsInProgress = hiddenTools,
-                        )
-                    }
+                    is RunTimelineRow.Activity -> Unit
                 }
             }
         }
@@ -308,8 +298,22 @@ internal fun ChatMessageList(
                     onOpenAttachments = onOpenAttachments,
                     attachmentsActionEnabled = false,
                     onOpenInApp = onOpenInApp,
+                        modifier = Modifier.chatListGapAbove(
+                            chatRows.isNotEmpty() ||
+                                timelineRows.isNotEmpty(),
+                        ),
+                )
+            }
+        }
+        if (state.isRunning) {
+            item(key = "run-marquee") {
+                RunActivityMarquee(
+                    text = marqueeText,
+                    onOpenTrace = onOpenTrace,
                     modifier = Modifier.chatListGapAbove(
-                        lazyRows.isNotEmpty() || timelineRows.isNotEmpty(),
+                        chatRows.isNotEmpty() ||
+                            timelineRows.isNotEmpty() ||
+                            state.streamingText.isNotEmpty(),
                     ),
                 )
             }
@@ -320,7 +324,7 @@ internal fun ChatMessageList(
                     RunTokenSummaryRow(
                         summary = summary,
                         modifier = Modifier.chatListGapAbove(
-                            lazyRows.isNotEmpty() ||
+                            chatRows.isNotEmpty() ||
                                 timelineRows.isNotEmpty() ||
                                 state.streamingText.isNotEmpty(),
                         ),
@@ -330,7 +334,7 @@ internal fun ChatMessageList(
         }
         if (state.inlineApiSetupVisible) {
             item(key = "inline-api-setup") {
-                val gapAbove = lazyRows.isNotEmpty() ||
+                val gapAbove = chatRows.isNotEmpty() ||
                     timelineRows.isNotEmpty() ||
                     state.streamingText.isNotEmpty() ||
                     (!state.isRunning && state.lastRunTokenSummary != null)

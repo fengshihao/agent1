@@ -45,12 +45,12 @@ internal sealed class RunTimelineRow {
 
 internal object ChatToolBatch {
 
-    /** 主聊天不展示工具链；完整记录在「工具调用详情（调试）」页。 */
+    /** 主聊天不展示工具链和思考正文；完整记录在「工具调用详情（调试）」页。 */
     internal const val HIDE_TOOLS_IN_MAIN_CHAT: Boolean = true
 
     internal fun mainChatPieces(pieces: List<TurnPiece>): List<TurnPiece> {
         if (!HIDE_TOOLS_IN_MAIN_CHAT) return pieces
-        return pieces.filterNot { it is TurnPiece.Tool }
+        return pieces.filterNot { it is TurnPiece.Tool || it is TurnPiece.Reasoning }
     }
 
     fun fromLine(line: ChatLine): ToolBatchEntry = ToolBatchEntry(
@@ -226,6 +226,27 @@ internal object ChatToolBatch {
     }
 
     fun showsFailure(entry: ToolBatchEntry): Boolean = entry.finished && entry.isError
+
+    /**
+     * 对话里那一行只翻「最近一次工具」。思考正文不进来。
+     * 还没调用工具时固定是「思考中」，后面的句号动画单独画，避免逐字刷新。
+     */
+    fun marqueePage(pieces: List<TurnPiece>): String {
+        val tool = pieces.lastOrNull { it is TurnPiece.Tool } as? TurnPiece.Tool ?: return "思考中"
+        return toolActivityLabel(tool.entry)
+    }
+
+    internal fun toolActivityLabel(entry: ToolBatchEntry): String {
+        val name = entry.toolName.trim().ifEmpty { "工具" }
+        val status = when {
+            !entry.finished -> "进行中"
+            showsFailure(entry) -> "失败"
+            else -> "成功"
+        }
+        val arg = entry.argsPreview.replace(Regex("\\s+"), " ").trim()
+        val argShown = if (arg.length <= 28) arg else arg.take(28)
+        return if (argShown.isEmpty()) "$name · $status" else "$name · $status · $argShown"
+    }
 
     private fun toolDetail(last: ToolBatchEntry): String {
         if (!last.finished) {

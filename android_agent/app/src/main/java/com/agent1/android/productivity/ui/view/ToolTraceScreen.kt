@@ -67,6 +67,32 @@ fun ToolTraceScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            val thoughts = ArrayList<String>()
+            state.lines.forEach { line ->
+                if (!line.isTool && line.reasoning.isNotBlank()) thoughts.add(line.reasoning.trim())
+            }
+            if (state.isRunning) {
+                state.runTimeline.forEach { item ->
+                    if (item is ChatRunTimelineItem.AssistantPart && item.reasoning.isNotBlank()) {
+                        thoughts.add(item.reasoning.trim())
+                    }
+                }
+                if (state.streamingReasoning.isNotBlank()) thoughts.add(state.streamingReasoning.trim())
+            }
+            thoughts.forEach { reasoning ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "思考",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        reasoning,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
             val historyTools = state.lines.filter { it.isTool }
             historyTools.forEach { line ->
                 ToolTraceBlock(

@@ -73,14 +73,67 @@ class ChatToolBatchTest {
     }
 
     @Test
-    fun mainChatPieces_hidesToolsButKeepsReasoning() {
+    fun mainChatPieces_hidesToolsAndReasoning() {
         val pieces = listOf(
             TurnPiece.Reasoning("r", "想一下", false),
             TurnPiece.Tool(ToolBatchEntry("1", "todo_write", "", true, false, "ok", emptyList())),
         )
-        val shown = ChatToolBatch.mainChatPieces(pieces)
-        assertEquals(1, shown.size)
-        assertTrue(shown[0] is TurnPiece.Reasoning)
+        assertTrue(ChatToolBatch.mainChatPieces(pieces).isEmpty())
+    }
+
+    @Test
+    fun marqueePage_keepsThinkingQuietAndShowsLatestTool() {
+        val thinking: List<TurnPiece> = listOf(TurnPiece.Reasoning("r", "先看目录结构。还没写完的半句", true))
+        assertEquals("思考中", ChatToolBatch.marqueePage(thinking))
+        val running = ToolBatchEntry("1", "read_file", "{\"path\":\"Foo.kt\"}", false, false, "", emptyList())
+        assertEquals(
+            "read_file · 进行中 · {\"path\":\"Foo.kt\"}",
+            ChatToolBatch.marqueePage(thinking + TurnPiece.Tool(running)),
+        )
+        val done = thinking + listOf(
+            TurnPiece.Tool(running.copy(finished = true, resultSummary = "ok")),
+            TurnPiece.Reasoning("r2", "再想一下下一句。", true),
+            TurnPiece.Tool(ToolBatchEntry("2", "run_js", "", true, true, "boom", emptyList())),
+        )
+        assertEquals("run_js · 失败", ChatToolBatch.marqueePage(done))
+    }
+
+    @Test
+    fun runTrace_listsThoughtsAndToolsWithoutDuplicatingAfterTheRun() {
+        val lines = listOf(
+            ChatLine(role = "assistant", content = "好了", reasoning = "先看目录"),
+            ChatLine(
+                role = "tool",
+                content = "package",
+                isTool = true,
+                toolName = "read_file",
+                toolArgsPreview = "{\"path\":\"Foo.kt\"}",
+                toolIsError = false,
+            ),
+        )
+        val liveTool = com.agent1.android.productivity.ui.viewmodel.ChatRunTimelineItem.ToolPart(
+            id = "c1",
+            toolCallId = "1",
+            toolName = "grep",
+            argsPreview = "pattern",
+            finished = false,
+        )
+        val settled = RunTrace.entries(
+            lines = lines,
+            timeline = listOf(liveTool),
+            streamingReasoning = "还在想",
+            isRunning = false,
+        )
+        assertEquals(listOf("思考", "read_file · 成功"), settled.map { it.title })
+        assertEquals("{\"path\":\"Foo.kt\"}\n\npackage", settled[1].detail)
+        val running = RunTrace.entries(
+            lines = lines,
+            timeline = listOf(liveTool),
+            streamingReasoning = "还在想",
+            isRunning = true,
+        )
+        assertEquals(listOf("思考", "read_file · 成功", "grep · 进行中", "思考"), running.map { it.title })
+        assertEquals("还在想", running.last().detail)
     }
 
     @Test

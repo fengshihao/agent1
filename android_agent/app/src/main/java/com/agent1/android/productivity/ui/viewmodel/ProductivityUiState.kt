@@ -8,7 +8,6 @@ import com.agent1.android.productivity.logic.business.UserAttachmentMessageSuffi
 import com.agent1.android.productivity.logic.business.SessionAccessibleFilesStore
 import com.agent1.android.productivity.logic.business.UsageOverview
 import com.agent1.android.productivity.logic.business.UserFileRequestMarkers
-import com.agent1.android.productivity.logic.business.SessionTodoItem
 import com.agent1.javaagent.modelcatalog.RuntimeConfigSummary
 import com.agent1.javaagent.session.SessionMeta
 
@@ -127,7 +126,7 @@ data class ChatUiState(
     val streamingText: String = "",
     val streamingReasoning: String = "",
     val runTimeline: List<ChatRunTimelineItem> = emptyList(),
-    /** 运行中的状态文案。预览页状态条使用；对话列表由「思考与执行」卡片自己表示进行中。 */
+    /** 运行中的状态文案。预览页状态条使用；主聊天用跑马灯带过思考摘要和工具成败。 */
     val runActivityLabel: String? = null,
     val isRunning: Boolean = false,
     /** 轮次或工具次数用尽，输入条上方展示「继续」。 */
@@ -162,7 +161,6 @@ data class ChatUiState(
     val pendingAskUser: AskUserFormState? = null,
     /** 上一轮 Run 结束后的 token / 缓存统计；运行中不展示。 */
     val lastRunTokenSummary: RunTokenSummary? = null,
-    val sessionTodos: List<SessionTodoItem> = emptyList(),
 )
 
 /** 当前会话还没有可展示的对话内容。加载中或正在跑都不算。 */
