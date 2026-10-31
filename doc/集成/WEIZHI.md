@@ -52,4 +52,4 @@ Agent1 **不实现** JS 运行时和设备 Caps。二者通过 **`java_agent/wei
 - 路径策略（fs / import / 工具环 / Caps）：[WEIZHI_PATHS.md](./WEIZHI_PATHS.md)（[agent1#72](https://github.com/fengshihao/agent1/issues/72)）
 - **Weizhi Package**（`import … from "weizhi:<name>"`，云端 registry 动态安装）：[WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md)、[WEIZHI_GREP_GLOB_SANDBOX.md](./WEIZHI_GREP_GLOB_SANDBOX.md)
 - **weizhi:video**（随 `:weizhi-video` AAR，video@0.6.0；v2 时间线关键帧 / crossfade）：[WEIZHI_CATALOG_MODULES.md](./WEIZHI_CATALOG_MODULES.md) video 例外段；规格真源 [weizhi `docs/video-timeline-v2.md`](https://github.com/fengshihao/weizhi/blob/master/docs/video-timeline-v2.md)（[agent1#101](https://github.com/fengshihao/agent1/issues/101)）
-- **官方 Registry**（微智客户端已实现，发布在 `artifact-cdn/`）：[WEIZHI_PACKAGE_REGISTRY.md](./WEIZHI_PACKAGE_REGISTRY.md)
+- **官方 Registry**（微智客户端已实现；发布在同级 `agent1-skills/artifact-cdn/`）：[WEIZHI_PACKAGE_REGISTRY.md](./WEIZHI_PACKAGE_REGISTRY.md)

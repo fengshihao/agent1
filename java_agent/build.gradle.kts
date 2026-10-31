@@ -8,7 +8,7 @@ group = "com.agent1"
 version = "0.1.0-SNAPSHOT"
 
 fun applyLocalCdnEnv(task: Test) {
-    val file = rootProject.projectDir.resolve("../artifact-cdn/cdn.local.env")
+    val file = rootProject.projectDir.resolve("../../agent1-skills/artifact-cdn/cdn.local.env")
     if (!file.isFile) {
         return
     }

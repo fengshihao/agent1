@@ -97,7 +97,7 @@ DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 AGENT1_CDN_HOST=your.cdn.host
 ```
 
-- **官方 CDN**（云装包 / 预览壳）：复制 `artifact-cdn/cdn.local.env.example` → `artifact-cdn/cdn.local.env`，填写 `AGENT1_CDN_HOST`（或 `AGENT1_CDN_BASE_URL`）。`./run_debug.sh` / `./run_release.sh` 会自动加载。细则见 [doc/release-signing-and-versions.md](doc/release-signing-and-versions.md)。
+- **官方 CDN**（云装包 / 预览壳）：复制同级 `../agent1-skills/artifact-cdn/cdn.local.env.example` → `cdn.local.env`，填写 `AGENT1_CDN_HOST`（或 `AGENT1_CDN_BASE_URL`）。`./run_debug.sh` / `./run_release.sh` 会自动加载。细则见 [doc/release-signing-and-versions.md](doc/release-signing-and-versions.md)。
 
 `app/build.gradle.kts` 会把这两个值注入到 `BuildConfig`（可选，便于开发机打包）。
 

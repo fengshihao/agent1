@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 载入本地 CDN 配置（artifact-cdn/cdn.local.env，已 gitignore）。
+# 载入本地 CDN 配置。文件在同级 ../agent1-skills/artifact-cdn/cdn.local.env（gitignore）。
 # 给 AGENT1_CDN_BASE_URL 一个全局入口；打包脚本仍可读 ARTIFACT_CDN_BASE_URL。
 # 用法：source scripts/cdn-env.sh
 
@@ -9,7 +9,7 @@ fi
 _AGENT1_CDN_ENV_LOADED=1
 
 _AGENT1_CDN_ENV_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-_AGENT1_CDN_ENV_FILE="${_AGENT1_CDN_ENV_ROOT}/artifact-cdn/cdn.local.env"
+_AGENT1_CDN_ENV_FILE="${_AGENT1_CDN_ENV_ROOT}/../agent1-skills/artifact-cdn/cdn.local.env"
 if [[ -f "${_AGENT1_CDN_ENV_FILE}" ]]; then
   set -a
   # shellcheck disable=SC1090

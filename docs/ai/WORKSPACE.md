@@ -1,14 +1,15 @@
-# 本地 Workspace（agent1 + weizhi）
+# 本地 Workspace（agent1 + agent1-skills + weizhi）
 
-日常联调涉及 **两个独立 Git 仓**（agent1 与 weizhi），建议放在同一父目录下，并用 **多根 workspace** 一次打开，避免 Cursor 只看见 agent1 而改错副本路径。
+日常联调涉及 **三个独立 Git 仓**，建议放在同一父目录下，并用 **多根 workspace** 一次打开，避免 Cursor 只看见 agent1 而改错副本路径。
 
 ```text
 work/
-  agent1/           # 本仓
+  agent1/           # 本仓：运行时、下载校验、预览 WebView
+  agent1-skills/    # 云端内容：Skill、Package、host-web、web-libs、打包上传
   weizhi/           # QuickJS 引擎、Android 子工程、Caps
 ```
 
-Skill / Weizhi Package **不进 jar/APK**——生产靠 registry 云装（`load_skill` / `WeizhiPackageSync.beforeEval`）。集成测试 fixture 固化在 `java_agent/weizhi-bridge/src/test/resources/weizhi-test-packages/` 与 `weizhi-test-skills/`。上云用本仓 `artifact-cdn/` 的 pack / upload 工具，指向任意源目录即可。
+Skill / Weizhi Package / 预览壳 / WebView 库卡片 **不进 jar/APK**——生产靠 registry 云装。集成测试 fixture 固化在 `java_agent/weizhi-bridge/src/test/resources/weizhi-test-packages/` 与 `weizhi-test-skills/`。上云在同级 `../agent1-skills/artifact-cdn/`（`pack.mjs`、`upload.sh`、`upload-host-web.sh`）。
 
 ## 推荐做法
 
@@ -35,14 +36,14 @@ Skill / Weizhi Package **不进 jar/APK**——生产靠 registry 云装（`load
    | Skill 流程 / `SKILL.md` / `weizhi:<name>` JS 包 | 云端 registry | 不进 agent1 jar/APK；测试用仓内 fixture |
    | 集成测试 fixture | `java_agent/weizhi-bridge/src/test/resources/weizhi-test-{packages,skills}/` | 仅测试用，不进生产产物 |
 
-4. 上云：`artifact-cdn` 的 pack 脚本产出 `dist/`，再 `upload.sh`。
+4. 上云：`../agent1-skills/artifact-cdn` 的 pack 脚本产出 `dist/`，再 `upload.sh`。
 
 ## 路径与环境变量
 
 | 变量 | 含义 |
 |------|------|
 | `AGENT1_TEST_PACKAGES_ROOT` | weizhi-bridge 集成测试的 package 源目录（默认读固化 fixture `weizhi-test-packages/`） |
-| `ARTIFACT_CDN_TEST_PACKAGES_ROOT` | `artifact-cdn` 自测的包源目录（默认 `weizhi-bridge` 测试 fixture） |
+| `ARTIFACT_CDN_TEST_PACKAGES_ROOT` | `agent1-skills/artifact-cdn` 自测的包源目录（默认同级 agent1 的 `weizhi-bridge` 测试 fixture） |
 | `WEIZHI_GIT_URL` / `WEIZHI_REPO_URL` | weizhi 克隆地址（默认 `fengshihao/weizhi`） |
 | `WEIZHI_DIR` | `ci-local.sh` 等覆盖 Weizhi 根目录 |
 

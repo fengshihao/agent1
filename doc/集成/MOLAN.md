@@ -31,10 +31,10 @@ Skill **`md-preview`** 封装了这套用法，agent 通过 `load_skill(md-previ
 
 ## Android：embed 壳 + 官方 CDN + MolanHost 注入
 
-与 docx 预览同轨（`artifact-cdn/host-web`）。Android **不打包** vditor 大库（约 8.8MB）也 **不打包** 壳 HTML；首装需联网。
+与 docx 预览同轨（同级 `agent1-skills/artifact-cdn/host-web`）。Android **不打包** vditor 大库（约 8.8MB）也 **不打包** 壳 HTML；首装需联网。
 
 - **CDN 目录**：`host-web/molan-embed/1/`（`shell.html`、`molan.css`、`molan-app.js`、`vendor/vditor`、embed 样式与桥）
-- **打包**：`cd artifact-cdn && npm run pack-host-web`（含 `pack-molan-embed.mjs`，需同级 `molan` 仓 `apps/studio` 与 vendor）
+- **打包**：`cd ../agent1-skills/artifact-cdn && npm run pack-host-web`（含 `pack-molan-embed.mjs`，需同级 `molan` 仓 `apps/studio` 与 vendor）
 - **清单**：`host-web/registry/stable.json` 的 `md_preview.shell`；`HostWebRegistrySync.mdPreviewUrls` 可热更新地址
 - **加载**：`WebView.loadUrl(md_preview.shell)`；首屏 `agent1-boot` 隐藏布局，正文渲染后 `Agent1Molan.onContentReady()`
 - **数据**：`MolanPreviewFileReader` → `Agent1Molan.readMdJson()` → `MolanHost.openText`；磁盘变更 `__agent1MolanRenderFromBridge()`（`force` 覆盖）

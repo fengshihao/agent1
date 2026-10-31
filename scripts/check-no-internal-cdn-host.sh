@@ -21,7 +21,7 @@ if git grep -F -n -- "${NEEDLE_IP}" -- . >/tmp/agent1-cdn-leak-ip.txt; then
 fi
 rm -f /tmp/agent1-cdn-leak-domain.txt /tmp/agent1-cdn-leak-ip.txt
 if [[ "${failed}" -ne 0 ]]; then
-  echo "put production values in artifact-cdn/cdn.local.env (gitignored) or AGENT1_CDN_HOST" >&2
+  echo "put production values in ../agent1-skills/artifact-cdn/cdn.local.env (gitignored) or AGENT1_CDN_HOST" >&2
   exit 1
 fi
 echo "ok: no internal CDN host in tracked files"

@@ -28,7 +28,7 @@ Office 生成全部由 `agent-home/weizhi-packages/` 下手写 JS OOXML 渲染�
 | 4 | **文字度量是估的**：ASCII 0.55 / CJK 1.0 估宽，字号只有两档切换，中英混排「字小框空」或溢出 | `charUnits/wrapLines`（:345-376） |
 | 5 | **无叙事模板**：SKILL.md 只给约束（要点≤6），没有推荐页序，模型自由发挥常产出 title + 连续 bullets | `skills/pptx/SKILL.md` |
 | 6 | **图片只收本地 png/jpeg/gif**：无搜图、无图标库、无生图；SVG 必须先经 svg-raster 转 PNG | `pptx.js` `imageExt`（:240-250） |
-| 7 | **图表与 Office 断层**：web_lib 24 张卡（echarts/mermaid/leaflet/…）只产交互 HTML，「卡片 → 图片 → 插入文档」没有封装；doc16 Phase D 的 `render-mermaid.js` 仍是计划 | `artifact-cdn/web-libs/cards.jsonl`、doc16 |
+| 7 | **图表与 Office 断层**：web_lib 24 张卡（echarts/mermaid/leaflet/…）只产交互 HTML，「卡片 → 图片 → 插入文档」没有封装；doc16 Phase D 的 `render-mermaid.js` 仍是计划 | `agent1-skills/artifact-cdn/web-libs/cards.jsonl`、doc16 |
 | 8 | **Word 是排版基座缺口**：无封面/目录/页眉页脚；列表是「• 」字符前缀伪造（非原生编号）；表格无表头底色/列宽/斑马纹；块样式仅 5 个字段 | `docx.js`（:517-526、:549-572、:666-692） |
 
 **已具备的地基**（方案都建立在这些之上）：`webview_exec` 双端运行时（Android WebView / 桌面 CDP Chromium）+ `WebViewExecHost.writeFile` 二进制落盘；`svg-raster` 包证明了「webview 画布 → base64 → 魔数校验 → 写 workspace」模式可行；docx/pptx 均有 `addImage`/`image` 版式入口；Tavily 已用于 `web_search`；web_lib 卡与 weizhi 包均已有云端注册表热更新机制。

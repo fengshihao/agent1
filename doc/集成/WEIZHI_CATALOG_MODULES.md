@@ -11,7 +11,7 @@ Weizhi 主干已移除 **`setScriptFolder` / `import "leaf.js"`**，官方 JS �
 | `setFsRoot` | 会话 workspace |
 | `setPackageRoot` | 桌面 / Android：`{agentRoot}/weizhi-home`（仅确保目录；包由 `WeizhiPackageSync.beforeEval` 从 registry 惰性安装） |
 
-官方 Office / SVG 等 JS 包**不进 jar/APK**（没网连不上模型，离线预装没有意义）。首次 `run_js` 由 `WeizhiPackageSync.beforeEval` 按源里 `import "weizhi:<name>"` 从云端 registry（`OfficialCdn` / `AGENT1_CDN_HOST`）ensure。发布走本仓 `artifact-cdn` 的 `pack.mjs + upload.sh`。源码 / 运行时 / 通道分层见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
+官方 Office / SVG 等 JS 包**不进 jar/APK**（没网连不上模型，离线预装没有意义）。首次 `run_js` 由 `WeizhiPackageSync.beforeEval` 按源里 `import "weizhi:<name>"` 从云端 registry（`OfficialCdn` / `AGENT1_CDN_HOST`）ensure。源码与发布在同级 `agent1-skills`（`pack.mjs` + `upload.sh` 在其 `artifact-cdn/`）。源码 / 运行时 / 通道分层见 [WEIZHI_PACKAGE_REGISTRY.md §3.1](./WEIZHI_PACKAGE_REGISTRY.md)。
 
 集成测试用固化 fixture（`WeizhiTestPackages` / `WeizhiTestSkills`）。包/Skill 的 API 与工作流不在本仓，运行时靠 `find_caps` / `load_skill`。
 
@@ -57,7 +57,7 @@ await exportVideo({
 
 ## 官方 Skill（与 Package 分轨，2026-10 起）
 
-- **Package** 只放 SDK 级 JS（`weizhi:<name>`）；**Skill** 为 `SKILL.md` + 可选脚本。上云用 `artifact-cdn/` 通用工具。**不**把能上云的 Skill / Package 打进 jar/APK。
+- **Package** 只放 SDK 级 JS（`weizhi:<name>`）；**Skill** 为 `SKILL.md` + 可选脚本。上云用同级 `agent1-skills/artifact-cdn/`。**不**把能上云的 Skill / Package 打进 jar/APK。
 - 运行时目录 `<agentRoot>/skills-home/`；`load_skill` / 云端 `SkillRegistryClient`（统一 `registry/stable.json` 里 `kind=skill`）安装 zip。
 - `SkillsCapabilitySync` 写 `kind=skill` 卡（`source=skills_home`）；系统提示词注入 `skills/registry/stable.json` 渲染的目录；工作流：**先 `load_skill`，无匹配再 `find_caps`**。
 - 遗留：`PackageSkills` 仍解析旧包 manifest 的 `"skill"` 字段（新官方包不再使用）。内置例外：`skill-creator`（classpath bundled）。
