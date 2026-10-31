@@ -1,10 +1,11 @@
 /**
  * travel-itinerary skill — 路书工具函数（随 Skill zip 分发）。
  *
- * workspace 内：import { appRouteUri, queryDrivingLegs, renderSchematicMap } from "./roadbook.js";
+ * workspace 内：import { appRouteUri, queryDrivingLegs } from "./roadbook.js";
  *
  * appRouteUri：amapuri://，手机进高德 App。queryDrivingLegs：高德 MCP maps_direction_driving。
- * renderSchematicMap：$tools.webview_exec。personalMapUri：maps_schema_personal_map（https，非主导航）。
+ * renderSchematicMap：直线草稿示意图，路书主页面不要用；按 references/roadbook-sample.html 手写曲线图。
+ * personalMapUri：maps_schema_personal_map（https，非主导航）。
  */
 var fs = typeof require === "function" ? require("fs") : null;
 

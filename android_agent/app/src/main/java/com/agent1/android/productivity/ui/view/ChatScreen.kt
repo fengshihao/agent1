@@ -92,6 +92,7 @@ fun ChatScreen(
     onOpenArtifacts: () -> Unit,
     onOpenAbout: () -> Unit = {},
     onOpenToolTrace: () -> Unit = {},
+    onOpenHostCaps: () -> Unit = {},
     /** 传入且文件可内置预览（html）时，点「打开」走 app 内预览路由。 */
     onOpenInApp: ((String) -> Unit)? = null,
     /** 当前会话是否还在加载、是否还没有任何对话。供「新对话」决定要不要再开一场。 */
@@ -179,6 +180,7 @@ fun ChatScreen(
                                 onExportDiagnostics = { viewModel.exportDiagnostics(context) },
                                 onOpenToolTrace = onOpenToolTrace,
                                 onOpenAbout = onOpenAbout,
+                                onOpenHostCaps = onOpenHostCaps,
                             )
                         },
                     )

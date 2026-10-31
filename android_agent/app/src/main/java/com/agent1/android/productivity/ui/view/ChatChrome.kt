@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.agent1.android.R
+import com.agent1.android.BuildConfig
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -156,6 +157,7 @@ internal fun ChatMoreMenu(
     onBrief: (() -> Unit)? = null,
     onOpenToolTrace: (() -> Unit)? = null,
     onOpenAbout: () -> Unit = {},
+    onOpenHostCaps: (() -> Unit)? = null,
 ) {
     Box {
         TopBarIconButton(
@@ -176,6 +178,12 @@ internal fun ChatMoreMenu(
             MoreMenuRow(stringResource(R.string.menu_capability_search), Icons.Filled.Search) {
                 onDismiss()
                 onOpenCapabilities()
+            }
+            if (BuildConfig.WEIZHI_INTEGRATED && onOpenHostCaps != null) {
+                MoreMenuRow(stringResource(R.string.menu_host_capabilities), Icons.Filled.Settings) {
+                    onDismiss()
+                    onOpenHostCaps()
+                }
             }
             if (onOpenSystemPrompt != null) {
                 MoreMenuRow(stringResource(R.string.menu_system_prompt), Icons.Filled.Info) {

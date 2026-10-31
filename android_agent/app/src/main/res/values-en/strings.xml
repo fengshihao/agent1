@@ -78,6 +78,7 @@
     <string name="menu_diagnostic_pack">Diagnostic bundle</string>
     <string name="menu_diagnostic_packing">Packing…</string>
     <string name="menu_about">About</string>
+    <string name="menu_host_capabilities">Device access</string>
     <string name="menu_mcp_web_search">MCP &amp; web search</string>
     <string name="usage_amount_with_cache">%1$s · cache %2$d%%</string>
 
@@ -159,4 +160,20 @@
     <string name="error_bad_request">Request rejected. Check the model name in settings or rephrase.</string>
     <string name="error_filter">Content didn’t pass safety checks. Try rephrasing.</string>
     <string name="error_page">Page didn’t open. Try again.</string>
+
+    <string name="host_caps_settings_title">Device access</string>
+    <string name="host_caps_settings_subtitle">Control calendar and other system data for scripts</string>
+    <string name="host_caps_calendar">Calendar</string>
+    <string name="host_caps_calendar_hint">When on, run_js may use android.calendar to list or create events (permissions + confirm).</string>
+    <string name="host_caps_location">Location</string>
+    <string name="host_caps_location_hint">When on, run_js may call android.location.getCurrent (confirm + location permission).</string>
+    <string name="host_caps_contacts">Contacts</string>
+    <string name="host_caps_contacts_hint">When on, android.contacts.search finds contacts (phones masked by default; confirm required).</string>
+    <string name="host_caps_reminders">Reminders</string>
+    <string name="host_caps_reminders_hint">When on, android.reminders.schedule may post local notifications (Android 13+ needs permission).</string>
+    <string name="host_pick_directory_confirm">Open the system folder picker so scripts can access a directory via Storage Access Framework.</string>
+    <string name="host_caps_footer">When off, APIs return capability_disabled without silent access.</string>
+    <string name="host_confirm_title">Confirm</string>
+    <string name="host_confirm_ok">Allow</string>
+    <string name="host_confirm_deny">Deny</string>
 </resources>

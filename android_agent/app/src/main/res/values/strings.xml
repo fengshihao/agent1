@@ -82,6 +82,7 @@
     <string name="tool_trace_hint">主聊天仅展示助手回复与任务清单；此处为完整工具参数与回执。</string>
     <string name="menu_diagnostic_packing">正在打包…</string>
     <string name="menu_about">关于</string>
+    <string name="menu_host_capabilities">设备能力</string>
     <string name="menu_mcp_web_search">MCP 与联网搜索</string>
     <string name="usage_amount_with_cache">%1$s · 缓存 %2$d%%</string>
 
@@ -163,4 +164,20 @@
     <string name="error_bad_request">这次请求没有被接受。请检查「模型」里的名称是否正确，或换种说法再试。</string>
     <string name="error_filter">这段内容没有通过安全检查，换种说法再试。</string>
     <string name="error_page">页面没有打开。请再试一次。</string>
+
+    <string name="host_caps_settings_title">设备能力</string>
+    <string name="host_caps_settings_subtitle">控制助手能否访问日历等系统数据</string>
+    <string name="host_caps_calendar">日历</string>
+    <string name="host_caps_calendar_hint">开启后，脚本可通过 android.calendar 查询与创建日程（需系统权限与确认）。</string>
+    <string name="host_caps_location">定位</string>
+    <string name="host_caps_location_hint">开启后，脚本可通过 android.location.getCurrent 读取当前位置（需确认与定位权限）。</string>
+    <string name="host_caps_contacts">通讯录</string>
+    <string name="host_caps_contacts_hint">开启后，脚本可通过 android.contacts.search 搜索联系人（默认脱敏电话，需确认）。</string>
+    <string name="host_caps_reminders">通知提醒</string>
+    <string name="host_caps_reminders_hint">开启后，脚本可通过 android.reminders.schedule 安排本地通知（Android 13+ 需通知权限）。</string>
+    <string name="host_pick_directory_confirm">助手将打开系统界面，请选择一个文件夹供脚本只读/读写（Storage Access Framework）。</string>
+    <string name="host_caps_footer">关闭某项后，run_js 内相关 API 会返回 capability_disabled，不会静默访问数据。</string>
+    <string name="host_confirm_title">请确认</string>
+    <string name="host_confirm_ok">允许</string>
+    <string name="host_confirm_deny">拒绝</string>
 </resources>

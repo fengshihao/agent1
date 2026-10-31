@@ -22,6 +22,7 @@ import com.agent1.android.productivity.logic.business.DeepSeekKeyImportResult
 import com.agent1.android.productivity.logic.business.ModelSettingsCoordinator
 import com.agent1.android.productivity.logic.business.PendingAttachmentImport
 import com.agent1.android.productivity.logic.business.PendingAttachmentImports
+import com.agent1.android.productivity.logic.business.IncomingSharePayload
 import com.agent1.android.productivity.logic.business.ProductivityAgentGateway
 import com.agent1.android.productivity.logic.business.WorkspaceFileImport
 import com.agent1.android.productivity.logic.business.ProductivityGatewayProvider
@@ -842,6 +843,84 @@ class ChatViewModel(
                 val message = attachmentImportUserMessage(
                     importedCount = importedPaths.size,
                     skippedBySessionLimit = skipped,
+                    rejectedOversized = importResult.rejectedOversizedCount,
+                )
+                _state.value = _state.value.copy(
+                    attachmentImportInProgress = false,
+                    attachmentChangesForNextSend = journal,
+                    fileImportMessage = message,
+                )
+                loadTranscriptIntoState(initialLoad = false)
+            }.onFailure { error ->
+                _state.value = _state.value.copy(
+                    attachmentImportInProgress = false,
+                    fileImportMessage = UserFacingError.explain(error.message ?: error.javaClass.simpleName),
+                )
+            }
+        }
+    }
+
+    /** 其他 App 「分享到 Agent1」：复制到 imports 并刷新可访问列表。 */
+    fun importIncomingShareFromHost(payload: IncomingSharePayload) {
+        if (payload.isEmpty() || _state.value.isRunning || _state.value.attachmentImportInProgress) {
+            return
+        }
+        val slots = attachmentSlotsRemaining(_state.value)
+        val fileUris = payload.fileUris
+        val sharedText = payload.sharedText
+        val hasText = !sharedText.isNullOrBlank()
+        if (fileUris.isEmpty() && hasText) {
+            if (slots <= 0) {
+                _state.value = _state.value.copy(
+                    fileImportMessage = AppLocalization.getString(
+                        R.string.chat_attachments_max_reached,
+                        SessionAttachmentLimits.MAX_FILES_PER_SESSION,
+                    ),
+                )
+                return
+            }
+        } else if (fileUris.isNotEmpty() && slots <= 0) {
+            _state.value = _state.value.copy(
+                fileImportMessage = AppLocalization.getString(
+                    R.string.chat_attachments_max_reached,
+                    SessionAttachmentLimits.MAX_FILES_PER_SESSION,
+                ),
+            )
+            return
+        }
+        val acceptedFiles = if (fileUris.isEmpty()) emptyList() else fileUris.take(slots)
+        val remainingAfterFiles = (slots - acceptedFiles.size).coerceAtLeast(0)
+        val includeText = hasText && (fileUris.isEmpty() || remainingAfterFiles > 0)
+        val trimmed = IncomingSharePayload(
+            fileUris = acceptedFiles,
+            sharedText = if (includeText) sharedText else null,
+        )
+        if (trimmed.isEmpty()) {
+            return
+        }
+        val skippedFiles = fileUris.size - acceptedFiles.size
+        viewModelScope.launch {
+            _state.value = _state.value.copy(
+                attachmentImportInProgress = true,
+                fileImportMessage = null,
+            )
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    gateway.importIncomingShare(sessionId, trimmed)
+                }
+            }
+            result.onSuccess { importResult ->
+                val importedPaths = importResult.workspaceRelativePaths
+                val journal = if (importedPaths.isEmpty()) {
+                    _state.value.attachmentChangesForNextSend
+                } else {
+                    _state.value.attachmentChangesForNextSend.merge(
+                        UserAttachmentMessageSuffix.ChangeSet(addedPaths = importedPaths),
+                    )
+                }
+                val message = attachmentImportUserMessage(
+                    importedCount = importedPaths.size,
+                    skippedBySessionLimit = skippedFiles,
                     rejectedOversized = importResult.rejectedOversizedCount,
                 )
                 _state.value = _state.value.copy(

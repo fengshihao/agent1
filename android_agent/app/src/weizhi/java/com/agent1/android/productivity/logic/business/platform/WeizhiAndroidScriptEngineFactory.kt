@@ -22,7 +22,7 @@ import java.nio.file.Path
 class WeizhiAndroidScriptEngineFactory(
     private val appContext: Context,
     private val agentRoot: java.nio.file.Path,
-    private val confirmer: (String) -> Boolean = { true },
+    private val confirmer: (String) -> Boolean = { message -> HostUiBridge.confirm(message) },
     private val scriptToolBridge: ScriptToolBridge? = null,
 ) : ScriptEngineFactory {
 
@@ -51,9 +51,11 @@ class WeizhiAndroidScriptEngineFactory(
             engine.enableFetch()
             val session = AndroidCaps.Session(appContext, workspaceFile)
             session.confirmer = PlatformHost.Confirmer { message -> confirmer(message) }
+            session.directoryPicker = PlatformHost.DirectoryPicker { HostUiBridge.pickDocumentTree() }
             session.launchIntent = true
             session.launchShareSheet = true
             AndroidCaps.install(engine, session)
+            Agent1NativeCapsExtension.install(engine, appContext)
             // 视频剪辑插件（issue #98）：注册 video/transcode 内置插件（SO 随
             // :weizhi-video AAR jniLibs 落 nativeLibraryDir）；weizhi:video JS 包
             // 随同一 AAR assets 交付，syncBundled 已自动安装，无需另装。

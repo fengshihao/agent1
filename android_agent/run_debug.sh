@@ -8,6 +8,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
+# shellcheck source=../scripts/proxy-env.sh
+source "${REPO_ROOT}/scripts/proxy-env.sh"
 # shellcheck source=../scripts/cdn-env.sh
 source "${REPO_ROOT}/scripts/cdn-env.sh"
 APK_PATH="$ROOT_DIR/app/build/outputs/apk/debug/agent1-android-debug.apk"
@@ -28,7 +30,15 @@ echo "==> 1/4 发布 java-agent-core 到本地 Maven"
 echo "==> 2/4 编译 APK"
 (
   cd "$ROOT_DIR"
-  ./gradlew :app:assembleDebug
+  if [[ "${AGENT1_GRADLE_NEED_STOP:-}" == "1" ]]; then
+    ./gradlew --stop >/dev/null 2>&1 || true
+  fi
+  if [[ "${AGENT1_NO_PROXY:-}" == "1" || "${AGENT1_GRADLE_NEED_STOP:-}" == "1" ]]; then
+    # 避免旧 daemon 仍带着 shell 里已失效的 http(s)_proxy（如 127.0.0.1:7890）
+    ./gradlew --no-daemon :app:assembleDebug
+  else
+    ./gradlew :app:assembleDebug
+  fi
 )
 
 echo "==> 3/4 安装 APK"

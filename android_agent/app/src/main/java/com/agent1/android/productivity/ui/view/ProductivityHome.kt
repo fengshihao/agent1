@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.agent1.android.productivity.logic.business.IncomingSharePayload
+import com.agent1.android.productivity.logic.business.IncomingShareQueue
 import com.agent1.android.productivity.ui.viewmodel.ChatViewModel
 import com.agent1.android.productivity.ui.viewmodel.SessionListViewModel
 import com.agent1.javaagent.session.SessionMeta
@@ -56,6 +58,7 @@ fun ProductivityHome(
     onOpenArtifacts: (sessionId: String) -> Unit = { _ -> },
     onOpenAbout: () -> Unit = {},
     onOpenToolTrace: (String) -> Unit = { _ -> },
+    onOpenHostCaps: () -> Unit = {},
 ) {
     val listState by sessionListViewModel.state.collectAsState()
     val context = LocalContext.current
@@ -69,6 +72,7 @@ fun ProductivityHome(
     var createRequested by rememberSaveable { mutableStateOf(false) }
     var sessionLoading by remember { mutableStateOf(false) }
     var sessionFresh by remember { mutableStateOf(false) }
+    var pendingIncomingShare by remember { mutableStateOf<IncomingSharePayload?>(null) }
     val reportSessionFreshness = remember {
         { loading: Boolean, fresh: Boolean ->
             if (sessionLoading != loading) sessionLoading = loading
@@ -108,6 +112,12 @@ fun ProductivityHome(
                 activeSessionId = meta.sessionId
                 activeTitle = meta.title.ifBlank { defaultChatTitle() }
             }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        IncomingShareQueue.updates.collect {
+            IncomingShareQueue.poll()?.let { pendingIncomingShare = it }
         }
     }
 
@@ -213,6 +223,7 @@ fun ProductivityHome(
                 onExportDiagnostics = { sessionListViewModel.exportDiagnostics(context) },
                 onOpenArtifacts = { onOpenArtifacts("") },
                 onOpenAbout = onOpenAbout,
+                onOpenHostCaps = onOpenHostCaps,
                 modelLabel = composerModelLabel(listState.configSummary),
             )
         } else {
@@ -220,6 +231,8 @@ fun ProductivityHome(
                 appContext = appContext,
                 sessionId = sessionId,
                 title = activeTitle,
+                incomingSharePayload = pendingIncomingShare,
+                onIncomingShareConsumed = { pendingIncomingShare = null },
                 onOpenDrawer = { toggleDrawer() },
                 onNewChat = { newChat() },
                 onOpenSettings = onOpenSettings,
@@ -230,6 +243,7 @@ fun ProductivityHome(
                 onOpenArtifacts = { onOpenArtifacts(sessionId) },
                 onOpenAbout = onOpenAbout,
                 onOpenToolTrace = { onOpenToolTrace(sessionId) },
+                onOpenHostCaps = onOpenHostCaps,
                 onSessionFreshness = reportSessionFreshness,
             )
         }
@@ -241,6 +255,8 @@ private fun ChatPane(
     appContext: Context,
     sessionId: String,
     title: String,
+    incomingSharePayload: IncomingSharePayload? = null,
+    onIncomingShareConsumed: () -> Unit = {},
     onOpenDrawer: () -> Unit,
     onNewChat: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -251,12 +267,18 @@ private fun ChatPane(
     onOpenArtifacts: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenToolTrace: () -> Unit,
+    onOpenHostCaps: () -> Unit,
     onSessionFreshness: (loading: Boolean, fresh: Boolean) -> Unit,
 ) {
     val viewModel: ChatViewModel = viewModel(
         key = "chat-$sessionId",
         factory = simpleViewModelFactory { ChatViewModel(appContext, sessionId, title) },
     )
+    LaunchedEffect(incomingSharePayload) {
+        val payload = incomingSharePayload ?: return@LaunchedEffect
+        viewModel.importIncomingShareFromHost(payload)
+        onIncomingShareConsumed()
+    }
     ChatScreen(
         viewModel = viewModel,
         title = title,
@@ -269,6 +291,8 @@ private fun ChatPane(
         onOpenArtifacts = onOpenArtifacts,
         onOpenAbout = onOpenAbout,
         onOpenToolTrace = onOpenToolTrace,
+        onOpenHostCaps = onOpenHostCaps,
+        // 会话工作区路径由 sessionId 在预览路由内解析，这里只需注入当前会话 id。
         onOpenInApp = { relativePath -> onOpenHtmlPreview(sessionId, relativePath) },
         onSessionFreshness = onSessionFreshness,
     )
