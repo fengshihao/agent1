@@ -7,7 +7,7 @@ class ContactsPhoneMaskTest {
 
     @Test
     fun masksToLastFourDigits() {
-        assertEquals("****1234", ContactsPhoneMask.mask("+86 138 0013 8000"))
+        assertEquals("****8000", ContactsPhoneMask.mask("+86 138 0013 8000"))
     }
 
     @Test
